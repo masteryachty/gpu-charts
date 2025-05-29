@@ -1,8 +1,3 @@
-struct Vertex {
-    @location(0) x: f32,
-    @location(1) y: f32,
-};
-
 struct VertexPayload {
     @builtin(position) position: vec4<f32>,
     @location(0) color: vec3<f32>,
@@ -17,19 +12,18 @@ struct MinMax {
 @group(0) @binding(1) var<uniform> y_min_max: MinMax;
 
 @vertex
-fn vs_main(vertex: Vertex) -> VertexPayload {
-    var out: VertexPayload;
-    var projection = world_to_screen_conversion_with_margin(x_min_max.min_val, x_min_max.max_val, y_min_max.min_val, y_min_max.max_val, -1., 1.);
-    // out.position =  projection * view  * vec4f(vertex.position.x, vertex.position.y, 0, 1);
-
-    out.position = projection * vec4f(vertex.x, vertex.y, 0, 1);
-    // out.position.x = vertex.position.x;
-    // out.position.y = vertex.position.y;
-
-    out.position.z = 1.;
-    out.position.w = 1.;
-    out.color = vec3f(1., 1., 1.);
-    return out;
+fn vs_main(
+    @location(0) pos: vec2f
+) -> VertexPayload {
+    var output: VertexPayload;
+    // Transform x from [0,1] to [-1,1] range for proper viewport mapping
+    var projection = ortho_with_margin(x_min_max.min_val, x_min_max.max_val, y_min_max.min_val, y_min_max.max_val, -1., 1.);
+    output.position = projection * vec4f(pos.x, pos.y, 0, 1);
+    output.position.x = pos.x;
+    output.position.z = 0.01;
+    output.position.w = 1.;
+    output.color = vec3f(1.0, 1.0, 1.0);
+    return output;
 }
 
 @fragment
@@ -38,7 +32,7 @@ fn fs_main(in: VertexPayload) -> @location(0) vec4<f32> {
 }
 
 
-fn world_to_screen_conversion_with_margin(
+fn ortho_with_margin(
     left: f32, right: f32,
     bottom: f32, top: f32,
     near: f32, far: f32

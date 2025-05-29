@@ -1,8 +1,7 @@
 use crate::drawables::plot::PlotRenderer;
 use crate::drawables::x_axis::XAxisRenderer;
-use crate::renderer::data_retriever::{
-    create_chunked_gpu_buffer_from_arraybuffer, fetch_binary, fetch_data,
-};
+use crate::drawables::y_axis::YAxisRenderer;
+use crate::renderer::data_retriever::fetch_data;
 use crate::renderer::data_store::{self, DataStore};
 use crate::renderer::render_engine::{GraphicsError, RenderEngine};
 use crate::wrappers::js::get_query_params;
@@ -58,19 +57,12 @@ impl LineGraph {
             engine = Rc::new(RefCell::new(enginePromise.unwrap()));
             let engine_b = engine.borrow();
             let device = &engine_b.device;
-            fetch_data(
-                &device,
-                topic,
-                start as u32,
-                end as u32,
-                data_store.clone(),
-            )
-            .await;
+            fetch_data(&device, topic, start as u32, end as u32, data_store.clone()).await;
             // let start_u32: u32 = start.parse().unwrap();
             // let end_u32: u32 = end.parse().unwrap();
             data_store
                 .borrow_mut()
-                .set_x_range(start as u32, end as u32, &device);
+                .set_x_range(start as u32, end as u32);
         }
 
         let plot_renderer = Box::new(PlotRenderer::new(
@@ -88,10 +80,18 @@ impl LineGraph {
             height,
             data_store.clone(),
         ));
+        let y_axis_renderer = Box::new(YAxisRenderer::new(
+            engine.clone(),
+            engine.borrow().config.format,
+            width,
+            height,
+            data_store.clone(),
+        ));
         {
             let mut engine_b = engine.borrow_mut();
             engine_b.add_render_listener(plot_renderer);
             engine_b.add_render_listener(x_axis_renderer);
+            engine_b.add_render_listener(y_axis_renderer);
         }
         Ok(Self {
             engine,
@@ -101,9 +101,9 @@ impl LineGraph {
         })
     }
 
-pub async fn render(&self) -> Result<(), wgpu::SurfaceError> {
-    self.engine.borrow_mut().render().await
-}
+    pub async fn render(&self) -> Result<(), wgpu::SurfaceError> {
+        self.engine.borrow_mut().render().await
+    }
 
     pub fn resized(&mut self, width: u32, height: u32) {
         self.engine.borrow_mut().resized(width, height);

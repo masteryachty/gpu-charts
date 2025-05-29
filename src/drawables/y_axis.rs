@@ -17,39 +17,18 @@ use wgpu_text::{
 
 use super::plot::RenderListener;
 
-pub struct XAxisRenderer {
+pub struct YAxisRenderer {
     color_format: TextureFormat,
     brush: TextBrush<FontRef<'static>>,
     pipeline: wgpu::RenderPipeline,
     vertex_buffer: Option<wgpu::Buffer>,
     vertex_count: u32,
-    last_min_x: f32,
-    last_max_x: f32,
-    last_width: i32,
+    last_min_y: f32,
+    last_max_y: f32,
+    last_height: i32,
 }
 
-const DURATION_SEC: i32 = 1;
-const DURATION_MIN: i32 = DURATION_SEC * 60;
-const DURATION_HOUR: i32 = DURATION_MIN * 60;
-const DURATION_DAY: i32 = DURATION_HOUR * 24;
-
-// 1, 5, 10, 50, 100, 500,
-const LOGIC_TS_DURATIONS: [i32; 12] = [
-    DURATION_SEC,
-    5 * DURATION_SEC,
-    10 * DURATION_SEC,
-    15 * DURATION_SEC,
-    DURATION_MIN,
-    5 * DURATION_MIN,
-    10 * DURATION_MIN,
-    15 * DURATION_MIN,
-    DURATION_HOUR,
-    6 * DURATION_HOUR,
-    DURATION_DAY,
-    DURATION_DAY * 7,
-];
-
-impl RenderListener for XAxisRenderer {
+impl RenderListener for YAxisRenderer {
     fn on_render(
         &mut self,
         queue: &wgpu::Queue,
@@ -60,84 +39,67 @@ impl RenderListener for XAxisRenderer {
         size: (i32, i32),
     ) {
         let ds = data_store.borrow();
-        let data_group = ds.get_active_data_group();
-
-        let min = data_group.min_x as i32;
-        let max = data_group.max_x as i32;
+        let min = ds.min_y.unwrap();
+        let max = ds.max_y.unwrap();
         let range = max - min;
-        let width = size.0;
+        let height = size.1;
 
         // Only recalculate and recreate buffers if the data range or width has changed
-        let needs_recalculation = self.last_min_x != data_group.min_x as f32
-            || self.last_max_x != data_group.max_x as f32
-            || self.last_width != width;
+        let needs_recalculation = self.last_min_y != min as f32
+            || self.last_max_y != max as f32
+            || self.last_height != height;
 
         if needs_recalculation {
             log::info!(
-                "Recalculating X-axis with min: {}, max: {}",
-                data_group.min_x,
-                data_group.max_x
+                "Recalculating Y-axis with min: {}, max: {}, height: {}",
+                min,
+                max,
+                height
             );
 
-            // Find appropriate time unit for axis labels
-            let mut base_unit = 0;
-            for i in LOGIC_TS_DURATIONS.iter() {
-                if base_unit == 0 && (*i as f32 / range as f32) * width as f32 > 150.0 {
-                    base_unit = *i;
-                    break;
-                }
-            }
-
-            if base_unit == 0 {
-                base_unit = *LOGIC_TS_DURATIONS.last().unwrap();
-            }
-            log::info!("Using base_unit: {}", base_unit);
-
-            let interval = 1;
-            let mut timestamps = Vec::new();
+            let (interval, start, end) = calculate_y_axis_interval(min, max);
+            let mut y_values = Vec::new();
             let mut labels = Vec::new();
             let mut label_strings = Vec::new();
 
             // Pre-allocate with estimated capacity
-            let estimated_count = (range / base_unit) + 1;
-            timestamps.reserve(estimated_count as usize);
+            let estimated_count = ((end - start) / interval) + 1.;
+            y_values.reserve(estimated_count as usize);
             label_strings.reserve(estimated_count as usize);
-
-            // Collect timestamps and prepare labels
-            for i in (0..=(range / base_unit)).rev() {
-                let ts = (max / base_unit - i) * base_unit;
-
-                if ts % (base_unit * interval) == 0 {
-                    timestamps.push(ts);
-
-                    // Format timestamp only when needed
-                    if let Some(dt) = chrono::DateTime::from_timestamp(ts as i64, 0) {
-                        let dt_str = dt.to_string();
-                        let ts_string = format!("{}\n{}", &dt_str[0..10], &dt_str[11..]);
-                        label_strings.push((ts_string, ts));
-                    }
-                }
+            let mut y = start;
+            // Collect yValues and prepare labels
+            while y <= end {
+                y_values.push(y);
+                label_strings.push((y.to_string(), y));
+                y += interval;
             }
 
             // Create text sections
             labels.reserve(label_strings.len());
-            for (ts_string, ts) in &label_strings {
-                let w = (((ts - min) as f64 / range as f64) * ((width as f64) * 0.8) as f64) - 45.0
-                    + ((width as f64) * 0.1);
+            for (y_string, y) in &label_strings {
+                // let h = (((y - min) as f64 / range as f64) * ((height as f64) * 0.8));
+                let test = ds.world_to_screen_with_margin(0., *y);
+
+                // let test = ds.world_to_screen_with_margin(0., 1.);
+                log::info!("calculating Y: {}, {} ", y, test.1);
+
                 let section = TextSection::default()
-                    .add_text(Text::new(ts_string))
-                    .with_screen_position((w as f32, (size.1 - 50) as f32));
+                    .add_text(Text::new(y_string))
+                    .with_screen_position((
+                        (5) as f32,
+                        (((test.1 + 1.) / 2.) * (height as f32) - 15.),
+                    ));
                 labels.push(section);
             }
 
             // Create vertex data for axis lines
-            let mut vertices = Vec::with_capacity(timestamps.len() * 4);
-            for timestamp in timestamps {
-                let normalized_x = (timestamp as f32 - min as f32) / range as f32;
-                vertices.push(normalized_x);
-                vertices.push(-0.8);
-                vertices.push(normalized_x);
-                vertices.push(0.8);
+            let mut vertices = Vec::with_capacity(y_values.len() * 4);
+            for y in y_values {
+                let normalized_y = (y - min) / range;
+                vertices.push(-1.);
+                vertices.push(y);
+                vertices.push(1.);
+                vertices.push(y);
             }
 
             // Create or update buffer
@@ -145,16 +107,16 @@ impl RenderListener for XAxisRenderer {
             self.vertex_buffer = Some(create_gpu_buffer_from_vec_f32(
                 device,
                 &vertices,
-                "x_axis_vertices",
+                "y_axis_vertices",
             ));
 
             // Update cached values
-            self.last_min_x = data_group.min_x as f32;
-            self.last_max_x = data_group.max_x as f32;
-            self.last_width = width;
+            self.last_min_y = min as f32;
+            self.last_max_y = max as f32;
+            self.last_height = height;
 
             // Update text brush
-            self.brush.resize_view(size.0 as f32, size.1 as f32, queue);
+            self.brush.resize_view(size.0 as f32, height as f32, queue);
             self.brush.queue(device, queue, labels).unwrap();
         } else {
             // If only the window size changed, update the text brush size
@@ -188,7 +150,7 @@ impl RenderListener for XAxisRenderer {
 
         // Begin render pass
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("x axis"),
+            label: Some("y axis"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view,
                 resolve_target: None,
@@ -204,7 +166,10 @@ impl RenderListener for XAxisRenderer {
 
         // Draw vertical lines
         if let Some(buffer) = &self.vertex_buffer {
+            let bind_group = ds.range_bind_group.as_ref().unwrap();
+
             render_pass.set_pipeline(&self.pipeline);
+            render_pass.set_bind_group(0, bind_group, &[]);
             render_pass.set_vertex_buffer(0, buffer.slice(..));
             render_pass.draw(0..self.vertex_count, 0..1);
         }
@@ -214,7 +179,7 @@ impl RenderListener for XAxisRenderer {
     }
 }
 
-impl XAxisRenderer {
+impl YAxisRenderer {
     pub fn new(
         engine: Rc<RefCell<RenderEngine>>,
         color_format: TextureFormat,
@@ -230,16 +195,41 @@ impl XAxisRenderer {
             .build(device, width, height, color_format);
 
         // Create shader and pipeline
-        let shader = device.create_shader_module(wgpu::include_wgsl!("x_axis.wgsl"));
+        let shader = device.create_shader_module(wgpu::include_wgsl!("y_axis.wgsl"));
 
         const ATTRIBUTES: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Float32x2];
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: None,
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+            ],
+        });
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("X-Axis Render Pipeline"),
+            label: Some("Y-Axis Render Pipeline"),
             layout: Some(
                 &device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: None,
-                    bind_group_layouts: &[],
+                    bind_group_layouts: &[&bind_group_layout],
                     push_constant_ranges: &[],
                 }),
             ),
@@ -280,24 +270,100 @@ impl XAxisRenderer {
             pipeline,
             vertex_buffer: None,
             vertex_count: 0,
-            last_min_x: 0.0,
-            last_max_x: 0.0,
-            last_width: 0,
+            last_min_y: 0.0,
+            last_max_y: 0.0,
+            last_height: 0,
         }
-    }
-
-    // Helper method to determine the appropriate base unit
-    fn determine_base_unit(&self, range: i32, width: i32) -> i32 {
-        for i in LOGIC_TS_DURATIONS.iter() {
-            if (*i as f32 / range as f32) * width as f32 > 150.0 {
-                return *i;
-            }
-        }
-        *LOGIC_TS_DURATIONS.last().unwrap()
     }
 }
 
 // Helper function to convert a struct to a u8 slice
 unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
     ::core::slice::from_raw_parts((p as *const T) as *const u8, ::core::mem::size_of::<T>())
+}
+
+/// Calculates Y-axis interval given a min and max value.
+pub fn calculate_y_axis_interval(min: f32, max: f32) -> (f32, f32, f32) {
+    let range = max - min;
+    if range == 0.0 {
+        return (1.0, min.floor(), min.ceil() + 1.0); // Default case for flat range
+    }
+
+    let target_intervals = 5.0;
+    let raw_interval = range / target_intervals;
+
+    let exponent = raw_interval.log10().floor();
+    let base = 10f32.powf(exponent);
+    let fraction = raw_interval / (base);
+
+    let nice_fraction: f32 = if fraction <= 1.0 {
+        1.0
+    } else if fraction <= 2.0 {
+        2.0
+    } else if fraction <= 5.0 {
+        5.0
+    } else {
+        10.0
+    };
+
+    let interval = nice_fraction * base;
+
+    // Snap the axis start and end to the interval
+    let start = (min / interval).floor() * interval;
+    let end = (max / interval).ceil() * interval;
+
+    (interval, start, end)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::calculate_y_axis_interval;
+
+    #[test]
+    fn test_basic_range() {
+        let (interval, start, end) = calculate_y_axis_interval(2.9, 7.1);
+        assert_eq!(interval, 1.0);
+        assert_eq!(start, 2.0);
+        assert_eq!(end, 8.0);
+    }
+
+    #[test]
+    fn test_small_range() {
+        let (interval, start, end) = calculate_y_axis_interval(0.1, 0.9);
+        assert_eq!(interval, 0.2);
+        assert_eq!(start, 0.0);
+        assert_eq!(end, 1.0);
+    }
+
+    #[test]
+    fn test_large_range() {
+        let (interval, start, end) = calculate_y_axis_interval(20.0, 100.0);
+        assert_eq!(interval, 20.0);
+        assert_eq!(start, 0.0);
+        assert_eq!(end, 120.0);
+    }
+
+    #[test]
+    fn test_tiny_range() {
+        let (interval, start, end) = calculate_y_axis_interval(0.01, 0.015);
+        assert_eq!(interval, 0.001);
+        assert_eq!(start, 0.01);
+        assert_eq!(end, 0.016);
+    }
+
+    #[test]
+    fn test_zero_range() {
+        let (interval, start, end) = calculate_y_axis_interval(5.0, 5.0);
+        assert_eq!(interval, 1.0);
+        assert_eq!(start, 5.0);
+        assert_eq!(end, 6.0);
+    }
+
+    #[test]
+    fn test_negative_to_positive_range() {
+        let (interval, start, end) = calculate_y_axis_interval(-1.5, 2.5);
+        assert_eq!(interval, 1.0);
+        assert_eq!(start, -2.0);
+        assert_eq!(end, 3.0);
+    }
 }

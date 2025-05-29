@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use super::data_store::DataStore;
 use crate::{
-    calcables::min_max::calculate_min_max,
+    calcables::min_max::calculate_min_max_y,
     drawables::plot::RenderListener,
     renderer::{mesh_builder, pipeline_builder::PipelineBuilder},
 };
@@ -40,7 +40,7 @@ impl RenderEngine {
             self.data_store.borrow().max_x
         );
         // Calculate min/max values and get the two staging buffers.
-        let (min_max_buffer, staging_buffer) = calculate_min_max(
+        let (min_max_buffer, staging_buffer) = calculate_min_max_y(
             &self.device,
             &self.queue,
             &mut command_encoder,
@@ -86,18 +86,11 @@ impl RenderEngine {
             let data = buffer_slice.get_mapped_range();
             let values: &[f32] = bytemuck::cast_slice(&data);
             log::info!("Mapped values: {:?}", values);
-            let mut  miny = values[0];
+            let mut miny = values[0];
             let mut maxy = values[1];
             log::info!("Extracted miny: {} maxy: {}", miny, maxy);
-
-            // if(miny == maxy){
-                miny *= 0.75 ;
-                maxy *= 1.25 ;
-            // }
-            log::info!("Extracted miny: {} maxy: {}", miny, maxy);
-
+            self.data_store.borrow_mut().update_min_max_y(miny, maxy);
             (miny, maxy)
-
         };
 
         // Unmap the buffer now that we have read its data.
@@ -106,7 +99,7 @@ impl RenderEngine {
         // Update your data store with the new min and max values.
         self.data_store
             .borrow_mut()
-            .update_buffers(&self.device, min_max_buffer, miny, maxy);
+            .update_buffers(&self.device, min_max_buffer);
 
         // Create a new command encoder for the render pass.
         let mut render_encoder =
@@ -242,7 +235,7 @@ impl RenderEngine {
         self.config.width = width;
         self.config.height = height;
         self.surface.configure(&self.device, &self.config);
-        //log::info!("Resized surface to {{ width: {width}, height: {height} }}");
+        log::info!("Resized surface to {{ width: {width}, height: {height} }}");
     }
 
     // Add a listener

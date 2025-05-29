@@ -4,7 +4,7 @@ use wgpu::{Device, Queue};
 
 use crate::renderer::data_store;
 
-pub fn calculate_min_max(
+pub fn calculate_min_max_y(
     device: &Device,
     queue: &Queue,
     encoder: &mut wgpu::CommandEncoder,
@@ -13,8 +13,8 @@ pub fn calculate_min_max(
     max_x: u32,
 ) -> (wgpu::Buffer, wgpu::Buffer) {
     let pipelines = MinMaxPipelines::new(device);
-    let performance = web_sys::window().unwrap().performance().unwrap();
-    let start = performance.now();
+    // let performance = web_sys::window().unwrap().performance().unwrap();
+    // let start = performance.now();
 
     let x_series = &data_store.data_groups[0].x_raw;
     let (start_idx, _) = find_closest(mix_x, x_series);
@@ -25,7 +25,7 @@ pub fn calculate_min_max(
     let x_data = Float32Array::new(x_series);
     let max_index = x_data.length() as u32;
     let end_index = end_index.clamp(0, max_index);
-        log::info!("1.5 {:?} {:?}", start_index, end_index );
+    log::info!("1.5 {:?} {:?}", start_index, end_index);
 
     let thread_mult = 32u32;
     let WORKGROUP_SIZE: u64 = 256;
@@ -47,8 +47,7 @@ pub fn calculate_min_max(
     let staging_buffer2 = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Staging Buffer"),
         size: staging_buffer_size,
-        usage: wgpu::BufferUsages::MAP_READ
-            | wgpu::BufferUsages::COPY_DST,
+        usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
 
@@ -210,7 +209,6 @@ fn find_closest(target: u32, data_array_buffer: &ArrayBuffer) -> (u32, u32) {
             closest_idx = mid;
             break;
         }
-        log::info!("11 {:?} {:?}", val, target);
 
         let diff = (val as i32 - target as i32);
         if diff < closest_diff || (diff == closest_diff && val < target) {
