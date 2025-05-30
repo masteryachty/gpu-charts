@@ -4,7 +4,7 @@ use std::rc::Rc;
 use wgpu::TextureFormat;
 use wgpu_text::glyph_brush::ab_glyph::FontRef;
 
-use crate::renderer::data_retriever::create_gpu_buffer_from_vec_f32;
+use crate::renderer::data_retriever::create_gpu_buffer_from_vec;
 use crate::renderer::data_store::DataStore;
 use crate::renderer::render_engine::RenderEngine;
 use wgpu_text::{
@@ -119,27 +119,29 @@ impl RenderListener for XAxisRenderer {
             // Create text sections
             labels.reserve(label_strings.len());
             for (ts_string, ts) in &label_strings {
-                let w = (((ts - min) as f64 / range as f64) * ((width as f64) * 0.8) as f64) - 45.0
-                    + ((width as f64) * 0.1);
+                let test = ds.world_to_screen_with_margin(*ts as f32, 0.);
+
                 let section = TextSection::default()
                     .add_text(Text::new(ts_string))
-                    .with_screen_position((w as f32, (size.1 - 50) as f32));
+                    .with_screen_position((
+                        (((test.0 + 1.) / 2.) * (width as f32)),
+                        (size.1 - 50) as f32,
+                    ));
                 labels.push(section);
             }
 
             // Create vertex data for axis lines
             let mut vertices = Vec::with_capacity(timestamps.len() * 4);
             for timestamp in timestamps {
-                let normalized_x = (timestamp as f32 - min as f32) / range as f32;
-                vertices.push(normalized_x);
-                vertices.push(-0.8);
-                vertices.push(normalized_x);
-                vertices.push(0.8);
+                vertices.push((timestamp - min) as f32);
+                vertices.push(-1.);
+                vertices.push((timestamp - min) as f32);
+                vertices.push(1.);
             }
 
             // Create or update buffer
             self.vertex_count = (vertices.len() / 2) as u32;
-            self.vertex_buffer = Some(create_gpu_buffer_from_vec_f32(
+            self.vertex_buffer = Some(create_gpu_buffer_from_vec(
                 device,
                 &vertices,
                 "x_axis_vertices",
@@ -201,7 +203,10 @@ impl RenderListener for XAxisRenderer {
 
         // Draw vertical lines
         if let Some(buffer) = &self.vertex_buffer {
+            let bind_group = ds.range_bind_group.as_ref().unwrap();
+
             render_pass.set_pipeline(&self.pipeline);
+            render_pass.set_bind_group(0, bind_group, &[]);
             render_pass.set_vertex_buffer(0, buffer.slice(..));
             render_pass.draw(0..self.vertex_count, 0..1);
         }
@@ -230,13 +235,38 @@ impl XAxisRenderer {
         let shader = device.create_shader_module(wgpu::include_wgsl!("x_axis.wgsl"));
 
         const ATTRIBUTES: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Float32x2];
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: None,
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+            ],
+        });
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("X-Axis Render Pipeline"),
             layout: Some(
                 &device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: None,
-                    bind_group_layouts: &[],
+                    bind_group_layouts: &[&bind_group_layout],
                     push_constant_ranges: &[],
                 }),
             ),

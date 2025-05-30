@@ -86,7 +86,10 @@ impl ApplicationHandler<AppEvent> for Application {
             WindowEvent::CursorMoved {
                 device_id,
                 position,
-            } => log::info!("move {:?}, {:?}", device_id, position),
+            } => {
+                // log::info!("move {:?}, {:?}", device_id, position)
+                let _x = (device_id, position);
+            }
             event => {
                 log::info!("Event type: {:?}", event);
             }

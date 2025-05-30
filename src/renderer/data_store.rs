@@ -1,4 +1,4 @@
-use js_sys::{ArrayBuffer,  Uint32Array};
+use js_sys::{ArrayBuffer, Uint32Array};
 use wgpu::util::DeviceExt;
 use wgpu::{Buffer, Device};
 
@@ -116,25 +116,12 @@ impl DataStore {
 
     pub fn world_to_screen_with_margin(&self, x: f32, y: f32) -> (f32, f32) {
         let data_group = self.get_active_data_group();
-        log::info!("in  Y: {}, {} ", self.min_y.unwrap(), self.max_y.unwrap());
-
-        // let projection = world_to_screen_conversion_with_margin2(
-        //     data_group.min_x as f32,
-        //     data_group.max_x as f32,
-        //     self.min_y.unwrap(),
-        //     self.max_y.unwrap(),
-        //     -1.,
-        //     1.,
-        // );
-
-        // let x_margin = ((data_group.max_x - data_group.min_x) as f32) * 0.0;
-        // let y_margin = (self.max_y.unwrap() - self.min_y.unwrap()) * 0.0;
-
+      
         let projection = glm::ortho_rh_zo(
             data_group.min_x as f32,
             data_group.max_x as f32,
-            self.max_y.unwrap(),
-            self.min_y.unwrap(),
+            self.max_y.unwrap() + ((self.max_y.unwrap() - self.min_y.unwrap()) * 0.1),
+            self.min_y.unwrap() - ((self.max_y.unwrap() - self.min_y.unwrap()) * 0.1),
             -1.0,
             1.0,
         );
@@ -224,12 +211,12 @@ impl Vertex {
         // const ATTRIBUTES: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Float32];
 
         wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<[f32; 1]>() as wgpu::BufferAddress,
+            array_stride: std::mem::size_of::<[u32; 1]>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &[wgpu::VertexAttribute {
                 offset: 0,
                 shader_location: 0, // This corresponds to @location(0) in the shader
-                format: wgpu::VertexFormat::Float32, // This matches vec2<f32> in your shader
+                format: wgpu::VertexFormat::Uint32, // This matches vec2<f32> in your shader
             }],
         }
     }

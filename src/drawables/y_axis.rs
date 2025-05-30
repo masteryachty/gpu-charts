@@ -4,7 +4,7 @@ use std::rc::Rc;
 use wgpu::{ TextureFormat};
 use wgpu_text::glyph_brush::ab_glyph::FontRef;
 
-use crate::renderer::data_retriever::create_gpu_buffer_from_vec_f32;
+use crate::renderer::data_retriever::create_gpu_buffer_from_vec;
 use crate::renderer::data_store::{DataStore};
 use crate::renderer::render_engine::RenderEngine;
 use wgpu_text::{
@@ -74,17 +74,12 @@ impl RenderListener for YAxisRenderer {
             // Create text sections
             labels.reserve(label_strings.len());
             for (y_string, y) in &label_strings {
-                // let h = (((y - min) as f64 / range as f64) * ((height as f64) * 0.8));
-                let test = ds.world_to_screen_with_margin(0., *y);
-
-                // let test = ds.world_to_screen_with_margin(0., 1.);
-                log::info!("calculating Y: {}, {} ", y, test.1);
-
+                let coord = ds.world_to_screen_with_margin(0., *y);
                 let section = TextSection::default()
                     .add_text(Text::new(y_string))
                     .with_screen_position((
                         (5) as f32,
-                        (((test.1 + 1.) / 2.) * (height as f32) - 15.),
+                        (((coord.1 + 1.) / 2.) * (height as f32) - 15.),
                     ));
                 labels.push(section);
             }
@@ -100,7 +95,7 @@ impl RenderListener for YAxisRenderer {
 
             // Create or update buffer
             self.vertex_count = (vertices.len() / 2) as u32;
-            self.vertex_buffer = Some(create_gpu_buffer_from_vec_f32(
+            self.vertex_buffer = Some(create_gpu_buffer_from_vec(
                 device,
                 &vertices,
                 "y_axis_vertices",

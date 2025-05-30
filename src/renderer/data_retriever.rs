@@ -1,5 +1,5 @@
 use super::data_store::DataStore;
-use bytemuck::cast_slice;
+use bytemuck::{cast_slice, Pod};
 use js_sys::{ArrayBuffer, Uint8Array};
 use reqwasm::http::Request;
 use std::{cell::RefCell, rc::Rc};
@@ -23,9 +23,9 @@ pub struct ApiHeader {
     pub columns: Vec<ColumnMeta>,
 }
 
-pub fn create_gpu_buffer_from_vec_f32(
+pub fn create_gpu_buffer_from_vec<T: Pod>(
     device: &wgpu::Device,
-    data: &Vec<f32>,
+    data: &Vec<T>,
     label: &str,
 ) -> wgpu::Buffer {
     let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
