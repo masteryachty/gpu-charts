@@ -1,21 +1,20 @@
 use super::data_store::DataStore;
 use bytemuck::cast_slice;
-use futures::join;
 use js_sys::{ArrayBuffer, Uint8Array};
 use reqwasm::http::Request;
 use std::{cell::RefCell, rc::Rc};
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;
 use wgpu::util::DeviceExt;
-use wgpu::Buffer;
+// use wgpu::Buffer;
 
 // --- Structures for API Header ---
 
 #[derive(serde::Deserialize)]
 pub struct ColumnMeta {
     pub name: String,
-    pub record_size: usize,
-    pub num_records: usize,
+    // pub record_size: usize,
+    // pub num_records: usize,
     pub data_length: usize,
 }
 
@@ -127,16 +126,16 @@ pub async fn fetch_api_response(url: &str) -> Result<(ApiHeader, ArrayBuffer), j
 // --- (Optional) Old fetch_and_upload for compatibility ---
 // This version simply fetches binary data (using the new API function)
 // and creates GPU buffers from it.
-pub async fn fetch_and_upload(
-    device: &wgpu::Device,
-    url: &str,
-    label: &str,
-) -> (ArrayBuffer, Vec<Buffer>) {
-    let (_header, binary_buffer) = fetch_api_response(url).await.unwrap();
+// pub async fn fetch_and_upload(
+//     device: &wgpu::Device,
+//     url: &str,
+//     label: &str,
+// ) -> (ArrayBuffer, Vec<Buffer>) {
+//     let (_header, binary_buffer) = fetch_api_response(url).await.unwrap();
 
-    let gpu_buffers = create_chunked_gpu_buffer_from_arraybuffer(device, &binary_buffer, label);
-    (binary_buffer, gpu_buffers)
-}
+//     let gpu_buffers = create_chunked_gpu_buffer_from_arraybuffer(device, &binary_buffer, label);
+//     (binary_buffer, gpu_buffers)
+// }
 
 // --- Updated fetch_data using the New API ---
 
@@ -167,8 +166,8 @@ pub async fn fetch_data(
     // Split the binary data into separate ArrayBuffers for each column.
     let mut offset = 0u32;
     let mut column_buffers = std::collections::HashMap::new();
-    let uint8 = Uint8Array::new(&binary_buffer);
-    let total_length = uint8.length();
+    // let uint8 = Uint8Array::new(&binary_buffer);
+    // let total_length = uint8.length();
 
     for column in &api_header.columns {
         let data_length = column.data_length as u32;
@@ -185,8 +184,8 @@ pub async fn fetch_data(
 
     // Here we assume that the API returns columns named "time" and "best_bid".
     // Map them to x and y, respectively.
-    let (mut x_buffer, mut x_gpu_buffers) = column_buffers.remove("time").unwrap();
-    let (mut y_buffer, mut y_gpu_buffers) = column_buffers.remove("best_bid").unwrap();
+    let (x_buffer, x_gpu_buffers) = column_buffers.remove("time").unwrap();
+    let (y_buffer, y_gpu_buffers) = column_buffers.remove("best_bid").unwrap();
 
     log::info!("xbuffer {:?}", x_buffer);
 
@@ -201,13 +200,13 @@ pub async fn fetch_data(
 
 // --- (Optional) Old fetch_binary for backwards compatibility ---
 
-pub async fn fetch_binary(url: &str) -> Result<ArrayBuffer, js_sys::Error> {
-    let resp = Request::get(url)
-        .send()
-        .await
-        .map_err(|e| js_sys::Error::new(&format!("Fetch failed: {:?}", e)))?;
-    JsFuture::from(resp.as_raw().array_buffer()?)
-        .await
-        .map(|v| v.unchecked_into())
-        .map_err(|e| js_sys::Error::new(&format!("ArrayBuffer conversion failed: {:?}", e)))
-}
+// pub async fn fetch_binary(url: &str) -> Result<ArrayBuffer, js_sys::Error> {
+//     let resp = Request::get(url)
+//         .send()
+//         .await
+//         .map_err(|e| js_sys::Error::new(&format!("Fetch failed: {:?}", e)))?;
+//     JsFuture::from(resp.as_raw().array_buffer()?)
+//         .await
+//         .map(|v| v.unchecked_into())
+//         .map_err(|e| js_sys::Error::new(&format!("ArrayBuffer conversion failed: {:?}", e)))
+// }

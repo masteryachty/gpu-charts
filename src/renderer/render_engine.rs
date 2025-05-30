@@ -1,26 +1,20 @@
 use std::{cell::RefCell, rc::Rc};
 
 use super::data_store::DataStore;
-use crate::{
-    calcables::min_max::calculate_min_max_y,
-    drawables::plot::RenderListener,
-    renderer::{mesh_builder, pipeline_builder::PipelineBuilder},
-};
-use bytemuck::cast_slice;
+use crate::{calcables::min_max::calculate_min_max_y, drawables::plot::RenderListener};
 use futures::channel::oneshot;
-use futures::executor::block_on;
-use std::sync::Arc;
-use web_sys::window;
+use getrandom::Error;
+// use web_sys;
 use winit::window::Window;
 
 pub struct RenderEngine {
-    instance: wgpu::Instance,
+    // instance: wgpu::Instance,
     surface: wgpu::Surface<'static>,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub config: wgpu::SurfaceConfiguration,
     pub size: (i32, i32),
-    window: std::rc::Rc<Window>,
+    // window: std::rc::Rc<Window>,
     render_listeners: Vec<Box<dyn RenderListener>>,
     data_store: Rc<RefCell<DataStore>>,
 }
@@ -61,7 +55,7 @@ impl RenderEngine {
 
         // Prepare to asynchronously map the staging buffer.
         let buffer_slice = staging_buffer.slice(..);
-        let (sender, mut receiver) = oneshot::channel();
+        let (sender, receiver) = oneshot::channel();
 
         buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
             log::info!("Mapping callback triggered");
@@ -86,8 +80,8 @@ impl RenderEngine {
             let data = buffer_slice.get_mapped_range();
             let values: &[f32] = bytemuck::cast_slice(&data);
             log::info!("Mapped values: {:?}", values);
-            let mut miny = values[0];
-            let mut maxy = values[1];
+            let miny = values[0];
+            let maxy = values[1];
             log::info!("Extracted miny: {} maxy: {}", miny, maxy);
             self.data_store.borrow_mut().update_min_max_y(miny, maxy);
             (miny, maxy)
@@ -150,7 +144,7 @@ impl RenderEngine {
         height: u32,
         window: std::rc::Rc<Window>,
         data_store: Rc<RefCell<DataStore>>,
-    ) -> Result<Self, GraphicsError> {
+    ) -> Result<Self, Error> {
         let mut t = wgpu::InstanceDescriptor {
             backends: wgpu::Backends::BROWSER_WEBGPU,
             flags: wgpu::InstanceFlags::default(),
@@ -163,8 +157,8 @@ impl RenderEngine {
         let instance = wgpu::Instance::new(&t);
         let surface = instance.create_surface(window.clone()).unwrap();
         // get time in milliseconds
-        let performance = web_sys::window().unwrap().performance().unwrap();
-        let start = performance.now();
+        // let performance = web_sys::window().unwrap().performance().unwrap();
+        // let start = performance.now();
 
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
@@ -175,7 +169,7 @@ impl RenderEngine {
             .await
             .unwrap();
 
-        let limits = adapter.limits();
+        // let limits = adapter.limits();
 
         let (device, queue) = adapter
             .request_device(
@@ -191,14 +185,14 @@ impl RenderEngine {
             .unwrap();
         // log::info!("c");
 
-        let end = performance.now();
+        // let end = performance.now();
         // log::info!("Time taken: {} ms", end - start);
 
-        let Some(surface_config) =
-            surface.get_default_config(&adapter, width.max(1), height.max(1))
-        else {
-            return Err(GraphicsError::IncompatibleAdapter);
-        };
+        // let Some(surface_config) =
+        //     surface.get_default_config(&adapter, width.max(1), height.max(1))
+        // else {
+        //     return Err(GraphicsError::IncompatibleAdapter);
+        // };
         let surface_capabilities = surface.get_capabilities(&adapter);
         let surface_format = surface_capabilities.formats[0];
         let config = wgpu::SurfaceConfiguration {
@@ -218,9 +212,9 @@ impl RenderEngine {
         //     .set_x_range(1739785500, 1739811799, &device);
 
         Ok(Self {
-            window: window.clone(),
+            // window: window.clone(),
             data_store,
-            instance,
+            // instance,
             surface,
             device,
             queue,
@@ -262,10 +256,10 @@ impl RenderEngine {
     }
 }
 
-#[derive(Debug)]
-pub enum GraphicsError {
-    NoCompatibleAdapter,
-    IncompatibleAdapter,
-    RequestDeviceError(Box<wgpu::RequestDeviceError>),
-    CreateSurfaceError(Box<wgpu::CreateSurfaceError>),
-}
+// #[derive(Debug)]
+// pub enum GraphicsError {
+//     // NoCompatibleAdapter,
+//     // IncompatibleAdapter,
+//     RequestDeviceError(Box<wgpu::RequestDeviceError>),
+//     CreateSurfaceError(Box<wgpu::CreateSurfaceError>),
+// }

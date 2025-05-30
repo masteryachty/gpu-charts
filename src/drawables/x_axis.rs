@@ -1,14 +1,11 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use arrow::buffer;
-use glm::*;
-use wgpu::util::DeviceExt;
-use wgpu::{Device, TextureFormat};
+use wgpu::TextureFormat;
 use wgpu_text::glyph_brush::ab_glyph::FontRef;
 
 use crate::renderer::data_retriever::create_gpu_buffer_from_vec_f32;
-use crate::renderer::data_store::{DataStore, Vertex};
+use crate::renderer::data_store::DataStore;
 use crate::renderer::render_engine::RenderEngine;
 use wgpu_text::{
     glyph_brush::{Section as TextSection, Text},
@@ -18,7 +15,7 @@ use wgpu_text::{
 use super::plot::RenderListener;
 
 pub struct XAxisRenderer {
-    color_format: TextureFormat,
+    // color_format: TextureFormat,
     brush: TextBrush<FontRef<'static>>,
     pipeline: wgpu::RenderPipeline,
     vertex_buffer: Option<wgpu::Buffer>,
@@ -275,7 +272,7 @@ impl XAxisRenderer {
         });
 
         Self {
-            color_format,
+            // color_format,
             brush,
             pipeline,
             vertex_buffer: None,
@@ -287,17 +284,17 @@ impl XAxisRenderer {
     }
 
     // Helper method to determine the appropriate base unit
-    fn determine_base_unit(&self, range: i32, width: i32) -> i32 {
-        for i in LOGIC_TS_DURATIONS.iter() {
-            if (*i as f32 / range as f32) * width as f32 > 150.0 {
-                return *i;
-            }
-        }
-        *LOGIC_TS_DURATIONS.last().unwrap()
-    }
+    // fn determine_base_unit(&self, range: i32, width: i32) -> i32 {
+    //     for i in LOGIC_TS_DURATIONS.iter() {
+    //         if (*i as f32 / range as f32) * width as f32 > 150.0 {
+    //             return *i;
+    //         }
+    //     }
+    //     *LOGIC_TS_DURATIONS.last().unwrap()
+    // }
 }
 
 // Helper function to convert a struct to a u8 slice
-unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
-    ::core::slice::from_raw_parts((p as *const T) as *const u8, ::core::mem::size_of::<T>())
-}
+// unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
+//     ::core::slice::from_raw_parts((p as *const T) as *const u8, ::core::mem::size_of::<T>())
+// }

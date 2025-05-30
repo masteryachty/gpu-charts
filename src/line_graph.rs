@@ -2,31 +2,20 @@ use crate::drawables::plot::PlotRenderer;
 use crate::drawables::x_axis::XAxisRenderer;
 use crate::drawables::y_axis::YAxisRenderer;
 use crate::renderer::data_retriever::fetch_data;
-use crate::renderer::data_store::{self, DataStore};
-use crate::renderer::render_engine::{GraphicsError, RenderEngine};
+use crate::renderer::data_store::DataStore;
+use crate::renderer::render_engine::RenderEngine;
 use crate::wrappers::js::get_query_params;
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::DateTime;
+use js_sys::Error;
 use std::cell::RefCell;
-use std::future::Future;
 use std::rc::Rc;
-// use crate::renderer::web_socket::WebSocketConnnection;
-// use crate::AppOrchestrator;
-
-use futures::join;
-use js_sys::{Int32Array, Uint8Array};
 use winit::window::Window;
 
 pub struct LineGraph {
-    pub data_store: Rc<RefCell<DataStore>>,
-    pub line_width: f32,
+    // pub data_store: Rc<RefCell<DataStore>>,
+    // pub line_width: f32,
     pub engine: Rc<RefCell<RenderEngine>>,
     // web_socket: WebSocketConnnection,
-}
-
-fn unix_timestamp_to_string(timestamp: i64) -> String {
-    let datetime = DateTime::from_timestamp(timestamp, 0);
-    // let datetime: DateTime<Utc> = DateTime::from_utc(naive_datetime, Utc);
-    datetime.unwrap().to_rfc3339()
 }
 
 impl LineGraph {
@@ -34,7 +23,7 @@ impl LineGraph {
         width: u32,
         height: u32,
         window: std::rc::Rc<Window>,
-    ) -> Result<LineGraph, GraphicsError> {
+    ) -> Result<LineGraph, Error> {
         let params = get_query_params();
         let topic = params.get("topic").unwrap();
         let start = params.get("start").unwrap().parse().unwrap();
@@ -43,7 +32,7 @@ impl LineGraph {
         log::info!("start: {:?}", unix_timestamp_to_string(start));
         log::info!("end: {:?}", unix_timestamp_to_string(end));
 
-        let mut ds = DataStore::new();
+        let ds = DataStore::new();
 
         // log::info!("0");
         let data_store = Rc::new(RefCell::new(ds));
@@ -51,10 +40,10 @@ impl LineGraph {
         let engine: Rc<RefCell<RenderEngine>>;
         {
             // let performance = web_sys::window().unwrap().performance().unwrap();
-            let enginePromise =
+            let engine_promise =
                 RenderEngine::new(width, height, window.clone(), data_store.clone()).await;
 
-            engine = Rc::new(RefCell::new(enginePromise.unwrap()));
+            engine = Rc::new(RefCell::new(engine_promise.unwrap()));
             let engine_b = engine.borrow();
             let device = &engine_b.device;
             fetch_data(&device, topic, start as u32, end as u32, data_store.clone()).await;
@@ -95,8 +84,8 @@ impl LineGraph {
         }
         Ok(Self {
             engine,
-            line_width: 1.0,
-            data_store: data_store,
+            // line_width: 1.0,
+            // data_store: data_store,
             // web_socket,
         })
     }
@@ -108,4 +97,10 @@ impl LineGraph {
     pub fn resized(&mut self, width: u32, height: u32) {
         self.engine.borrow_mut().resized(width, height);
     }
+}
+
+fn unix_timestamp_to_string(timestamp: i64) -> String {
+    let datetime = DateTime::from_timestamp(timestamp, 0);
+    // let datetime: DateTime<Utc> = DateTime::from_utc(naive_datetime, Utc);
+    datetime.unwrap().to_rfc3339()
 }

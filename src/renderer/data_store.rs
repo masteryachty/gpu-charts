@@ -1,18 +1,12 @@
-use super::render_engine::RenderEngine;
-use arrow::compute::kernels::length;
-use bytemuck::{Pod, Zeroable};
-use js_sys::{ArrayBuffer, Float32Array, Int32Array, Uint32Array, Uint8Array};
-use nalgebra_glm::{vec4, Mat4};
-use std::ptr;
-use std::{cell::RefCell, rc::Rc};
+use js_sys::{ArrayBuffer,  Uint32Array};
 use wgpu::util::DeviceExt;
-use wgpu::{Buffer, Device, TextureFormat};
+use wgpu::{Buffer, Device};
 
 pub struct DataSeries {
     pub x_buffers: Vec<wgpu::Buffer>,
     pub y_buffers: Vec<wgpu::Buffer>,
     pub x_raw: ArrayBuffer,
-    pub y_raw: ArrayBuffer,
+    // pub y_raw: ArrayBuffer,
     pub min_x: u32,
     pub max_x: u32,
 
@@ -30,10 +24,10 @@ pub struct DataStore {
     pub range_bind_group: Option<wgpu::BindGroup>,
 }
 
-pub struct Coord {
-    pub x: f32,
-    pub y: f32,
-}
+// pub struct Coord {
+//     pub x: f32,
+//     pub y: f32,
+// }
 
 impl DataStore {
     pub fn new() -> DataStore {
@@ -54,8 +48,8 @@ impl DataStore {
 
     pub fn add_data_group(
         &mut self,
-        mut x_series: (ArrayBuffer, Vec<Buffer>),
-        mut y_series: (ArrayBuffer, Vec<Buffer>),
+        x_series: (ArrayBuffer, Vec<Buffer>),
+        y_series: (ArrayBuffer, Vec<Buffer>),
         set_as_active: bool,
         start: u32,
         end: u32,
@@ -77,12 +71,12 @@ impl DataStore {
             x_buffers: x_series.1,
             y_buffers: y_series.1,
             x_raw: x_series.0,
-            y_raw: y_series.0,
+            // y_raw: y_series.0,
             min_x: start,
             max_x: end,
             length: f.length(),
         });
-        if (set_as_active) {
+        if set_as_active {
             self.active_data_group_index = self.data_groups.len() - 1;
         }
     }
@@ -108,17 +102,17 @@ impl DataStore {
     // }
     // self.make_vertex_buffer(device, d)
 
-    fn make_vertex_buffers(&self, device: &Device, data: Vec<&[u8]>) -> Vec<wgpu::Buffer> {
-        data.iter()
-            .map(|d| {
-                device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Data Buffer"),
-                    usage: wgpu::BufferUsages::VERTEX, // You can change this based on your needs
-                    contents: &d,
-                })
-            })
-            .collect()
-    }
+    // fn make_vertex_buffers(&self, device: &Device, data: Vec<&[u8]>) -> Vec<wgpu::Buffer> {
+    //     data.iter()
+    //         .map(|d| {
+    //             device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+    //                 label: Some("Data Buffer"),
+    //                 usage: wgpu::BufferUsages::VERTEX, // You can change this based on your needs
+    //                 contents: &d,
+    //             })
+    //         })
+    //         .collect()
+    // }
 
     pub fn world_to_screen_with_margin(&self, x: f32, y: f32) -> (f32, f32) {
         let data_group = self.get_active_data_group();
@@ -227,7 +221,7 @@ pub struct Vertex {
 
 impl Vertex {
     pub fn get_x_layout() -> wgpu::VertexBufferLayout<'static> {
-        const ATTRIBUTES: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Float32];
+        // const ATTRIBUTES: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Float32];
 
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<[f32; 1]>() as wgpu::BufferAddress,
@@ -241,7 +235,7 @@ impl Vertex {
     }
 
     pub fn get_y_layout() -> wgpu::VertexBufferLayout<'static> {
-        const ATTRIBUTES: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Float32];
+        // const ATTRIBUTES: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Float32];
 
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<[f32; 1]>() as wgpu::BufferAddress,

@@ -1,14 +1,11 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use arrow::buffer;
-use glm::*;
-use wgpu::util::DeviceExt;
-use wgpu::{Device, TextureFormat};
+use wgpu::{ TextureFormat};
 use wgpu_text::glyph_brush::ab_glyph::FontRef;
 
 use crate::renderer::data_retriever::create_gpu_buffer_from_vec_f32;
-use crate::renderer::data_store::{DataStore, Vertex};
+use crate::renderer::data_store::{DataStore};
 use crate::renderer::render_engine::RenderEngine;
 use wgpu_text::{
     glyph_brush::{Section as TextSection, Text},
@@ -18,7 +15,7 @@ use wgpu_text::{
 use super::plot::RenderListener;
 
 pub struct YAxisRenderer {
-    color_format: TextureFormat,
+    // color_format: TextureFormat,
     brush: TextBrush<FontRef<'static>>,
     pipeline: wgpu::RenderPipeline,
     vertex_buffer: Option<wgpu::Buffer>,
@@ -41,7 +38,7 @@ impl RenderListener for YAxisRenderer {
         let ds = data_store.borrow();
         let min = ds.min_y.unwrap();
         let max = ds.max_y.unwrap();
-        let range = max - min;
+        // let range = max - min;
         let height = size.1;
 
         // Only recalculate and recreate buffers if the data range or width has changed
@@ -95,7 +92,6 @@ impl RenderListener for YAxisRenderer {
             // Create vertex data for axis lines
             let mut vertices = Vec::with_capacity(y_values.len() * 4);
             for y in y_values {
-                let normalized_y = (y - min) / range;
                 vertices.push(-1.);
                 vertices.push(y);
                 vertices.push(1.);
@@ -265,7 +261,7 @@ impl YAxisRenderer {
         });
 
         Self {
-            color_format,
+            // color_format,
             brush,
             pipeline,
             vertex_buffer: None,
@@ -278,9 +274,9 @@ impl YAxisRenderer {
 }
 
 // Helper function to convert a struct to a u8 slice
-unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
-    ::core::slice::from_raw_parts((p as *const T) as *const u8, ::core::mem::size_of::<T>())
-}
+// unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
+//     ::core::slice::from_raw_parts((p as *const T) as *const u8, ::core::mem::size_of::<T>())
+// }
 
 /// Calculates Y-axis interval given a min and max value.
 pub fn calculate_y_axis_interval(min: f32, max: f32) -> (f32, f32, f32) {

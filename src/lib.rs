@@ -1,4 +1,4 @@
-use std::{any::type_name, cell::RefCell, future::Future, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 use winit::{
     application::ApplicationHandler,
@@ -12,7 +12,7 @@ mod calcables;
 mod drawables;
 mod renderer;
 mod wrappers;
-use renderer::render_engine::GraphicsError;
+// use renderer::render_engine::GraphicsError;
 
 mod line_graph;
 use crate::line_graph::LineGraph;
@@ -20,9 +20,6 @@ extern crate nalgebra_glm as glm;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
-
-// #[cfg(target_arch = "wasm32")]
-// use wasm_bindgen::{prelude::wasm_bindgen, UnwrapThrowExt};
 
 const CANVAS_ID: &str = "new-api-canvas";
 
@@ -43,7 +40,7 @@ enum Application {
 impl Application {
     fn new(event_loop: &EventLoop<AppEvent>) -> Self {
         let loop_proxy = Some(event_loop.create_proxy());
-        //log::info!("Creating a new application");
+        log::info!("Creating a new application");
         Self::Building(loop_proxy)
     }
 
@@ -59,7 +56,7 @@ impl Application {
                 });
             }
             _ => {
-                //log::info!("Draw call rejected because graphics doesn't exist yet");
+                log::info!("Draw call rejected because graphics doesn't exist yet");
                 return;
             }
         }
@@ -71,7 +68,6 @@ impl Application {
         };
         let graphics = graphics.clone();
         log::info!("Resized {:?} {:?}", size.width, size.height);
-
         graphics.borrow_mut().resized(size.width, size.height);
     }
 }
@@ -90,17 +86,15 @@ impl ApplicationHandler<AppEvent> for Application {
             WindowEvent::CursorMoved {
                 device_id,
                 position,
-            } => (
-                //log::info!("move")
-                ),
+            } => log::info!("move {:?}, {:?}", device_id, position),
             event => {
-                //log::info!("Event type: {:?}", event);
+                log::info!("Event type: {:?}", event);
             }
         }
     }
 
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        //log::info!("App is resumed");
+        log::info!("App is resumed");
 
         let Self::Building(builder) = self else {
             return; // Graphics have been built.
@@ -121,24 +115,22 @@ impl ApplicationHandler<AppEvent> for Application {
             let html_canvas_element = canvas.unchecked_into();
             window_attrs = window_attrs.with_canvas(Some(html_canvas_element));
             log::info!("App is now up and running {:?}", window_attrs);
+
+            let window = std::rc::Rc::new(event_loop.create_window(window_attrs).unwrap_throw());
+            let size = window.inner_size();
+            log::info!("App is now up and running {} {}", size.width, size.height);
+            let state = LineGraph::new(size.width, size.height, window.clone());
+
+            //log::info!("Spawning future to build the graphics context");
+            wasm_bindgen_futures::spawn_local(async move {
+                let state = state.await.expect_throw("To build a graphics context");
+                let _ = loop_proxy.send_event((window, state));
+            });
         }
-
-        let window = std::rc::Rc::new(event_loop.create_window(window_attrs).unwrap_throw());
-        let mut size = window.inner_size();
-        // size.width = 1000;
-        // size.height = 1000;
-        log::info!("App is now up and running {} {}", size.width, size.height);
-        let state = LineGraph::new(size.width, size.height, window.clone());
-
-        //log::info!("Spawning future to build the graphics context");
-        wasm_bindgen_futures::spawn_local(async move {
-            let state = state.await.expect_throw("To build a graphics context");
-            let _ = loop_proxy.send_event((window, state));
-        });
     }
 
     fn user_event(&mut self, _event_loop: &ActiveEventLoop, app_event: AppEvent) {
-        let (window, mut graphics) = app_event;
+        let (window, graphics) = app_event;
         if matches!(self, Self::Running { .. }) {
             log::error!("Received a new graphics context when we already have one");
             return;
@@ -162,7 +154,6 @@ impl ApplicationHandler<AppEvent> for Application {
 #[wasm_bindgen(start)]
 pub fn run() {
     use winit::platform::web::EventLoopExtWebSys;
-    // common::init_logger("new-ap");
     cfg_if::cfg_if! {
         if #[cfg(target_arch = "wasm32")] {
             std::panic::set_hook(Box::new(console_error_panic_hook::hook));
@@ -179,100 +170,38 @@ pub fn run() {
     event_loop.spawn_app(app);
 }
 
-//
-// struct Triangle {
-//     pipeline: wgpu::RenderPipeline,
+// macro_rules! impl_errors {
+//     (@ours [$($our:path => $desc:literal),+ $(,)?]
+//      @theirs [$($wrapper:path => $theirs:ty),+ $(,)?]) => {
+//         $(impl From<$theirs> for GraphicsError {
+//             fn from(item: $theirs) -> Self { $wrapper(Box::new(item)) }
+//         })*
+//         impl core::fmt::Display for GraphicsError {
+//             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//                 match self {
+//                     $($our => write!(f, $desc),)+
+//                     $($wrapper(nested) => nested.fmt(f)),+
+//                 }
+//             }
+//         }
+//         impl core::error::Error for GraphicsError {
+//             fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+//                 match self {
+//                     $($wrapper(nested) => Some(nested),)+
+//                     _ => None,
+//                 }
+//             }
+//         }
+//     };
 // }
 
-// impl Triangle {
-//     fn init(device: &wgpu::Device, color_format: wgpu::TextureFormat) -> Self {
-//         let shader =
-//             device.create_shader_module(wgpu::include_wgsl!("./renderer/shaders/shader.wgsl"));
-
-//         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-//             label: None,
-//             bind_group_layouts: &[],
-//             push_constant_ranges: &[],
-//         });
-
-//         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-//             label: Some("Triangle Render Pipeling"),
-//             layout: Some(&pipeline_layout),
-//             vertex: wgpu::VertexState {
-//                 module: &shader,
-//                 entry_point: Some("vs_main"),
-//                 compilation_options: Default::default(),
-//                 buffers: &[],
-//             },
-//             fragment: Some(wgpu::FragmentState {
-//                 module: &shader,
-//                 entry_point: Some("fs_main"),
-//                 compilation_options: Default::default(),
-//                 targets: &[Some(color_format.into())],
-//             }),
-//             primitive: Default::default(),
-//             depth_stencil: None,
-//             multisample: Default::default(),
-//             multiview: None,
-//             cache: None,
-//         });
-
-//         Self { pipeline }
-//     }
-
-//     fn draw(&self, encoder: &mut wgpu::CommandEncoder, view: &wgpu::TextureView) {
-//         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-//             label: Some("Triangle Drawer"),
-//             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-//                 view,
-//                 resolve_target: None,
-//                 ops: wgpu::Operations {
-//                     load: wgpu::LoadOp::Clear(wgpu::Color::GREEN),
-//                     store: wgpu::StoreOp::Store,
-//                 },
-//             })],
-//             depth_stencil_attachment: None,
-//             timestamp_writes: None,
-//             occlusion_query_set: None,
-//         });
-
-//         render_pass.set_pipeline(&self.pipeline);
-//         render_pass.draw(0..3, 0..1);
-//     }
-// }
-
-macro_rules! impl_errors {
-    (@ours [$($our:path => $desc:literal),+ $(,)?]
-     @theirs [$($wrapper:path => $theirs:ty),+ $(,)?]) => {
-        $(impl From<$theirs> for GraphicsError {
-            fn from(item: $theirs) -> Self { $wrapper(Box::new(item)) }
-        })*
-        impl core::fmt::Display for GraphicsError {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                match self {
-                    $($our => write!(f, $desc),)+
-                    $($wrapper(nested) => nested.fmt(f)),+
-                }
-            }
-        }
-        impl core::error::Error for GraphicsError {
-            fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-                match self {
-                    $($wrapper(nested) => Some(nested),)+
-                    _ => None,
-                }
-            }
-        }
-    };
-}
-
-impl_errors!(
-    @ours [
-        GraphicsError::NoCompatibleAdapter => "Could not find a compatible adapter",
-        GraphicsError::IncompatibleAdapter => "Adapter and surface are not compatible",
-    ]
-    @theirs [
-        GraphicsError::RequestDeviceError => wgpu::RequestDeviceError,
-        GraphicsError::CreateSurfaceError => wgpu::CreateSurfaceError,
-    ]
-);
+// impl_errors!(
+//     // @ours [
+//     //     // GraphicsError::NoCompatibleAdapter => "Could not find a compatible adapter",
+//     //     // GraphicsError::IncompatibleAdapter => "Adapter and surface are not compatible",
+//     // ]
+//     // @theirs [
+//     //     // GraphicsError::RequestDeviceError => wgpu::RequestDeviceError,
+//     //     // GraphicsError::CreateSurfaceError => wgpu::CreateSurfaceError,
+//     // ]
+// );

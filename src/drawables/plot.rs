@@ -1,23 +1,15 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use arrow::buffer;
-use glm::*;
-use wgpu::util::DeviceExt;
-use wgpu::{Device, TextureFormat};
-use wgpu_text::glyph_brush::ab_glyph::FontRef;
+use wgpu::TextureFormat;
 
 use crate::renderer::data_store::{DataStore, Vertex};
 use crate::renderer::render_engine::RenderEngine;
-use wgpu_text::{
-    glyph_brush::{Section as TextSection, Text},
-    BrushBuilder, TextBrush,
-};
 
 pub struct PlotRenderer {
     pipeline: wgpu::RenderPipeline,
-    pub engine: Rc<RefCell<RenderEngine>>,
-    bind_group_layout: wgpu::BindGroupLayout,
+    // pub engine: Rc<RefCell<RenderEngine>>,
+    // bind_group_layout: wgpu::BindGroupLayout,
 }
 
 pub trait RenderListener {
@@ -35,19 +27,19 @@ pub trait RenderListener {
 impl RenderListener for PlotRenderer {
     fn on_render(
         &mut self,
-        queue: &wgpu::Queue,
-        device: &wgpu::Device,
+        _: &wgpu::Queue,
+        _: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
         view: &wgpu::TextureView,
         data_store: Rc<RefCell<DataStore>>,
-        size: (i32, i32),
+        _: (i32, i32),
     ) {
         //log::info!("Render plot2");
         // let device = &self.engine.borrow().device;
 
         let data_len = data_store.borrow().get_data_len();
         // log::info!("Data len: {}", data_len);
-        if (data_len > 0) {
+        if data_len > 0 {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Triangle Drawer"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -92,10 +84,10 @@ impl PlotRenderer {
     pub fn new(
         engine: Rc<RefCell<RenderEngine>>,
         color_format: TextureFormat,
-        data_store: Rc<RefCell<DataStore>>,
+        _: Rc<RefCell<DataStore>>,
     ) -> PlotRenderer {
         let device = &engine.borrow().device;
-        let queue = &engine.borrow().queue;
+        // let queue = &engine.borrow().queue;
         let shader = device.create_shader_module(wgpu::include_wgsl!("plot.wgsl"));
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: None,
@@ -161,15 +153,15 @@ impl PlotRenderer {
         });
         Self {
             pipeline,
-            engine: engine.clone(),
-            bind_group_layout,
+            // engine: engine.clone(),
+            // bind_group_layout,
         }
     }
 }
 // From: https://stackoverflow.com/questions/28127165/how-to-convert-struct-to-u8
-unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
-    ::core::slice::from_raw_parts((p as *const T) as *const u8, ::core::mem::size_of::<T>())
-}
+// unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
+//     ::core::slice::from_raw_parts((p as *const T) as *const u8, ::core::mem::size_of::<T>())
+// }
 
 // let vertices: [Vertex; 4] = [
 //     Vertex {

@@ -6,7 +6,7 @@ use crate::renderer::data_store;
 
 pub fn calculate_min_max_y(
     device: &Device,
-    queue: &Queue,
+    _: &Queue,
     encoder: &mut wgpu::CommandEncoder,
     data_store: &data_store::DataStore,
     mix_x: u32,
@@ -28,8 +28,8 @@ pub fn calculate_min_max_y(
     log::info!("1.5 {:?} {:?}", start_index, end_index);
 
     let thread_mult = 32u32;
-    let WORKGROUP_SIZE: u64 = 256;
-    let chunk_size = WORKGROUP_SIZE as u32 * thread_mult;
+    let workgroup_size: u64 = 256;
+    let chunk_size = workgroup_size as u32 * thread_mult;
     let sub_range_count = end_index - start_index;
     let num_groups = ((sub_range_count as u32) + chunk_size - 1) / chunk_size;
 
@@ -185,10 +185,10 @@ fn find_closest(target: u32, data_array_buffer: &ArrayBuffer) -> (u32, u32) {
     if len == 0 {
         panic!("ArrayBuffer cannot be empty");
     }
-    if (data.at(0).unwrap() > target) {
+    if data.at(0).unwrap() > target {
         return (0, target);
     };
-    if (data.at((data.length() - 1) as i32).unwrap() < target) {
+    if data.at((data.length() - 1) as i32).unwrap() < target {
         return (data.length() - 1, target);
     };
     // Perform binary search using direct JS array access
@@ -210,7 +210,7 @@ fn find_closest(target: u32, data_array_buffer: &ArrayBuffer) -> (u32, u32) {
             break;
         }
 
-        let diff = (val as i32 - target as i32);
+        let diff = val as i32 - target as i32;
         if diff < closest_diff || (diff == closest_diff && val < target) {
             closest_diff = diff;
             closest_idx = mid;
@@ -225,46 +225,46 @@ fn find_closest(target: u32, data_array_buffer: &ArrayBuffer) -> (u32, u32) {
     (closest_idx as u32, closest_val)
 }
 
-pub fn find_closest2(target: u32, data_array_buffer: &ArrayBuffer) -> (u32, u32) {
-    // Convert the JS ArrayBuffer to a Rust Vec<u32> for fast access
-    let data = Uint32Array::new(data_array_buffer);
-    let data_vec = data.to_vec();
-    let len = data_vec.len();
+// pub fn find_closest2(target: u32, data_array_buffer: &ArrayBuffer) -> (u32, u32) {
+//     // Convert the JS ArrayBuffer to a Rust Vec<u32> for fast access
+//     let data = Uint32Array::new(data_array_buffer);
+//     let data_vec = data.to_vec();
+//     let len = data_vec.len();
 
-    if len == 0 {
-        panic!("ArrayBuffer cannot be empty");
-    }
+//     if len == 0 {
+//         panic!("ArrayBuffer cannot be empty");
+//     }
 
-    // Use Rust's built-in binary search for efficiency
-    match data_vec.binary_search_by(|probe| probe.partial_cmp(&target).expect("Invalid comparison"))
-    {
-        // Exact match found, return immediately
-        Ok(exact_idx) => (exact_idx as u32, data_vec[exact_idx]),
-        // Check neighboring elements for closest value
-        Err(insertion_idx) => {
-            let candidates = match insertion_idx {
-                0 => &[0][..],
-                l if l == len => &[len - 1][..],
-                _ => &[insertion_idx - 1, insertion_idx][..],
-            };
+//     // Use Rust's built-in binary search for efficiency
+//     match data_vec.binary_search_by(|probe| probe.partial_cmp(&target).expect("Invalid comparison"))
+//     {
+//         // Exact match found, return immediately
+//         Ok(exact_idx) => (exact_idx as u32, data_vec[exact_idx]),
+//         // Check neighboring elements for closest value
+//         Err(insertion_idx) => {
+//             let candidates = match insertion_idx {
+//                 0 => &[0][..],
+//                 l if l == len => &[len - 1][..],
+//                 _ => &[insertion_idx - 1, insertion_idx][..],
+//             };
 
-            let mut closest_idx = candidates[0];
-            let mut closest_diff = (data_vec[closest_idx] - target);
+//             let mut closest_idx = candidates[0];
+//             let mut closest_diff = data_vec[closest_idx] - target;
 
-            for &candidate in candidates.iter().skip(1) {
-                let diff = (data_vec[candidate] - target);
-                if diff < closest_diff
-                    || (diff == closest_diff && data_vec[candidate] < data_vec[closest_idx])
-                {
-                    closest_idx = candidate;
-                    closest_diff = diff;
-                }
-            }
+//             for &candidate in candidates.iter().skip(1) {
+//                 let diff = data_vec[candidate] - target;
+//                 if diff < closest_diff
+//                     || (diff == closest_diff && data_vec[candidate] < data_vec[closest_idx])
+//                 {
+//                     closest_idx = candidate;
+//                     closest_diff = diff;
+//                 }
+//             }
 
-            (closest_idx as u32, data_vec[closest_idx])
-        }
-    }
-}
+//             (closest_idx as u32, data_vec[closest_idx])
+//         }
+//     }
+// }
 
 struct MinMaxPipelines {
     first_pass: wgpu::ComputePipeline,
