@@ -1,5 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
+use controls::canvas_controller::CanvasController;
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
@@ -9,9 +10,11 @@ use winit::{
 };
 
 mod calcables;
+mod controls;
 mod drawables;
 mod renderer;
 mod wrappers;
+
 // use renderer::render_engine::GraphicsError;
 
 mod line_graph;
@@ -34,6 +37,7 @@ enum Application {
         #[allow(unused)]
         window: AppWindow,
         graphics: Rc<RefCell<LineGraph>>,
+        canvas_controller: CanvasController,
     },
 }
 
@@ -84,17 +88,24 @@ impl ApplicationHandler<AppEvent> for Application {
     ) {
         match event {
             WindowEvent::Resized(size) => self.resized(size),
-            WindowEvent::RedrawRequested => self.render(),
-            WindowEvent::CloseRequested => event_loop.exit(),
-            WindowEvent::CursorMoved {
-                device_id,
-                position,
-            } => {
-                // log::info!("move {:?}, {:?}", device_id, position)
-                let _x = (device_id, position);
+            WindowEvent::RedrawRequested => {
+                log::info!("redraw");
+
+                self.render()
             }
+            WindowEvent::CloseRequested => event_loop.exit(),
+            WindowEvent::MouseWheel { .. }
+            | WindowEvent::MouseInput { .. }
+            | WindowEvent::CursorMoved { .. } => match self {
+                Self::Running {
+                    canvas_controller, ..
+                } => {
+                    canvas_controller.handle_cursor_event(event);
+                }
+                _ => {}
+            },
             event => {
-                log::info!("Event type: {:?}", event);
+                log::info!("Event type not handled : {:?}", event);
             }
         }
     }
@@ -146,11 +157,15 @@ impl ApplicationHandler<AppEvent> for Application {
         let graphics = Rc::new(RefCell::new(graphics));
         let size = window.inner_size();
         graphics.borrow_mut().resized(size.width, size.height);
+        let data_store = graphics.borrow().data_store.clone();
+        let canvas_controller = CanvasController::new(window.clone(), data_store, graphics.borrow().engine.clone());
 
         //log::info!("App is now up and running");
         *self = Self::Running {
             window,
             graphics: graphics.clone(),
+            canvas_controller,
+            
         };
         self.render();
     }

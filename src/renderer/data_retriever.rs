@@ -146,7 +146,6 @@ pub async fn fetch_api_response(url: &str) -> Result<(ApiHeader, ArrayBuffer), j
 /// to x– and y–data groups, respectively.
 pub async fn fetch_data(
     device: &wgpu::Device,
-    topic: &str,
     start: u32,
     end: u32,
     data_store: Rc<RefCell<DataStore>>,
@@ -154,6 +153,8 @@ pub async fn fetch_data(
     // Construct the API URL.
     // For example, if topic is "BTC-USD", the URL might look like:
     //   https://localhost:8443/api/data?symbol=BTC-USD&type=MD&start=0&end=1739785500000&columns=time,best_bid
+    let topic = data_store.borrow().topic.clone().unwrap();
+    
     let url = format!(
         "https://localhost:8443/api/data?symbol={}&type=MD&start={}&end={}&columns=time,best_bid",
         topic,
@@ -193,8 +194,8 @@ pub async fn fetch_data(
         (x_buffer, x_gpu_buffers),
         (y_buffer, y_gpu_buffers),
         true,
-        start,
-        end,
+        // start,
+        // end,
     );
 }
 

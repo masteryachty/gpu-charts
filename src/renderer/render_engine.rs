@@ -13,7 +13,6 @@ pub struct RenderEngine {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub config: wgpu::SurfaceConfiguration,
-    pub size: (i32, i32),
     // window: std::rc::Rc<Window>,
     render_listeners: Vec<Box<dyn RenderListener>>,
     data_store: Rc<RefCell<DataStore>>,
@@ -30,8 +29,8 @@ impl RenderEngine {
 
         log::info!(
             "1 {:?} {:?}",
-            self.data_store.borrow().min_x,
-            self.data_store.borrow().max_x
+            self.data_store.borrow().start_x,
+            self.data_store.borrow().end_x
         );
         // Calculate min/max values and get the two staging buffers.
         let (min_max_buffer, staging_buffer) = calculate_min_max_y(
@@ -39,8 +38,8 @@ impl RenderEngine {
             &self.queue,
             &mut command_encoder,
             &self.data_store.borrow(),
-            self.data_store.borrow().min_x,
-            self.data_store.borrow().max_x,
+            self.data_store.borrow().start_x,
+            self.data_store.borrow().end_x,
         );
         log::info!("2");
 
@@ -140,8 +139,6 @@ impl RenderEngine {
     }
 
     pub async fn new(
-        width: u32,
-        height: u32,
         window: std::rc::Rc<Window>,
         data_store: Rc<RefCell<DataStore>>,
     ) -> Result<Self, Error> {
@@ -193,13 +190,14 @@ impl RenderEngine {
         // else {
         //     return Err(GraphicsError::IncompatibleAdapter);
         // };
+
         let surface_capabilities = surface.get_capabilities(&adapter);
         let surface_format = surface_capabilities.formats[0];
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: surface_format,
-            width: width,
-            height: height,
+            width: data_store.borrow().screen_size.width as u32,
+            height: data_store.borrow().screen_size.height as u32,
             present_mode: surface_capabilities.present_modes[0],
             alpha_mode: surface_capabilities.alpha_modes[0],
             view_formats: vec![],
@@ -219,13 +217,11 @@ impl RenderEngine {
             device,
             queue,
             config,
-            size: (width as i32, height as i32),
             render_listeners: Vec::new(),
         })
     }
 
     pub fn resized(&mut self, width: u32, height: u32) {
-        self.size = (width as i32, height as i32);
         self.config.width = width;
         self.config.height = height;
         self.surface.configure(&self.device, &self.config);
@@ -250,7 +246,6 @@ impl RenderEngine {
                 encoder,
                 image_view,
                 self.data_store.clone(),
-                self.size,
             );
         }
     }

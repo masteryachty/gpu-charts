@@ -12,7 +12,7 @@ use std::rc::Rc;
 use winit::window::Window;
 
 pub struct LineGraph {
-    // pub data_store: Rc<RefCell<DataStore>>,
+    pub data_store: Rc<RefCell<DataStore>>,
     // pub line_width: f32,
     pub engine: Rc<RefCell<RenderEngine>>,
     // web_socket: WebSocketConnnection,
@@ -32,7 +32,7 @@ impl LineGraph {
         log::info!("start: {:?}", unix_timestamp_to_string(start));
         log::info!("end: {:?}", unix_timestamp_to_string(end));
 
-        let ds = DataStore::new();
+        let ds = DataStore::new(width, height);
 
         // log::info!("0");
         let data_store = Rc::new(RefCell::new(ds));
@@ -40,13 +40,13 @@ impl LineGraph {
         let engine: Rc<RefCell<RenderEngine>>;
         {
             // let performance = web_sys::window().unwrap().performance().unwrap();
-            let engine_promise =
-                RenderEngine::new(width, height, window.clone(), data_store.clone()).await;
+            let engine_promise = RenderEngine::new(window.clone(), data_store.clone()).await;
 
             engine = Rc::new(RefCell::new(engine_promise.unwrap()));
             let engine_b = engine.borrow();
             let device = &engine_b.device;
-            fetch_data(&device, topic, start as u32, end as u32, data_store.clone()).await;
+            data_store.borrow_mut().topic = Some(topic.clone());
+            fetch_data(&device,  start as u32, end as u32, data_store.clone()).await;
             // let start_u32: u32 = start.parse().unwrap();
             // let end_u32: u32 = end.parse().unwrap();
             data_store
@@ -65,15 +65,11 @@ impl LineGraph {
         let x_axis_renderer = Box::new(XAxisRenderer::new(
             engine.clone(),
             engine.borrow().config.format,
-            width,
-            height,
             data_store.clone(),
         ));
         let y_axis_renderer = Box::new(YAxisRenderer::new(
             engine.clone(),
             engine.borrow().config.format,
-            width,
-            height,
             data_store.clone(),
         ));
         {
@@ -85,7 +81,7 @@ impl LineGraph {
         Ok(Self {
             engine,
             // line_width: 1.0,
-            // data_store: data_store,
+            data_store: data_store,
             // web_socket,
         })
     }
@@ -99,11 +95,12 @@ impl LineGraph {
     }
 
     pub fn resized(&mut self, width: u32, height: u32) {
+        self.data_store.borrow_mut().resized(width, height);
         self.engine.borrow_mut().resized(width, height);
     }
 }
 
-fn unix_timestamp_to_string(timestamp: i64) -> String {
+pub fn unix_timestamp_to_string(timestamp: i64) -> String {
     let datetime = DateTime::from_timestamp(timestamp, 0);
     // let datetime: DateTime<Utc> = DateTime::from_utc(naive_datetime, Utc);
     datetime.unwrap().to_rfc3339()

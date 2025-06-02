@@ -54,27 +54,22 @@ impl RenderListener for XAxisRenderer {
         encoder: &mut wgpu::CommandEncoder,
         view: &wgpu::TextureView,
         data_store: Rc<RefCell<DataStore>>,
-        size: (i32, i32),
     ) {
         let ds = data_store.borrow();
-        let data_group = ds.get_active_data_group();
+        // let data_group = ds.get_active_data_group();
 
-        let min = data_group.min_x as i32;
-        let max = data_group.max_x as i32;
+        let min = ds.start_x as i32;
+        let max = ds.end_x as i32;
         let range = max - min;
-        let width = size.0;
+        let width = data_store.borrow().screen_size.width as i32;
 
         // Only recalculate and recreate buffers if the data range or width has changed
-        let needs_recalculation = self.last_min_x != data_group.min_x as f32
-            || self.last_max_x != data_group.max_x as f32
+        let needs_recalculation = self.last_min_x != min as f32
+            || self.last_max_x != max as f32
             || self.last_width != width;
 
         if needs_recalculation {
-            log::info!(
-                "Recalculating X-axis with min: {}, max: {}",
-                data_group.min_x,
-                data_group.max_x
-            );
+            log::info!("Recalculating X-axis with min: {}, max: {}", min, max);
 
             // Find appropriate time unit for axis labels
             let mut base_unit = 0;
@@ -125,7 +120,7 @@ impl RenderListener for XAxisRenderer {
                     .add_text(Text::new(ts_string))
                     .with_screen_position((
                         (((test.0 + 1.) / 2.) * (width as f32)),
-                        (size.1 - 50) as f32,
+                        (data_store.borrow().screen_size.height - 50) as f32,
                     ));
                 labels.push(section);
             }
@@ -148,12 +143,16 @@ impl RenderListener for XAxisRenderer {
             ));
 
             // Update cached values
-            self.last_min_x = data_group.min_x as f32;
-            self.last_max_x = data_group.max_x as f32;
+            self.last_min_x = min as f32;
+            self.last_max_x = max as f32;
             self.last_width = width;
 
             // Update text brush
-            self.brush.resize_view(size.0 as f32, size.1 as f32, queue);
+            self.brush.resize_view(
+                data_store.borrow().screen_size.width as f32,
+                data_store.borrow().screen_size.height as f32,
+                queue,
+            );
             self.brush.queue(device, queue, labels).unwrap();
         } else {
             // If only the window size changed, update the text brush size
@@ -220,16 +219,19 @@ impl XAxisRenderer {
     pub fn new(
         engine: Rc<RefCell<RenderEngine>>,
         color_format: TextureFormat,
-        width: u32,
-        height: u32,
-        _data_store: Rc<RefCell<DataStore>>,
+        data_store: Rc<RefCell<DataStore>>,
     ) -> Self {
         let device = &engine.borrow().device;
 
         // Create text brush
         let brush = BrushBuilder::using_font_bytes(include_bytes!("Roboto.ttf"))
             .unwrap()
-            .build(device, width, height, color_format);
+            .build(
+                device,
+                data_store.borrow().screen_size.width as u32,
+                data_store.borrow().screen_size.height as u32,
+                color_format,
+            );
 
         // Create shader and pipeline
         let shader = device.create_shader_module(wgpu::include_wgsl!("x_axis.wgsl"));

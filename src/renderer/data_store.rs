@@ -2,26 +2,33 @@ use js_sys::{ArrayBuffer, Uint32Array};
 use wgpu::util::DeviceExt;
 use wgpu::{Buffer, Device};
 
+pub struct ScreenDimensions {
+    pub width: u32,
+    pub height: u32,
+}
+
 pub struct DataSeries {
     pub x_buffers: Vec<wgpu::Buffer>,
     pub y_buffers: Vec<wgpu::Buffer>,
     pub x_raw: ArrayBuffer,
     // pub y_raw: ArrayBuffer,
-    pub min_x: u32,
-    pub max_x: u32,
+    // pub min_x: u32,
+    // pub max_x: u32,
 
     // pub min_max_buffer: Option<wgpu::Buffer>,
     length: u32,
 }
 
 pub struct DataStore {
-    pub min_x: u32,
-    pub max_x: u32,
+    pub start_x: u32,
+    pub end_x: u32,
     pub min_y: Option<f32>,
     pub max_y: Option<f32>,
     pub data_groups: Vec<DataSeries>,
     pub active_data_group_index: usize,
     pub range_bind_group: Option<wgpu::BindGroup>,
+    pub screen_size: ScreenDimensions,
+    pub topic: Option<String>,
 }
 
 // pub struct Coord {
@@ -30,15 +37,17 @@ pub struct DataStore {
 // }
 
 impl DataStore {
-    pub fn new() -> DataStore {
+    pub fn new(width: u32, height: u32) -> DataStore {
         DataStore {
-            min_x: 0,
-            max_x: 0,
+            start_x: 0,
+            end_x: 0,
             min_y: None,
             max_y: None,
             data_groups: Vec::new(),
             active_data_group_index: 0,
             range_bind_group: None,
+            screen_size: ScreenDimensions { width, height },
+            topic: None,
         }
     }
 
@@ -51,8 +60,8 @@ impl DataStore {
         x_series: (ArrayBuffer, Vec<Buffer>),
         y_series: (ArrayBuffer, Vec<Buffer>),
         set_as_active: bool,
-        start: u32,
-        end: u32,
+        // start: u32,
+        // end: u32,
     ) {
         let f: Uint32Array = Uint32Array::new(&x_series.0);
         // let y: Float32Array = Float32Array::new(&y_series.0);
@@ -72,8 +81,8 @@ impl DataStore {
             y_buffers: y_series.1,
             x_raw: x_series.0,
             // y_raw: y_series.0,
-            min_x: start,
-            max_x: end,
+            // min_x: start,
+            // max_x: end,
             length: f.length(),
         });
         if set_as_active {
@@ -90,11 +99,15 @@ impl DataStore {
     }
 
     pub fn set_x_range(&mut self, min_x: u32, max_x: u32) {
-        self.min_x = min_x;
-        self.max_x = max_x;
+        self.start_x = min_x;
+        self.end_x = max_x;
         self.min_y = None;
         self.max_y = None;
         self.range_bind_group = None;
+    }
+
+    pub fn resized(&mut self, width: u32, height: u32) {
+        self.screen_size = ScreenDimensions { width, height }
     }
 
     // pub fn get_data(&self) -> Uint8Array {
@@ -115,11 +128,11 @@ impl DataStore {
     // }
 
     pub fn world_to_screen_with_margin(&self, x: f32, y: f32) -> (f32, f32) {
-        let data_group = self.get_active_data_group();
-      
+        // let data_group = self.get_active_data_group();
+
         let projection = glm::ortho_rh_zo(
-            data_group.min_x as f32,
-            data_group.max_x as f32,
+            self.start_x as f32,
+            self.end_x as f32,
             self.max_y.unwrap() + ((self.max_y.unwrap() - self.min_y.unwrap()) * 0.1),
             self.min_y.unwrap() - ((self.max_y.unwrap() - self.min_y.unwrap()) * 0.1),
             -1.0,
@@ -132,8 +145,47 @@ impl DataStore {
         (result.xy().x, result.xy().y)
     }
 
+    pub fn screen_to_world_with_margin(&self, screen_x: f32, screen_y: f32) -> (f32, f32) {
+        log::info!(
+            "conv: {:?} {:?} {:?} {:?}",
+            screen_x,
+            screen_y,
+            self.screen_size.width,
+            self.screen_size.height
+        );
+
+        let min_x = self.start_x as f32;
+        let max_x = self.end_x as f32;
+        let max_y = self.max_y.unwrap();
+        let min_y = self.min_y.unwrap();
+
+        let y_margin = (max_y - min_y) * 0.1;
+
+        let top = max_y + y_margin;
+        let bottom = min_y - y_margin;
+
+        // Step 1: Create the projection matrix
+        let projection = glm::ortho_rh_zo(min_x, max_x, top, bottom, -1.0, 1.0);
+
+        // Step 2: Invert the matrix
+        let inv_projection = projection
+            .try_inverse()
+            .expect("Projection matrix should be invertible");
+
+        // Step 3: Convert from screen pixels to NDC (-1 to 1)
+        let ndc_x = (2.0 * screen_x / (self.screen_size.width as f32)) - 1.0;
+        let ndc_y = 1.0 - (2.0 * screen_y / (self.screen_size.height as f32)); // Y-flipped
+
+        let screen_pos = glm::vec4(ndc_x, ndc_y, 0.1, 1.0);
+
+        // Step 4: Apply inverse projection
+        let world_pos = inv_projection * screen_pos;
+
+        (world_pos.x, world_pos.y)
+    }
+
     pub fn update_buffers(&mut self, device: &Device, buffer_y: wgpu::Buffer) {
-        let x_min_max = glm::vec2(self.min_x, self.max_x);
+        let x_min_max = glm::vec2(self.start_x, self.end_x);
         let x_min_max_bytes: &[u8] = unsafe { any_as_u8_slice(&x_min_max) };
 
         let view_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {

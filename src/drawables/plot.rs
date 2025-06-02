@@ -20,7 +20,6 @@ pub trait RenderListener {
         encoder: &mut wgpu::CommandEncoder,
         view: &wgpu::TextureView,
         data_store: Rc<RefCell<DataStore>>,
-        size: (i32, i32),
     );
 }
 
@@ -32,7 +31,6 @@ impl RenderListener for PlotRenderer {
         encoder: &mut wgpu::CommandEncoder,
         view: &wgpu::TextureView,
         data_store: Rc<RefCell<DataStore>>,
-        _: (i32, i32),
     ) {
         //log::info!("Render plot2");
         // let device = &self.engine.borrow().device;

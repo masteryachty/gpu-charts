@@ -16,7 +16,7 @@ pub fn calculate_min_max_y(
     // let performance = web_sys::window().unwrap().performance().unwrap();
     // let start = performance.now();
 
-    let x_series = &data_store.data_groups[0].x_raw;
+    let x_series = &data_store.get_active_data_group().x_raw;
     let (start_idx, _) = find_closest(mix_x, x_series);
     let start_index = start_idx as u32;
 
@@ -33,7 +33,7 @@ pub fn calculate_min_max_y(
     let sub_range_count = end_index - start_index;
     let num_groups = ((sub_range_count as u32) + chunk_size - 1) / chunk_size;
 
-    let y_buffers = &data_store.data_groups[0].y_buffers;
+    let y_buffers = &data_store.get_active_data_group().y_buffers;
     let num_buffers = y_buffers.len();
 
     // Create staging buffer large enough for all min/max pairs

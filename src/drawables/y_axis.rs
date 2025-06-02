@@ -1,11 +1,11 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use wgpu::{ TextureFormat};
+use wgpu::TextureFormat;
 use wgpu_text::glyph_brush::ab_glyph::FontRef;
 
 use crate::renderer::data_retriever::create_gpu_buffer_from_vec;
-use crate::renderer::data_store::{DataStore};
+use crate::renderer::data_store::DataStore;
 use crate::renderer::render_engine::RenderEngine;
 use wgpu_text::{
     glyph_brush::{Section as TextSection, Text},
@@ -33,13 +33,12 @@ impl RenderListener for YAxisRenderer {
         encoder: &mut wgpu::CommandEncoder,
         view: &wgpu::TextureView,
         data_store: Rc<RefCell<DataStore>>,
-        size: (i32, i32),
     ) {
         let ds = data_store.borrow();
         let min = ds.min_y.unwrap();
         let max = ds.max_y.unwrap();
         // let range = max - min;
-        let height = size.1;
+        let height = data_store.borrow().screen_size.height as i32;
 
         // Only recalculate and recreate buffers if the data range or width has changed
         let needs_recalculation = self.last_min_y != min as f32
@@ -107,7 +106,11 @@ impl RenderListener for YAxisRenderer {
             self.last_height = height;
 
             // Update text brush
-            self.brush.resize_view(size.0 as f32, height as f32, queue);
+            self.brush.resize_view(
+                data_store.borrow().screen_size.width as f32,
+                height as f32,
+                queue,
+            );
             self.brush.queue(device, queue, labels).unwrap();
         } else {
             // If only the window size changed, update the text brush size
@@ -174,16 +177,19 @@ impl YAxisRenderer {
     pub fn new(
         engine: Rc<RefCell<RenderEngine>>,
         color_format: TextureFormat,
-        width: u32,
-        height: u32,
-        _data_store: Rc<RefCell<DataStore>>,
+        data_store: Rc<RefCell<DataStore>>,
     ) -> Self {
         let device = &engine.borrow().device;
 
         // Create text brush
         let brush = BrushBuilder::using_font_bytes(include_bytes!("Roboto.ttf"))
             .unwrap()
-            .build(device, width, height, color_format);
+            .build(
+                device,
+                data_store.borrow().screen_size.width as u32,
+                data_store.borrow().screen_size.height as u32,
+                color_format,
+            );
 
         // Create shader and pipeline
         let shader = device.create_shader_module(wgpu::include_wgsl!("y_axis.wgsl"));
