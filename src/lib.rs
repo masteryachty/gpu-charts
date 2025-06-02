@@ -68,7 +68,10 @@ impl Application {
         };
         let graphics = graphics.clone();
         log::info!("Resized {:?} {:?}", size.width, size.height);
-        graphics.borrow_mut().resized(size.width, size.height);
+        let g = graphics.try_borrow_mut();
+        if g.is_ok() {
+            g.unwrap().resized(size.width, size.height);
+        }
     }
 }
 

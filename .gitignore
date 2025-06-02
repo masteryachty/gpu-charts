@@ -444,3 +444,5 @@ FodyWeavers.xsd
 # JetBrains Rider
 *.sln.iml
 server/rust-web-server/data/
+file_server/target/
+target

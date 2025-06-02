@@ -91,7 +91,11 @@ impl LineGraph {
     }
 
     pub async fn render(&self) -> Result<(), wgpu::SurfaceError> {
-        self.engine.borrow_mut().render().await
+        let e = self.engine.try_borrow_mut();
+        if e.is_ok() {
+            e.unwrap().render().await?
+        }
+        Ok(())
     }
 
     pub fn resized(&mut self, width: u32, height: u32) {
