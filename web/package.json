@@ -11,7 +11,15 @@
     "build": "npm run build:wasm && tsc -b && vite build",
     "build:wasm": "cd .. && wasm-pack build --target web --out-dir web/public/pkg",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug",
+    "test:report": "playwright show-report",
+    "test:data": "playwright test data-visualization.spec.ts data-scenarios.spec.ts",
+    "test:basic": "playwright test basic.spec.ts",
+    "test:all": "playwright test --project=chromium"
   },
   "dependencies": {
     "clsx": "^2.0.0",
@@ -22,6 +30,7 @@
     "zustand": "^4.4.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.52.0",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.0",
     "@typescript-eslint/eslint-plugin": "^8.8.0",
