@@ -25,7 +25,7 @@ pub struct ApiHeader {
 
 pub fn create_gpu_buffer_from_vec<T: Pod>(
     device: &wgpu::Device,
-    data: &Vec<T>,
+    data: &[T],
     label: &str,
 ) -> wgpu::Buffer {
     let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
