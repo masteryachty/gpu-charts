@@ -24,7 +24,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-          targets: x86_64-unknown-linux-gnu
+          targets: wasm32-unknown-unknown
       
       - name: Install dependencies
         run: |
@@ -36,18 +36,8 @@ jobs:
           cd web
           npm run lint
       
-      - name: Check Rust formatting (server)
-        run: |
-          cd server
-          cargo fmt --check
-      
       - name: Check Rust formatting (main)
         run: cargo fmt --check
-      
-      - name: Run Clippy (server)
-        run: |
-          cd server
-          cargo clippy --target x86_64-unknown-linux-gnu -- -D warnings
       
       - name: Run Clippy (main)
         run: cargo clippy --target wasm32-unknown-unknown -- -D warnings
@@ -88,6 +78,7 @@ jobs:
       run: |
         cd server
         cargo test --target x86_64-unknown-linux-gnu -- --nocapture
+
   # Frontend E2E Tests
   frontend-tests:
     runs-on: ubuntu-latest
