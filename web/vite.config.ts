@@ -30,7 +30,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@pkg': fileURLToPath(new URL('./public/pkg', import.meta.url))
+      '@pkg': fileURLToPath(new URL('./pkg', import.meta.url))
     }
   }
 })

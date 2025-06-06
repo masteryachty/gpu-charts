@@ -5,11 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:wasm": "cd .. && wasm-pack build --target web --out-dir web/public/pkg --dev",
+    "dev:wasm": "cd .. && wasm-pack build --target web --out-dir web/pkg --dev",
     "dev:watch": "cd .. && ./scripts/dev-build.sh",
     "dev:full": "concurrently \"npm run dev:watch\" \"npm run dev\"",
     "build": "npm run build:wasm && tsc -b && vite build",
-    "build:wasm": "cd .. && wasm-pack build --target web --out-dir web/public/pkg",
+    "build:wasm": "cd .. && wasm-pack build --target web --out-dir web/pkg",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "test": "playwright test",
