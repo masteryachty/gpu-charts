@@ -446,3 +446,9 @@ FodyWeavers.xsd
 server/rust-web-server/data/
 file_server/target/
 target
+
+# WASM generated files
+**/pkg/*.wasm
+**/pkg/*.js
+**/pkg/*.d.ts
+**/pkg/*.wasm.d.ts
