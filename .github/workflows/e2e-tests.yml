@@ -29,7 +29,7 @@ jobs:
       run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
     
     - name: Cache Rust dependencies
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: |
           ~/.cargo/registry
@@ -57,14 +57,14 @@ jobs:
         cd web
         npm run test
     
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       if: always()
       with:
         name: playwright-report
         path: web/playwright-report/
         retention-days: 30
     
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       if: always()
       with:
         name: test-results
@@ -116,7 +116,7 @@ jobs:
         cd web
         npx playwright test --project=${{ matrix.browser }}
     
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       if: always()
       with:
         name: playwright-report-${{ matrix.browser }}
