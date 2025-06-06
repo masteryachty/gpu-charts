@@ -163,7 +163,7 @@ export default function WasmCanvas({ width, height }: WasmCanvasProps) {
       
       {/* Loading overlay */}
       {isLoading && (
-        <div className="absolute inset-0 bg-bg-secondary/90 flex items-center justify-center">
+        <div className="absolute inset-0 bg-bg-secondary/90 flex items-center justify-center" data-testid="loading-overlay">
           <div className="text-center">
             <div className="animate-spin text-accent-blue text-4xl mb-4">⚡</div>
             <div className="text-text-primary font-medium mb-2">Loading Chart Engine</div>
@@ -174,7 +174,7 @@ export default function WasmCanvas({ width, height }: WasmCanvasProps) {
       
       {/* Error overlay */}
       {error && (
-        <div className="absolute inset-0 bg-bg-secondary/90 flex items-center justify-center">
+        <div className="absolute inset-0 bg-bg-secondary/90 flex items-center justify-center" data-testid="error-overlay">
           <div className="text-center">
             <div className="text-accent-red text-4xl mb-4">⚠️</div>
             <div className="text-text-primary font-medium mb-2">Chart Engine Error</div>
