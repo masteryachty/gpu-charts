@@ -7,11 +7,11 @@ echo "🚀 Starting development build pipeline..."
 # Function to build WASM
 build_wasm() {
     echo "🦀 Building WASM package..."
-    wasm-pack build --target web --out-dir web/public/pkg --dev
+    wasm-pack build --target web --out-dir web/pkg --dev
     
     if [ $? -eq 0 ]; then
         echo "✅ WASM build successful"
-        echo "📦 WASM files output to web/public/pkg/"
+        echo "📦 WASM files output to web/pkg/"
         
         # Trigger Vite reload by touching a watched file
         touch web/src/wasm-trigger.ts
