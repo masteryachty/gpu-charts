@@ -38,27 +38,26 @@ impl SimpleChart {
         // Verify the canvas exists
         let window = web_sys::window().ok_or("No window object available")?;
         let document = window.document().ok_or("No document object available")?;
-        
-        log::info!("Looking for canvas element with id: {}", canvas_id);
-        
-        let canvas_element = document
-            .get_element_by_id(canvas_id)
-            .ok_or_else(|| {
-                log::error!("Canvas element with id '{}' not found in DOM", canvas_id);
-                format!("Canvas with id '{}' not found in DOM", canvas_id)
-            })?;
-        
-        log::info!("Found canvas element: {:?}", canvas_element.tag_name());
-        
-        let html_canvas: HtmlCanvasElement = canvas_element
-            .dyn_into()
-            .map_err(|_| {
-                log::error!("Element with id '{}' is not a canvas element", canvas_id);
-                "Element is not a canvas"
-            })?;
 
-        log::info!("Canvas verification successful. Canvas dimensions: {}x{}", 
-                   html_canvas.width(), html_canvas.height());
+        log::info!("Looking for canvas element with id: {}", canvas_id);
+
+        let canvas_element = document.get_element_by_id(canvas_id).ok_or_else(|| {
+            log::error!("Canvas element with id '{}' not found in DOM", canvas_id);
+            format!("Canvas with id '{}' not found in DOM", canvas_id)
+        })?;
+
+        log::info!("Found canvas element: {:?}", canvas_element.tag_name());
+
+        let html_canvas: HtmlCanvasElement = canvas_element.dyn_into().map_err(|_| {
+            log::error!("Element with id '{}' is not a canvas element", canvas_id);
+            "Element is not a canvas"
+        })?;
+
+        log::info!(
+            "Canvas verification successful. Canvas dimensions: {}x{}",
+            html_canvas.width(),
+            html_canvas.height()
+        );
 
         // Start the existing chart system
         // This will use the existing winit event loop

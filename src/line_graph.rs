@@ -46,7 +46,7 @@ impl LineGraph {
             let engine_b = engine.borrow();
             let device = &engine_b.device;
             data_store.borrow_mut().topic = Some(topic.clone());
-            fetch_data(&device,  start as u32, end as u32, data_store.clone()).await;
+            fetch_data(&device, start as u32, end as u32, data_store.clone()).await;
             // let start_u32: u32 = start.parse().unwrap();
             // let end_u32: u32 = end.parse().unwrap();
             data_store
