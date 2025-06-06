@@ -206,23 +206,23 @@ impl ApplicationHandler<AppEvent> for Application {
 // }
 
 // Internal run function (not exported to WASM)
-fn run() {
-    use winit::platform::web::EventLoopExtWebSys;
-    cfg_if::cfg_if! {
-        if #[cfg(target_arch = "wasm32")] {
-            std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-            console_log::init_with_level(log::Level::Debug).expect("Couldn't initialize logger");
+// fn run() {
+//     use winit::platform::web::EventLoopExtWebSys;
+//     cfg_if::cfg_if! {
+//         if #[cfg(target_arch = "wasm32")] {
+//             std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+//             console_log::init_with_level(log::Level::Debug).expect("Couldn't initialize logger");
 
-        } else {
-            env_logger::init();
-        }
-    }
-    log::info!("Internal run: Starting chart application");
-    let event_loop = EventLoop::with_user_event().build().unwrap_throw();
-    event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
-    let app = Application::new(&event_loop);
-    event_loop.spawn_app(app);
-}
+//         } else {
+//             env_logger::init();
+//         }
+//     }
+//     log::info!("Internal run: Starting chart application");
+//     let event_loop = EventLoop::with_user_event().build().unwrap_throw();
+//     event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
+//     let app = Application::new(&event_loop);
+//     event_loop.spawn_app(app);
+// }
 
 // Manual run function for React integration
 #[cfg(target_arch = "wasm32")]
