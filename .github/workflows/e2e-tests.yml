@@ -1,4 +1,4 @@
-name: E2E Tests
+name: CI Tests
 
 on:
   push:
@@ -7,6 +7,42 @@ on:
     branches: [ main ]
 
 jobs:
+  # API Server Tests
+  server-tests:
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: x86_64-unknown-linux-gnu
+    
+    - name: Cache Rust dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          server/target
+        key: ${{ runner.os }}-server-cargo-${{ hashFiles('server/Cargo.lock', 'server/Cargo.toml') }}
+    
+    - name: Build server
+      run: |
+        cd server
+        cargo build --target x86_64-unknown-linux-gnu
+    
+    - name: Run server unit and integration tests
+      run: |
+        cd server
+        cargo test --target x86_64-unknown-linux-gnu --verbose
+    
+    - name: Generate test coverage report
+      run: |
+        cd server
+        cargo test --target x86_64-unknown-linux-gnu -- --nocapture
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
