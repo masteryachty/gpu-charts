@@ -18,6 +18,10 @@ mod wrappers;
 // use renderer::render_engine::GraphicsError;
 
 mod line_graph;
+
+// React bridge module for integration
+#[cfg(target_arch = "wasm32")]
+mod react_bridge;
 use crate::line_graph::LineGraph;
 extern crate nalgebra_glm as glm;
 
@@ -44,7 +48,7 @@ enum Application {
 impl Application {
     fn new(event_loop: &EventLoop<AppEvent>) -> Self {
         let loop_proxy = Some(event_loop.create_proxy());
-        log::info!("Creating a new application");
+        log::info!("Creating a new application 1");
         Self::Building(loop_proxy)
     }
 
@@ -111,7 +115,7 @@ impl ApplicationHandler<AppEvent> for Application {
     }
 
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        log::info!("App is resumed");
+        log::info!("App is resumed1");
 
         let Self::Building(builder) = self else {
             return; // Graphics have been built.
@@ -121,14 +125,23 @@ impl ApplicationHandler<AppEvent> for Application {
         };
 
         let mut window_attrs = Window::default_attributes();
+        log::info!("App is resumed 2");
 
         #[cfg(target_arch = "wasm32")]
         {
             use web_sys::wasm_bindgen::JsCast;
             use winit::platform::web::WindowAttributesExtWebSys;
+            log::info!("a");
+
             let window = web_sys::window().unwrap_throw();
+            log::info!("b");
+
             let document = window.document().unwrap_throw();
+            log::info!("c");
+
             let canvas = document.get_element_by_id(CANVAS_ID).unwrap_throw();
+            log::info!("d");
+
             let html_canvas_element = canvas.unchecked_into();
             window_attrs = window_attrs.with_canvas(Some(html_canvas_element));
             log::info!("App is now up and running {:?}", window_attrs);
@@ -158,22 +171,42 @@ impl ApplicationHandler<AppEvent> for Application {
         let size = window.inner_size();
         graphics.borrow_mut().resized(size.width, size.height);
         let data_store = graphics.borrow().data_store.clone();
-        let canvas_controller = CanvasController::new(window.clone(), data_store, graphics.borrow().engine.clone());
+        let canvas_controller =
+            CanvasController::new(window.clone(), data_store, graphics.borrow().engine.clone());
 
         //log::info!("App is now up and running");
         *self = Self::Running {
             window,
             graphics: graphics.clone(),
             canvas_controller,
-            
         };
         self.render();
     }
 }
 
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen(start)]
-pub fn run() {
+// Auto-start function for standalone mode (COMPLETELY DISABLED for React integration)
+// #[cfg(all(target_arch = "wasm32", not(feature = "react-mode")))]
+// #[wasm_bindgen(start)]
+// pub fn run() {
+//     use winit::platform::web::EventLoopExtWebSys;
+//     cfg_if::cfg_if! {
+//         if #[cfg(target_arch = "wasm32")] {
+//             std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+//             console_log::init_with_level(log::Level::Debug).expect("Couldn't initialize logger");
+
+//         } else {
+//             env_logger::init();
+//         }
+//     }
+//     //log::info!("New Api Example is starting");
+//     let event_loop = EventLoop::with_user_event().build().unwrap_throw();
+//     event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
+//     let app = Application::new(&event_loop);
+//     event_loop.spawn_app(app);
+// }
+
+// Internal run function (not exported to WASM)
+fn run() {
     use winit::platform::web::EventLoopExtWebSys;
     cfg_if::cfg_if! {
         if #[cfg(target_arch = "wasm32")] {
@@ -184,7 +217,31 @@ pub fn run() {
             env_logger::init();
         }
     }
-    //log::info!("New Api Example is starting");
+    log::info!("Internal run: Starting chart application");
+    let event_loop = EventLoop::with_user_event().build().unwrap_throw();
+    event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
+    let app = Application::new(&event_loop);
+    event_loop.spawn_app(app);
+}
+
+// Manual run function for React integration
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn manual_run() {
+    use winit::platform::web::EventLoopExtWebSys;
+    cfg_if::cfg_if! {
+        if #[cfg(target_arch = "wasm32")] {
+    log::info!("88889");
+
+            std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+            let _ = console_log::init_with_level(log::Level::Debug);
+
+        } else {
+            env_logger::init();
+        }
+    }
+
+    log::info!("Manual run: Starting chart application");
     let event_loop = EventLoop::with_user_event().build().unwrap_throw();
     event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
     let app = Application::new(&event_loop);

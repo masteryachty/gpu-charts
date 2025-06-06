@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-bg-primary text-text-primary;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  /* Custom scrollbar for dark theme */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-bg-secondary;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-text-tertiary rounded;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-text-secondary;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-accent-blue text-white px-6 py-3 font-medium transition-all duration-200 hover:bg-accent-blue/90 hover:shadow-lg;
+  }
+  
+  .btn-secondary {
+    @apply bg-bg-tertiary text-text-primary border border-border px-6 py-3 font-medium transition-all duration-200 hover:bg-bg-quaternary;
+  }
+  
+  .input-primary {
+    @apply bg-bg-quaternary border border-border text-text-primary px-4 py-2 transition-all duration-200 focus:border-accent-blue focus:outline-none;
+  }
+  
+  .card {
+    @apply bg-bg-secondary border border-border;
+  }
+  
+  .text-gradient {
+    @apply bg-gradient-to-r from-accent-green to-accent-blue bg-clip-text text-transparent;
+  }
+}
+
+@layer utilities {
+  .animation-delay-200 {
+    animation-delay: 200ms;
+  }
+  
+  .animation-delay-400 {
+    animation-delay: 400ms;
+  }
+}
+
+/* Price animations */
+.price-up {
+  @apply animate-pulse-green;
+}
+
+.price-down {
+  @apply animate-pulse-red;
+}
