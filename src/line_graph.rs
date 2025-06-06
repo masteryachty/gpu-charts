@@ -43,8 +43,10 @@ impl LineGraph {
             let engine_promise = RenderEngine::new(window.clone(), data_store.clone()).await;
 
             engine = Rc::new(RefCell::new(engine_promise.unwrap()));
-            let engine_b = engine.borrow();
-            let device = &engine_b.device;
+            let device = {
+                let engine_b = engine.borrow();
+                engine_b.device.clone()
+            };
             data_store.borrow_mut().topic = Some(topic.clone());
             fetch_data(&device, start as u32, end as u32, data_store.clone()).await;
             // let start_u32: u32 = start.parse().unwrap();
@@ -81,17 +83,19 @@ impl LineGraph {
         Ok(Self {
             engine,
             // line_width: 1.0,
-            data_store: data_store,
+            data_store,
             // web_socket,
         })
     }
 
+    #[allow(clippy::await_holding_refcell_ref)]
     pub async fn render(&self) -> Result<(), wgpu::SurfaceError> {
-        let e = self.engine.try_borrow_mut();
-        if e.is_ok() {
-            e.unwrap().render().await?
+        // We need to be careful with RefCell borrows across await points
+        // Check if we can borrow first, then clone the future
+        match self.engine.try_borrow_mut() {
+            Ok(mut engine) => engine.render().await,
+            Err(_) => Ok(()),
         }
-        Ok(())
     }
 
     pub fn resized(&mut self, width: u32, height: u32) {

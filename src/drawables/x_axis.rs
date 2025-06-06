@@ -228,8 +228,8 @@ impl XAxisRenderer {
             .unwrap()
             .build(
                 device,
-                data_store.borrow().screen_size.width as u32,
-                data_store.borrow().screen_size.height as u32,
+                data_store.borrow().screen_size.width,
+                data_store.borrow().screen_size.height,
                 color_format,
             );
 

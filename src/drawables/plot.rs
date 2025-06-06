@@ -64,9 +64,9 @@ impl RenderListener for PlotRenderer {
                     .iter()
                     .enumerate()
                 {
-                    render_pass.set_vertex_buffer(0 as u32, buffer.slice(..));
+                    render_pass.set_vertex_buffer(0, buffer.slice(..));
                     render_pass.set_vertex_buffer(
-                        1 as u32,
+                        1,
                         ds.data_groups[ds.active_data_group_index].y_buffers[i].slice(..),
                     );
                     log::info!("size: {:?}", buffer.size());

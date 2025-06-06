@@ -7,6 +7,12 @@ static mut CHART_INITIALIZED: bool = false;
 #[wasm_bindgen]
 pub struct SimpleChart;
 
+impl Default for SimpleChart {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[wasm_bindgen]
 impl SimpleChart {
     #[wasm_bindgen(constructor)]
