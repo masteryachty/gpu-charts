@@ -72,6 +72,8 @@ cd file_server && cargo build && cargo run
 
 Example data server request: `https://localhost:8443/api/data?symbol=BTC-USD&type=MD&start=1234567890&end=1234567900&columns=time,best_bid`
 
+Example legacy server: `http://localhost:8080?topic=sensor_data&start=1234567890&end=1234567900`
+
 ## Server Architecture
 
 ### Data Server (`/server`)
