@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-
 use web_sys::{window, UrlSearchParams};
+
 pub fn get_query_params() -> HashMap<String, String> {
     // Obtain the `Location` object
     let location = window().expect("should have a Window").location();
