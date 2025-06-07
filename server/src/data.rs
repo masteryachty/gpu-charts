@@ -12,6 +12,7 @@ use serde_json::json;
 use url::form_urlencoded;
 
 // For mlock.
+use libc;
 
 // Added for multi–day date handling.
 use chrono::{TimeZone, Utc};
