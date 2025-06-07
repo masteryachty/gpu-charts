@@ -157,9 +157,11 @@ impl RenderEngine {
         let instance = wgpu::Instance::new(&t);
         let surface = {
             use wgpu::SurfaceTarget;
-            instance.create_surface(SurfaceTarget::Canvas(
-                window.canvas().expect("Window should have a canvas")
-            )).unwrap()
+            instance
+                .create_surface(SurfaceTarget::Canvas(
+                    window.canvas().expect("Window should have a canvas"),
+                ))
+                .unwrap()
         };
         // get time in milliseconds
         // let performance = web_sys::window().unwrap().performance().unwrap();
