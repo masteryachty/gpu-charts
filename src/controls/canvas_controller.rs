@@ -123,35 +123,32 @@ impl CanvasController {
     ) {
         log::info!("handle_cursor_wheel type: {:?} {:?}", delta, phase);
 
-        match delta {
-            MouseScrollDelta::PixelDelta(position) => {
-                // println!("Scrolled (lines): x = {}, y = {}", position.x, .positiony);
-                if position.y < 0. {
-                    let data_store = self.data_store.clone();
-                    let engine = self.engine.clone();
-                    let window = self.window.clone();
+        if let MouseScrollDelta::PixelDelta(position) = delta {
+            // println!("Scrolled (lines): x = {}, y = {}", position.x, .positiony);
+            if position.y < 0. {
+                let data_store = self.data_store.clone();
+                let engine = self.engine.clone();
+                let window = self.window.clone();
 
-                    spawn_local(async move {
-                        let start_x = data_store.borrow().start_x;
-                        let end_x = data_store.borrow().end_x;
-                        let range = end_x - start_x;
-                        let new_start = start_x - (range / 2);
-                        let new_end = end_x + (range / 2);
+                spawn_local(async move {
+                    let start_x = data_store.borrow().start_x;
+                    let end_x = data_store.borrow().end_x;
+                    let range = end_x - start_x;
+                    let new_start = start_x - (range / 2);
+                    let new_end = end_x + (range / 2);
 
-                        let device = &engine.borrow().device;
+                    let device = {
+                        let engine_borrow = engine.borrow();
+                        engine_borrow.device.clone()
+                    };
 
-                        fetch_data(device, new_start as u32, new_end as u32, data_store.clone())
-                            .await;
-                        data_store
-                            .borrow_mut()
-                            .set_x_range(new_start as u32, new_end as u32);
+                    fetch_data(&device, new_start, new_end, data_store.clone()).await;
+                    data_store.borrow_mut().set_x_range(new_start, new_end);
 
-                        window.request_redraw();
-                        log::info!("Scrolled: new_start = {}, new_end = {}", new_start, new_end);
-                    });
-                }
+                    window.request_redraw();
+                    log::info!("Scrolled: new_start = {}, new_end = {}", new_start, new_end);
+                });
             }
-            _ => {}
         }
     }
 }

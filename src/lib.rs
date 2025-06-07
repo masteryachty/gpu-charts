@@ -57,15 +57,19 @@ impl Application {
             Self::Running { graphics, .. } => {
                 log::info!("draw");
                 let graphics = graphics.clone();
-                wasm_bindgen_futures::spawn_local(async move {
-                    if let Err(e) = graphics.borrow().render().await {
-                        log::error!("Render failed: {:?}", e);
-                    }
-                });
+                #[allow(clippy::await_holding_refcell_ref)]
+                {
+                    wasm_bindgen_futures::spawn_local(async move {
+                        if let Ok(graphics_ref) = graphics.try_borrow() {
+                            if let Err(e) = graphics_ref.render().await {
+                                log::error!("Render failed: {:?}", e);
+                            }
+                        }
+                    });
+                }
             }
             _ => {
                 log::info!("Draw call rejected because graphics doesn't exist yet");
-                return;
             }
         }
     }
@@ -77,8 +81,8 @@ impl Application {
         let graphics = graphics.clone();
         log::info!("Resized {:?} {:?}", size.width, size.height);
         let g = graphics.try_borrow_mut();
-        if g.is_ok() {
-            g.unwrap().resized(size.width, size.height);
+        if let Ok(mut g) = g {
+            g.resized(size.width, size.height);
         }
     }
 }
@@ -100,14 +104,14 @@ impl ApplicationHandler<AppEvent> for Application {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::MouseWheel { .. }
             | WindowEvent::MouseInput { .. }
-            | WindowEvent::CursorMoved { .. } => match self {
-                Self::Running {
+            | WindowEvent::CursorMoved { .. } => {
+                if let Self::Running {
                     canvas_controller, ..
-                } => {
+                } = self
+                {
                     canvas_controller.handle_cursor_event(event);
                 }
-                _ => {}
-            },
+            }
             event => {
                 log::info!("Event type not handled : {:?}", event);
             }

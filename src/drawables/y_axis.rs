@@ -41,9 +41,8 @@ impl RenderListener for YAxisRenderer {
         let height = data_store.borrow().screen_size.height as i32;
 
         // Only recalculate and recreate buffers if the data range or width has changed
-        let needs_recalculation = self.last_min_y != min as f32
-            || self.last_max_y != max as f32
-            || self.last_height != height;
+        let needs_recalculation =
+            self.last_min_y != min || self.last_max_y != max || self.last_height != height;
 
         if needs_recalculation {
             log::info!(
@@ -101,8 +100,8 @@ impl RenderListener for YAxisRenderer {
             ));
 
             // Update cached values
-            self.last_min_y = min as f32;
-            self.last_max_y = max as f32;
+            self.last_min_y = min;
+            self.last_max_y = max;
             self.last_height = height;
 
             // Update text brush
@@ -186,8 +185,8 @@ impl YAxisRenderer {
             .unwrap()
             .build(
                 device,
-                data_store.borrow().screen_size.width as u32,
-                data_store.borrow().screen_size.height as u32,
+                data_store.borrow().screen_size.width,
+                data_store.borrow().screen_size.height,
                 color_format,
             );
 

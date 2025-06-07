@@ -196,8 +196,8 @@ impl RenderEngine {
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: surface_format,
-            width: data_store.borrow().screen_size.width as u32,
-            height: data_store.borrow().screen_size.height as u32,
+            width: data_store.borrow().screen_size.width,
+            height: data_store.borrow().screen_size.height,
             present_mode: surface_capabilities.present_modes[0],
             alpha_mode: surface_capabilities.alpha_modes[0],
             view_formats: vec![],

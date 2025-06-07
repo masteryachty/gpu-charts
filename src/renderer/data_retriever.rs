@@ -25,7 +25,7 @@ pub struct ApiHeader {
 
 pub fn create_gpu_buffer_from_vec<T: Pod>(
     device: &wgpu::Device,
-    data: &Vec<T>,
+    data: &[T],
     label: &str,
 ) -> wgpu::Buffer {
     let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -154,7 +154,7 @@ pub async fn fetch_data(
     // For example, if topic is "BTC-USD", the URL might look like:
     //   https://localhost:8443/api/data?symbol=BTC-USD&type=MD&start=0&end=1739785500000&columns=time,best_bid
     let topic = data_store.borrow().topic.clone().unwrap();
-    
+
     let url = format!(
         "https://localhost:8443/api/data?symbol={}&type=MD&start={}&end={}&columns=time,best_bid",
         topic,
