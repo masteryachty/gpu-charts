@@ -18,12 +18,12 @@ pub fn calculate_min_max_y(
 
     let x_series = &data_store.get_active_data_group().x_raw;
     let (start_idx, _) = find_closest(mix_x, x_series);
-    let start_index = start_idx as u32;
+    let start_index = start_idx;
 
     let (end_idx, _) = find_closest(max_x, x_series);
-    let end_index = end_idx as u32 + 1; // Adjust to be exclusive
+    let end_index = end_idx + 1; // Adjust to be exclusive
     let x_data = Float32Array::new(x_series);
-    let max_index = x_data.length() as u32;
+    let max_index = x_data.length();
     let end_index = end_index.clamp(0, max_index);
     log::info!("1.5 {:?} {:?}", start_index, end_index);
 
@@ -31,7 +31,7 @@ pub fn calculate_min_max_y(
     let workgroup_size: u64 = 256;
     let chunk_size = workgroup_size as u32 * thread_mult;
     let sub_range_count = end_index - start_index;
-    let num_groups = ((sub_range_count as u32) + chunk_size - 1) / chunk_size;
+    let num_groups = sub_range_count.div_ceil(chunk_size);
 
     let y_buffers = &data_store.get_active_data_group().y_buffers;
     let num_buffers = y_buffers.len();
@@ -61,7 +61,7 @@ pub fn calculate_min_max_y(
             mapped_at_creation: false,
         });
 
-        let params_first = [start_index, end_index, chunk_size as u32];
+        let params_first = [start_index, end_index, chunk_size];
         let params_first_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("First Pass Params"),
             contents: bytemuck::cast_slice(&params_first),
@@ -107,7 +107,7 @@ pub fn calculate_min_max_y(
 
         while current_count > 1 {
             pass_index += 1;
-            let next_num_groups = (current_count + sub_chunk_size - 1) / sub_chunk_size;
+            let next_num_groups = current_count.div_ceil(sub_chunk_size);
 
             let partial_out_buffer = device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some(&format!("Partial Buffer Pass {}", pass_index)),
@@ -180,7 +180,7 @@ pub fn calculate_min_max_y(
 }
 
 fn find_closest(target: u32, data_array_buffer: &ArrayBuffer) -> (u32, u32) {
-    let data = Uint32Array::new(&data_array_buffer);
+    let data = Uint32Array::new(data_array_buffer);
     let len = data.length() as usize;
     if len == 0 {
         panic!("ArrayBuffer cannot be empty");
@@ -195,19 +195,19 @@ fn find_closest(target: u32, data_array_buffer: &ArrayBuffer) -> (u32, u32) {
     let mut low = 0;
     let mut high = len - 1;
     let mut closest_idx = 0;
-    let mut closest_diff = i32::max_value();
+    let mut closest_diff = i32::MAX;
 
     while low <= high {
         let mid = (low + high) / 2;
         let val = data.get_index(mid as u32);
 
-        if val < target {
-            low = mid + 1;
-        } else if val > target {
-            high = mid - 1;
-        } else {
-            closest_idx = mid;
-            break;
+        match val.cmp(&target) {
+            std::cmp::Ordering::Less => low = mid + 1,
+            std::cmp::Ordering::Greater => high = mid - 1,
+            std::cmp::Ordering::Equal => {
+                closest_idx = mid;
+                break;
+            }
         }
 
         let diff = val as i32 - target as i32;

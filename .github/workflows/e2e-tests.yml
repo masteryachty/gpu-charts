@@ -7,11 +7,46 @@ on:
     branches: [ main ]
 
 jobs:
+  # Code Quality and Linting
+  lint:
+    runs-on: ubuntu-latest
+    name: Code Quality
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'web/package-lock.json'
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+      
+      - name: Install dependencies
+        run: |
+          cd web
+          npm ci
+      
+      - name: Run TypeScript/React linting
+        run: |
+          cd web
+          npm run lint
+      
+      - name: Check Rust formatting (main)
+        run: cargo fmt --check
+      
+      - name: Run Clippy (main)
+        run: cargo clippy --target wasm32-unknown-unknown -- -D warnings
+
   # API Server Tests
   server-tests:
-    timeout-minutes: 30
     runs-on: ubuntu-latest
-    
+    name: Server Tests
+    needs: lint
     steps:
     - uses: actions/checkout@v4
     
@@ -43,9 +78,12 @@ jobs:
       run: |
         cd server
         cargo test --target x86_64-unknown-linux-gnu -- --nocapture
-  test:
-    timeout-minutes: 60
+
+  # Frontend E2E Tests
+  frontend-tests:
     runs-on: ubuntu-latest
+    name: Frontend E2E Tests
+    needs: lint
     
     steps:
     - uses: actions/checkout@v4
@@ -107,10 +145,11 @@ jobs:
         path: web/test-results/
         retention-days: 30
 
-  # Separate job for browser compatibility testing
+  # Browser Compatibility Testing
   browser-compatibility:
-    timeout-minutes: 60
     runs-on: ubuntu-latest
+    name: Browser Compatibility
+    needs: [lint, frontend-tests]
     strategy:
       matrix:
         browser: [chromium, firefox, webkit]
