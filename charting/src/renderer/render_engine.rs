@@ -7,6 +7,9 @@ use getrandom::Error;
 // use web_sys;
 use winit::window::Window;
 
+#[cfg(target_arch = "wasm32")]
+use winit::platform::web::WindowExtWebSys;
+
 pub struct RenderEngine {
     // instance: wgpu::Instance,
     surface: wgpu::Surface<'static>,
@@ -152,7 +155,12 @@ impl RenderEngine {
         // log::info!("a");
 
         let instance = wgpu::Instance::new(&t);
-        let surface = instance.create_surface(window.clone()).unwrap();
+        let surface = {
+            use wgpu::SurfaceTarget;
+            instance.create_surface(SurfaceTarget::Canvas(
+                window.canvas().expect("Window should have a canvas")
+            )).unwrap()
+        };
         // get time in milliseconds
         // let performance = web_sys::window().unwrap().performance().unwrap();
         // let start = performance.now();
