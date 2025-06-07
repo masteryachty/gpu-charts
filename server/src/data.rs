@@ -12,7 +12,6 @@ use serde_json::json;
 use url::form_urlencoded;
 
 // For mlock.
-use libc;
 
 // Added for multi–day date handling.
 use chrono::{TimeZone, Utc};
@@ -40,7 +39,7 @@ struct ColumnMeta {
     data_length: usize,
 }
 
-/// Holds the memory–mapped column along with slice boundaries.
+// Holds the memory–mapped column along with slice boundaries.
 // struct ColumnData {
 //     name: String,
 //     record_size: usize,

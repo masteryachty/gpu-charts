@@ -99,10 +99,9 @@ async fn test_load_mmap_nonexistent_file() {
 
 #[cfg(test)]
 mod integration_tests {
-    use super::*;
     use std::fs;
     use tempfile::TempDir;
-    use hyper::{Body, Method, Request, StatusCode};
+    use hyper::{Body, Method, Request};
     
     async fn create_test_data_structure() -> TempDir {
         let temp_dir = TempDir::new().unwrap();
@@ -134,7 +133,7 @@ mod integration_tests {
         // for testing, or setting up environment variables
         
         // For now, just test that the function signature works
-        let request = Request::builder()
+        let _request = Request::builder()
             .method(Method::GET)
             .uri("/api/data?symbol=BTC-USD&type=MD&start=1000&end=5000&columns=time,best_bid")
             .body(Body::empty())
