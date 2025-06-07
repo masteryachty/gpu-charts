@@ -1,11 +1,15 @@
 [workspace]
 resolver = "2"
 members = [
-    "charting",
     "server", 
     "coinbase-logger",
     "file_server"
 ]
+exclude = [
+    "charting"
+]
+
+# Note: charting is WASM-only and built via wasm-pack, excluded from workspace
 
 [workspace.dependencies]
 # Common dependencies across workspace members
