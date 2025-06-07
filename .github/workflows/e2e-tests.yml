@@ -36,11 +36,18 @@ jobs:
           cd web
           npm run lint
       
-      - name: Check Rust formatting (main)
+      - name: Check Rust formatting (workspace)
         run: cargo fmt --check
       
-      - name: Run Clippy (main)
-        run: cargo clippy --target wasm32-unknown-unknown -- -D warnings
+      - name: Check Rust formatting (charting)
+        run: |
+          cd charting
+          cargo fmt --check
+      
+      - name: Run Clippy (charting WASM)
+        run: |
+          cd charting
+          cargo clippy --target wasm32-unknown-unknown -- -D warnings
 
   # API Server Tests
   server-tests:
@@ -108,7 +115,7 @@ jobs:
         path: |
           ~/.cargo/registry
           ~/.cargo/git
-          target
+          charting/target
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
     
     - name: Install dependencies
@@ -117,9 +124,7 @@ jobs:
         npm ci
     
     - name: Build WASM module
-      run: |
-        cd web
-        npm run build:wasm
+      run: npm run build:wasm
     
     - name: Install Playwright Browsers
       run: |
@@ -177,9 +182,7 @@ jobs:
         npm ci
     
     - name: Build WASM module
-      run: |
-        cd web
-        npm run build:wasm
+      run: npm run build:wasm
     
     - name: Install Playwright Browsers
       run: |

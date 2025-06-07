@@ -8,50 +8,63 @@ This is a WebAssembly-based real-time data visualization application built in Ru
 
 ## Development Commands
 
-### Building and Development
+### Primary Development Workflow (from project root)
 ```bash
 # Build WASM module for development (generates files in web/pkg)
-cd web && npm run dev:wasm
+npm run dev:wasm
 
 # Watch Rust files and auto-rebuild WASM with hot reload
-cd web && npm run dev:watch
+npm run dev:watch
 
 # Build and run the data server (port 8443)
-cd web && npm run dev:server
+npm run dev:server
 
 # Full development server (WASM watch + React dev server)
-cd web && npm run dev:full
+npm run dev:full
 
 # Complete development stack (WASM + server + React)
-cd web && npm run dev:complete
+npm run dev:complete
+
+# Complete development stack with data logger
+npm run dev:complete:full
 
 # Set up SSL certificates for local development
-cd web && npm run setup:ssl
+npm run setup:ssl
 
-# Production build
-cd web && npm run build
+# Production build (WASM + React)
+npm run build
 
-# Build server for production
-cd web && npm run build:server
+# Build all components for production
+npm run build:server
+npm run build:logger
 
 # Lint TypeScript/React code
-cd web && npm run lint
+npm run lint
+
+# Clean all build artifacts
+npm run clean
 ```
 
-### Testing
+### Testing (from project root)
 ```bash
+# Run all tests (server + web frontend)
+npm run test
+
 # Run server unit and integration tests
-cd web && npm run test:server
+npm run test:server
 
 # Run server API integration tests (requires running server)
-cd web && npm run test:server:api
+npm run test:server:api
+
+# Run coinbase logger tests
+npm run test:logger
 
 # Run React/frontend tests
-cd web && npm run test
+npm run test:web
 
 # Run specific frontend test suites
-cd web && npm run test:data
-cd web && npm run test:basic
+npm run test:data
+npm run test:basic
 ```
 
 ### Alternative File Server (Legacy)
@@ -132,26 +145,26 @@ npm run test:server:api      # Live API tests (requires running server)
 
 ## Architecture Overview
 
-### Core Components
-- **LineGraph** (`src/line_graph.rs`): Main orchestrator that manages data fetching, rendering, and user interactions
-- **RenderEngine** (`src/renderer/render_engine.rs`): WebGPU rendering system with surface management
-- **DataStore** (`src/renderer/data_store.rs`): Manages time-series data buffers and screen transformations
-- **DataRetriever** (`src/renderer/data_retriever.rs`): HTTP-based data fetching from external APIs
+### Core Components (Charting Library)
+- **LineGraph** (`charting/src/line_graph.rs`): Main orchestrator that manages data fetching, rendering, and user interactions
+- **RenderEngine** (`charting/src/renderer/render_engine.rs`): WebGPU rendering system with surface management
+- **DataStore** (`charting/src/renderer/data_store.rs`): Manages time-series data buffers and screen transformations
+- **DataRetriever** (`charting/src/renderer/data_retriever.rs`): HTTP-based data fetching from external APIs
 
 ### Rendering Pipeline
 The application uses separate render passes for different components:
-- **PlotRenderer** (`src/drawables/plot.rs`): Main data line visualization
-- **XAxisRenderer** (`src/drawables/x_axis.rs`): Time-based X-axis with labels
-- **YAxisRenderer** (`src/drawables/y_axis.rs`): Value-based Y-axis with labels
+- **PlotRenderer** (`charting/src/drawables/plot.rs`): Main data line visualization
+- **XAxisRenderer** (`charting/src/drawables/x_axis.rs`): Time-based X-axis with labels
+- **YAxisRenderer** (`charting/src/drawables/y_axis.rs`): Value-based Y-axis with labels
 
 Each renderer has corresponding WGSL compute/vertex/fragment shaders.
 
 ### GPU Compute
-- **MinMax** (`src/calcables/min_max.rs`): Uses compute shaders to efficiently calculate dataset bounds on GPU
+- **MinMax** (`charting/src/calcables/min_max.rs`): Uses compute shaders to efficiently calculate dataset bounds on GPU
 - All shaders located in respective component directories as `.wgsl` files
 
 ### User Interaction
-- **CanvasController** (`src/controls/canvas_controller.rs`): Handles mouse wheel zoom, cursor panning, and triggers data refetching for new time ranges
+- **CanvasController** (`charting/src/controls/canvas_controller.rs`): Handles mouse wheel zoom, cursor panning, and triggers data refetching for new time ranges
 
 ## Key Technical Considerations
 
@@ -175,37 +188,53 @@ Each renderer has corresponding WGSL compute/vertex/fragment shaders.
 
 ## Multi-Component Architecture
 
-This project consists of three main components working together:
+This project consists of four main components working together:
 
-### 1. React Frontend Mode (Primary)
-- **Frontend**: Modern React app with TypeScript, Tailwind CSS, and Vite
-- **WASM Output**: `web/pkg/` for React integration
+### 1. Charting Library (`/charting`)
+- **Core Engine**: WebAssembly-based charting library built in Rust
+- **Technology**: WebGPU for GPU-accelerated rendering, WASM for web integration
+- **Output**: Built to `web/pkg/` for React consumption
+- **Features**: Real-time data visualization, interactive controls, high-performance rendering
 - **Development**: Hot reloading via `scripts/dev-build.sh` watching Rust changes
+
+### 2. React Frontend (`/web`)
+- **Frontend**: Modern React app with TypeScript, Tailwind CSS, and Vite
+- **Integration**: Consumes WASM charting library from `web/pkg/`
 - **State Management**: Zustand store in `web/src/store/`
 - **Components**: React components in `web/src/components/` with chart integration
 - **Data Source**: Connects to local data server via HTTPS API
 
-### 2. Data Server (Production Ready)
+### 3. Data Server (`/server`)
 - **Backend**: High-performance Rust server with HTTP/2 and TLS
 - **Purpose**: Serves financial time-series data with ultra-low latency
-- **Location**: `/server` directory
 - **API**: RESTful endpoints for data and symbol queries
 - **Storage**: Memory-mapped binary files for zero-copy data access
 - **Testing**: Comprehensive test suite with 26 total tests (18 unit + 8 integration)
 - **Development**: Must use `--target x86_64-unknown-linux-gnu` for all cargo operations
 
-### 3. Legacy File Server (Development Only)
-- **File Server**: Simple Actix-web server in `file_server/`
+### 4. Coinbase Logger (`/coinbase-logger`)
+- **Purpose**: Real-time market data collection from Coinbase WebSocket feed
+- **Output**: Writes binary data files that the server memory-maps
+- **Technology**: Multi-threaded Rust application with WebSocket connections
+- **Integration**: Feeds data directly to server for live visualization
+
+### 5. Legacy File Server (`/file_server`)
+- **File Server**: Simple Actix-web server (development only)
 - **Direct WASM**: Traditional web integration without React framework
 - **Legacy Support**: Maintains original URL parameter-based interface
 
 ## File Structure Notes
-- `web/pkg/`: Generated WASM modules for React integration
+- `charting/`: Core WebAssembly charting library (moved from root `src/`)
+  - WGSL shaders co-located with respective Rust components
+  - Font files in `charting/src/drawables/` for text rendering
+  - React bridge code in `charting/src/lib_react.rs` and `charting/src/react_bridge.rs`
+- `web/`: React frontend application
+  - `web/pkg/`: Generated WASM modules from charting library
 - `server/`: High-performance data server with SSL certificates
+- `coinbase-logger/`: Real-time market data collection service
 - `file_server/`: Simple Actix-web development server (legacy mode)
 - `scripts/`: Build and development automation scripts
-  - `dev-build.sh`: Automated WASM rebuilding with file watching
+  - `dev-build.sh`: Automated WASM rebuilding with file watching (updated paths)
   - `setup-ssl.sh`: SSL certificate generation and management
-- WGSL shaders co-located with respective Rust components
-- Font files in `src/drawables/` for text rendering
-- React bridge code in `src/lib_react.rs` and `src/react_bridge.rs`
+- `package.json`: Top-level orchestration scripts for all components
+- `Cargo.toml`: Workspace configuration for all Rust components

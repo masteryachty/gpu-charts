@@ -40,7 +40,7 @@ struct ColumnMeta {
     data_length: usize,
 }
 
-/// Holds the memory–mapped column along with slice boundaries.
+// Holds the memory–mapped column along with slice boundaries.
 // struct ColumnData {
 //     name: String,
 //     record_size: usize,
@@ -104,7 +104,7 @@ impl Buf for DataChunk {
     }
 }
 
-/// This implementation is required so that our stream items (of type DataChunk)
+/// This implementation is required so that our stream items (of type `DataChunk`)
 /// satisfy Hyper’s requirement that they are convertible into Bytes.
 impl From<DataChunk> for Bytes {
     fn from(chunk: DataChunk) -> Bytes {
@@ -133,12 +133,12 @@ pub fn parse_query_params(query: Option<&str>) -> Result<QueryParams, String> {
         .get("start")
         .ok_or("Missing start")?
         .parse::<u32>()
-        .map_err(|e| format!("Invalid start: {}", e))?;
+        .map_err(|e| format!("Invalid start: {e}"))?;
     let end = params
         .get("end")
         .ok_or("Missing end")?
         .parse::<u32>()
-        .map_err(|e| format!("Invalid end: {}", e))?;
+        .map_err(|e| format!("Invalid end: {e}"))?;
     let columns_str = params.get("columns").ok_or("Missing columns")?.to_string();
     let columns: Vec<String> = columns_str
         .split(',')
@@ -194,22 +194,21 @@ pub fn find_end_index(time_slice: &[u32], target: u32) -> usize {
 pub async fn load_mmap(path: &str) -> Result<Mmap, String> {
     let path = path.to_string();
     tokio::task::spawn_blocking(move || {
-        let file = File::open(&path).map_err(|e| format!("Failed to open {}: {}", path, e))?;
+        let file = File::open(&path).map_err(|e| format!("Failed to open {path}: {e}"))?;
         // Safety: we assume the file is not modified while mapped.
-        let mmap =
-            unsafe { Mmap::map(&file).map_err(|e| format!("Failed to mmap {}: {}", path, e))? };
+        let mmap = unsafe { Mmap::map(&file).map_err(|e| format!("Failed to mmap {path}: {e}"))? };
 
         // Optionally lock the mmap pages in memory.
         unsafe {
             let ret = libc::mlock(mmap.as_ptr() as *const libc::c_void, mmap.len());
             if ret != 0 {
-                eprintln!("Warning: mlock failed for {} (errno {})", path, ret);
+                eprintln!("Warning: mlock failed for {path} (errno {ret})");
             }
         }
         Ok(mmap)
     })
     .await
-    .map_err(|e| format!("Task join error: {:?}", e))?
+    .map_err(|e| format!("Task join error: {e:?}"))?
 }
 
 /// Main handler for the /api/data endpoint.
@@ -266,10 +265,10 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
     for day in days {
         // Format the day as "DD.MM.YY"
         let date_suffix = day.format("%d.%m.%y").to_string();
-        println!("Processing day: {}", date_suffix);
+        println!("Processing day: {date_suffix}");
 
         // Build the time file path for this day.
-        let time_path = format!("{}/time.{}.bin", base_path, date_suffix);
+        let time_path = format!("{base_path}/time.{date_suffix}.bin");
         let time_mmap = match load_mmap(&time_path).await {
             Ok(mmap) => mmap,
             Err(e) => {
@@ -357,7 +356,7 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
                 None => {
                     return Ok(Response::builder()
                         .status(StatusCode::BAD_REQUEST)
-                        .body(Body::from(format!("Unknown column: {}", col)))
+                        .body(Body::from(format!("Unknown column: {col}")))
                         .unwrap());
                 }
             };
@@ -419,7 +418,7 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
     }
     let header_json = json!({ "columns": columns_meta });
     let header_str = header_json.to_string() + "\n";
-    println!("Header JSON: {}", header_str);
+    println!("Header JSON: {header_str}");
 
     // Build the stream of DataChunks.
     let mut chunks: Vec<Result<DataChunk, std::io::Error>> = Vec::new();
