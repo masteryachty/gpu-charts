@@ -1,12 +1,9 @@
 // main.rs
 
-use std::{
-    convert::Infallible, fs::File, io::BufReader, net::SocketAddr, sync::Arc,
-};
+use std::{convert::Infallible, fs::File, io::BufReader, net::SocketAddr, sync::Arc};
 
 use hyper::{
-    body::Body,  server::conn::Http, service::service_fn, Method, Request, Response,
-    StatusCode,
+    body::Body, server::conn::Http, service::service_fn, Method, Request, Response, StatusCode,
 };
 use rustls::{Certificate, PrivateKey, ServerConfig};
 use tokio::net::TcpListener;
