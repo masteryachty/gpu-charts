@@ -24,10 +24,10 @@ export default defineConfig({
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
-    
+
     /* Take screenshot on failure */
     screenshot: 'only-on-failure',
-    
+
     /* Record video on failure */
     video: 'retain-on-failure',
   },
@@ -36,18 +36,28 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { 
+      use: {
         ...devices['Desktop Chrome'],
         // Enable WebGPU for testing
         launchOptions: {
-          args: ['--enable-unsafe-webgpu', '--enable-features=Vulkan']
+          args: [
+            "--no-sandbox",
+            '--enable-unsafe-webgpu',
+            '--disable-web-security',
+            '--ignore-certificate-errors',
+            '--disable-features=IsolateOrigins',
+            '--allow-running-insecure-content',
+            "--use-angle=vulkan",
+            "--enable-features=Vulkan",
+            "--disable-vulkan-surface"
+          ]
         }
       },
     },
 
     {
       name: 'firefox',
-      use: { 
+      use: {
         ...devices['Desktop Firefox'],
         // Firefox WebGPU is experimental
         launchOptions: {
@@ -60,7 +70,7 @@ export default defineConfig({
 
     {
       name: 'webkit',
-      use: { 
+      use: {
         ...devices['Desktop Safari'],
         // WebKit has limited WebGPU support
       },
