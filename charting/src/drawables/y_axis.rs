@@ -74,7 +74,7 @@ impl RenderListener for YAxisRenderer {
             for (y_string, y) in &label_strings {
                 let coord = ds.world_to_screen_with_margin(0., *y);
                 let section = TextSection::default()
-                    .add_text(Text::new(y_string))
+                    .add_text(Text::new(y_string).with_color([1.0, 1.0, 1.0, 1.0]))
                     .with_screen_position((
                         (5) as f32,
                         (((coord.1 + 1.) / 2.) * (height as f32) - 15.),

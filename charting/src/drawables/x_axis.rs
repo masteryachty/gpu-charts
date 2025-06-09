@@ -117,7 +117,7 @@ impl RenderListener for XAxisRenderer {
                 let test = ds.world_to_screen_with_margin(*ts as f32, 0.);
 
                 let section = TextSection::default()
-                    .add_text(Text::new(ts_string))
+                    .add_text(Text::new(ts_string).with_color([1.0, 1.0, 1.0, 1.0]))
                     .with_screen_position((
                         (((test.0 + 1.) / 2.) * (width as f32)),
                         (data_store.borrow().screen_size.height - 50) as f32,
