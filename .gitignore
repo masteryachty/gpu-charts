@@ -452,3 +452,4 @@ target
 **/pkg/*.js
 **/pkg/*.d.ts
 **/pkg/*.wasm.d.ts
+web/public/pkg/
