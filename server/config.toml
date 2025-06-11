@@ -1,0 +1,7 @@
+[development]
+data_path = "/home/xander/projects/graph/md"
+port = 8443
+
+[production]
+data_path = "/mnt/md/data"
+port = 8443

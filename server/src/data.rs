@@ -12,7 +12,7 @@ use serde_json::json;
 use url::form_urlencoded;
 
 // For mlock.
-use libc;
+use libc::{self};
 
 // Added for multi–day date handling.
 use chrono::{TimeZone, Utc};
@@ -229,10 +229,11 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
 
     println!("Query Params: {:?}", query_params);
 
-    // Build a base path, e.g. "./data/XYZ/MD" (for symbol=XYZ and type=MD).
+    // Build a base path using the configured data path
+    let data_root = env!("GRAPH_DATA_PATH");
     let base_path = format!(
-        "/mnt/md/data/{}/{}",
-        query_params.symbol, query_params.type_
+        "{}/{}/{}",
+        data_root, query_params.symbol, query_params.type_
     );
 
     // Convert the query's start and end timestamps into UTC DateTime.

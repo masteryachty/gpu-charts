@@ -8,7 +8,8 @@ use hyper::{body::Body, header, Response, StatusCode};
 
 /// Handler for the /api/symbols endpoint.
 pub async fn handle_symbols_request() -> Result<Response<Body>, Infallible> {
-    let base_path = "/mnt/md/data";
+    let base_path = "/home/xander/projects/graph/md";
+    // let base_path = "/mnt/md/data";
     let mut symbols = Vec::new();
 
     match fs::read_dir(base_path).await {
