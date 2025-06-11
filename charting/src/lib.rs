@@ -13,6 +13,7 @@ mod calcables;
 mod controls;
 mod drawables;
 mod renderer;
+pub mod store_state;
 mod wrappers;
 
 // use renderer::render_engine::GraphicsError;
