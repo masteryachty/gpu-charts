@@ -73,7 +73,7 @@ pub struct MarketData {
 
 /// User information structure
 /// Matches the TypeScript User interface
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct User {
     pub id: String,
     pub name: String,
@@ -82,7 +82,7 @@ pub struct User {
 }
 
 /// User plan enumeration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum UserPlan {
     Free,
@@ -430,5 +430,115 @@ mod tests {
         assert_eq!(store_state.market_data.len(), deserialized.market_data.len());
         assert!(store_state.user.is_some());
         assert!(deserialized.user.is_some());
+    }
+
+    #[wasm_bindgen_test]
+    fn test_bridge_serialization_compatibility() {
+        // Test that our Rust structs serialize to JSON that React can consume
+        let store_state = StoreState {
+            current_symbol: "BTC-USD".to_string(),
+            chart_config: ChartConfig {
+                symbol: "BTC-USD".to_string(),
+                timeframe: "1h".to_string(),
+                start_time: 1734567890,
+                end_time: 1734571490,
+                indicators: vec!["RSI".to_string(), "MACD".to_string()],
+            },
+            market_data: HashMap::new(),
+            is_connected: true,
+            user: Some(User {
+                id: "user123".to_string(),
+                name: "Test User".to_string(),
+                email: "test@example.com".to_string(),
+                plan: UserPlan::Pro,
+            }),
+        };
+
+        // Test JSON serialization for React bridge
+        let json = serde_json::to_string(&store_state).expect("Failed to serialize for bridge");
+        
+        // Verify camelCase field names for React compatibility
+        assert!(json.contains("\"currentSymbol\":\"BTC-USD\""));
+        assert!(json.contains("\"chartConfig\""));
+        assert!(json.contains("\"startTime\":1734567890"));
+        assert!(json.contains("\"endTime\":1734571490"));
+        assert!(json.contains("\"marketData\""));
+        assert!(json.contains("\"isConnected\":true"));
+
+        // Test round-trip deserialization
+        let deserialized: StoreState = serde_json::from_str(&json).expect("Failed to deserialize from bridge");
+        assert_eq!(store_state.current_symbol, deserialized.current_symbol);
+        assert_eq!(store_state.chart_config.start_time, deserialized.chart_config.start_time);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_bridge_error_handling() {
+        // Test invalid JSON handling
+        let invalid_json = "{\"invalid\": json}";
+        let result: Result<StoreState, _> = serde_json::from_str(invalid_json);
+        assert!(result.is_err());
+
+        // Test valid JSON but invalid structure
+        let invalid_structure = r#"{"someField": "value"}"#;
+        let result: Result<StoreState, _> = serde_json::from_str(invalid_structure);
+        assert!(result.is_err());
+
+        // Test partial valid structure
+        let partial_structure = r#"{"currentSymbol": "BTC-USD"}"#;
+        let result: Result<StoreState, _> = serde_json::from_str(partial_structure);
+        assert!(result.is_err()); // Should fail validation
+    }
+
+    #[wasm_bindgen_test]
+    fn test_bridge_validation_integration() {
+        // Test that validation works with serialized/deserialized data
+        let invalid_store_state_json = r#"{
+            "currentSymbol": "",
+            "chartConfig": {
+                "symbol": "",
+                "timeframe": "invalid",
+                "startTime": 2000,
+                "endTime": 1000,
+                "indicators": []
+            },
+            "marketData": {},
+            "isConnected": false
+        }"#;
+
+        let store_state: StoreState = serde_json::from_str(invalid_store_state_json)
+            .expect("Should parse JSON even if invalid");
+        
+        let validation_result = store_state.validate();
+        assert!(!validation_result.is_valid);
+        assert!(validation_result.errors.len() >= 3); // Empty symbols + invalid timeframe + invalid time range
+    }
+
+    #[wasm_bindgen_test]
+    fn test_minimal_valid_bridge_payload() {
+        // Test the minimal payload that React bridge would send
+        let minimal_json = r#"{
+            "currentSymbol": "BTC-USD",
+            "chartConfig": {
+                "symbol": "BTC-USD",
+                "timeframe": "1h",
+                "startTime": 1000,
+                "endTime": 2000,
+                "indicators": []
+            },
+            "marketData": {},
+            "isConnected": true
+        }"#;
+
+        let store_state: StoreState = serde_json::from_str(minimal_json)
+            .expect("Should parse minimal JSON");
+        
+        let validation_result = store_state.validate();
+        assert!(validation_result.is_valid, "Minimal payload should be valid: {:?}", validation_result.errors);
+        
+        // Verify fields
+        assert_eq!(store_state.current_symbol, "BTC-USD");
+        assert_eq!(store_state.chart_config.symbol, "BTC-USD");
+        assert_eq!(store_state.chart_config.timeframe, "1h");
+        assert_eq!(store_state.user, None);
     }
 }

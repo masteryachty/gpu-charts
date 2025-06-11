@@ -15,7 +15,30 @@ declare module '@pkg/tutorial1_window' {
   // Manual run function for React integration
   export function manual_run(): void;
   
-  // Simple chart class for React integration
+  // Advanced chart class for React integration with store bridge
+  export class Chart {
+    constructor();
+    init(canvas_id: string, width: number, height: number): Promise<void>;
+    
+    // Core bridge method - the main integration point
+    update_chart_state(store_state_json: string): Promise<string>;
+    
+    // Utility methods
+    is_initialized(): boolean;
+    get_current_store_state(): Promise<string>;
+    force_update_chart_state(store_state_json: string): Promise<string>;
+    
+    // Rendering and interaction
+    render(): Promise<void>;
+    resize(width: number, height: number): void;
+    handle_mouse_wheel(delta_y: number, x: number, y: number): void;
+    handle_mouse_move(x: number, y: number): void;
+    handle_mouse_click(x: number, y: number, pressed: boolean): void;
+    request_redraw(): void;
+    set_data_range(start: number, end: number): void;
+  }
+
+  // Legacy simple chart class (deprecated)
   export class SimpleChart {
     constructor();
     init(canvas_id: string): void;
@@ -33,7 +56,30 @@ declare module '@pkg/tutorial1_window.js' {
   // Manual run function for React integration
   export function manual_run(): void;
   
-  // Simple chart class for React integration
+  // Advanced chart class for React integration with store bridge
+  export class Chart {
+    constructor();
+    init(canvas_id: string, width: number, height: number): Promise<void>;
+    
+    // Core bridge method - the main integration point
+    update_chart_state(store_state_json: string): Promise<string>;
+    
+    // Utility methods
+    is_initialized(): boolean;
+    get_current_store_state(): Promise<string>;
+    force_update_chart_state(store_state_json: string): Promise<string>;
+    
+    // Rendering and interaction
+    render(): Promise<void>;
+    resize(width: number, height: number): void;
+    handle_mouse_wheel(delta_y: number, x: number, y: number): void;
+    handle_mouse_move(x: number, y: number): void;
+    handle_mouse_click(x: number, y: number, pressed: boolean): void;
+    request_redraw(): void;
+    set_data_range(start: number, end: number): void;
+  }
+
+  // Legacy simple chart class (deprecated)
   export class SimpleChart {
     constructor();
     init(canvas_id: string): void;
