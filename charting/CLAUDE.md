@@ -29,7 +29,7 @@ cd charting && wasm-pack build --target web --out-dir ../web/pkg
 npm run dev:watch
 
 # Full development pipeline (from project root)
-npm run dev:complete
+npm run dev:suite
 ```
 
 ## Architecture Overview

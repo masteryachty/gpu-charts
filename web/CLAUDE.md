@@ -11,7 +11,7 @@ The web directory contains a modern React 18 application built with TypeScript, 
 ### Core Development Workflow
 ```bash
 # Complete development stack (recommended)
-npm run dev:complete     # WASM watch + data server + React dev server
+npm run dev:suite     # WASM watch + data server + React dev server
 
 # Individual components
 npm run dev             # React dev server only (port 3000)
@@ -725,7 +725,7 @@ The development workflow includes sophisticated hot reload:
   "scripts": {
     "dev": "vite",
     "dev:full": "concurrently \"npm run dev:watch\" \"npm run dev\"",
-    "dev:complete": "concurrently \"npm run dev:watch\" \"npm run dev:server\" \"npm run dev\"",
+    "dev:suite": "concurrently \"npm run dev:watch\" \"npm run dev:server\" \"npm run dev\"",
     "dev:wasm": "cd .. && wasm-pack build --target web --out-dir web/pkg",
     "dev:watch": "../scripts/dev-build.sh",
     "dev:server": "cd ../server && cargo run --target x86_64-unknown-linux-gnu",
@@ -752,7 +752,7 @@ The development workflow includes sophisticated hot reload:
 ### Complete Development Environment
 ```bash
 # Start complete development stack
-npm run dev:complete
+npm run dev:suite
 
 # This runs concurrently:
 # 1. ../scripts/dev-build.sh    # WASM file watcher and rebuilder

@@ -23,10 +23,10 @@ npm run dev:server
 npm run dev:full
 
 # Complete development stack (WASM + server + React)
-npm run dev:complete
+npm run dev:suite
 
 # Complete development stack with data logger
-npm run dev:complete:full
+npm run dev:suite:full
 
 # Set up SSL certificates for local development
 npm run setup:ssl

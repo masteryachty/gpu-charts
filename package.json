@@ -9,9 +9,8 @@
   "scripts": {
     "dev": "cd web && npm run dev",
     "dev:full": "concurrently \"npm run dev:watch\" \"npm run dev\"",
-    "dev:complete": "concurrently \"npm run dev:watch\" \"npm run dev:server\" \"npm run dev\"",
-    "dev:complete:full": "concurrently \"npm run dev:watch\" \"npm run dev:server\" \"npm run dev:logger\" \"npm run dev\"",
-    
+    "dev:suite": "concurrently \"npm run dev:watch\" \"npm run dev:server\" \"npm run dev\"",
+    "dev:suite:full": "concurrently \"npm run dev:watch\" \"npm run dev:server\" \"npm run dev:logger\" \"npm run dev\"",
     "dev:wasm": "cd charting && wasm-pack build --target web --out-dir ../web/pkg --dev",
     "dev:watch": "./scripts/dev-build.sh",
     "dev:server": "cd server && cargo run --target x86_64-unknown-linux-gnu",
@@ -19,12 +18,10 @@
     "dev:logger": "cd coinbase-logger && cargo run --target x86_64-unknown-linux-gnu",
     "dev:logger:build": "cd coinbase-logger && cargo build --target x86_64-unknown-linux-gnu",
     "setup:ssl": "./scripts/setup-ssl.sh",
-    
     "build": "npm run build:wasm && cd web && npm run build",
     "build:wasm": "cd charting && wasm-pack build --target web --out-dir ../web/pkg",
     "build:server": "cd server && cargo build --release --target x86_64-unknown-linux-gnu",
     "build:logger": "cd coinbase-logger && cargo build --release --target x86_64-unknown-linux-gnu",
-    
     "test": "npm run test:server && npm run test:web",
     "test:server": "cd server && cargo test --target x86_64-unknown-linux-gnu",
     "test:server:api": "cd server && ./test_api.sh",
@@ -32,7 +29,6 @@
     "test:web": "cd web && npm run test",
     "test:data": "cd web && npm run test:data",
     "test:basic": "cd web && npm run test:basic",
-    
     "lint": "cd web && npm run lint",
     "clean": "rm -rf web/pkg && cd charting && cargo clean && cd ../server && cargo clean && cd ../coinbase-logger && cargo clean && cd ../file_server && cargo clean"
   },
@@ -49,7 +45,7 @@
   },
   "keywords": [
     "webassembly",
-    "webgpu", 
+    "webgpu",
     "rust",
     "react",
     "typescript",

@@ -40,7 +40,7 @@ cargo build --target x86_64-unknown-linux-gnu
 ### Complete Development Workflow
 ```bash
 # Full stack with real-time data collection
-npm run dev:complete:full
+npm run dev:suite:full
 
 # This runs concurrently:
 # 1. WASM file watcher and rebuilder
@@ -268,7 +268,7 @@ let mmap = unsafe { MmapOptions::new().map(&file)? };
 ### Development Coordination
 ```bash
 # Complete development stack
-npm run dev:complete:full
+npm run dev:suite:full
 
 # Data flow: Logger → Binary Files → Server → Web App
 # 1. coinbase-logger collects real-time data
