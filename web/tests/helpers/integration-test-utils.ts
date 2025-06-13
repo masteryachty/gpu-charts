@@ -1,4 +1,6 @@
 import { Page, expect } from '@playwright/test';
+import { DataMockHelper } from './data-mocks';
+import { GraphTestUtils } from './test-utils';
 
 /**
  * Specialized Test Utilities for React-Rust Integration Testing
@@ -532,3 +534,7 @@ export class IntegrationDataMockHelper extends DataMockHelper {
     }
   }
 }
+
+// Re-export utilities for convenience
+export { DataMockHelper } from './data-mocks';
+export { GraphTestUtils } from './test-utils';

@@ -5,7 +5,7 @@
  * and serialization/deserialization functionality.
  */
 
-import { describe, it, expect, beforeEach } from '@jest/globals';
+import { test, expect } from '@playwright/test';
 import {
   validateStoreState,
   validateChartConfig,
@@ -19,11 +19,11 @@ import {
 } from '../../src/types';
 import type { StoreState, ChartConfig } from '../../src/types';
 
-describe('Store State Validation', () => {
+test.describe('Store State Validation', () => {
   let validStoreState: StoreState;
   let validChartConfig: ChartConfig;
 
-  beforeEach(() => {
+  test.beforeEach(() => {
     validChartConfig = {
       symbol: 'BTC-USD',
       timeframe: '1h',
@@ -46,28 +46,28 @@ describe('Store State Validation', () => {
     };
   });
 
-  describe('Chart Config Validation', () => {
-    it('should validate a correct chart config', () => {
+  test.describe('Chart Config Validation', () => {
+    test('should validate a correct chart config', () => {
       const result = validateChartConfig(validChartConfig);
       expect(result.isValid).toBe(true);
       expect(result.errors).toHaveLength(0);
     });
 
-    it('should reject empty symbol', () => {
+    test('should reject empty symbol', () => {
       const config = { ...validChartConfig, symbol: '' };
       const result = validateChartConfig(config);
       expect(result.isValid).toBe(false);
       expect(result.errors).toContain('Symbol cannot be empty');
     });
 
-    it('should reject invalid timeframe', () => {
+    test('should reject invalid timeframe', () => {
       const config = { ...validChartConfig, timeframe: 'invalid' };
       const result = validateChartConfig(config);
       expect(result.isValid).toBe(false);
       expect(result.errors.some(e => e.includes('Invalid timeframe'))).toBe(true);
     });
 
-    it('should validate all supported timeframes', () => {
+    test('should validate all supported timeframes', () => {
       for (const timeframe of VALID_TIMEFRAMES) {
         const config = { ...validChartConfig, timeframe };
         const result = validateChartConfig(config);
@@ -75,7 +75,7 @@ describe('Store State Validation', () => {
       }
     });
 
-    it('should reject invalid time range', () => {
+    test('should reject invalid time range', () => {
       const config = { 
         ...validChartConfig, 
         startTime: 2000000, 
@@ -86,7 +86,7 @@ describe('Store State Validation', () => {
       expect(result.errors).toContain('Start time must be less than end time');
     });
 
-    it('should reject time range too small', () => {
+    test('should reject time range too small', () => {
       const config = {
         ...validChartConfig,
         startTime: 1000000,
@@ -97,7 +97,7 @@ describe('Store State Validation', () => {
       expect(result.errors.some(e => e.includes('Time range too small'))).toBe(true);
     });
 
-    it('should warn about time range too large', () => {
+    test('should warn about time range too large', () => {
       const config = {
         ...validChartConfig,
         startTime: 1000000,
@@ -108,7 +108,7 @@ describe('Store State Validation', () => {
       expect(result.warnings.some(w => w.includes('Time range very large'))).toBe(true);
     });
 
-    it('should warn about empty indicators', () => {
+    test('should warn about empty indicators', () => {
       const config = { ...validChartConfig, indicators: ['RSI', '', 'MACD'] };
       const result = validateChartConfig(config);
       expect(result.isValid).toBe(true);
@@ -116,21 +116,21 @@ describe('Store State Validation', () => {
     });
   });
 
-  describe('Store State Validation', () => {
-    it('should validate a correct store state', () => {
+  test.describe('Store State Validation', () => {
+    test('should validate a correct store state', () => {
       const result = validateStoreState(validStoreState);
       expect(result.isValid).toBe(true);
       expect(result.errors).toHaveLength(0);
     });
 
-    it('should reject empty current symbol', () => {
+    test('should reject empty current symbol', () => {
       const state = { ...validStoreState, currentSymbol: '' };
       const result = validateStoreState(state);
       expect(result.isValid).toBe(false);
       expect(result.errors).toContain('Current symbol cannot be empty');
     });
 
-    it('should warn about symbol mismatch', () => {
+    test('should warn about symbol mismatch', () => {
       const state = { 
         ...validStoreState, 
         currentSymbol: 'ETH-USD',
@@ -141,7 +141,7 @@ describe('Store State Validation', () => {
       expect(result.warnings.some(w => w.includes('differs from chart config symbol'))).toBe(true);
     });
 
-    it('should propagate chart config errors', () => {
+    test('should propagate chart config errors', () => {
       const state = {
         ...validStoreState,
         chartConfig: { ...validChartConfig, symbol: '' }
@@ -152,8 +152,8 @@ describe('Store State Validation', () => {
     });
   });
 
-  describe('Serialization/Deserialization', () => {
-    it('should serialize and deserialize store state correctly', () => {
+  test.describe('Serialization/Deserialization', () => {
+    test('should serialize and deserialize store state correctly', () => {
       const serialized = serializeStoreState(validStoreState);
       expect(typeof serialized).toBe('string');
       
@@ -161,7 +161,7 @@ describe('Store State Validation', () => {
       expect(deserialized).toEqual(validStoreState);
     });
 
-    it('should handle market data serialization', () => {
+    test('should handle market data serialization', () => {
       const stateWithMarketData = {
         ...validStoreState,
         marketData: {
@@ -183,7 +183,7 @@ describe('Store State Validation', () => {
       expect(deserialized.marketData['BTC-USD'].symbol).toBe('BTC-USD');
     });
 
-    it('should handle user data serialization', () => {
+    test('should handle user data serialization', () => {
       const serialized = serializeStoreState(validStoreState);
       const deserialized = deserializeStoreState(serialized);
       
@@ -192,7 +192,7 @@ describe('Store State Validation', () => {
       expect(deserialized.user?.plan).toBe('pro');
     });
 
-    it('should handle undefined user serialization', () => {
+    test('should handle undefined user serialization', () => {
       const stateWithoutUser = { ...validStoreState, user: undefined };
       const serialized = serializeStoreState(stateWithoutUser);
       const deserialized = deserializeStoreState(serialized);
@@ -201,8 +201,8 @@ describe('Store State Validation', () => {
     });
   });
 
-  describe('Data Fetch Parameter Extraction', () => {
-    it('should extract correct fetch parameters', () => {
+  test.describe('Data Fetch Parameter Extraction', () => {
+    test('should extract correct fetch parameters', () => {
       const params = extractFetchParams(validStoreState);
       
       expect(params.symbol).toBe('BTC-USD');
@@ -212,7 +212,7 @@ describe('Store State Validation', () => {
       expect(params.columns).toContain('best_bid');
     });
 
-    it('should use chart config symbol over current symbol', () => {
+    test('should use chart config symbol over current symbol', () => {
       const state = {
         ...validStoreState,
         currentSymbol: 'ETH-USD',
@@ -223,7 +223,7 @@ describe('Store State Validation', () => {
       expect(params.symbol).toBe('BTC-USD');
     });
 
-    it('should include all valid columns', () => {
+    test('should include all valid columns', () => {
       const params = extractFetchParams(validStoreState);
       
       for (const column of params.columns) {
@@ -232,8 +232,8 @@ describe('Store State Validation', () => {
     });
   });
 
-  describe('Edge Cases', () => {
-    it('should handle extreme time values', () => {
+  test.describe('Edge Cases', () => {
+    test('should handle extreme time values', () => {
       const config = {
         ...validChartConfig,
         startTime: 0,
@@ -245,7 +245,7 @@ describe('Store State Validation', () => {
       expect(result.warnings.some(w => w.includes('Time range very large'))).toBe(true);
     });
 
-    it('should handle many indicators', () => {
+    test('should handle many indicators', () => {
       const manyIndicators = Array.from({ length: 100 }, (_, i) => `Indicator${i}`);
       const config = { ...validChartConfig, indicators: manyIndicators };
       
@@ -253,13 +253,13 @@ describe('Store State Validation', () => {
       expect(result.isValid).toBe(true);
     });
 
-    it('should handle special characters in symbol', () => {
+    test('should handle special characters in symbol', () => {
       const config = { ...validChartConfig, symbol: 'BTC/USD' };
       const result = validateChartConfig(config);
       expect(result.isValid).toBe(true);
     });
 
-    it('should handle unicode in user data', () => {
+    test('should handle unicode in user data', () => {
       const state = {
         ...validStoreState,
         user: {
@@ -278,8 +278,8 @@ describe('Store State Validation', () => {
     });
   });
 
-  describe('Performance', () => {
-    it('should validate large store states efficiently', () => {
+  test.describe('Performance', () => {
+    test('should validate large store states efficiently', () => {
       const largeMarketData: Record<string, any> = {};
       for (let i = 0; i < 1000; i++) {
         largeMarketData[`SYMBOL${i}`] = {
@@ -305,7 +305,7 @@ describe('Store State Validation', () => {
       expect(endTime - startTime).toBeLessThan(100); // Should complete in < 100ms
     });
 
-    it('should serialize large states efficiently', () => {
+    test('should serialize large states efficiently', () => {
       const largeIndicators = Array.from({ length: 1000 }, (_, i) => `Indicator${i}`);
       const largeState = {
         ...validStoreState,

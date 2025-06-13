@@ -1,5 +1,6 @@
 import { test, expect, Page } from '@playwright/test';
-import { DataMockHelper, GraphTestUtils } from '../helpers/test-utils';
+import { GraphTestUtils } from '../helpers/test-utils';
+import { DataMockHelper } from '../helpers/data-mocks';
 
 /**
  * End-to-End React-Rust Integration Tests
