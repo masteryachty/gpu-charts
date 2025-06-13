@@ -1,136 +1,130 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
+import { useWasmChart } from '../../hooks/useWasmChart';
 
 interface WasmCanvasProps {
   width?: number;
   height?: number;
+  
+  /** Enable automatic store synchronization (default: true) */
+  enableAutoSync?: boolean;
+  
+  /** Debounce delay for state changes in ms (default: 100) */
+  debounceMs?: number;
+  
+  /** Enable performance monitoring overlay (default: true) */
+  showPerformanceOverlay?: boolean;
+  
+  /** Enable debug information (default: false) */
+  debugMode?: boolean;
 }
 
-export default function WasmCanvas({ width, height }: WasmCanvasProps) {
+export default function WasmCanvas({ 
+  width, 
+  height, 
+  enableAutoSync = true,
+  debounceMs = 100,
+  showPerformanceOverlay = true,
+  debugMode = false
+}: WasmCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [simpleChart, setSimpleChart] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [actualDimensions, setActualDimensions] = useState<{width: number, height: number} | null>(null);
   
-  const { chartConfig, setConnectionStatus } = useAppStore();
+  const { setConnectionStatus } = useAppStore();
 
+  // Use the advanced WASM chart hook
+  const [chartState, chartAPI] = useWasmChart({
+    canvasId: 'wasm-chart-canvas',
+    width: actualDimensions?.width || width,
+    height: actualDimensions?.height || height,
+    enableAutoSync,
+    enableDataFetching: true,
+    debounceMs,
+    enablePerformanceMonitoring: showPerformanceOverlay,
+    maxRetries: 3,
+    retryDelayMs: 1000,
+  });
+
+  // Update connection status when chart state changes
   useEffect(() => {
-    let mounted = true;
-    let retryCount = 0;
-    const maxRetries = 50; // Max 5 seconds of retries
+    setConnectionStatus(chartState.isInitialized && !chartState.error);
+  }, [chartState.isInitialized, chartState.error]);
 
-    const loadWasmAndInitChart = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        
-        // Wait for refs to be available
-        if (!canvasRef.current || !containerRef.current) {
-          if (retryCount < maxRetries) {
-            retryCount++;
-            console.log(`Waiting for refs to be available... attempt ${retryCount}`);
-            setTimeout(loadWasmAndInitChart, 100);
-            return;
-          } else {
-            throw new Error('Canvas or container ref never became available');
-          }
-        }
-        
-        // Import the WASM module using the Vite alias
-        const wasmModule = await import('@pkg/tutorial1_window.js');
-        
-        if (!mounted) return;
-        
-        // Initialize the WASM module
-        await wasmModule.default();
-        
-        if (!mounted) return;
+  // Initialize chart when canvas is ready
+  useEffect(() => {
+    const initializeWhenReady = async () => {
+      // Wait for canvas and container to be available
+      if (!canvasRef.current || !containerRef.current) {
+        return;
+      }
 
-        const canvas = canvasRef.current;
-        const container = containerRef.current;
-        
-        // Verify canvas is in the DOM with correct ID
-        const domCanvas = document.getElementById('new-api-canvas');
-        if (!domCanvas) {
-          throw new Error('Canvas with id "new-api-canvas" not found in DOM');
-        }
-        
-        // Set up canvas dimensions
-        const actualWidth = width || container.clientWidth || 800;
-        const actualHeight = height || container.clientHeight || 600;
-        
-        canvas.width = actualWidth;
-        canvas.height = actualHeight;
-        
-        console.log(`Canvas setup: ${actualWidth}x${actualHeight}, DOM element:`, domCanvas);
-        
-        // Add a small delay to ensure DOM is fully ready
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Create SimpleChart instance
-        const chart = new wasmModule.SimpleChart();
-        
-        console.log('About to call chart.init with canvas ID:', canvas.id);
-        
-        // Initialize the chart with the canvas
-        chart.init(canvas.id);
-        
-        if (!mounted) return;
-        
-        setSimpleChart(chart);
-        setConnectionStatus(true);
-        
-        console.log('Chart initialized successfully with config:', chartConfig);
-        
-      } catch (err) {
-        console.error('Failed to load WASM module or initialize chart:', err);
-        if (mounted) {
-          setError(`Failed to load chart engine: ${err}`);
-          setConnectionStatus(false);
-        }
-      } finally {
-        if (mounted) {
-          setIsLoading(false);
-        }
+      // Calculate actual dimensions
+      const container = containerRef.current;
+      const actualWidth = width || container.clientWidth || 800;
+      const actualHeight = height || container.clientHeight || 600;
+
+      // Update dimensions state
+      setActualDimensions({ width: actualWidth, height: actualHeight });
+
+      // Set canvas dimensions
+      const canvas = canvasRef.current;
+      canvas.width = actualWidth;
+      canvas.height = actualHeight;
+
+      // Initialize the chart
+      console.log('[WasmCanvas] Chart state check:', { 
+        isInitialized: chartState.isInitialized, 
+        isLoading: chartState.isLoading,
+        shouldInitialize: !chartState.isInitialized && !chartState.isLoading 
+      });
+      
+      if (!chartState.isInitialized && !chartState.isLoading) {
+        console.log('[WasmCanvas] Initializing chart with dimensions:', { actualWidth, actualHeight });
+        await chartAPI.initialize();
+      } else {
+        console.log('[WasmCanvas] Skipping initialization:', { 
+          reason: chartState.isInitialized ? 'already initialized' : 'currently loading' 
+        });
       }
     };
 
-    loadWasmAndInitChart();
+    // Delay to ensure DOM is ready
+    const timeout = setTimeout(initializeWhenReady, 50);
+    return () => clearTimeout(timeout);
+  }, [width, height, chartState.isInitialized, chartState.isLoading, chartAPI]);
 
-    return () => {
-      mounted = false;
-    };
-  }, [width, height, setConnectionStatus, chartConfig]);
-
-  // Handle chart config changes
+  // Handle canvas resize with optimized WASM notification
   useEffect(() => {
-    if (simpleChart && simpleChart.is_initialized()) {
-      // Chart is ready for updates
-      console.log('Chart ready for config updates:', chartConfig);
-      // Future: call chart update methods here
-    }
-  }, [chartConfig, simpleChart]);
+    const handleResize = async () => {
+      if (!canvasRef.current || !containerRef.current) return;
 
-  // Handle canvas resize
-  useEffect(() => {
-    const handleResize = () => {
-      if (canvasRef.current && containerRef.current) {
-        const canvas = canvasRef.current;
-        const container = containerRef.current;
+      const canvas = canvasRef.current;
+      const container = containerRef.current;
+      
+      const newWidth = width || container.clientWidth;
+      const newHeight = height || container.clientHeight;
+      
+      // Only update if dimensions actually changed
+      if (actualDimensions && 
+          (newWidth !== actualDimensions.width || newHeight !== actualDimensions.height)) {
         
-        const newWidth = width || container.clientWidth;
-        const newHeight = height || container.clientHeight;
+        console.log('[WasmCanvas] Resizing canvas:', { 
+          from: actualDimensions, 
+          to: { width: newWidth, height: newHeight } 
+        });
+
+        // Update canvas dimensions
+        canvas.width = newWidth;
+        canvas.height = newHeight;
         
-        if (canvas.width !== newWidth || canvas.height !== newHeight) {
-          canvas.width = newWidth;
-          canvas.height = newHeight;
-          
-          // Notify WASM about resize
-          if (simpleChart) {
-            console.log('Canvas resized:', newWidth, newHeight);
-            // Future: call simpleChart.resize(newWidth, newHeight);
-          }
+        // Update state
+        setActualDimensions({ width: newWidth, height: newHeight });
+        
+        // Note: SimpleChart doesn't support resize notifications
+        if (chartState.chart && chartState.isInitialized) {
+          console.log('[WasmCanvas] Canvas resized (SimpleChart mode):', { newWidth, newHeight });
+          // SimpleChart doesn't have a resize method, so we just log it
         }
       }
     };
@@ -143,16 +137,39 @@ export default function WasmCanvas({ width, height }: WasmCanvasProps) {
     return () => {
       resizeObserver.disconnect();
     };
-  }, [simpleChart, width, height]);
+  }, [width, height, actualDimensions, chartState.chart, chartState.isInitialized]);
+
+  // Manual retry handler
+  const handleRetry = useCallback(async () => {
+    console.log('[WasmCanvas] Manual retry triggered');
+    await chartAPI.retry();
+  }, [chartAPI]);
+
+  // Manual reset handler
+  const handleReset = useCallback(async () => {
+    console.log('[WasmCanvas] Manual reset triggered');
+    await chartAPI.reset();
+  }, [chartAPI]);
+
+  // Debug panel actions
+  const handleForceUpdate = useCallback(async () => {
+    console.log('[WasmCanvas] Force update triggered');
+    await chartAPI.forceUpdate();
+  }, [chartAPI]);
+
+  const handleGetCurrentState = useCallback(async () => {
+    const state = await chartAPI.getCurrentState();
+    console.log('[WasmCanvas] Current WASM state:', state);
+  }, [chartAPI]);
 
   return (
     <div 
       ref={containerRef}
-      className="flex-1 bg-bg-secondary border border-border relative overflow-hidden"
+      className="flex-1 bg-gray-900 border border-gray-700 relative overflow-hidden"
     >
       <canvas
         ref={canvasRef}
-        id="new-api-canvas"
+        id="wasm-chart-canvas"
         className="w-full h-full"
         style={{ 
           width: '100%', 
@@ -162,33 +179,137 @@ export default function WasmCanvas({ width, height }: WasmCanvasProps) {
       />
       
       {/* Loading overlay */}
-      {isLoading && (
-        <div className="absolute inset-0 bg-bg-secondary/90 flex items-center justify-center" data-testid="loading-overlay">
+      {chartState.isLoading && (
+        <div className="absolute inset-0 bg-gray-900/90 flex items-center justify-center" data-testid="loading-overlay">
           <div className="text-center">
-            <div className="animate-spin text-accent-blue text-4xl mb-4">⚡</div>
-            <div className="text-text-primary font-medium mb-2">Loading Chart Engine</div>
-            <div className="text-text-secondary text-sm">Initializing WebGPU...</div>
+            <div className="animate-spin text-blue-500 text-4xl mb-4">⚡</div>
+            <div className="text-white font-medium mb-2">Loading Chart Engine</div>
+            <div className="text-gray-400 text-sm">
+              {chartState.retryCount > 0 
+                ? `Initializing WebGPU... (Retry ${chartState.retryCount})`
+                : 'Initializing WebGPU...'
+              }
+            </div>
+            {chartState.hasUncommittedChanges && (
+              <div className="text-yellow-500 text-xs mt-2">Syncing store state...</div>
+            )}
           </div>
         </div>
       )}
       
       {/* Error overlay */}
-      {error && (
-        <div className="absolute inset-0 bg-bg-secondary/90 flex items-center justify-center" data-testid="error-overlay">
-          <div className="text-center">
-            <div className="text-accent-red text-4xl mb-4">⚠️</div>
-            <div className="text-text-primary font-medium mb-2">Chart Engine Error</div>
-            <div className="text-text-secondary text-sm">{error}</div>
+      {chartState.error && (
+        <div className="absolute inset-0 bg-gray-900/90 flex items-center justify-center" data-testid="error-overlay">
+          <div className="text-center max-w-md">
+            <div className="text-red-500 text-4xl mb-4">⚠️</div>
+            <div className="text-white font-medium mb-2">Chart Engine Error</div>
+            <div className="text-gray-400 text-sm mb-4 break-words">{chartState.error}</div>
+            
+            <div className="flex gap-2 justify-center">
+              {chartState.retryCount < 3 && (
+                <button
+                  onClick={handleRetry}
+                  className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+                  data-testid="retry-button"
+                >
+                  Retry ({3 - chartState.retryCount} left)
+                </button>
+              )}
+              
+              <button
+                onClick={handleReset}
+                className="px-4 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 transition-colors"
+                data-testid="reset-button"
+              >
+                Reset
+              </button>
+            </div>
+            
+            {chartState.lastError && chartState.lastError !== chartState.error && (
+              <div className="mt-4 text-gray-500 text-xs">
+                Previous: {chartState.lastError}
+              </div>
+            )}
           </div>
         </div>
       )}
       
       {/* Performance overlay */}
-      {!isLoading && !error && (
-        <div className="absolute top-4 right-4 bg-bg-tertiary/80 border border-border px-3 py-2 text-xs font-mono">
-          <div className="text-accent-green">120 FPS</div>
-          <div className="text-text-secondary">8.33ms</div>
+      {showPerformanceOverlay && chartState.isInitialized && !chartState.error && (
+        <div className="absolute top-4 right-4 bg-gray-800/80 border border-gray-600 px-3 py-2 text-xs font-mono">
+          <div className="text-green-500">{chartState.fps || 0} FPS</div>
+          <div className="text-gray-400">{chartState.renderLatency.toFixed(1)}ms</div>
+          <div className="text-blue-400">#{chartState.updateCount}</div>
+          {chartState.hasUncommittedChanges && (
+            <div className="text-yellow-500">SYNC</div>
+          )}
+          {chartState.dataFetchingEnabled && chartState.lastDataFetch && (
+            <div className="border-t border-gray-600 mt-1 pt-1">
+              <div className="text-purple-400">
+                {chartState.lastDataFetch.recordCount.toLocaleString()} records
+              </div>
+              <div className="text-gray-400">
+                {chartState.lastDataFetch.fromCache ? 'cached' : 'fetched'}
+              </div>
+            </div>
+          )}
         </div>
+      )}
+      
+      {/* Debug panel */}
+      {debugMode && chartState.isInitialized && (
+        <div className="absolute bottom-4 left-4 bg-gray-800/90 border border-gray-600 p-3 text-xs font-mono space-y-2">
+          <div className="text-white font-bold mb-2">Debug Panel</div>
+          
+          <div className="space-y-1">
+            <div className="text-gray-400">
+              State: <span className="text-white">{chartState.isInitialized ? 'Ready' : 'Not Ready'}</span>
+            </div>
+            <div className="text-gray-400">
+              Updates: <span className="text-white">{chartState.updateCount}</span>
+            </div>
+            <div className="text-gray-400">
+              Last Update: <span className="text-white">
+                {chartState.lastStateUpdate > 0 
+                  ? new Date(chartState.lastStateUpdate).toLocaleTimeString()
+                  : 'Never'
+                }
+              </span>
+            </div>
+            <div className="text-gray-400">
+              Auto Sync: <span className={enableAutoSync ? 'text-green-500' : 'text-red-500'}>
+                {enableAutoSync ? 'ON' : 'OFF'}
+              </span>
+            </div>
+          </div>
+          
+          <div className="flex gap-1 pt-2">
+            <button
+              onClick={handleForceUpdate}
+              className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+              data-testid="force-update-button"
+            >
+              Force Update
+            </button>
+            
+            <button
+              onClick={handleGetCurrentState}
+              className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
+              data-testid="get-state-button"
+            >
+              Log State
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* Store sync indicator */}
+      {enableAutoSync && chartState.isInitialized && (
+        <div className={`absolute top-4 left-4 w-3 h-3 rounded-full ${
+          chartState.hasUncommittedChanges 
+            ? 'bg-yellow-500 animate-pulse' 
+            : 'bg-green-500'
+        }`} title={chartState.hasUncommittedChanges ? 'Syncing...' : 'Synced'} />
       )}
     </div>
   );

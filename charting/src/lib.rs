@@ -29,7 +29,7 @@ extern crate nalgebra_glm as glm;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
-const CANVAS_ID: &str = "new-api-canvas";
+const CANVAS_ID: &str = "wasm-chart-canvas";
 
 type AppWindow = std::rc::Rc<Window>;
 type AppGraphics = LineGraph;

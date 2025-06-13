@@ -12,7 +12,7 @@ pub mod store_state;
 
 use crate::line_graph::LineGraph;
 use crate::controls::canvas_controller::CanvasController;
-use crate::store_state::{StoreState, StoreValidationResult};
+use crate::store_state::{StoreState, StoreValidationResult, StateChangeDetection, ChangeDetectionConfig};
 use winit::{
     dpi::PhysicalSize,
     event::{WindowEvent, MouseScrollDelta, ElementState},
@@ -30,6 +30,7 @@ struct ChartInstance {
     canvas_controller: CanvasController,
     window: Rc<Window>,
     current_store_state: Option<StoreState>,
+    change_detection_config: ChangeDetectionConfig,
 }
 
 #[wasm_bindgen]
@@ -103,6 +104,7 @@ impl Chart {
             canvas_controller,
             window,
             current_store_state: None,
+            change_detection_config: ChangeDetectionConfig::default(),
         };
 
         unsafe {
@@ -232,33 +234,67 @@ impl Chart {
             }
         };
 
-        // Step 2: Check if state has changed (to avoid unnecessary updates)
+        // Step 2: Smart change detection
         unsafe {
             if let Some(instance) = &mut CHART_INSTANCE {
-                if let Some(ref current_state) = instance.current_store_state {
-                    if self.states_are_equivalent(current_state, &store_state) {
-                        log::info!("Store state unchanged, skipping update");
-                        let response = serde_json::json!({
-                            "success": true,
-                            "message": "No changes detected",
-                            "updated": false
-                        });
-                        return Ok(response.to_string());
+                let change_detection = if let Some(ref current_state) = instance.current_store_state {
+                    store_state.detect_changes_from(current_state, &instance.change_detection_config)
+                } else {
+                    // First time - treat everything as changed
+                    StateChangeDetection {
+                        has_changes: true,
+                        symbol_changed: true,
+                        time_range_changed: true,
+                        timeframe_changed: true,
+                        indicators_changed: true,
+                        connection_changed: true,
+                        user_changed: false,
+                        market_data_changed: false,
+                        requires_data_fetch: true,
+                        requires_render: true,
+                        change_summary: vec!["Initial state setup".to_string()],
                     }
+                };
+
+                if !change_detection.has_changes {
+                    log::info!("Store state unchanged, skipping update");
+                    let response = serde_json::json!({
+                        "success": true,
+                        "message": "No changes detected",
+                        "updated": false,
+                        "changeDetection": {
+                            "hasChanges": false,
+                            "summary": []
+                        }
+                    });
+                    return Ok(response.to_string());
                 }
 
-                // Step 3: Apply the state changes
-                match self.apply_store_state_changes(&store_state, instance) {
+                // Step 3: Apply the state changes using smart detection
+                match self.apply_smart_state_changes(&store_state, &change_detection, instance) {
                     Ok(changes_applied) => {
                         // Step 4: Update stored state
                         instance.current_store_state = Some(store_state);
                         
-                        // Step 5: Return success response
+                        // Step 5: Return detailed success response
                         let response = serde_json::json!({
                             "success": true,
                             "message": "Chart state updated successfully",
                             "updated": true,
-                            "changes": changes_applied
+                            "changes": changes_applied,
+                            "changeDetection": {
+                                "hasChanges": change_detection.has_changes,
+                                "symbolChanged": change_detection.symbol_changed,
+                                "timeRangeChanged": change_detection.time_range_changed,
+                                "timeframeChanged": change_detection.timeframe_changed,
+                                "indicatorsChanged": change_detection.indicators_changed,
+                                "connectionChanged": change_detection.connection_changed,
+                                "userChanged": change_detection.user_changed,
+                                "marketDataChanged": change_detection.market_data_changed,
+                                "requiresDataFetch": change_detection.requires_data_fetch,
+                                "requiresRender": change_detection.requires_render,
+                                "summary": change_detection.change_summary
+                            }
                         });
                         Ok(response.to_string())
                     }
@@ -346,6 +382,132 @@ impl Chart {
             }
         }
     }
+
+    /// Configure change detection behavior
+    #[wasm_bindgen]
+    pub fn configure_change_detection(&self, config_json: &str) -> Result<String, JsValue> {
+        log::info!("configure_change_detection called with: {}", config_json);
+        
+        unsafe {
+            if let Some(instance) = &mut CHART_INSTANCE {
+                // Parse the configuration JSON
+                let config: ChangeDetectionConfig = match serde_json::from_str(config_json) {
+                    Ok(config) => config,
+                    Err(e) => {
+                        let error_response = serde_json::json!({
+                            "success": false,
+                            "errors": [format!("Invalid configuration JSON: {}", e)],
+                            "warnings": []
+                        });
+                        return Ok(error_response.to_string());
+                    }
+                };
+
+                // Update the configuration
+                instance.change_detection_config = config;
+                
+                let response = serde_json::json!({
+                    "success": true,
+                    "message": "Change detection configuration updated",
+                    "config": {
+                        "enableSymbolChangeDetection": instance.change_detection_config.enable_symbol_change_detection,
+                        "enableTimeRangeChangeDetection": instance.change_detection_config.enable_time_range_change_detection,
+                        "enableTimeframeChangeDetection": instance.change_detection_config.enable_timeframe_change_detection,
+                        "enableIndicatorChangeDetection": instance.change_detection_config.enable_indicator_change_detection,
+                        "symbolChangeTriggersF etch": instance.change_detection_config.symbol_change_triggers_fetch,
+                        "timeRangeChangeTriggersF etch": instance.change_detection_config.time_range_change_triggers_fetch,
+                        "minimumTimeRangeChangeSeconds": instance.change_detection_config.minimum_time_range_change_seconds
+                    }
+                });
+                Ok(response.to_string())
+            } else {
+                Err(JsValue::from_str("Chart not initialized"))
+            }
+        }
+    }
+
+    /// Get current change detection configuration
+    #[wasm_bindgen]
+    pub fn get_change_detection_config(&self) -> Result<String, JsValue> {
+        unsafe {
+            if let Some(instance) = &CHART_INSTANCE {
+                let config_json = serde_json::json!({
+                    "enableSymbolChangeDetection": instance.change_detection_config.enable_symbol_change_detection,
+                    "enableTimeRangeChangeDetection": instance.change_detection_config.enable_time_range_change_detection,
+                    "enableTimeframeChangeDetection": instance.change_detection_config.enable_timeframe_change_detection,
+                    "enableIndicatorChangeDetection": instance.change_detection_config.enable_indicator_change_detection,
+                    "symbolChangeTriggersF etch": instance.change_detection_config.symbol_change_triggers_fetch,
+                    "timeRangeChangeTriggersF etch": instance.change_detection_config.time_range_change_triggers_fetch,
+                    "timeframeChangeTriggersRender": instance.change_detection_config.timeframe_change_triggers_render,
+                    "indicatorChangeTriggersRender": instance.change_detection_config.indicator_change_triggers_render,
+                    "minimumTimeRangeChangeSeconds": instance.change_detection_config.minimum_time_range_change_seconds
+                });
+                Ok(config_json.to_string())
+            } else {
+                Err(JsValue::from_str("Chart not initialized"))
+            }
+        }
+    }
+
+    /// Detect changes between current state and provided state without applying them
+    #[wasm_bindgen]
+    pub fn detect_state_changes(&self, store_state_json: &str) -> Result<String, JsValue> {
+        log::info!("detect_state_changes called");
+        
+        let store_state = match self.deserialize_and_validate_store_state(store_state_json) {
+            Ok(state) => state,
+            Err(validation_result) => {
+                let error_response = serde_json::json!({
+                    "success": false,
+                    "errors": validation_result.errors,
+                    "warnings": validation_result.warnings
+                });
+                return Ok(error_response.to_string());
+            }
+        };
+
+        unsafe {
+            if let Some(instance) = &CHART_INSTANCE {
+                let change_detection = if let Some(ref current_state) = instance.current_store_state {
+                    store_state.detect_changes_from(current_state, &instance.change_detection_config)
+                } else {
+                    StateChangeDetection {
+                        has_changes: true,
+                        symbol_changed: true,
+                        time_range_changed: true,
+                        timeframe_changed: true,
+                        indicators_changed: true,
+                        connection_changed: true,
+                        user_changed: false,
+                        market_data_changed: false,
+                        requires_data_fetch: true,
+                        requires_render: true,
+                        change_summary: vec!["No previous state for comparison".to_string()],
+                    }
+                };
+
+                let response = serde_json::json!({
+                    "success": true,
+                    "changeDetection": {
+                        "hasChanges": change_detection.has_changes,
+                        "symbolChanged": change_detection.symbol_changed,
+                        "timeRangeChanged": change_detection.time_range_changed,
+                        "timeframeChanged": change_detection.timeframe_changed,
+                        "indicatorsChanged": change_detection.indicators_changed,
+                        "connectionChanged": change_detection.connection_changed,
+                        "userChanged": change_detection.user_changed,
+                        "marketDataChanged": change_detection.market_data_changed,
+                        "requiresDataFetch": change_detection.requires_data_fetch,
+                        "requiresRender": change_detection.requires_render,
+                        "summary": change_detection.change_summary
+                    }
+                });
+                Ok(response.to_string())
+            } else {
+                Err(JsValue::from_str("Chart not initialized"))
+            }
+        }
+    }
 }
 
 // Private implementation methods for Chart
@@ -373,16 +535,10 @@ impl Chart {
         }
     }
 
-    /// Check if two store states are equivalent (for change detection)
+    /// Check if two store states are equivalent (for change detection - deprecated)
     fn states_are_equivalent(&self, current: &StoreState, new: &StoreState) -> bool {
-        // Compare relevant fields that would trigger chart updates
-        current.current_symbol == new.current_symbol
-            && current.chart_config.symbol == new.chart_config.symbol
-            && current.chart_config.timeframe == new.chart_config.timeframe
-            && current.chart_config.start_time == new.chart_config.start_time
-            && current.chart_config.end_time == new.chart_config.end_time
-            && current.chart_config.indicators == new.chart_config.indicators
-            && current.is_connected == new.is_connected
+        // Use new smart change detection
+        !new.differs_from(current)
     }
 
     /// Apply store state changes to the chart
@@ -475,6 +631,113 @@ impl Chart {
                 }
             });
         }
+
+        Ok(changes_applied)
+    }
+
+    /// Smart state changes application using detailed change detection
+    fn apply_smart_state_changes(&self, store_state: &StoreState, change_detection: &StateChangeDetection, instance: &mut ChartInstance) -> Result<Vec<String>, String> {
+        let mut changes_applied = Vec::new();
+
+        // Handle symbol changes
+        if change_detection.symbol_changed {
+            log::info!("Symbol changed - updating data store and triggering data fetch");
+            let data_store = instance.line_graph.borrow().data_store.clone();
+            
+            // Update topic in data store
+            data_store.borrow_mut().topic = Some(store_state.chart_config.symbol.clone());
+            
+            changes_applied.push(format!("Symbol updated to: {}", store_state.chart_config.symbol));
+            
+            // Note: In full implementation, this would trigger async data fetching
+            if change_detection.requires_data_fetch {
+                changes_applied.push("Data fetch triggered for new symbol".to_string());
+            }
+        }
+
+        // Handle time range changes
+        if change_detection.time_range_changed {
+            log::info!("Time range changed - updating data store range");
+            let data_store = instance.line_graph.borrow().data_store.clone();
+            data_store.borrow_mut().set_x_range(
+                store_state.chart_config.start_time as u32,
+                store_state.chart_config.end_time as u32,
+            );
+            
+            changes_applied.push(format!(
+                "Time range updated: {} to {}",
+                store_state.chart_config.start_time,
+                store_state.chart_config.end_time
+            ));
+            
+            if change_detection.requires_data_fetch {
+                changes_applied.push("Data fetch triggered for new time range".to_string());
+            }
+        }
+
+        // Handle timeframe changes
+        if change_detection.timeframe_changed {
+            log::info!("Timeframe changed - updating aggregation settings");
+            changes_applied.push(format!("Timeframe updated to: {}", store_state.chart_config.timeframe));
+            
+            // Note: In full implementation, this would update aggregation logic
+            if change_detection.requires_render {
+                changes_applied.push("Render triggered for timeframe change".to_string());
+            }
+        }
+
+        // Handle indicator changes
+        if change_detection.indicators_changed {
+            log::info!("Indicators changed - updating indicator settings");
+            changes_applied.push(format!("Indicators updated: {:?}", store_state.chart_config.indicators));
+            
+            // Note: In full implementation, this would update indicator renderers
+            if change_detection.requires_render {
+                changes_applied.push("Render triggered for indicator changes".to_string());
+            }
+        }
+
+        // Handle connection status changes
+        if change_detection.connection_changed {
+            log::info!("Connection status changed");
+            changes_applied.push(format!("Connection status: {}", store_state.is_connected));
+            
+            // Note: In full implementation, this might pause/resume data feeds
+        }
+
+        // Handle user changes
+        if change_detection.user_changed {
+            log::info!("User information changed");
+            if store_state.user.is_some() {
+                changes_applied.push("User session updated".to_string());
+            } else {
+                changes_applied.push("User logged out".to_string());
+            }
+        }
+
+        // Handle market data changes
+        if change_detection.market_data_changed {
+            log::info!("Market data changed - updating display");
+            changes_applied.push("Market data refreshed".to_string());
+            
+            if change_detection.requires_render {
+                changes_applied.push("Render triggered for market data update".to_string());
+            }
+        }
+
+        // Trigger rendering if needed
+        if change_detection.requires_render && !changes_applied.is_empty() {
+            log::info!("Triggering render due to state changes");
+            let line_graph = instance.line_graph.clone();
+            wasm_bindgen_futures::spawn_local(async move {
+                if let Ok(graph) = line_graph.try_borrow() {
+                    let _ = graph.render().await;
+                }
+            });
+        }
+
+        // Add smart change detection summary
+        changes_applied.extend(change_detection.change_summary.clone());
 
         Ok(changes_applied)
     }

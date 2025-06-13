@@ -62,11 +62,20 @@ export interface PerformanceMetrics {
   latency: number;
 }
 
-// Constants (matching Rust implementation)
-export const MAX_TIME_RANGE_SECONDS = 86400 * 30; // 30 days
-export const MIN_TIME_RANGE_SECONDS = 60; // 1 minute
-export const VALID_TIMEFRAMES = ['1m', '5m', '15m', '1h', '4h', '1d'] as const;
-export const VALID_COLUMNS = ['time', 'best_bid', 'best_ask', 'price', 'volume', 'side'] as const;
+// Import constants from centralized configuration
+import { 
+  STORE_CONSTANTS, 
+  VALID_TIMEFRAMES, 
+  VALID_COLUMNS, 
+  validateSymbol, 
+  validateTimeRange,
+  isValidTimeframe 
+} from '../config/store-constants';
+
+// Re-export commonly used constants for backward compatibility
+export const MAX_TIME_RANGE_SECONDS = STORE_CONSTANTS.MAX_TIME_RANGE_SECONDS;
+export const MIN_TIME_RANGE_SECONDS = STORE_CONSTANTS.MIN_TIME_RANGE_SECONDS;
+export { VALID_TIMEFRAMES, VALID_COLUMNS };
 
 // Validation types
 export interface ValidationResult {
@@ -110,32 +119,40 @@ export function validateChartConfig(config: ChartConfig): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  // Validate symbol
+  // Validate symbol using centralized validation
   if (!config.symbol) {
     errors.push('Symbol cannot be empty');
+  } else if (!validateSymbol(config.symbol)) {
+    errors.push(`Invalid symbol format: ${config.symbol}. Must be in format XXX-XXX (e.g., BTC-USD)`);
   }
 
-  // Validate timeframe
-  if (!VALID_TIMEFRAMES.includes(config.timeframe as any)) {
+  // Validate timeframe using centralized validation
+  if (!isValidTimeframe(config.timeframe)) {
     errors.push(`Invalid timeframe '${config.timeframe}'. Must be one of: ${VALID_TIMEFRAMES.join(', ')}`);
   }
 
-  // Validate time range
-  if (config.startTime >= config.endTime) {
-    errors.push('Start time must be less than end time');
-  } else {
-    const timeRange = config.endTime - config.startTime;
-    if (timeRange < MIN_TIME_RANGE_SECONDS) {
-      errors.push(`Time range too small: ${timeRange} seconds (minimum: ${MIN_TIME_RANGE_SECONDS} seconds)`);
-    }
-    if (timeRange > MAX_TIME_RANGE_SECONDS) {
-      warnings.push(`Time range very large: ${timeRange} seconds (maximum recommended: ${MAX_TIME_RANGE_SECONDS} seconds)`);
+  // Validate time range using centralized validation
+  if (!validateTimeRange(config.startTime, config.endTime)) {
+    if (config.startTime >= config.endTime) {
+      errors.push('Start time must be less than end time');
+    } else {
+      const timeRange = config.endTime - config.startTime;
+      if (timeRange < MIN_TIME_RANGE_SECONDS) {
+        errors.push(`Time range too small: ${timeRange} seconds (minimum: ${MIN_TIME_RANGE_SECONDS} seconds)`);
+      }
+      if (timeRange > MAX_TIME_RANGE_SECONDS) {
+        warnings.push(`Time range very large: ${timeRange} seconds (maximum recommended: ${MAX_TIME_RANGE_SECONDS} seconds)`);
+      }
     }
   }
 
-  // Validate indicators
+  // Validate indicators count and content
+  if (config.indicators.length > STORE_CONSTANTS.MAX_INDICATORS) {
+    errors.push(`Too many indicators: ${config.indicators.length} (maximum: ${STORE_CONSTANTS.MAX_INDICATORS})`);
+  }
+  
   config.indicators.forEach(indicator => {
-    if (!indicator) {
+    if (!indicator || indicator.trim().length === 0) {
       warnings.push('Empty indicator name found');
     }
   });

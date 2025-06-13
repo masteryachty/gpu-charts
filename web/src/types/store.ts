@@ -1,28 +1,7 @@
 // Store contract for React-Rust WASM integration
 // This file defines the exact data structures that will be synchronized between React and Rust
 
-import { AppState, ChartConfig, MarketData, User } from './index';
-
-/**
- * Complete store state interface for WASM serialization
- * This represents the entire Zustand store state that will be sent to Rust
- */
-export interface StoreState {
-  // Current active symbol
-  currentSymbol: string;
-  
-  // Chart configuration containing all rendering parameters
-  chartConfig: ChartConfig;
-  
-  // Market data keyed by symbol
-  marketData: Record<string, MarketData>;
-  
-  // Connection status to data server
-  isConnected: boolean;
-  
-  // Optional user information
-  user?: User;
-}
+import type { ChartConfig, MarketData, User } from './index';
 
 /**
  * Enhanced chart configuration with validation constraints
@@ -70,17 +49,6 @@ export interface StoreValidationResult {
 /**
  * Type guard functions for runtime validation
  */
-export const isValidStoreState = (obj: any): obj is StoreState => {
-  return (
-    typeof obj === 'object' &&
-    obj !== null &&
-    typeof obj.currentSymbol === 'string' &&
-    typeof obj.chartConfig === 'object' &&
-    typeof obj.marketData === 'object' &&
-    typeof obj.isConnected === 'boolean'
-  );
-};
-
 export const isValidChartConfig = (config: any): config is ValidatedChartConfig => {
   return (
     typeof config === 'object' &&
@@ -107,26 +75,3 @@ export const VALIDATION_CONSTANTS = {
 
 export type ValidTimeframe = typeof VALIDATION_CONSTANTS.VALID_TIMEFRAMES[number];
 export type ValidColumn = typeof VALIDATION_CONSTANTS.VALID_COLUMNS[number];
-
-/**
- * Serialization helpers for safe JSON conversion
- */
-export const serializeStoreState = (state: StoreState): string => {
-  try {
-    return JSON.stringify(state);
-  } catch (error) {
-    throw new Error(`Failed to serialize store state: ${error}`);
-  }
-};
-
-export const deserializeStoreState = (json: string): StoreState => {
-  try {
-    const parsed = JSON.parse(json);
-    if (!isValidStoreState(parsed)) {
-      throw new Error('Invalid store state structure');
-    }
-    return parsed;
-  } catch (error) {
-    throw new Error(`Failed to deserialize store state: ${error}`);
-  }
-};

@@ -23,6 +23,11 @@ declare module '@pkg/tutorial1_window' {
     // Core bridge method - the main integration point
     update_chart_state(store_state_json: string): Promise<string>;
     
+    // Smart change detection methods
+    configure_change_detection(config_json: string): Promise<string>;
+    get_change_detection_config(): Promise<string>;
+    detect_state_changes(store_state_json: string): Promise<string>;
+    
     // Utility methods
     is_initialized(): boolean;
     get_current_store_state(): Promise<string>;

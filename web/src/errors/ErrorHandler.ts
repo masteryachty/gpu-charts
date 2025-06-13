@@ -1,0 +1,496 @@
+import type { AppError, ErrorSummary } from './ErrorTypes';
+import { ErrorFactory, ERROR_CODES, summarizeErrors, isRecoverableError } from './ErrorTypes';
+
+/**
+ * Comprehensive Error Handler
+ * 
+ * Central error handling system that manages error collection, reporting,
+ * recovery strategies, and user notifications across the application.
+ */
+
+export interface ErrorHandlerConfig {
+  maxErrorHistory: number;
+  enableConsoleLogging: boolean;
+  enableLocalStorage: boolean;
+  enableRemoteReporting: boolean;
+  autoRecoveryEnabled: boolean;
+  userNotificationEnabled: boolean;
+  debounceMs: number;
+}
+
+export interface ErrorRecoveryStrategy {
+  errorCode: string;
+  maxAttempts: number;
+  delayMs: number;
+  action: () => Promise<boolean>;
+  fallback?: () => Promise<void>;
+}
+
+export interface ErrorSubscription {
+  id: string;
+  category?: string;
+  severity?: string;
+  callback: (error: AppError) => void;
+}
+
+export class ErrorHandler {
+  private config: ErrorHandlerConfig;
+  private errorHistory: AppError[] = [];
+  private recoveryStrategies: Map<string, ErrorRecoveryStrategy> = new Map();
+  private subscriptions: ErrorSubscription[] = [];
+  private recoveryAttempts: Map<string, number> = new Map();
+  private lastErrorTime: Map<string, number> = new Map();
+  private notificationQueue: AppError[] = [];
+  private debounceTimers: Map<string, NodeJS.Timeout> = new Map();
+
+  constructor(config: Partial<ErrorHandlerConfig> = {}) {
+    this.config = {
+      maxErrorHistory: 1000,
+      enableConsoleLogging: true,
+      enableLocalStorage: true,
+      enableRemoteReporting: false,
+      autoRecoveryEnabled: true,
+      userNotificationEnabled: true,
+      debounceMs: 1000,
+      ...config
+    };
+
+    // Note: Default recovery strategies disabled to prevent placeholder failures
+    // Components should register their own recovery strategies with real implementations
+    // this.setupDefaultRecoveryStrategies();
+    this.loadErrorHistory();
+  }
+
+  /**
+   * Main error handling entry point
+   */
+  async handleError(error: AppError): Promise<void> {
+    console.log('[ErrorHandler] Handling error:', {
+      code: error.code,
+      category: error.category,
+      severity: error.severity,
+      message: error.message
+    });
+
+    // Add to error history
+    this.addToHistory(error);
+
+    // Log error
+    this.logError(error);
+
+    // Notify subscribers
+    this.notifySubscribers(error);
+
+    // Attempt recovery if enabled and error is recoverable
+    if (this.config.autoRecoveryEnabled && isRecoverableError(error)) {
+      await this.attemptRecovery(error);
+    }
+
+    // Queue for user notification (with debouncing)
+    if (this.config.userNotificationEnabled) {
+      this.queueUserNotification(error);
+    }
+
+    // Save to local storage
+    if (this.config.enableLocalStorage) {
+      this.saveErrorHistory();
+    }
+
+    // Report to remote service
+    if (this.config.enableRemoteReporting) {
+      await this.reportToRemoteService(error);
+    }
+  }
+
+  /**
+   * Convenience methods for creating and handling specific error types
+   */
+  async handleWasmError(
+    code: string,
+    message: string,
+    context?: {
+      method?: string;
+      wasmStack?: string;
+      recoverable?: boolean;
+    }
+  ): Promise<void> {
+    const error = ErrorFactory.createWasmError(code, message, context);
+    await this.handleError(error);
+  }
+
+  async handleDataError(
+    code: string,
+    message: string,
+    context?: {
+      endpoint?: string;
+      requestId?: string;
+      httpStatus?: number;
+      retryable?: boolean;
+      retryAfter?: number;
+    }
+  ): Promise<void> {
+    const error = ErrorFactory.createDataError(code, message, context);
+    await this.handleError(error);
+  }
+
+  async handleStoreError(
+    code: string,
+    message: string,
+    operation: 'sync' | 'update' | 'validation' | 'serialization',
+    context?: {
+      storeState?: any;
+      field?: string;
+    }
+  ): Promise<void> {
+    const error = ErrorFactory.createStoreError(code, message, operation, context);
+    await this.handleError(error);
+  }
+
+  async handleNetworkError(
+    code: string,
+    message: string,
+    context?: {
+      url?: string;
+      connectionType?: 'websocket' | 'http' | 'webgpu';
+      timeoutMs?: number;
+    }
+  ): Promise<void> {
+    const error = ErrorFactory.createNetworkError(code, message, context);
+    await this.handleError(error);
+  }
+
+  async handlePerformanceError(
+    code: string,
+    message: string,
+    metric: 'memory' | 'fps' | 'latency' | 'cpu',
+    threshold: number,
+    actual: number,
+    context?: {
+      trend?: 'increasing' | 'stable' | 'decreasing';
+    }
+  ): Promise<void> {
+    const error = ErrorFactory.createPerformanceError(code, message, metric, threshold, actual, context);
+    await this.handleError(error);
+  }
+
+  async handleValidationError(
+    code: string,
+    message: string,
+    field: string,
+    value: any,
+    constraint: string,
+    context?: {
+      suggestions?: string[];
+    }
+  ): Promise<void> {
+    const error = ErrorFactory.createValidationError(code, message, field, value, constraint, context);
+    await this.handleError(error);
+  }
+
+  /**
+   * Error recovery management
+   */
+  registerRecoveryStrategy(strategy: ErrorRecoveryStrategy): void {
+    if (!this.recoveryStrategies.has(strategy.errorCode)) {
+      this.recoveryStrategies.set(strategy.errorCode, strategy);
+
+      // Add stack trace to see where recovery strategies are being registered from
+      const stack = new Error().stack;
+      console.log(`[ErrorHandler] Registered recovery strategy for ${strategy.errorCode}`);
+      console.log(`[ErrorHandler] Registration called from:`, stack?.split('\n').slice(1, 5).join('\n'));
+    } else {
+      // Reduce log noise - only log in debug mode
+      if (process.env.NODE_ENV === 'development') {
+        console.debug(`[ErrorHandler] Recovery strategy for ${strategy.errorCode} already registered, skipping`);
+      }
+    }
+  }
+
+  private async attemptRecovery(error: AppError): Promise<void> {
+    const strategy = this.recoveryStrategies.get(error.code);
+    if (!strategy) {
+      console.log(`[ErrorHandler] No recovery strategy for ${error.code}`);
+      return;
+    }
+
+    const attemptKey = `${error.code}-${error.category}`;
+    const currentAttempts = this.recoveryAttempts.get(attemptKey) || 0;
+
+    if (currentAttempts >= strategy.maxAttempts) {
+      console.log(`[ErrorHandler] Max recovery attempts reached for ${error.code}`);
+
+      // Execute fallback if available
+      if (strategy.fallback) {
+        console.log(`[ErrorHandler] Executing fallback for ${error.code}`);
+        await strategy.fallback();
+      }
+
+      return;
+    }
+
+    console.log(`[ErrorHandler] Attempting recovery for ${error.code} (attempt ${currentAttempts + 1}/${strategy.maxAttempts})`);
+
+    // Wait before attempting recovery
+    if (strategy.delayMs > 0) {
+      await new Promise(resolve => setTimeout(resolve, strategy.delayMs));
+    }
+
+    try {
+      const success = await strategy.action();
+
+      if (success) {
+        console.log(`[ErrorHandler] Recovery successful for ${error.code}`);
+        this.recoveryAttempts.delete(attemptKey);
+      } else {
+        console.log(`[ErrorHandler] Recovery failed for ${error.code}`);
+        this.recoveryAttempts.set(attemptKey, currentAttempts + 1);
+      }
+    } catch (recoveryError) {
+      console.error(`[ErrorHandler] Recovery threw error for ${error.code}:`, recoveryError);
+      this.recoveryAttempts.set(attemptKey, currentAttempts + 1);
+    }
+  }
+
+  /**
+   * Subscription management
+   */
+  subscribe(subscription: Omit<ErrorSubscription, 'id'>): string {
+    const id = Math.random().toString(36).substr(2, 9);
+    this.subscriptions.push({ ...subscription, id });
+    return id;
+  }
+
+  unsubscribe(id: string): boolean {
+    const index = this.subscriptions.findIndex(sub => sub.id === id);
+    if (index >= 0) {
+      this.subscriptions.splice(index, 1);
+      return true;
+    }
+    return false;
+  }
+
+  private notifySubscribers(error: AppError): void {
+    this.subscriptions.forEach(subscription => {
+      // Check if subscription matches error
+      const categoryMatch = !subscription.category || subscription.category === error.category;
+      const severityMatch = !subscription.severity || subscription.severity === error.severity;
+
+      if (categoryMatch && severityMatch) {
+        try {
+          subscription.callback(error);
+        } catch (callbackError) {
+          console.error('[ErrorHandler] Error in subscription callback:', callbackError);
+        }
+      }
+    });
+  }
+
+  /**
+   * Error analysis and reporting
+   */
+  getErrorSummary(timeRangeMs?: number): ErrorSummary {
+    let errors = this.errorHistory;
+
+    if (timeRangeMs) {
+      const cutoff = Date.now() - timeRangeMs;
+      errors = errors.filter(error => error.timestamp >= cutoff);
+    }
+
+    return summarizeErrors(errors);
+  }
+
+  getRecentErrors(count: number = 50): AppError[] {
+    return this.errorHistory
+      .slice(-count)
+      .sort((a, b) => b.timestamp - a.timestamp);
+  }
+
+  getErrorsByCategory(category: string): AppError[] {
+    return this.errorHistory.filter(error => error.category === category);
+  }
+
+  clearErrorHistory(): void {
+    this.errorHistory = [];
+    this.saveErrorHistory();
+    console.log('[ErrorHandler] Error history cleared');
+  }
+
+  /**
+   * User notification management
+   */
+  private queueUserNotification(error: AppError): void {
+    const debounceKey = `${error.code}-${error.category}`;
+
+    // Clear existing debounce timer
+    const existingTimer = this.debounceTimers.get(debounceKey);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+
+    // Set new debounce timer
+    const timer = setTimeout(() => {
+      this.notificationQueue.push(error);
+      this.debounceTimers.delete(debounceKey);
+    }, this.config.debounceMs);
+
+    this.debounceTimers.set(debounceKey, timer);
+  }
+
+  getNotificationQueue(): AppError[] {
+    const queue = [...this.notificationQueue];
+    this.notificationQueue = [];
+    return queue;
+  }
+
+  /**
+   * Default recovery strategies
+   */
+  private setupDefaultRecoveryStrategies(): void {
+    // WASM initialization recovery
+    this.registerRecoveryStrategy({
+      errorCode: ERROR_CODES.WASM_INIT_FAILED,
+      maxAttempts: 3,
+      delayMs: 2000,
+      action: async () => {
+        console.log('[ErrorHandler] Attempting WASM reinitialization...');
+        // This would be implemented by the component using the error handler
+        return false; // Placeholder
+      },
+      fallback: async () => {
+        console.log('[ErrorHandler] WASM fallback: switching to canvas rendering');
+        // Fallback to non-WASM rendering
+      }
+    });
+
+    // Data fetch retry
+    this.registerRecoveryStrategy({
+      errorCode: ERROR_CODES.DATA_FETCH_FAILED,
+      maxAttempts: 5,
+      delayMs: 1000,
+      action: async () => {
+        console.log('[ErrorHandler] Retrying data fetch...');
+        // This would retry the failed data fetch
+        return false; // Placeholder
+      }
+    });
+
+    // Store sync recovery
+    this.registerRecoveryStrategy({
+      errorCode: ERROR_CODES.STORE_SYNC_FAILED,
+      maxAttempts: 3,
+      delayMs: 500,
+      action: async () => {
+        console.log('[ErrorHandler] Attempting store sync recovery...');
+        // This would retry store synchronization
+        return false; // Placeholder
+      }
+    });
+  }
+
+  /**
+   * Persistence and logging
+   */
+  private addToHistory(error: AppError): void {
+    this.errorHistory.push(error);
+
+    // Maintain max history size
+    if (this.errorHistory.length > this.config.maxErrorHistory) {
+      this.errorHistory = this.errorHistory.slice(-this.config.maxErrorHistory);
+    }
+  }
+
+  private logError(error: AppError): void {
+    if (!this.config.enableConsoleLogging) return;
+
+    const logMethod = error.severity === 'critical' ? 'error' :
+      error.severity === 'high' ? 'error' :
+        error.severity === 'medium' ? 'warn' : 'log';
+
+    console[logMethod](`[${error.category.toUpperCase()}] ${error.code}: ${error.message}`, {
+      severity: error.severity,
+      timestamp: new Date(error.timestamp).toISOString(),
+      context: error.context
+    });
+  }
+
+  private saveErrorHistory(): void {
+    try {
+      const recentErrors = this.errorHistory.slice(-100); // Only save last 100 errors
+      localStorage.setItem('errorHandler.history', JSON.stringify(recentErrors));
+    } catch (error) {
+      console.warn('[ErrorHandler] Failed to save error history to localStorage:', error);
+    }
+  }
+
+  private loadErrorHistory(): void {
+    // try {
+    //   const stored = localStorage.getItem('errorHandler.history');
+    //   if (stored) {
+    //     this.errorHistory = JSON.parse(stored);
+    //     console.log(`[ErrorHandler] Loaded ${this.errorHistory.length} errors from localStorage`);
+    //   }
+    // } catch (error) {
+    console.warn('[ErrorHandler] Failed to load error history from localStorage:');
+    // }
+  }
+
+  private async reportToRemoteService(error: AppError): Promise<void> {
+    // This would send error reports to a remote logging service
+    console.log('[ErrorHandler] Would report to remote service:', error.code);
+  }
+
+  /**
+   * Cleanup
+   */
+  destroy(): void {
+    this.debounceTimers.forEach(timer => clearTimeout(timer));
+    this.debounceTimers.clear();
+    this.subscriptions = [];
+    this.recoveryStrategies.clear();
+    this.recoveryAttempts.clear();
+    console.log('[ErrorHandler] Destroyed');
+  }
+}
+
+// Global error handler instance
+let globalErrorHandler: ErrorHandler | null = null;
+
+export function getGlobalErrorHandler(): ErrorHandler {
+  if (!globalErrorHandler) {
+    globalErrorHandler = new ErrorHandler();
+  }
+  return globalErrorHandler;
+}
+
+export function setGlobalErrorHandler(handler: ErrorHandler): void {
+  globalErrorHandler = handler;
+}
+
+// Convenience functions for global error handling
+export async function handleError(error: AppError): Promise<void> {
+  return getGlobalErrorHandler().handleError(error);
+}
+
+export async function handleWasmError(code: string, message: string, context?: any): Promise<void> {
+  return getGlobalErrorHandler().handleWasmError(code, message, context);
+}
+
+export async function handleDataError(code: string, message: string, context?: any): Promise<void> {
+  return getGlobalErrorHandler().handleDataError(code, message, context);
+}
+
+export async function handleStoreError(code: string, message: string, operation: any, context?: any): Promise<void> {
+  return getGlobalErrorHandler().handleStoreError(code, message, operation, context);
+}
+
+export async function handleNetworkError(code: string, message: string, context?: any): Promise<void> {
+  return getGlobalErrorHandler().handleNetworkError(code, message, context);
+}
+
+export async function handlePerformanceError(code: string, message: string, metric: any, threshold: number, actual: number, context?: any): Promise<void> {
+  return getGlobalErrorHandler().handlePerformanceError(code, message, metric, threshold, actual, context);
+}
+
+export async function handleValidationError(code: string, message: string, field: string, value: any, constraint: string, context?: any): Promise<void> {
+  return getGlobalErrorHandler().handleValidationError(code, message, field, value, constraint, context);
+}
