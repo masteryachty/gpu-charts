@@ -19,11 +19,7 @@ interface WasmCanvasProps {
 
 export default function WasmCanvas({ 
   width, 
-  height, 
-  enableAutoSync = true,
-  debounceMs = 100,
-  showPerformanceOverlay = true,
-  debugMode = false
+  height
 }: WasmCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);

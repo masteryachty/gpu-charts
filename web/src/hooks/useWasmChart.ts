@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 // import { useAutonomousDataFetching } from './useAutonomousDataFetching'; // TEMPORARILY DISABLED
-import { useErrorHandler } from './useErrorHandler';
+// import { useErrorHandler } from './useErrorHandler'; // TEMPORARILY DISABLED
 import { ERROR_CODES } from '../errors/ErrorTypes';
 import type { StoreState } from '../types';
 
@@ -193,8 +193,8 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
   //   }
   // });
 
-  // Mock error API for testing
-  const errorAPI = {
+  // Mock error API for testing - wrapped in useMemo to prevent dependency warnings
+  const errorAPI = useMemo(() => ({
     reportWasmError: async (code: string, message: string, context?: any) => {
       console.error('[useWasmChart] WASM Error:', { code, message, context });
     },
@@ -204,7 +204,7 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
     registerRecoveryStrategy: (strategy: any) => {
       console.log('[useWasmChart] Recovery strategy registered:', strategy.errorCode);
     }
-  };
+  }), []);
   
   // Initialize autonomous data fetching if enabled
   // TEMPORARILY DISABLED TO FIX INFINITE LOOP

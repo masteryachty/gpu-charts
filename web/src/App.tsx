@@ -1,7 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import TradingApp from './pages/TradingApp';
-import { ErrorBoundary, ErrorNotificationCenter, initializeIntegrationSystem } from './index';
+import { ErrorBoundary } from './index';
 
 // Initialize the integration system - temporarily disabled for testing
 // initializeIntegrationSystem({
