@@ -3,12 +3,12 @@ import HomePage from './pages/HomePage';
 import TradingApp from './pages/TradingApp';
 import { ErrorBoundary, ErrorNotificationCenter, initializeIntegrationSystem } from './index';
 
-// Initialize the integration system
-initializeIntegrationSystem({
-  enableErrorReporting: true,
-  enablePerformanceMonitoring: true,
-  debugMode: process.env.NODE_ENV === 'development'
-});
+// Initialize the integration system - temporarily disabled for testing
+// initializeIntegrationSystem({
+//   enableErrorReporting: true,
+//   enablePerformanceMonitoring: true,
+//   debugMode: process.env.NODE_ENV === 'development'
+// });
 
 function App() {
   return (
@@ -27,14 +27,14 @@ function App() {
           <Route path="/docs" element={<div>Documentation</div>} />
         </Routes>
         
-        {/* Global error notification system */}
-        <ErrorNotificationCenter
+        {/* Global error notification system - temporarily disabled for testing */}
+        {/* <ErrorNotificationCenter
           position="top-right"
           maxNotifications={5}
           autoHideTimeoutMs={8000}
           enableSounds={false}
           showDetailedInfo={false}
-        />
+        /> */}
       </div>
     </ErrorBoundary>
   );

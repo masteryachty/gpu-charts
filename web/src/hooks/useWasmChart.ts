@@ -182,16 +182,29 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
   const storeTimeframe = useAppStore(state => state.chartConfig.timeframe);
   const storeConnected = useAppStore(state => state.isConnected);
   
-  // Initialize comprehensive error handling
-  const [errorState, errorAPI] = useErrorHandler({
-    subscribeToCategories: ['wasm', 'store', 'data'],
-    onError: (error) => {
-      console.log('[useWasmChart] Error handler received error:', error.code);
+  // Initialize comprehensive error handling - temporarily disabled for testing
+  // const [errorState, errorAPI] = useErrorHandler({
+  //   subscribeToCategories: ['wasm', 'store', 'data'],
+  //   onError: (error) => {
+  //     console.log('[useWasmChart] Error handler received error:', error.code);
+  //   },
+  //   onRecovery: (errorCode) => {
+  //     console.log('[useWasmChart] Error recovery successful for:', errorCode);
+  //   }
+  // });
+
+  // Mock error API for testing
+  const errorAPI = {
+    reportWasmError: async (code: string, message: string, context?: any) => {
+      console.error('[useWasmChart] WASM Error:', { code, message, context });
     },
-    onRecovery: (errorCode) => {
-      console.log('[useWasmChart] Error recovery successful for:', errorCode);
+    reportStoreError: async (code: string, message: string, operation: any, context?: any) => {
+      console.error('[useWasmChart] Store Error:', { code, message, operation, context });
+    },
+    registerRecoveryStrategy: (strategy: any) => {
+      console.log('[useWasmChart] Recovery strategy registered:', strategy.errorCode);
     }
-  });
+  };
   
   // Initialize autonomous data fetching if enabled
   // TEMPORARILY DISABLED TO FIX INFINITE LOOP
