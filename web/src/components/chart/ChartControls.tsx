@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAppStore, useChartSubscription } from '../../store/useAppStore';
 
 /**
@@ -42,10 +42,10 @@ export default function ChartControls({
   const [subscriptionEvents, setSubscriptionEvents] = useState<ChangeEvent[]>([]);
   const [activeSubscriptions, setActiveSubscriptions] = useState(0);
 
-  // Available options
-  const symbols = ['BTC-USD', 'ETH-USD', 'ADA-USD', 'DOT-USD', 'LINK-USD', 'AVAX-USD'];
-  const timeframes = ['1m', '5m', '15m', '1h', '4h', '1d'];
-  const availableIndicators = ['RSI', 'MACD', 'EMA', 'SMA', 'BB', 'STOCH'];
+  // Available options (memoized to prevent dependency issues)
+  const symbols = useMemo(() => ['BTC-USD', 'ETH-USD', 'ADA-USD', 'DOT-USD', 'LINK-USD', 'AVAX-USD'], []);
+  const timeframes = useMemo(() => ['1m', '5m', '15m', '1h', '4h', '1d'], []);
+  const availableIndicators = useMemo(() => ['RSI', 'MACD', 'EMA', 'SMA', 'BB', 'STOCH'], []);
 
   // Set up chart subscription for change tracking
   const chartSubscription = useChartSubscription({
@@ -161,7 +161,7 @@ export default function ChartControls({
       timeframe: randomTimeframe,
       indicators: randomIndicators
     });
-  }, [updateChartState]);
+  }, [updateChartState, symbols, timeframes, availableIndicators]);
 
   // Clear change tracking
   const clearEvents = useCallback(() => {

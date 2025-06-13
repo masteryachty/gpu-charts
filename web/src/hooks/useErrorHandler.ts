@@ -247,7 +247,7 @@ export function useErrorHandler(
       subscriptionIdsRef.current.forEach(id => handler.unsubscribe(id));
       subscriptionIdsRef.current = [];
     };
-  }, []); // Empty deps - only run once
+  }, [maxRecentErrors, onError, subscribeToCategories, subscribeToSeverities]); // Include dependencies
   
   // Error reporting functions
   const reportError = useCallback(async (error: AppError): Promise<void> => {

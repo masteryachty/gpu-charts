@@ -225,7 +225,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 /**
  * Default Error Fallback Component
  */
-function DefaultErrorFallback({
+export function DefaultErrorFallback({
   error,
   errorInfo,
   retryCount,
@@ -346,6 +346,7 @@ function DefaultErrorFallback({
 /**
  * Higher-order component for wrapping components with error boundary
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function withErrorBoundary<P extends object>(
   Component: React.ComponentType<P>,
   errorBoundaryProps?: Omit<ErrorBoundaryProps, 'children'>
@@ -364,6 +365,7 @@ export function withErrorBoundary<P extends object>(
 /**
  * Hook for error boundary management in functional components
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function useErrorBoundaryReset() {
   const [key, setKey] = React.useState(0);
   

@@ -48,7 +48,7 @@ function ChartView() {
         console.warn('[TradingApp] Invalid timestamp parameters:', { startParam, endParam });
       }
     }
-  }, []); // Run only once on mount
+  }, [setCurrentSymbol, setTimeRange]); // Include dependencies
 
   // Check for debug mode in URL params
   const urlParams = new URLSearchParams(window.location.search);

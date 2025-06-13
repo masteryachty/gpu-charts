@@ -104,8 +104,8 @@ export interface ChangeDetectionConfig {
   enableTimeRangeChangeDetection: boolean;
   enableTimeframeChangeDetection: boolean;
   enableIndicatorChangeDetection: boolean;
-  symbolChangeTriggersF etch: boolean;
-  timeRangeChangeTriggersF etch: boolean;
+  symbolChangeTriggersFetch: boolean;
+  timeRangeChangeTriggersFetch: boolean;
   timeframeChangeTriggersRender: boolean;
   indicatorChangeTriggersRender: boolean;
   minimumTimeRangeChangeSeconds: number;
@@ -330,7 +330,7 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
       
       return false;
     }
-  }, [canvasId, width, height, enableAutoSync, errorAPI]);
+  }, [canvasId, width, height, enableAutoSync, errorAPI, updateState]);
 
   /**
    * Update chart state from store state (simplified for SimpleChart)
@@ -467,8 +467,8 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
       enableTimeRangeChangeDetection: false,
       enableTimeframeChangeDetection: false,
       enableIndicatorChangeDetection: false,
-      symbolChangeTriggersF etch: false,
-      timeRangeChangeTriggersF etch: false,
+      symbolChangeTriggersFetch: false,
+      timeRangeChangeTriggersFetch: false,
       timeframeChangeTriggersRender: false,
       indicatorChangeTriggersRender: false,
       minimumTimeRangeChangeSeconds: 60,
@@ -679,7 +679,7 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
         return false; // For now, disable auto-recovery to prevent infinite loops
       }
     });
-  }, []); // Empty dependency array - register only once
+  }, [errorAPI, maxRetries, retryDelayMs]); // Include dependencies
 
   // Cleanup on unmount
   useEffect(() => {

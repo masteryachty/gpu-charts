@@ -89,7 +89,7 @@ export default function ErrorNotificationCenter({
         playNotificationSound(newNotifications[0].severity);
       }
     }
-  }, [errorState.pendingNotifications, autoHideTimeoutMs, maxNotifications, enableSounds]);
+  }, [errorState.pendingNotifications, autoHideTimeoutMs, maxNotifications, enableSounds, dismissNotification, errorAPI, playNotificationSound]);
   
   // Dismiss notification
   const dismissNotification = useCallback((id: string) => {

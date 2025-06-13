@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 // import { useAutonomousDataFetching } from '../../hooks/useAutonomousDataFetching';
 
 /**
@@ -59,7 +59,7 @@ export default function DataFetchingMonitor({
     cacheStats: { size: 0, hitRate: 0, entries: [] }
   };
   
-  const fetchingAPI = {
+  const fetchingAPI = useMemo(() => ({
     fetchData: async () => ({ success: false, data: null, metadata: null, error: 'Monitor disabled' }),
     refreshData: async () => ({ success: false, data: null, metadata: null, error: 'Monitor disabled' }),
     prefetchData: async () => {},
@@ -67,7 +67,7 @@ export default function DataFetchingMonitor({
     getDetailedMetrics: () => fetchingState.metrics,
     setAutoFetch: () => {},
     configureService: () => {}
-  };
+  }), [fetchingState.metrics]);
 
   const [activityLog, setActivityLog] = useState<Array<{
     id: string;

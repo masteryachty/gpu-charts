@@ -49,7 +49,7 @@ export default function WasmCanvas({
   // Update connection status when chart state changes
   useEffect(() => {
     setConnectionStatus(chartState.isInitialized && !chartState.error);
-  }, [chartState.isInitialized, chartState.error]);
+  }, [chartState.isInitialized, chartState.error, setConnectionStatus]);
 
   // Initialize chart when canvas is ready
   useEffect(() => {

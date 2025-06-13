@@ -122,7 +122,7 @@ export function useAutonomousDataFetching(
   }, [updateMarketData]);
 
   // Memoize service config to prevent recreating
-  const memoizedServiceConfig = useMemo(() => serviceConfig, [JSON.stringify(serviceConfig)]);
+  const memoizedServiceConfig = useMemo(() => serviceConfig, [serviceConfig]);
 
   // Local state management
   const [fetchingState, setFetchingState] = useState<DataFetchingState>({
@@ -253,7 +253,7 @@ export function useAutonomousDataFetching(
       service.destroy();
       initializedRef.current = false;
     };
-  }, []); // Empty dependency array - initialize only once
+  }, [memoizedServiceConfig, enablePrefetch, enableStreaming, updateMetricsAndStats]); // Include dependencies
 
   // Update metrics and cache stats
   const updateMetricsAndStats = useCallback(() => {
