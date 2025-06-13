@@ -23,16 +23,16 @@ pub const VALID_COLUMNS: &[&str] = &["time", "best_bid", "best_ask", "price", "v
 pub struct StoreState {
     /// Current active trading symbol
     pub current_symbol: String,
-    
+
     /// Chart configuration containing all rendering parameters  
     pub chart_config: ChartConfig,
-    
+
     /// Market data keyed by symbol
     pub market_data: HashMap<String, MarketData>,
-    
+
     /// Connection status to data server
     pub is_connected: bool,
-    
+
     /// Optional user information
     pub user: Option<User>,
 }
@@ -44,16 +44,16 @@ pub struct StoreState {
 pub struct ChartConfig {
     /// Trading symbol (must be non-empty)
     pub symbol: String,
-    
+
     /// Timeframe (must be valid timeframe)
     pub timeframe: String,
-    
+
     /// Start time as Unix timestamp (must be < end_time)
     pub start_time: u64,
-    
+
     /// End time as Unix timestamp (must be > start_time)
     pub end_time: u64,
-    
+
     /// Array of indicator names
     pub indicators: Vec<String>,
 }
@@ -129,13 +129,33 @@ pub struct StateChangeDetection {
 /// Types of changes that can occur
 #[derive(Debug, Clone, PartialEq)]
 pub enum ChangeType {
-    SymbolChange { from: String, to: String },
-    TimeRangeChange { from: (u64, u64), to: (u64, u64) },
-    TimeframeChange { from: String, to: String },
-    IndicatorsChange { added: Vec<String>, removed: Vec<String> },
-    ConnectionStatusChange { from: bool, to: bool },
-    UserChange { added: bool, removed: bool },
-    MarketDataChange { symbols_updated: Vec<String> },
+    SymbolChange {
+        from: String,
+        to: String,
+    },
+    TimeRangeChange {
+        from: (u64, u64),
+        to: (u64, u64),
+    },
+    TimeframeChange {
+        from: String,
+        to: String,
+    },
+    IndicatorsChange {
+        added: Vec<String>,
+        removed: Vec<String>,
+    },
+    ConnectionStatusChange {
+        from: bool,
+        to: bool,
+    },
+    UserChange {
+        added: bool,
+        removed: bool,
+    },
+    MarketDataChange {
+        symbols_updated: Vec<String>,
+    },
 }
 
 /// Change detection configuration
@@ -212,7 +232,11 @@ impl StoreState {
     }
 
     /// Advanced change detection with detailed analysis
-    pub fn detect_changes_from(&self, previous: &StoreState, config: &ChangeDetectionConfig) -> StateChangeDetection {
+    pub fn detect_changes_from(
+        &self,
+        previous: &StoreState,
+        config: &ChangeDetectionConfig,
+    ) -> StateChangeDetection {
         let mut detection = StateChangeDetection {
             has_changes: false,
             symbol_changed: false,
@@ -228,7 +252,9 @@ impl StoreState {
         };
 
         // Symbol change detection
-        if config.enable_symbol_change_detection && self.chart_config.symbol != previous.chart_config.symbol {
+        if config.enable_symbol_change_detection
+            && self.chart_config.symbol != previous.chart_config.symbol
+        {
             detection.symbol_changed = true;
             detection.has_changes = true;
             if config.symbol_change_triggers_fetch {
@@ -236,16 +262,18 @@ impl StoreState {
             }
             detection.change_summary.push(format!(
                 "Symbol: {} → {}",
-                previous.chart_config.symbol,
-                self.chart_config.symbol
+                previous.chart_config.symbol, self.chart_config.symbol
             ));
         }
 
         // Time range change detection
         if config.enable_time_range_change_detection {
-            let time_diff = (self.chart_config.start_time as i64 - previous.chart_config.start_time as i64).abs() as u64
-                + (self.chart_config.end_time as i64 - previous.chart_config.end_time as i64).abs() as u64;
-            
+            let time_diff = (self.chart_config.start_time as i64
+                - previous.chart_config.start_time as i64)
+                .abs() as u64
+                + (self.chart_config.end_time as i64 - previous.chart_config.end_time as i64).abs()
+                    as u64;
+
             if time_diff >= config.minimum_time_range_change_seconds {
                 detection.time_range_changed = true;
                 detection.has_changes = true;
@@ -263,7 +291,9 @@ impl StoreState {
         }
 
         // Timeframe change detection
-        if config.enable_timeframe_change_detection && self.chart_config.timeframe != previous.chart_config.timeframe {
+        if config.enable_timeframe_change_detection
+            && self.chart_config.timeframe != previous.chart_config.timeframe
+        {
             detection.timeframe_changed = true;
             detection.has_changes = true;
             if config.timeframe_change_triggers_render {
@@ -271,31 +301,42 @@ impl StoreState {
             }
             detection.change_summary.push(format!(
                 "Timeframe: {} → {}",
-                previous.chart_config.timeframe,
-                self.chart_config.timeframe
+                previous.chart_config.timeframe, self.chart_config.timeframe
             ));
         }
 
         // Indicator change detection
         if config.enable_indicator_change_detection {
-            let previous_indicators: std::collections::HashSet<_> = previous.chart_config.indicators.iter().collect();
-            let current_indicators: std::collections::HashSet<_> = self.chart_config.indicators.iter().collect();
-            
+            let previous_indicators: std::collections::HashSet<_> =
+                previous.chart_config.indicators.iter().collect();
+            let current_indicators: std::collections::HashSet<_> =
+                self.chart_config.indicators.iter().collect();
+
             if previous_indicators != current_indicators {
                 detection.indicators_changed = true;
                 detection.has_changes = true;
                 if config.indicator_change_triggers_render {
                     detection.requires_render = true;
                 }
-                
-                let added: Vec<_> = current_indicators.difference(&previous_indicators).map(|s| s.to_string()).collect();
-                let removed: Vec<_> = previous_indicators.difference(&current_indicators).map(|s| s.to_string()).collect();
-                
+
+                let added: Vec<_> = current_indicators
+                    .difference(&previous_indicators)
+                    .map(|s| s.to_string())
+                    .collect();
+                let removed: Vec<_> = previous_indicators
+                    .difference(&current_indicators)
+                    .map(|s| s.to_string())
+                    .collect();
+
                 if !added.is_empty() {
-                    detection.change_summary.push(format!("Indicators added: {:?}", added));
+                    detection
+                        .change_summary
+                        .push(format!("Indicators added: {:?}", added));
                 }
                 if !removed.is_empty() {
-                    detection.change_summary.push(format!("Indicators removed: {:?}", removed));
+                    detection
+                        .change_summary
+                        .push(format!("Indicators removed: {:?}", removed));
                 }
             }
         }
@@ -306,8 +347,7 @@ impl StoreState {
             detection.has_changes = true;
             detection.change_summary.push(format!(
                 "Connection: {} → {}",
-                previous.is_connected,
-                self.is_connected
+                previous.is_connected, self.is_connected
             ));
         }
 
@@ -316,22 +356,24 @@ impl StoreState {
             (None, Some(_)) => {
                 detection.change_summary.push("User logged in".to_string());
                 true
-            },
+            }
             (Some(_), None) => {
                 detection.change_summary.push("User logged out".to_string());
                 true
-            },
+            }
             (Some(prev), Some(curr)) => {
                 if prev != curr {
-                    detection.change_summary.push("User information updated".to_string());
+                    detection
+                        .change_summary
+                        .push("User information updated".to_string());
                     true
                 } else {
                     false
                 }
-            },
+            }
             (None, None) => false,
         };
-        
+
         if user_changed {
             detection.user_changed = true;
             detection.has_changes = true;
@@ -340,15 +382,20 @@ impl StoreState {
         // Market data change detection (simplified - check if different symbols are present)
         let prev_symbols: std::collections::HashSet<_> = previous.market_data.keys().collect();
         let curr_symbols: std::collections::HashSet<_> = self.market_data.keys().collect();
-        
+
         if prev_symbols != curr_symbols || !self.market_data.is_empty() {
             detection.market_data_changed = true;
             detection.has_changes = true;
             detection.requires_render = true;
-            
-            let new_symbols: Vec<_> = curr_symbols.difference(&prev_symbols).map(|s| s.to_string()).collect();
+
+            let new_symbols: Vec<_> = curr_symbols
+                .difference(&prev_symbols)
+                .map(|s| s.to_string())
+                .collect();
             if !new_symbols.is_empty() {
-                detection.change_summary.push(format!("Market data updated for: {:?}", new_symbols));
+                detection
+                    .change_summary
+                    .push(format!("Market data updated for: {:?}", new_symbols));
             }
         }
 
@@ -375,10 +422,14 @@ impl StoreState {
         }
 
         // Time range change
-        if self.chart_config.start_time != previous.chart_config.start_time 
-           || self.chart_config.end_time != previous.chart_config.end_time {
+        if self.chart_config.start_time != previous.chart_config.start_time
+            || self.chart_config.end_time != previous.chart_config.end_time
+        {
             changes.push(ChangeType::TimeRangeChange {
-                from: (previous.chart_config.start_time, previous.chart_config.end_time),
+                from: (
+                    previous.chart_config.start_time,
+                    previous.chart_config.end_time,
+                ),
                 to: (self.chart_config.start_time, self.chart_config.end_time),
             });
         }
@@ -392,13 +443,21 @@ impl StoreState {
         }
 
         // Indicator changes
-        let prev_indicators: std::collections::HashSet<_> = previous.chart_config.indicators.iter().collect();
-        let curr_indicators: std::collections::HashSet<_> = self.chart_config.indicators.iter().collect();
-        
+        let prev_indicators: std::collections::HashSet<_> =
+            previous.chart_config.indicators.iter().collect();
+        let curr_indicators: std::collections::HashSet<_> =
+            self.chart_config.indicators.iter().collect();
+
         if prev_indicators != curr_indicators {
-            let added: Vec<String> = curr_indicators.difference(&prev_indicators).map(|s| s.to_string()).collect();
-            let removed: Vec<String> = prev_indicators.difference(&curr_indicators).map(|s| s.to_string()).collect();
-            
+            let added: Vec<String> = curr_indicators
+                .difference(&prev_indicators)
+                .map(|s| s.to_string())
+                .collect();
+            let removed: Vec<String> = prev_indicators
+                .difference(&curr_indicators)
+                .map(|s| s.to_string())
+                .collect();
+
             changes.push(ChangeType::IndicatorsChange { added, removed });
         }
 
@@ -412,23 +471,37 @@ impl StoreState {
 
         // User change
         match (&previous.user, &self.user) {
-            (None, Some(_)) => changes.push(ChangeType::UserChange { added: true, removed: false }),
-            (Some(_), None) => changes.push(ChangeType::UserChange { added: false, removed: true }),
+            (None, Some(_)) => changes.push(ChangeType::UserChange {
+                added: true,
+                removed: false,
+            }),
+            (Some(_), None) => changes.push(ChangeType::UserChange {
+                added: false,
+                removed: true,
+            }),
             (Some(prev), Some(curr)) => {
                 if prev != curr {
-                    changes.push(ChangeType::UserChange { added: false, removed: false });
+                    changes.push(ChangeType::UserChange {
+                        added: false,
+                        removed: false,
+                    });
                 }
-            },
-            _ => {},
+            }
+            _ => {}
         }
 
         // Market data changes
         let prev_symbols: std::collections::HashSet<_> = previous.market_data.keys().collect();
         let curr_symbols: std::collections::HashSet<_> = self.market_data.keys().collect();
-        
+
         if prev_symbols != curr_symbols {
-            let updated_symbols: Vec<String> = curr_symbols.union(&prev_symbols).map(|s| s.to_string()).collect();
-            changes.push(ChangeType::MarketDataChange { symbols_updated: updated_symbols });
+            let updated_symbols: Vec<String> = curr_symbols
+                .union(&prev_symbols)
+                .map(|s| s.to_string())
+                .collect();
+            changes.push(ChangeType::MarketDataChange {
+                symbols_updated: updated_symbols,
+            });
         }
 
         changes
@@ -444,7 +517,11 @@ impl ChartConfig {
         // Validate symbol
         if self.symbol.is_empty() {
             errors.push("Symbol cannot be empty".to_string());
-        } else if !self.symbol.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+        } else if !self
+            .symbol
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+        {
             errors.push("Symbol contains invalid characters".to_string());
         }
 
@@ -462,14 +539,14 @@ impl ChartConfig {
             errors.push("Start time must be less than end time".to_string());
         } else {
             let time_range = self.end_time - self.start_time;
-            
+
             if time_range < MIN_TIME_RANGE_SECONDS {
                 errors.push(format!(
                     "Time range too small: {} seconds (minimum: {} seconds)",
                     time_range, MIN_TIME_RANGE_SECONDS
                 ));
             }
-            
+
             if time_range > MAX_TIME_RANGE_SECONDS {
                 warnings.push(format!(
                     "Time range very large: {} seconds (maximum recommended: {} seconds)",
@@ -563,7 +640,11 @@ mod tests {
         };
 
         let validation = store_state.validate();
-        assert!(validation.is_valid, "Validation errors: {:?}", validation.errors);
+        assert!(
+            validation.is_valid,
+            "Validation errors: {:?}",
+            validation.errors
+        );
     }
 
     #[wasm_bindgen_test]
@@ -599,7 +680,10 @@ mod tests {
 
         let validation = chart_config.validate();
         assert!(!validation.is_valid);
-        assert!(validation.errors.iter().any(|e| e.contains("Start time must be less than end time")));
+        assert!(validation
+            .errors
+            .iter()
+            .any(|e| e.contains("Start time must be less than end time")));
     }
 
     #[wasm_bindgen_test]
@@ -614,7 +698,10 @@ mod tests {
 
         let validation = chart_config.validate();
         assert!(!validation.is_valid);
-        assert!(validation.errors.iter().any(|e| e.contains("Invalid timeframe")));
+        assert!(validation
+            .errors
+            .iter()
+            .any(|e| e.contains("Invalid timeframe")));
     }
 
     #[wasm_bindgen_test]
@@ -664,7 +751,7 @@ mod tests {
         };
 
         let fetch_params = store_state.extract_fetch_params();
-        
+
         // Should use chart_config.symbol, not current_symbol
         assert_eq!(fetch_params.symbol, "ETH-USD");
         assert_eq!(fetch_params.start_time, 1000);
@@ -685,14 +772,17 @@ mod tests {
             },
             market_data: {
                 let mut map = HashMap::new();
-                map.insert("BTC-USD".to_string(), MarketData {
-                    symbol: "BTC-USD".to_string(),
-                    price: 50000.0,
-                    change: 1000.0,
-                    change_percent: 2.0,
-                    volume: 1000000.0,
-                    timestamp: 1234567890,
-                });
+                map.insert(
+                    "BTC-USD".to_string(),
+                    MarketData {
+                        symbol: "BTC-USD".to_string(),
+                        price: 50000.0,
+                        change: 1000.0,
+                        change_percent: 2.0,
+                        volume: 1000000.0,
+                        timestamp: 1234567890,
+                    },
+                );
                 map
             },
             is_connected: true,
@@ -709,9 +799,15 @@ mod tests {
         let deserialized: StoreState = serde_json::from_str(&json).expect("Failed to deserialize");
 
         assert_eq!(store_state.current_symbol, deserialized.current_symbol);
-        assert_eq!(store_state.chart_config.symbol, deserialized.chart_config.symbol);
+        assert_eq!(
+            store_state.chart_config.symbol,
+            deserialized.chart_config.symbol
+        );
         assert_eq!(store_state.is_connected, deserialized.is_connected);
-        assert_eq!(store_state.market_data.len(), deserialized.market_data.len());
+        assert_eq!(
+            store_state.market_data.len(),
+            deserialized.market_data.len()
+        );
         assert!(store_state.user.is_some());
         assert!(deserialized.user.is_some());
     }
@@ -740,7 +836,7 @@ mod tests {
 
         // Test JSON serialization for React bridge
         let json = serde_json::to_string(&store_state).expect("Failed to serialize for bridge");
-        
+
         // Verify camelCase field names for React compatibility
         assert!(json.contains("\"currentSymbol\":\"BTC-USD\""));
         assert!(json.contains("\"chartConfig\""));
@@ -750,9 +846,13 @@ mod tests {
         assert!(json.contains("\"isConnected\":true"));
 
         // Test round-trip deserialization
-        let deserialized: StoreState = serde_json::from_str(&json).expect("Failed to deserialize from bridge");
+        let deserialized: StoreState =
+            serde_json::from_str(&json).expect("Failed to deserialize from bridge");
         assert_eq!(store_state.current_symbol, deserialized.current_symbol);
-        assert_eq!(store_state.chart_config.start_time, deserialized.chart_config.start_time);
+        assert_eq!(
+            store_state.chart_config.start_time,
+            deserialized.chart_config.start_time
+        );
     }
 
     #[wasm_bindgen_test]
@@ -791,7 +891,7 @@ mod tests {
 
         let store_state: StoreState = serde_json::from_str(invalid_store_state_json)
             .expect("Should parse JSON even if invalid");
-        
+
         let validation_result = store_state.validate();
         assert!(!validation_result.is_valid);
         assert!(validation_result.errors.len() >= 3); // Empty symbols + invalid timeframe + invalid time range
@@ -813,12 +913,16 @@ mod tests {
             "isConnected": true
         }"#;
 
-        let store_state: StoreState = serde_json::from_str(minimal_json)
-            .expect("Should parse minimal JSON");
-        
+        let store_state: StoreState =
+            serde_json::from_str(minimal_json).expect("Should parse minimal JSON");
+
         let validation_result = store_state.validate();
-        assert!(validation_result.is_valid, "Minimal payload should be valid: {:?}", validation_result.errors);
-        
+        assert!(
+            validation_result.is_valid,
+            "Minimal payload should be valid: {:?}",
+            validation_result.errors
+        );
+
         // Verify fields
         assert_eq!(store_state.current_symbol, "BTC-USD");
         assert_eq!(store_state.chart_config.symbol, "BTC-USD");
@@ -864,7 +968,10 @@ mod tests {
         assert!(!detection.time_range_changed);
         assert!(!detection.timeframe_changed);
         assert!(detection.requires_data_fetch);
-        assert!(detection.change_summary.iter().any(|s| s.contains("BTC-USD") && s.contains("ETH-USD")));
+        assert!(detection
+            .change_summary
+            .iter()
+            .any(|s| s.contains("BTC-USD") && s.contains("ETH-USD")));
     }
 
     #[wasm_bindgen_test]
@@ -904,7 +1011,10 @@ mod tests {
         assert!(!detection.symbol_changed);
         assert!(detection.time_range_changed);
         assert!(detection.requires_data_fetch);
-        assert!(detection.change_summary.iter().any(|s| s.contains("Time range")));
+        assert!(detection
+            .change_summary
+            .iter()
+            .any(|s| s.contains("Time range")));
     }
 
     #[wasm_bindgen_test]
@@ -943,7 +1053,10 @@ mod tests {
         assert!(detection.has_changes);
         assert!(detection.indicators_changed);
         assert!(detection.requires_render);
-        assert!(detection.change_summary.iter().any(|s| s.contains("Indicators added") && s.contains("MACD")));
+        assert!(detection
+            .change_summary
+            .iter()
+            .any(|s| s.contains("Indicators added") && s.contains("MACD")));
     }
 
     #[wasm_bindgen_test]
@@ -1017,7 +1130,7 @@ mod tests {
         // Test with symbol change detection disabled
         let mut config = ChangeDetectionConfig::default();
         config.enable_symbol_change_detection = false;
-        
+
         let detection = new_state.detect_changes_from(&initial_state, &config);
 
         assert!(!detection.has_changes);
@@ -1064,13 +1177,25 @@ mod tests {
 
         // Should detect multiple types of changes
         assert!(change_types.len() >= 4);
-        
+
         // Check specific change types
-        assert!(change_types.iter().any(|ct| matches!(ct, ChangeType::SymbolChange { .. })));
-        assert!(change_types.iter().any(|ct| matches!(ct, ChangeType::TimeRangeChange { .. })));
-        assert!(change_types.iter().any(|ct| matches!(ct, ChangeType::TimeframeChange { .. })));
-        assert!(change_types.iter().any(|ct| matches!(ct, ChangeType::IndicatorsChange { .. })));
-        assert!(change_types.iter().any(|ct| matches!(ct, ChangeType::ConnectionStatusChange { .. })));
-        assert!(change_types.iter().any(|ct| matches!(ct, ChangeType::UserChange { .. })));
+        assert!(change_types
+            .iter()
+            .any(|ct| matches!(ct, ChangeType::SymbolChange { .. })));
+        assert!(change_types
+            .iter()
+            .any(|ct| matches!(ct, ChangeType::TimeRangeChange { .. })));
+        assert!(change_types
+            .iter()
+            .any(|ct| matches!(ct, ChangeType::TimeframeChange { .. })));
+        assert!(change_types
+            .iter()
+            .any(|ct| matches!(ct, ChangeType::IndicatorsChange { .. })));
+        assert!(change_types
+            .iter()
+            .any(|ct| matches!(ct, ChangeType::ConnectionStatusChange { .. })));
+        assert!(change_types
+            .iter()
+            .any(|ct| matches!(ct, ChangeType::UserChange { .. })));
     }
 }
