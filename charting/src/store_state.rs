@@ -268,8 +268,11 @@ impl StoreState {
 
         // Time range change detection
         if config.enable_time_range_change_detection {
-            let time_diff = (self.chart_config.start_time as i64 - previous.chart_config.start_time as i64).unsigned_abs()
-                + (self.chart_config.end_time as i64 - previous.chart_config.end_time as i64).unsigned_abs();
+            let time_diff = (self.chart_config.start_time as i64
+                - previous.chart_config.start_time as i64)
+                .unsigned_abs()
+                + (self.chart_config.end_time as i64 - previous.chart_config.end_time as i64)
+                    .unsigned_abs();
 
             if time_diff >= config.minimum_time_range_change_seconds {
                 detection.time_range_changed = true;
