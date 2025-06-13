@@ -151,7 +151,7 @@ test.describe('Data Visualization Chart Rendering', () => {
       await utils.waitForChartRender();
       
       // Verify canvas is properly sized and visible
-      const canvas = page.locator('#new-api-canvas');
+      const canvas = page.locator('#wasm-chart-canvas');
       await expect(canvas).toBeVisible();
       
       const canvasBox = await canvas.boundingBox();
@@ -177,7 +177,7 @@ test.describe('Data Visualization Chart Rendering', () => {
     await utils.navigateToApp();
     
     // Should still show canvas even with no data
-    await expect(page.locator('#new-api-canvas')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('#wasm-chart-canvas')).toBeVisible({ timeout: 15000 });
     
     // Should not show error overlay for empty data
     const errorOverlay = page.locator('[data-testid="error-overlay"]');
@@ -229,7 +229,7 @@ test.describe('Data Visualization Chart Rendering', () => {
 
       // Should either handle gracefully or show error
       const hasError = page.locator('[data-testid="error-overlay"]');
-      const hasCanvas = page.locator('#new-api-canvas');
+      const hasCanvas = page.locator('#wasm-chart-canvas');
       
       // Either should show error overlay OR canvas should still be visible
       const errorVisible = await hasError.isVisible();

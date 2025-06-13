@@ -12,7 +12,7 @@ export class GraphTestUtils {
     
     // Additional check for canvas being ready
     await this.page.waitForFunction(() => {
-      const canvas = document.getElementById('new-api-canvas') as HTMLCanvasElement;
+      const canvas = document.getElementById('wasm-chart-canvas') as HTMLCanvasElement;
       return canvas && canvas.width > 0 && canvas.height > 0;
     }, { timeout });
   }
@@ -50,7 +50,7 @@ export class GraphTestUtils {
    */
   async waitForChartRender(timeout = 10000) {
     // Wait for canvas to appear
-    await expect(this.page.locator('#new-api-canvas')).toBeVisible({ timeout });
+    await expect(this.page.locator('#wasm-chart-canvas')).toBeVisible({ timeout });
     
     // Wait for WASM to load
     await this.waitForWasmLoad();
@@ -63,7 +63,7 @@ export class GraphTestUtils {
    * Perform zoom interaction on the chart
    */
   async zoomChart(deltaY: number, x?: number, y?: number) {
-    const canvas = this.page.locator('#new-api-canvas');
+    const canvas = this.page.locator('#wasm-chart-canvas');
     
     if (x !== undefined && y !== undefined) {
       await this.page.mouse.move(x, y);
@@ -90,7 +90,7 @@ export class GraphTestUtils {
    * Get canvas dimensions
    */
   async getCanvasDimensions() {
-    const canvas = this.page.locator('#new-api-canvas');
+    const canvas = this.page.locator('#wasm-chart-canvas');
     return await canvas.boundingBox();
   }
 

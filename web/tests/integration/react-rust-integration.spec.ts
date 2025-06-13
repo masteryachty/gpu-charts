@@ -11,15 +11,17 @@ import { DataMockHelper } from '../helpers/data-mocks';
 
 test.describe('React-Rust Integration System', () => {
   let page: Page;
+  let graphUtils: GraphTestUtils;
   
   test.beforeEach(async ({ page: testPage }) => {
     page = testPage;
+    graphUtils = new GraphTestUtils(page);
     
     // Navigate to trading app
     await page.goto('/app?symbol=BTC-USD&start=1745322750&end=1745691150&debug=true');
     
     // Wait for WASM to load
-    await GraphTestUtils.waitForWasmLoad(page);
+    await graphUtils.waitForWasmLoad();
     
     // Enable debug mode for detailed testing
     await page.locator('input[type="checkbox"]:near(:text("Debug Mode"))').check();

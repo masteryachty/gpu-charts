@@ -13,7 +13,7 @@ test.describe('Simple Data Visualization Tests', () => {
     await utils.waitForChartRender();
 
     // Basic check - canvas should be visible and properly sized
-    const canvas = page.locator('#new-api-canvas');
+    const canvas = page.locator('#wasm-chart-canvas');
     await expect(canvas).toBeVisible();
 
     const canvasBox = await canvas.boundingBox();
@@ -25,7 +25,7 @@ test.describe('Simple Data Visualization Tests', () => {
     await utils.navigateToApp();
     await utils.waitForChartRender();
 
-    const canvas = page.locator('#new-api-canvas');
+    const canvas = page.locator('#wasm-chart-canvas');
     
     // Test basic interactions
     await canvas.hover();
@@ -51,7 +51,7 @@ test.describe('Simple Data Visualization Tests', () => {
       await utils.navigateToApp();
       await utils.waitForChartRender();
 
-      const canvas = page.locator('#new-api-canvas');
+      const canvas = page.locator('#wasm-chart-canvas');
       await expect(canvas).toBeVisible();
 
       const canvasBox = await canvas.boundingBox();
@@ -70,7 +70,7 @@ test.describe('Simple Data Visualization Tests', () => {
     await expect(loadingText).toBeVisible({ timeout: 5000 });
     
     // Eventually should show canvas
-    const canvas = page.locator('#new-api-canvas');
+    const canvas = page.locator('#wasm-chart-canvas');
     await expect(canvas).toBeVisible({ timeout: 20000 });
   });
 
@@ -78,7 +78,7 @@ test.describe('Simple Data Visualization Tests', () => {
     await utils.navigateToApp();
     await utils.waitForChartRender();
 
-    const canvas = page.locator('#new-api-canvas');
+    const canvas = page.locator('#wasm-chart-canvas');
     const canvasBox = await utils.getCanvasDimensions();
     
     if (!canvasBox) return;
@@ -109,7 +109,7 @@ test.describe('Simple Data Visualization Tests', () => {
     await utils.navigateToApp();
     await utils.waitForChartRender();
 
-    const canvas = page.locator('#new-api-canvas');
+    const canvas = page.locator('#wasm-chart-canvas');
     
     // Rapid fire interactions
     for (let i = 0; i < 10; i++) {
@@ -133,7 +133,7 @@ test.describe('Simple Data Visualization Tests', () => {
     await utils.navigateToApp();
     await utils.waitForChartRender();
 
-    const canvas = page.locator('#new-api-canvas');
+    const canvas = page.locator('#wasm-chart-canvas');
     
     // Get initial canvas size
     const initialBox = await canvas.boundingBox();
@@ -166,7 +166,7 @@ test.describe('Simple Data Visualization Tests', () => {
       return;
     }
 
-    const canvas = page.locator('#new-api-canvas');
+    const canvas = page.locator('#wasm-chart-canvas');
     const canvasBox = await utils.getCanvasDimensions();
     
     if (!canvasBox) return;
@@ -220,7 +220,7 @@ test.describe('Simple Data Visualization Tests', () => {
     expect(bodyText).not.toContain('Cannot GET');
     
     // Should eventually show some UI (canvas or error state)
-    const hasCanvas = await page.locator('#new-api-canvas').isVisible();
+    const hasCanvas = await page.locator('#wasm-chart-canvas').isVisible();
     const hasError = await page.locator('[data-testid="error-overlay"]').isVisible();
     const hasContent = await page.locator('#root').isVisible();
     

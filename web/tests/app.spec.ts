@@ -41,7 +41,7 @@ test.describe('Graph Visualization App', () => {
       await page.waitForTimeout(3000);
       
       // Check for canvas element (should be created by WASM)
-      await expect(page.locator('#new-api-canvas')).toBeVisible({ timeout: 10000 });
+      await expect(page.locator('#wasm-chart-canvas')).toBeVisible({ timeout: 10000 });
     } else {
       console.log(`WebGPU not supported in ${browserName}, testing fallback behavior`);
       
@@ -54,7 +54,7 @@ test.describe('Graph Visualization App', () => {
     await page.goto(`/app`);
     
     // Wait for canvas to appear (indicates WASM loaded)
-    await expect(page.locator('#new-api-canvas')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('#wasm-chart-canvas')).toBeVisible({ timeout: 15000 });
     
     // Wait for loading overlay to disappear
     await page.waitForSelector('[data-testid="loading-overlay"]', { state: 'detached', timeout: 15000 }).catch(() => {
@@ -63,7 +63,7 @@ test.describe('Graph Visualization App', () => {
     });
     
     // Canvas should be properly sized
-    const canvas = page.locator('#new-api-canvas');
+    const canvas = page.locator('#wasm-chart-canvas');
     const box = await canvas.boundingBox();
     expect(box?.width).toBeGreaterThan(200);
     expect(box?.height).toBeGreaterThan(100);
@@ -76,7 +76,7 @@ test.describe('Graph Visualization App', () => {
     await page.waitForTimeout(5000);
     
     // Should have canvas element
-    const canvas = page.locator('#new-api-canvas');
+    const canvas = page.locator('#wasm-chart-canvas');
     await expect(canvas).toBeVisible();
     
     // Canvas should have reasonable dimensions
@@ -173,7 +173,7 @@ test.describe('Graph Visualization App', () => {
     await page.goto(`/app`);
     
     // Wait for app to load
-    await expect(page.locator('#new-api-canvas')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('#wasm-chart-canvas')).toBeVisible({ timeout: 15000 });
     
     // Then block only API requests, not the app itself
     await page.route('**/api/**', route => route.abort());
