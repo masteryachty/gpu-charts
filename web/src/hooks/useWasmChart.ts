@@ -62,6 +62,15 @@ export interface WasmChartInstance {
   handle_mouse_move?(x: number, y: number): void;
   handle_mouse_click?(x: number, y: number, pressed: boolean): void;
   render?(): Promise<void>;
+  
+  // Chart state management
+  update_state?(symbol: string, timeframe: string, connected: boolean): void;
+  
+  // Change detection
+  configure_change_detection?(config: any): Promise<boolean>;
+  get_change_detection_config?(): Promise<any>;
+  detect_changes?(storeState: any): Promise<any>;
+  get_current_state?(): Promise<any>;
 }
 
 export interface WasmChartState {
@@ -278,10 +287,10 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
 
       if (!mountedRef.current) return false;
 
-      // Create SimpleChart instance (what's actually exported)
+      // Create SimpleChart instance 
       const chart = new wasmModule.SimpleChart();
       
-      // Initialize with canvas ID only (SimpleChart doesn't take dimensions)
+      // Initialize with canvas ID
       chart.init(canvasId);
 
       if (!mountedRef.current) return false;
@@ -309,7 +318,11 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
 
       // Trigger initial state sync if enabled
       if (enableAutoSync) {
-        setTimeout(() => updateState(), WASM_CHART_CONSTANTS.INITIALIZATION_DELAY_MS);
+        setTimeout(() => {
+          if (updateStateRef.current) {
+            updateStateRef.current();
+          }
+        }, WASM_CHART_CONSTANTS.INITIALIZATION_DELAY_MS);
       }
 
       return true;
@@ -343,10 +356,10 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
       
       return false;
     }
-  }, [canvasId, width, height, enableAutoSync, errorAPI, updateState]);
+  }, [canvasId, width, height, enableAutoSync, errorAPI]);
 
   /**
-   * Update chart state from store state (simplified for SimpleChart)
+   * Update chart state from store state
    */
   const updateState = useCallback(async (symbol?: string, timeframe?: string, connected?: boolean): Promise<boolean> => {
     const currentSymbol = symbol || storeSymbol;
@@ -365,14 +378,22 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
         connected: currentConnected,
       });
 
-      // For SimpleChart, we just verify it's still initialized and update our metrics
+      // Update chart state based on store changes
       const isStillInitialized = chartState.chart.is_initialized();
       
       if (!isStillInitialized) {
         throw new Error('Chart is no longer initialized');
       }
 
-      const renderLatency = 1; // Minimal latency for simple check
+      // Measure render latency
+      const startTime = performance.now();
+      
+      // Update chart with new parameters if available
+      if (chartState.chart.update_state) {
+        chartState.chart.update_state(currentSymbol, currentTimeframe, currentConnected);
+      }
+      
+      const renderLatency = performance.now() - startTime;
       
       if (mountedRef.current) {
         setChartState(prev => ({
@@ -385,7 +406,7 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
         }));
       }
 
-      console.log('[useWasmChart] Chart state updated successfully (SimpleChart mode)');
+      console.log('[useWasmChart] Chart state updated successfully');
 
       return true;
     } catch (error) {
@@ -421,19 +442,24 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
   }, [updateState]);
 
   /**
-   * Force update (simplified for SimpleChart)
+   * Force update
    */
   const forceUpdate = useCallback(async (): Promise<boolean> => {
     if (!chartState.chart || !chartState.isInitialized) return false;
 
     try {
-      console.log('[useWasmChart] Force update requested (SimpleChart mode)');
+      console.log('[useWasmChart] Force update requested');
       
-      // For SimpleChart, just verify it's still initialized
+      // Verify chart is still initialized
       const isStillInitialized = chartState.chart.is_initialized();
       
       if (!isStillInitialized) {
         throw new Error('Chart is no longer initialized');
+      }
+      
+      // Force render if available
+      if (chartState.chart.render) {
+        await chartState.chart.render();
       }
       
       if (mountedRef.current) {
@@ -446,7 +472,7 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
         }));
       }
 
-      console.log('[useWasmChart] Force update completed (SimpleChart mode)');
+      console.log('[useWasmChart] Force update completed');
       return true;
     } catch (error) {
       console.error('[useWasmChart] Force update failed:', error);
@@ -463,58 +489,84 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
   }, [chartState.chart, chartState.isInitialized]);
 
   /**
-   * Configure change detection behavior (simplified for SimpleChart)
+   * Configure change detection behavior
    */
   const configureChangeDetection = useCallback(async (config: Partial<ChangeDetectionConfig>): Promise<boolean> => {
-    console.log('[useWasmChart] Change detection config requested (SimpleChart mode):', config);
-    return true; // Always succeed for SimpleChart
-  }, []);
+    console.log('[useWasmChart] Change detection config requested:', config);
+    
+    // Configure chart change detection if supported
+    if (chartState.chart && chartState.chart.configure_change_detection) {
+      return chartState.chart.configure_change_detection(config);
+    }
+    
+    return true; // Default to success if not supported
+  }, [chartState.chart]);
 
   /**
-   * Get current change detection configuration (simplified for SimpleChart)
+   * Get current change detection configuration
    */
   const getChangeDetectionConfig = useCallback(async (): Promise<ChangeDetectionConfig> => {
-    console.log('[useWasmChart] Change detection config requested (SimpleChart mode)');
+    console.log('[useWasmChart] Change detection config requested');
+    
+    // Get config from chart if supported
+    if (chartState.chart && chartState.chart.get_change_detection_config) {
+      return chartState.chart.get_change_detection_config();
+    }
+    
+    // Default configuration
     return {
-      enableSymbolChangeDetection: false,
-      enableTimeRangeChangeDetection: false,
-      enableTimeframeChangeDetection: false,
-      enableIndicatorChangeDetection: false,
-      symbolChangeTriggersFetch: false,
-      timeRangeChangeTriggersFetch: false,
-      timeframeChangeTriggersRender: false,
-      indicatorChangeTriggersRender: false,
+      enableSymbolChangeDetection: true,
+      enableTimeRangeChangeDetection: true,
+      enableTimeframeChangeDetection: true,
+      enableIndicatorChangeDetection: true,
+      symbolChangeTriggersFetch: true,
+      timeRangeChangeTriggersFetch: true,
+      timeframeChangeTriggersRender: true,
+      indicatorChangeTriggersRender: true,
       minimumTimeRangeChangeSeconds: 60,
     };
-  }, []);
+  }, [chartState.chart]);
 
   /**
-   * Get current Rust-side state (simplified for SimpleChart)
+   * Get current Rust-side state
    */
   const getCurrentState = useCallback(async (): Promise<StoreState | null> => {
-    console.log('[useWasmChart] Current state requested (SimpleChart mode)');
-    return null; // SimpleChart doesn't maintain state
-  }, []);
+    console.log('[useWasmChart] Current state requested');
+    
+    // Get state from chart if supported
+    if (chartState.chart && chartState.chart.get_current_state) {
+      return chartState.chart.get_current_state();
+    }
+    
+    return null; // Not supported by this chart implementation
+  }, [chartState.chart]);
 
   /**
-   * Detect changes without applying them (simplified for SimpleChart)
+   * Detect changes without applying them
    */
   const detectChanges = useCallback(async (storeState: StoreState): Promise<ChangeDetectionResult> => {
-    console.log('[useWasmChart] Change detection requested (SimpleChart mode):', storeState.currentSymbol);
+    console.log('[useWasmChart] Change detection requested:', storeState.currentSymbol);
+    
+    // Use chart's change detection if supported
+    if (chartState.chart && chartState.chart.detect_changes) {
+      return chartState.chart.detect_changes(storeState);
+    }
+    
+    // Basic change detection fallback
     return {
-      hasChanges: false,
-      symbolChanged: false,
-      timeRangeChanged: false,
+      hasChanges: true,
+      symbolChanged: true,
+      timeRangeChanged: true,
       timeframeChanged: false,
       indicatorsChanged: false,
       connectionChanged: false,
       userChanged: false,
-      marketDataChanged: false,
-      requiresDataFetch: false,
-      requiresRender: false,
-      summary: ['SimpleChart mode - no change detection']
+      marketDataChanged: true,
+      requiresDataFetch: true,
+      requiresRender: true,
+      summary: ['Basic change detection - assume changes present']
     };
-  }, []);
+  }, [chartState.chart]);
 
   /**
    * Retry after error
@@ -565,7 +617,7 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
       renderLatency: chartState.renderLatency,
       updateCount: chartState.updateCount,
       lastStateUpdate: chartState.lastStateUpdate,
-      memoryUsage: performance.memory?.usedJSHeapSize,
+      memoryUsage: (performance as any).memory?.usedJSHeapSize,
       cpuUsage: undefined, // Not available in browser
     };
   }, [chartState.fps, chartState.renderLatency, chartState.updateCount, chartState.lastStateUpdate]);

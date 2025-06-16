@@ -43,11 +43,26 @@ declare module '@pkg/tutorial1_window' {
     set_data_range(start: number, end: number): void;
   }
 
-  // Legacy simple chart class (deprecated)
+  // Main chart class - uses WasmCanvas for full-featured rendering
   export class SimpleChart {
     constructor();
     init(canvas_id: string): void;
     is_initialized(): boolean;
+    
+    // Optional extended functionality (may not be available in current build)
+    update_state?(symbol: string, timeframe: string, connected: boolean): void;
+    render?(): Promise<void>;
+    
+    // Change detection (may not be available in current build)  
+    configure_change_detection?(config: any): Promise<boolean>;
+    get_change_detection_config?(): Promise<any>;
+    detect_changes?(storeState: any): Promise<any>;
+    get_current_state?(): Promise<any>;
+    
+    // Mouse interactions (may not be available in current build)
+    handle_mouse_wheel?(delta: number, x: number, y: number): void;
+    handle_mouse_move?(x: number, y: number): void;
+    handle_mouse_click?(x: number, y: number, pressed: boolean): void;
   }
 }
 
@@ -84,11 +99,26 @@ declare module '@pkg/tutorial1_window.js' {
     set_data_range(start: number, end: number): void;
   }
 
-  // Legacy simple chart class (deprecated)
+  // Main chart class - uses WasmCanvas for full-featured rendering
   export class SimpleChart {
     constructor();
     init(canvas_id: string): void;
     is_initialized(): boolean;
+    
+    // Optional extended functionality (may not be available in current build)
+    update_state?(symbol: string, timeframe: string, connected: boolean): void;
+    render?(): Promise<void>;
+    
+    // Change detection (may not be available in current build)  
+    configure_change_detection?(config: any): Promise<boolean>;
+    get_change_detection_config?(): Promise<any>;
+    detect_changes?(storeState: any): Promise<any>;
+    get_current_state?(): Promise<any>;
+    
+    // Mouse interactions (may not be available in current build)
+    handle_mouse_wheel?(delta: number, x: number, y: number): void;
+    handle_mouse_move?(x: number, y: number): void;
+    handle_mouse_click?(x: number, y: number, pressed: boolean): void;
   }
 }
 
