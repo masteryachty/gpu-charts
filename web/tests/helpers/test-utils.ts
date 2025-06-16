@@ -196,6 +196,52 @@ export class GraphTestUtils {
       }
     });
   }
+
+  // Static methods for backward compatibility
+  static async waitForWasmLoad(page: Page, timeout = 15000) {
+    const utils = new GraphTestUtils(page);
+    return utils.waitForWasmLoad(timeout);
+  }
+
+  static async waitForWebGPU(page: Page, timeout = 10000) {
+    const utils = new GraphTestUtils(page);
+    return utils.waitForWebGPU(timeout);
+  }
+
+  static async waitForChartRender(page: Page, timeout = 10000) {
+    const utils = new GraphTestUtils(page);
+    return utils.waitForChartRender(timeout);
+  }
+
+  static async isWebGPUWorking(page: Page) {
+    const utils = new GraphTestUtils(page);
+    return utils.isWebGPUWorking();
+  }
+
+  static async measureMemoryUsage(page: Page) {
+    const utils = new GraphTestUtils(page);
+    return utils.checkMemoryUsage();
+  }
+
+  static async zoomChart(page: Page, deltaY: number, x?: number, y?: number) {
+    const utils = new GraphTestUtils(page);
+    return utils.zoomChart(deltaY, x, y);
+  }
+
+  static async panChart(page: Page, fromX: number, fromY: number, toX: number, toY: number) {
+    const utils = new GraphTestUtils(page);
+    return utils.panChart(fromX, fromY, toX, toY);
+  }
+
+  static async takeDebugScreenshot(page: Page, name: string) {
+    const utils = new GraphTestUtils(page);
+    return utils.takeDebugScreenshot(name);
+  }
+
+  static async navigateToApp(page: Page, topic = 'BTC-usd', start = 1745322750, end = 1745691150) {
+    const utils = new GraphTestUtils(page);
+    return utils.navigateToApp(topic, start, end);
+  }
 }
 
 /**

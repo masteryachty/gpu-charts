@@ -451,8 +451,8 @@ test.describe('React Store Subscription Integration', () => {
   test('should show performance metrics correctly', async ({ page }) => {
     await helper.navigateAndWaitForInit();
     
-    // Performance overlay should be visible
-    const performanceOverlay = page.locator('.absolute.top-4.right-4 .text-green-500');
+    // Performance overlay should be visible (top-right corner of canvas)
+    const performanceOverlay = page.locator('.absolute.top-4.right-4');
     await expect(performanceOverlay).toBeVisible();
     
     // Should show FPS
@@ -475,12 +475,12 @@ test.describe('React Store Subscription Integration', () => {
     // Wait for initialization
     await page.waitForSelector('[data-testid="loading-overlay"]', { state: 'detached', timeout: 15000 });
     
-    // Debug panel should be visible
-    const debugPanel = page.locator('.absolute.bottom-4.left-4');
+    // Debug panel should be visible (top-left corner of canvas)
+    const debugPanel = page.locator('.absolute.top-4.left-4');
     await expect(debugPanel).toBeVisible();
     
     // Should show debug information
-    await expect(debugPanel).toContainText('Debug Panel');
+    await expect(debugPanel).toContainText('WASM Status');
     await expect(debugPanel).toContainText('State:');
     await expect(debugPanel).toContainText('Updates:');
     await expect(debugPanel).toContainText('Auto Sync:');
