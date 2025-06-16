@@ -10,7 +10,7 @@ use crate::{
     renderer::{data_retriever::fetch_data, data_store::DataStore, render_engine::RenderEngine},
 };
 
-use wasm_bindgen_futures::spawn_local;
+use wasm_bindgen_futures::{spawn_local, JsFuture};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Position {
@@ -138,12 +138,21 @@ impl CanvasController {
                     let new_end = end_x + (range / 2);
 
                     let device = {
-                        let engine_borrow = engine.borrow();
-                        engine_borrow.device.clone()
+                        let engine_borrow = engine.try_borrow();
+                        if let Ok(engine_ref) = engine_borrow {
+                            engine_ref.device.clone()
+                        } else {
+                            log::warn!("Engine is borrowed, skipping data fetch");
+                            return;
+                        }
                     };
 
                     fetch_data(&device, new_start, new_end, data_store.clone()).await;
-                    data_store.borrow_mut().set_x_range(new_start, new_end);
+                    
+                    // Use try_borrow_mut to prevent panic
+                    if let Ok(mut data_store_mut) = data_store.try_borrow_mut() {
+                        data_store_mut.set_x_range(new_start, new_end);
+                    }
 
                     window.request_redraw();
                     log::info!("Scrolled: new_start = {}, new_end = {}", new_start, new_end);

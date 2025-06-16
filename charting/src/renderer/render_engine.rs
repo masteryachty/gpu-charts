@@ -59,10 +59,14 @@ impl RenderEngine {
         let buffer_slice = staging_buffer.slice(..);
         let (sender, receiver) = oneshot::channel();
 
+        // Ensure the closure only executes once to prevent recursion
+        let sender = std::rc::Rc::new(std::cell::RefCell::new(Some(sender)));
         buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
             log::info!("Mapping callback triggered");
-            // Send whether mapping was successful.
-            let _ = sender.send(result.is_ok());
+            // Send only once to prevent multiple invocations
+            if let Some(sender) = sender.borrow_mut().take() {
+                let _ = sender.send(result.is_ok());
+            }
         });
 
         // let start_time = std::time::Instant::now();

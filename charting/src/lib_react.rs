@@ -1,6 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 use wasm_bindgen::prelude::*;
 use web_sys::{HtmlCanvasElement, console};
+use wasm_bindgen_futures::JsFuture;
 
 mod calcables;
 mod controls;
@@ -198,19 +199,15 @@ impl Chart {
 
     #[wasm_bindgen]
     pub fn request_redraw(&self) -> Result<(), JsValue> {
-        let window = web_sys::window().ok_or("No window")?;
-        let closure = Closure::once_into_js(move || {
-            wasm_bindgen_futures::spawn_local(async move {
-                unsafe {
-                    if let Some(instance) = &CHART_INSTANCE {
-                        let _ = instance.line_graph.borrow().render().await;
+        wasm_bindgen_futures::spawn_local(async move {
+            unsafe {
+                if let Some(instance) = &CHART_INSTANCE {
+                    if let Ok(line_graph) = instance.line_graph.try_borrow() {
+                        let _ = line_graph.render().await;
                     }
                 }
-            });
+            }
         });
-        
-        window.request_animation_frame(closure.as_ref().unchecked_ref())?;
-        closure.forget();
         Ok(())
     }
 
@@ -623,7 +620,7 @@ impl Chart {
         // If any changes were applied, request a redraw
         if !changes_applied.is_empty() {
             log::info!("Requesting redraw due to state changes");
-            // Spawn async render task
+            // Spawn async render task 
             let line_graph = instance.line_graph.clone();
             wasm_bindgen_futures::spawn_local(async move {
                 if let Ok(graph) = line_graph.try_borrow() {
