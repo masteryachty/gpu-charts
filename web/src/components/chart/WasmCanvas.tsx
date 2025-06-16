@@ -47,6 +47,40 @@ export default function WasmCanvas({
     }
   }, [chartState.isInitialized, chartState.isLoading, chartAPI]);
 
+  // Make chart available globally for testing
+  useEffect(() => {
+    if (chartState.chart && chartState.isInitialized && typeof window !== 'undefined') {
+      const chartGlobal = {
+        ...chartState.chart,
+        get_current_store_state: async () => {
+          try {
+            // Return the current React store state for testing
+            const store = (window as any).__zustandStore;
+            if (store) {
+              const state = store.getState();
+              return JSON.stringify({
+                currentSymbol: state.currentSymbol,
+                chartConfig: state.chartConfig,
+                marketData: state.marketData,
+                isConnected: state.isConnected,
+                user: state.user
+              });
+            }
+            return 'null';
+          } catch (error) {
+            console.error('[WasmCanvas] Error getting store state:', error);
+            return 'null';
+          }
+        },
+        chartAPI
+      };
+      
+      // Make available under both names for different test suites
+      (window as any).__wasmChart = chartGlobal;
+      (window as any).wasmChart = chartGlobal;
+    }
+  }, [chartState.chart, chartState.isInitialized, chartAPI]);
+
   // Mouse wheel handler for zoom
   const handleMouseWheel = useCallback((event: React.WheelEvent<HTMLCanvasElement>) => {
     if (chartState.chart && chartState.isInitialized) {

@@ -23,6 +23,17 @@ export interface WasmModule {
   // Add other WASM exports as needed
 }
 
+// Store subscription callback interface
+export interface StoreSubscriptionCallbacks {
+  onSymbolChange?: (newSymbol: string, oldSymbol: string) => void;
+  onTimeRangeChange?: (newRange: { startTime: number; endTime: number }, oldRange: { startTime: number; endTime: number }) => void;
+  onTimeframeChange?: (newTimeframe: string, oldTimeframe: string) => void;
+  onIndicatorsChange?: (newIndicators: string[], oldIndicators: string[]) => void;
+  onConnectionChange?: (connected: boolean) => void;
+  onMarketDataChange?: (symbol: string, data: MarketData) => void;
+  onAnyChange?: (newState: AppState, oldState: AppState) => void;
+}
+
 // Application state (matches Rust StoreState)
 export interface StoreState {
   currentSymbol: string;
@@ -30,6 +41,9 @@ export interface StoreState {
   marketData: Record<string, MarketData>;
   isConnected: boolean;
   user?: User;
+  // Subscription management for testing
+  _subscriptions?: Map<string, StoreSubscriptionCallbacks>;
+  _lastState?: StoreState | null;
 }
 
 // Keep AppState as alias for backward compatibility

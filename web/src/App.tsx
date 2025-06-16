@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import TradingApp from './pages/TradingApp';
 import { ErrorBoundary } from './index';
+import { useAppStore } from './store/useAppStore';
 
 // Initialize the integration system - temporarily disabled for testing
 // initializeIntegrationSystem({
@@ -11,6 +12,12 @@ import { ErrorBoundary } from './index';
 // });
 
 function App() {
+  // Make store available globally for testing
+  const store = useAppStore;
+  if (typeof window !== 'undefined') {
+    (window as any).__zustandStore = store;
+  }
+
   return (
     <ErrorBoundary
       enableAutoRecovery={true}

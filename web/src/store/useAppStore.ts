@@ -1,15 +1,5 @@
 import { create } from 'zustand';
-import { AppState, ChartConfig, MarketData } from '../types';
-
-interface StoreSubscriptionCallbacks {
-  onSymbolChange?: (newSymbol: string, oldSymbol: string) => void;
-  onTimeRangeChange?: (newRange: { startTime: number; endTime: number }, oldRange: { startTime: number; endTime: number }) => void;
-  onTimeframeChange?: (newTimeframe: string, oldTimeframe: string) => void;
-  onIndicatorsChange?: (newIndicators: string[], oldIndicators: string[]) => void;
-  onConnectionChange?: (connected: boolean) => void;
-  onMarketDataChange?: (symbol: string, data: MarketData) => void;
-  onAnyChange?: (newState: AppState, oldState: AppState) => void;
-}
+import { AppState, ChartConfig, MarketData, StoreSubscriptionCallbacks } from '../types';
 
 interface AppStore extends AppState {
   // Store subscription management
@@ -217,7 +207,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
                                JSON.stringify(oldState.chartConfig.indicators);
       
       // Trigger specific callbacks
-      newState._subscriptions.forEach((callbacks) => {
+      newState._subscriptions.forEach((callbacks: StoreSubscriptionCallbacks) => {
         if (symbolChanged && callbacks.onSymbolChange) {
           callbacks.onSymbolChange(newState.currentSymbol, oldState.currentSymbol);
         }
