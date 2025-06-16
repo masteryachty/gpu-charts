@@ -480,10 +480,10 @@ test.describe('React Store Subscription Integration', () => {
     await expect(debugPanel).toBeVisible();
     
     // Should show debug information
-    await expect(debugPanel).toContainText('WASM Status');
-    await expect(debugPanel).toContainText('State:');
-    await expect(debugPanel).toContainText('Updates:');
-    await expect(debugPanel).toContainText('Auto Sync:');
+    await expect(debugPanel).toContainText('Initialized:');
+    await expect(debugPanel).toContainText('Loading:');
+    await expect(debugPanel).toContainText('Error:');
+    await expect(debugPanel).toContainText('Changes:');
     
     // Test force update button
     await page.locator('[data-testid="force-update-button"]').click();

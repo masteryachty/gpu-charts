@@ -293,8 +293,8 @@ test.describe('WASM Bridge Integration', () => {
     await page.waitForTimeout(2000);
     
     const metricsText = await performanceOverlay.textContent();
-    expect(metricsText).toMatch(/\d+\s*FPS/);
-    expect(metricsText).toMatch(/\d+(\.\d+)?ms/);
+    expect(metricsText).toMatch(/FPS:\s*\d+/);
+    expect(metricsText).toMatch(/Updates:\s*\d+/);
   });
 
   test('should handle debug mode correctly', async ({ page }) => {

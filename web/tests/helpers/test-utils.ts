@@ -101,10 +101,14 @@ export class GraphTestUtils {
     return await this.page.evaluate(() => {
       const memory = (performance as any).memory;
       return memory ? {
-        used: memory.usedJSHeapSize,
-        total: memory.totalJSHeapSize,
-        limit: memory.jsHeapSizeLimit
-      } : null;
+        used: memory.usedJSHeapSize || 0,
+        total: memory.totalJSHeapSize || 0,
+        limit: memory.jsHeapSizeLimit || 0
+      } : {
+        used: 0,
+        total: 0,
+        limit: 0
+      };
     });
   }
 

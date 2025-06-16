@@ -88,7 +88,9 @@ test.describe('Store Contract Performance', () => {
     const memoryInterval = setInterval(async () => {
       try {
         const memory = await GraphTestUtils.measureMemoryUsage(page);
-        memoryMeasurements.push(memory.used);
+        if (memory && typeof memory.used === 'number') {
+          memoryMeasurements.push(memory.used);
+        }
       } catch (error) {
         console.warn('Memory measurement failed:', error);
       }
