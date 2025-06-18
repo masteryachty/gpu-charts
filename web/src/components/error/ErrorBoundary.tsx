@@ -1,6 +1,6 @@
 import React, { Component, ReactNode } from 'react';
 import { ErrorFactory, ERROR_CODES } from '../../errors/ErrorTypes';
-import { getGlobalErrorHandler } from '../../errors/ErrorHandler';
+// import { getGlobalErrorHandler } from '../../errors/ErrorHandler'; // Disabled temporarily
 
 /**
  * Enhanced Error Boundary Component
@@ -101,25 +101,23 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     }
   }
   
-  private async reportError(error: Error, errorInfo: React.ErrorInfo): Promise<void> {
+  private async reportError(error: Error, _errorInfo: React.ErrorInfo): Promise<void> {
     if (!this.props.enableReporting) return;
     
-    const errorHandler = getGlobalErrorHandler();
+    // const errorHandler = getGlobalErrorHandler(); // Disabled temporarily
     
-    const appError = ErrorFactory.createWasmError(
-      ERROR_CODES.WASM_CANVAS_ERROR,
-      `React Error Boundary: ${error.message}`,
-      {
-        method: 'React.render',
-        recoverable: true,
-        componentName: this.props.componentName || 'Unknown',
-        componentStack: errorInfo.componentStack,
-        errorStack: error.stack,
-        errorInfo
-      }
-    );
+    // const appError = ErrorFactory.createWasmError(
+    //   ERROR_CODES.WASM_CANVAS_ERROR,
+    //   `React Error Boundary: ${error.message}`,
+    //   {
+    //     method: 'React.render',
+    //     recoverable: true,
+    //     wasmStack: error.stack
+    //   }
+    // );
     
-    await errorHandler.handleError(appError);
+    // await errorHandler.handleError(appError); // Disabled temporarily
+    console.error('[ErrorBoundary] Error reported:', error.message);
   }
   
   private scheduleRetry = (): void => {
@@ -227,7 +225,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
  */
 export function DefaultErrorFallback({
   error,
-  errorInfo,
+  errorInfo: _errorInfo,
   retryCount,
   isRecovering,
   onRetry,

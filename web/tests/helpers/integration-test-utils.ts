@@ -464,6 +464,19 @@ export class IntegrationTestUtils {
 export class IntegrationDataMockHelper extends DataMockHelper {
   
   /**
+   * Static method to generate market data for integration testing
+   */
+  static generateMarketData(symbol: string, recordCount: number = 1000, options?: {
+    basePrice?: number;
+    volatility?: number;
+    startTime?: number;
+    interval?: number;
+  }): any {
+    // Delegate to parent class static method
+    return DataMockHelper.generateMarketData(symbol, recordCount, options);
+  }
+
+  /**
    * Mock real-time data stream
    */
   static async mockRealTimeDataStream(page: Page, symbol: string, durationMs: number): Promise<void> {
@@ -493,6 +506,30 @@ export class IntegrationDataMockHelper extends DataMockHelper {
       // Simulate loading delay
       await page.waitForTimeout(200);
     }
+  }
+
+  /**
+   * Mock server response with generated data
+   */
+  static async mockServerResponse(page: Page, data: any): Promise<void> {
+    await page.route('**/api/data*', async (route) => {
+      // Convert data to expected server format
+      const response = {
+        columns: data.columns.map((col: string) => ({
+          name: col,
+          record_size: 4,
+          num_records: data.records,
+          data_length: data.records * 4
+        })),
+        data: data.data
+      };
+      
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(response)
+      });
+    });
   }
   
   /**
@@ -527,7 +564,7 @@ export class IntegrationDataMockHelper extends DataMockHelper {
           if (requestCount % 3 === 0) {
             route.fulfill({ status: 500, body: 'Intermittent Error' });
           } else {
-            route.fulfill({ status: 200, body: JSON.stringify(this.generateMarketData('BTC-USD', 100)) });
+            route.fulfill({ status: 200, body: JSON.stringify(IntegrationDataMockHelper.generateMarketData('BTC-USD', 100)) });
           }
         });
         break;

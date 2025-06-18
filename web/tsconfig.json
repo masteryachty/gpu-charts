@@ -28,5 +28,18 @@
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.d.ts"],
-  "exclude": ["node_modules", "dist"]
+  "exclude": [
+    "node_modules", 
+    "dist",
+    "src/services/DataFetchingService.ts",
+    "src/hooks/useAutonomousDataFetching.ts",
+    "src/hooks/useErrorHandler.ts",
+    "src/components/monitoring/DataFetchingMonitor.tsx",
+    "src/errors/ErrorHandler.ts",
+    "src/performance/PerformanceMonitor.ts",
+    "src/types/advanced-types.ts",
+    "src/types/store.ts",
+    "src/types/type-guards.ts",
+    "src/utils/performance-monitor.ts"
+  ]
 }

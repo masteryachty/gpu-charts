@@ -6,7 +6,7 @@ import Sidebar from '../components/layout/Sidebar';
 import StatusBar from '../components/layout/StatusBar';
 import WasmCanvas from '../components/chart/WasmCanvas';
 import ChartControls from '../components/chart/ChartControls';
-import DataFetchingMonitor from '../components/monitoring/DataFetchingMonitor';
+// import DataFetchingMonitor from '../components/monitoring/DataFetchingMonitor'; // Disabled temporarily
 
 function ChartView() {
   const [showDebugMode, setShowDebugMode] = useState(false);
@@ -102,21 +102,21 @@ function ChartView() {
               </div>
             </div>
             
-            <div className="flex-1 flex gap-6">
+            <div className="flex-1 flex gap-6 flex-col lg:flex-row">
               {/* Chart Controls Panel */}
-              <div className="w-80 flex-shrink-0 space-y-4">
+              <div className="w-full lg:w-80 flex-shrink-0 space-y-4">
                 <ChartControls 
                   showSubscriptionInfo={showSubscriptionInfo}
                   enableChangeTracking={enableChangeTracking}
                 />
                 
-                {/* Data Fetching Monitor */}
+                {/* Data Fetching Monitor - Disabled temporarily
                 <DataFetchingMonitor 
                   showDetailedInfo={debugMode}
                   enableManualControls={true}
                   showActivity={debugMode}
                   compactMode={!debugMode}
-                />
+                />*/}
               </div>
               
               {/* Main Chart Area */}

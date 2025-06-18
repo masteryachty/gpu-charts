@@ -21,17 +21,17 @@ declare module '@pkg/tutorial1_window' {
     init(canvas_id: string, width: number, height: number): Promise<void>;
     
     // Core bridge method - the main integration point
-    update_chart_state(store_state_json: string): Promise<string>;
+    update_chart_state(store_state_json: string): string;
     
     // Smart change detection methods
-    configure_change_detection(config_json: string): Promise<string>;
-    get_change_detection_config(): Promise<string>;
-    detect_state_changes(store_state_json: string): Promise<string>;
+    configure_change_detection(config_json: string): string;
+    get_change_detection_config(): string;
+    detect_state_changes(store_state_json: string): string;
     
     // Utility methods
     is_initialized(): boolean;
-    get_current_store_state(): Promise<string>;
-    force_update_chart_state(store_state_json: string): Promise<string>;
+    get_current_store_state(): string;
+    force_update_chart_state(store_state_json: string): string;
     
     // Rendering and interaction
     render(): Promise<void>;
@@ -82,12 +82,12 @@ declare module '@pkg/tutorial1_window.js' {
     init(canvas_id: string, width: number, height: number): Promise<void>;
     
     // Core bridge method - the main integration point
-    update_chart_state(store_state_json: string): Promise<string>;
+    update_chart_state(store_state_json: string): string;
     
     // Utility methods
     is_initialized(): boolean;
-    get_current_store_state(): Promise<string>;
-    force_update_chart_state(store_state_json: string): Promise<string>;
+    get_current_store_state(): string;
+    force_update_chart_state(store_state_json: string): string;
     
     // Rendering and interaction
     render(): Promise<void>;

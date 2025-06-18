@@ -104,7 +104,7 @@ export default function ChartControls({
       }
     },
     
-    onAnyChange: (newState, oldState) => {
+    onAnyChange: (_newState, _oldState) => {
       console.log('[ChartControls] Store state changed');
       setActiveSubscriptions(prev => prev + 1);
     }
@@ -161,6 +161,17 @@ export default function ChartControls({
       timeframe: randomTimeframe,
       indicators: randomIndicators
     });
+    
+    // Increment update counter in performance metrics
+    const currentMetrics = (window as any).__PERFORMANCE_METRICS__ || {};
+    const newUpdateCount = (currentMetrics.updateCount || 0) + 1;
+    (window as any).__PERFORMANCE_METRICS__ = {
+      ...currentMetrics,
+      updateCount: newUpdateCount,
+      lastStateUpdate: Date.now()
+    };
+    
+    console.log(`[ChartControls] Random update triggered - Update count: ${newUpdateCount}`);
   }, [updateChartState, symbols, timeframes, availableIndicators]);
 
   // Clear change tracking
@@ -181,10 +192,22 @@ export default function ChartControls({
         </div>
       </div>
       
+      {/* Current Symbol Display */}
+      <div className="space-y-2">
+        <label className="text-gray-300 text-sm font-medium">Current Symbol</label>
+        <div 
+          data-testid="current-symbol"
+          className="w-full bg-gray-700 border border-gray-600 text-white rounded px-3 py-2 text-sm font-mono"
+        >
+          {currentSymbol}
+        </div>
+      </div>
+
       {/* Symbol Selection */}
       <div className="space-y-2">
         <label className="text-gray-300 text-sm font-medium">Symbol</label>
         <select
+          data-testid="symbol-selector"
           value={currentSymbol}
           onChange={(e) => setCurrentSymbol(e.target.value)}
           className="w-full bg-gray-700 border border-gray-600 text-white rounded px-3 py-2 text-sm"
@@ -198,6 +221,16 @@ export default function ChartControls({
       {/* Timeframe Selection */}
       <div className="space-y-2">
         <label className="text-gray-300 text-sm font-medium">Timeframe</label>
+        <select
+          data-testid="timeframe-selector"
+          value={chartConfig.timeframe}
+          onChange={(e) => setTimeframe(e.target.value)}
+          className="w-full bg-gray-700 border border-gray-600 text-white rounded px-3 py-2 text-sm"
+        >
+          {timeframes.map(tf => (
+            <option key={tf} value={tf}>{tf}</option>
+          ))}
+        </select>
         <div className="grid grid-cols-3 gap-2">
           {timeframes.map(tf => (
             <button
@@ -264,6 +297,7 @@ export default function ChartControls({
           </button>
           
           <button
+            data-testid="reset-button"
             onClick={resetToDefaults}
             className="px-4 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 transition-colors"
           >

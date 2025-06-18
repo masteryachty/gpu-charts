@@ -90,12 +90,18 @@ impl DataStore {
         }
     }
 
-    pub fn get_active_data_group(&self) -> &DataSeries {
-        &self.data_groups[self.active_data_group_index]
+    pub fn get_active_data_group(&self) -> Option<&DataSeries> {
+        if self.data_groups.is_empty() {
+            None
+        } else {
+            Some(&self.data_groups[self.active_data_group_index])
+        }
     }
 
     pub fn get_data_len(&self) -> u32 {
-        self.get_active_data_group().length
+        self.get_active_data_group()
+            .map(|group| group.length)
+            .unwrap_or(0)
     }
 
     pub fn set_x_range(&mut self, min_x: u32, max_x: u32) {

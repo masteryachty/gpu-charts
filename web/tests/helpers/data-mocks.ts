@@ -20,6 +20,55 @@ export class DataMockHelper {
   constructor(private page: Page) {}
 
   /**
+   * Static method to generate market data for testing
+   * This is called by tests as DataMockHelper.generateMarketData()
+   */
+  static generateMarketData(symbol: string, recordCount: number = 1000, options?: {
+    basePrice?: number;
+    volatility?: number;
+    startTime?: number;
+    interval?: number;
+  }): any {
+    const {
+      basePrice = 50000,
+      volatility = 0.02,
+      startTime = 1745322750,
+      interval = 60
+    } = options || {};
+
+    const data = {
+      symbol,
+      records: recordCount,
+      columns: ['time', 'price', 'volume'],
+      data: {
+        time: [] as number[],
+        price: [] as number[],
+        volume: [] as number[]
+      }
+    };
+
+    let currentPrice = basePrice;
+    
+    for (let i = 0; i < recordCount; i++) {
+      // Generate time series
+      data.data.time.push(startTime + (i * interval));
+      
+      // Generate realistic price movement
+      const trend = Math.random() * 0.001 - 0.0005;
+      const change = (Math.random() - 0.5) * volatility;
+      currentPrice *= (1 + trend + change);
+      currentPrice = Math.max(currentPrice, 1); // Prevent negative prices
+      data.data.price.push(currentPrice);
+      
+      // Generate volume data
+      const volumeFactor = Math.exp(Math.random() * 2 - 1);
+      data.data.volume.push(1000000 * volumeFactor);
+    }
+
+    return data;
+  }
+
+  /**
    * Generate realistic binary time series data
    */
   generateTimeSeries(startTime: number, endTime: number, intervalSeconds: number = 60): Float32Array {

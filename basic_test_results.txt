@@ -1,0 +1,475 @@
+
+> graph-visualization-monorepo@0.1.0 test:basic
+> cd web && npm run test:basic
+
+
+> graph-web@0.0.0 test:basic
+> playwright test basic.spec.ts
+
+
+Running 15 tests using 15 workers
+
+[1A[2K[1/15] [firefox] › tests/basic.spec.ts:47:3 › Basic App Functionality › should show loading state initially
+[1A[2K[2/15] [chromium] › tests/basic.spec.ts:5:3 › Basic App Functionality › should load the homepage
+[1A[2K[3/15] [webkit] › tests/basic.spec.ts:5:3 › Basic App Functionality › should load the homepage
+[1A[2K[4/15] [firefox] › tests/basic.spec.ts:88:3 › Basic App Functionality › should handle basic interactions
+[1A[2K[5/15] [firefox] › tests/basic.spec.ts:25:3 › Basic App Functionality › should navigate to trading app
+[1A[2K[6/15] [firefox] › tests/basic.spec.ts:5:3 › Basic App Functionality › should load the homepage
+[1A[2K[7/15] [firefox] › tests/basic.spec.ts:65:3 › Basic App Functionality › should handle canvas rendering
+[1A[2K[8/15] [chromium] › tests/basic.spec.ts:88:3 › Basic App Functionality › should handle basic interactions
+[1A[2K[9/15] [webkit] › tests/basic.spec.ts:47:3 › Basic App Functionality › should show loading state initially
+[1A[2K[10/15] [chromium] › tests/basic.spec.ts:25:3 › Basic App Functionality › should navigate to trading app
+[1A[2K[11/15] [webkit] › tests/basic.spec.ts:65:3 › Basic App Functionality › should handle canvas rendering
+[1A[2K[2m[WebServer] [22m[2m10:15:07 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [33mwarning: [33mDuplicate key "get_current_state" in object literal[33m
+[2m[WebServer] [22m455|              };
+[2m[WebServer] [22m456|            },
+[2m[WebServer] [22m457|            get_current_state: async () => {
+[2m[WebServer] [22m   |            ^
+[2m[WebServer] [22m458|              return JSON.stringify({
+[2m[WebServer] [22m459|                currentSymbol: storeSymbol,
+[2m[WebServer] [22m[39m
+[2m[WebServer] [22m  Plugin: [35mvite:esbuild[39m
+[2m[WebServer] [22m  File: [36m/home/xander/projects/graph/web/src/hooks/useWasmChart.ts[39m
+
+[1A[2K[12/15] [webkit] › tests/basic.spec.ts:88:3 › Basic App Functionality › should handle basic interactions
+[1A[2K[13/15] [chromium] › tests/basic.spec.ts:65:3 › Basic App Functionality › should handle canvas rendering
+[1A[2K[14/15] [chromium] › tests/basic.spec.ts:47:3 › Basic App Functionality › should show loading state initially
+[1A[2K[15/15] [webkit] › tests/basic.spec.ts:25:3 › Basic App Functionality › should navigate to trading app
+[1A[2K  1) [chromium] › tests/basic.spec.ts:88:3 › Basic App Functionality › should handle basic interactions 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.hover: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('#wasm-chart-canvas')[22m
+    [2m    - locator resolved to <canvas width="632" height="800" class="w-full h-full" id="wasm-chart-canvas" data-initialized="false" data-testid="wasm-canvas"></canvas>[22m
+    [2m  - attempting hover action[22m
+    [2m    - waiting for element to be visible and stable[22m
+    [2m    - element is visible and stable[22m
+    [2m    - scrolling into view if needed[22m
+    [2m    - done scrolling[22m
+    [2m    - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m  - retrying hover action[22m
+    [2m    - waiting for element to be visible and stable[22m
+    [2m    - element is visible and stable[22m
+    [2m    - scrolling into view if needed[22m
+    [2m    - done scrolling[22m
+    [2m    - <div class="text-gray-400 text-sm">Initializing WebGPU...</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m  - retrying hover action[22m
+    [2m    - waiting 20ms[22m
+    [2m    - waiting for element to be visible and stable[22m
+    [2m    - element is visible and stable[22m
+    [2m    - scrolling into view if needed[22m
+    [2m    - done scrolling[22m
+    [2m    - <div class="text-center">…</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m  2 × retrying hover action[22m
+    [2m      - waiting 100ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m  3 × retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="text-gray-400 text-sm">Initializing WebGPU...</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="text-center">…</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m  2 × retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="text-gray-400 text-sm">Initializing WebGPU...</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="text-center">…</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="text-gray-400 text-sm">Initializing WebGPU...</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="text-center">…</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="text-gray-400 text-sm">Initializing WebGPU...</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m  - retrying hover action[22m
+    [2m    - waiting 500ms[22m
+    [2m    - waiting for element to be visible and stable[22m
+    [2m    - element is visible and stable[22m
+    [2m    - scrolling into view if needed[22m
+    [2m    - done scrolling[22m
+    [2m    - <div class="text-gray-400 text-sm">Initializing WebGPU...</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m  3 × retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m  - retrying hover action[22m
+    [2m    - waiting 500ms[22m
+    [2m    - waiting for element to be visible and stable[22m
+    [2m    - element is visible and stable[22m
+    [2m    - scrolling into view if needed[22m
+    [2m    - done scrolling[22m
+    [2m    - <div class="text-gray-400 text-sm">Initializing WebGPU...</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m  - retrying hover action[22m
+    [2m    - waiting 500ms[22m
+
+
+       98 |     if (canvasExists) {
+       99 |       // Try hovering on canvas (should not crash)
+    > 100 |       await canvas.hover();
+          |                    ^
+      101 |       
+      102 |       // Try scrolling (should not crash)
+      103 |       await page.mouse.wheel(0, -100);
+        at /home/xander/projects/graph/web/tests/basic.spec.ts:100:20
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/basic-Basic-App-Functional-eb321-d-handle-basic-interactions-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/basic-Basic-App-Functional-eb321-d-handle-basic-interactions-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/basic-Basic-App-Functional-eb321-d-handle-basic-interactions-chromium/error-context.md
+
+
+[1A[2K  2) [firefox] › tests/basic.spec.ts:88:3 › Basic App Functionality › should handle basic interactions 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.hover: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('#wasm-chart-canvas')[22m
+    [2m    - locator resolved to <canvas width="632" height="796" class="w-full h-full" id="wasm-chart-canvas" data-initialized="false" data-testid="wasm-canvas"></canvas>[22m
+    [2m  - attempting hover action[22m
+    [2m    2 × waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m    - waiting 20ms[22m
+    [2m    2 × waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 100ms[22m
+    [2m    - waiting for element to be visible and stable[22m
+    [2m    - element is visible and stable[22m
+    [2m    - scrolling into view if needed[22m
+    [2m    - done scrolling[22m
+    [2m    - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m  - retrying hover action[22m
+    [2m    - waiting 500ms[22m
+    [2m    - waiting for element to be visible and stable[22m
+    [2m    - element is visible and stable[22m
+    [2m    - scrolling into view if needed[22m
+    [2m    - done scrolling[22m
+    [2m    - <div class="text-gray-400 text-sm">Initializing WebGPU...</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m  - retrying hover action[22m
+    [2m    - waiting 500ms[22m
+    [2m    - waiting for element to be visible and stable[22m
+    [2m    - element is visible and stable[22m
+    [2m    - scrolling into view if needed[22m
+    [2m    - done scrolling[22m
+    [2m    - <div class="text-center">…</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m  6 × retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m  2 × retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="text-gray-400 text-sm">Initializing WebGPU...</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="text-center">…</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m  2 × retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="text-gray-400 text-sm">Initializing WebGPU...</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m  2 × retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="text-gray-400 text-sm">Initializing WebGPU...</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="text-center">…</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m  4 × retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m  2 × retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="text-gray-400 text-sm">Initializing WebGPU...</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="text-center">…</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying hover action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible and stable[22m
+    [2m      - element is visible and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m  - retrying hover action[22m
+    [2m    - waiting 500ms[22m
+    [2m    - waiting for element to be visible and stable[22m
+    [2m    - element is visible and stable[22m
+    [2m    - scrolling into view if needed[22m
+    [2m    - done scrolling[22m
+    [2m    - <div class="text-gray-400 text-sm">Initializing WebGPU...</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m  - retrying hover action[22m
+    [2m    - waiting 500ms[22m
+    [2m    - waiting for element to be visible and stable[22m
+    [2m    - element is visible and stable[22m
+    [2m    - scrolling into view if needed[22m
+    [2m    - done scrolling[22m
+    [2m    - <div class="text-center">…</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m  - retrying hover action[22m
+    [2m    - waiting 500ms[22m
+    [2m    - waiting for element to be visible and stable[22m
+    [2m    - element is visible and stable[22m
+    [2m    - scrolling into view if needed[22m
+    [2m    - done scrolling[22m
+    [2m    - <div class="animate-spin text-blue-500 text-4xl mb-4">⚡</div> from <div data-testid="loading-overlay" class="absolute inset-0 bg-gray-900/90 flex items-center justify-center">…</div> subtree intercepts pointer events[22m
+    [2m  - retrying hover action[22m
+    [2m    - waiting 500ms[22m
+
+
+       98 |     if (canvasExists) {
+       99 |       // Try hovering on canvas (should not crash)
+    > 100 |       await canvas.hover();
+          |                    ^
+      101 |       
+      102 |       // Try scrolling (should not crash)
+      103 |       await page.mouse.wheel(0, -100);
+        at /home/xander/projects/graph/web/tests/basic.spec.ts:100:20
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/basic-Basic-App-Functional-eb321-d-handle-basic-interactions-firefox/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/basic-Basic-App-Functional-eb321-d-handle-basic-interactions-firefox/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/basic-Basic-App-Functional-eb321-d-handle-basic-interactions-firefox/error-context.md
+
+
+[1A[2K  2 failed
+    [chromium] › tests/basic.spec.ts:88:3 › Basic App Functionality › should handle basic interactions 
+    [firefox] › tests/basic.spec.ts:88:3 › Basic App Functionality › should handle basic interactions 
+  13 passed (32.7s)
+
+[36m  Serving HTML report at http://localhost:9323. Press Ctrl+C to quit.[39m

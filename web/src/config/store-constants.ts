@@ -11,7 +11,7 @@ export const STORE_CONSTANTS = {
   MIN_TIME_RANGE_SECONDS: 60, // 1 minute
   MAX_SYMBOL_LENGTH: 20,
   MIN_SYMBOL_LENGTH: 3,
-  MAX_INDICATORS: 50,
+  MAX_INDICATORS: 200,
   
   // Performance thresholds
   MAX_MARKET_DATA_ENTRIES: 1000,
@@ -55,10 +55,10 @@ export type ValidUserPlan = typeof VALID_USER_PLANS[number];
  */
 export const VALIDATION_RULES = {
   symbol: {
-    pattern: /^[A-Z]+-[A-Z]+$/,
+    pattern: /^[A-Z]+[-\/][A-Z]+$/,
     minLength: STORE_CONSTANTS.MIN_SYMBOL_LENGTH,
     maxLength: STORE_CONSTANTS.MAX_SYMBOL_LENGTH,
-    errorMessage: 'Symbol must be in format XXX-XXX (e.g., BTC-USD)'
+    errorMessage: 'Symbol must be in format XXX-XXX or XXX/XXX (e.g., BTC-USD or BTC/USD)'
   },
   
   timeframe: {

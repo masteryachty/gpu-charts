@@ -1,16 +1,12 @@
 use std::{cell::RefCell, rc::Rc};
 
-use winit::{
-    event::{ElementState, MouseScrollDelta, WindowEvent},
-    window::Window,
-};
-
 use crate::{
+    events::{ElementState, MouseScrollDelta, WindowEvent},
     line_graph::unix_timestamp_to_string,
     renderer::{data_retriever::fetch_data, data_store::DataStore, render_engine::RenderEngine},
 };
 
-use wasm_bindgen_futures::{spawn_local, JsFuture};
+use wasm_bindgen_futures::spawn_local;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Position {
@@ -18,7 +14,6 @@ pub struct Position {
     y: f64,
 }
 pub struct CanvasController {
-    window: Rc<Window>,
     position: Position,
     start_drag_pos: Option<Position>,
     data_store: Rc<RefCell<DataStore>>,
@@ -27,12 +22,10 @@ pub struct CanvasController {
 
 impl CanvasController {
     pub fn new(
-        window: Rc<Window>,
         data_store: Rc<RefCell<DataStore>>,
         engine: Rc<RefCell<RenderEngine>>,
     ) -> Self {
         CanvasController {
-            window,
             position: Position { x: -1., y: -1. },
             start_drag_pos: None,
             data_store,
@@ -51,13 +44,10 @@ impl CanvasController {
             WindowEvent::MouseInput { state, button, .. } => {
                 self.handle_cursor_input(state, button);
             }
-            _ => {
-                log::info!("Cursor Event type not handled: {:?}", event);
-            }
         }
     }
 
-    fn handle_cursor_moved(&mut self, position: winit::dpi::PhysicalPosition<f64>) {
+    fn handle_cursor_moved(&mut self, position: crate::events::PhysicalPosition) {
         // log::info!("CursorMoved type: {:?}", position);
         if position.x != self.position.x || position.y != self.position.y {
             self.position = Position {
@@ -69,8 +59,8 @@ impl CanvasController {
 
     fn handle_cursor_input(
         &mut self,
-        state: winit::event::ElementState,
-        button: winit::event::MouseButton,
+        state: crate::events::ElementState,
+        button: crate::events::MouseButton,
     ) {
         match state {
             ElementState::Pressed => {
@@ -98,45 +88,85 @@ impl CanvasController {
             .data_store
             .borrow()
             .screen_to_world_with_margin(end_position.x as f32, end_position.y as f32);
+        
+        // Ensure start is less than end
+        let (new_start, new_end) = if start_ts.0 < end_ts.0 {
+            (start_ts.0 as u32, end_ts.0 as u32)
+        } else {
+            (end_ts.0 as u32, start_ts.0 as u32)
+        };
+        
         log::info!(
-            "start: {:?} {:?}",
-            start_ts.0,
-            unix_timestamp_to_string(start_ts.0 as i64)
-        );
-        log::info!(
-            "end: {:?} {:?}",
-            end_ts.0,
-            unix_timestamp_to_string(end_ts.0 as i64)
+            "Drag zoom: {} to {} ({} to {})",
+            new_start,
+            new_end,
+            unix_timestamp_to_string(new_start as i64),
+            unix_timestamp_to_string(new_end as i64)
         );
 
-        self.data_store
-            .borrow_mut()
-            .set_x_range(start_ts.0 as u32, end_ts.0 as u32);
+        // Fetch data for the new range and update
+        let data_store = self.data_store.clone();
+        let engine = self.engine.clone();
+        
+        spawn_local(async move {
+            let device = {
+                let engine_borrow = engine.try_borrow();
+                if let Ok(engine_ref) = engine_borrow {
+                    engine_ref.device.clone()
+                } else {
+                    log::warn!("Engine is borrowed, skipping data fetch");
+                    return;
+                }
+            };
 
-        self.window.request_redraw();
+            fetch_data(&device, new_start, new_end, data_store.clone()).await;
+            
+            // Use try_borrow_mut to prevent panic
+            if let Ok(mut data_store_mut) = data_store.try_borrow_mut() {
+                data_store_mut.set_x_range(new_start, new_end);
+            }
+
+            log::info!("Drag zoom completed: {} to {}", new_start, new_end);
+        });
     }
 
     fn handle_cursor_wheel(
         &self,
-        delta: winit::event::MouseScrollDelta,
-        phase: winit::event::TouchPhase,
+        delta: crate::events::MouseScrollDelta,
+        phase: crate::events::TouchPhase,
     ) {
         log::info!("handle_cursor_wheel type: {:?} {:?}", delta, phase);
 
-        if let MouseScrollDelta::PixelDelta(position) = delta {
-            // println!("Scrolled (lines): x = {}, y = {}", position.x, .positiony);
-            if position.y < 0. {
-                let data_store = self.data_store.clone();
-                let engine = self.engine.clone();
-                let window = self.window.clone();
+        let MouseScrollDelta::PixelDelta(position) = delta;
+        let data_store = self.data_store.clone();
+        let engine = self.engine.clone();
 
-                spawn_local(async move {
-                    let start_x = data_store.borrow().start_x;
-                    let end_x = data_store.borrow().end_x;
-                    let range = end_x - start_x;
+        spawn_local(async move {
+                let start_x = data_store.borrow().start_x;
+                let end_x = data_store.borrow().end_x;
+                let range = end_x - start_x;
+                
+                let (new_start, new_end) = if position.y < 0. {
+                    // Scrolling up = zoom out (expand range)
                     let new_start = start_x - (range / 2);
                     let new_end = end_x + (range / 2);
+                    (new_start, new_end)
+                } else if position.y > 0. {
+                    // Scrolling down = zoom in (shrink range)
+                    let new_start = start_x + (range / 4);
+                    let new_end = end_x - (range / 4);
+                    // Ensure we don't zoom in too much
+                    if new_end > new_start {
+                        (new_start, new_end)
+                    } else {
+                        (start_x, end_x) // Keep current range if too zoomed in
+                    }
+                } else {
+                    (start_x, end_x) // No change
+                };
 
+                // Only update if range actually changed
+                if new_start != start_x || new_end != end_x {
                     let device = {
                         let engine_borrow = engine.try_borrow();
                         if let Ok(engine_ref) = engine_borrow {
@@ -154,10 +184,8 @@ impl CanvasController {
                         data_store_mut.set_x_range(new_start, new_end);
                     }
 
-                    window.request_redraw();
-                    log::info!("Scrolled: new_start = {}, new_end = {}", new_start, new_end);
-                });
-            }
-        }
+                    log::info!("Zoom: new_start = {}, new_end = {} (delta_y = {})", new_start, new_end, position.y);
+                }
+            });
     }
 }

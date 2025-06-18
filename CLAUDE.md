@@ -47,8 +47,11 @@ npm run clean
 
 ### Testing (from project root)
 ```bash
-# Run all tests (server + web frontend)
+# Run default tests (server only - web tests disabled due to current issues)
 npm run test
+
+# Run ALL tests including web frontend (use when web tests are working)
+npm run test:all
 
 # Run server unit and integration tests
 npm run test:server

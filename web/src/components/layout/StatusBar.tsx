@@ -4,6 +4,7 @@ import { useAppStore } from '../../store/useAppStore';
 export default function StatusBar() {
   const { currentSymbol, marketData, isConnected } = useAppStore();
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [performanceMetrics, setPerformanceMetrics] = useState({ fps: 0, renderLatency: 0 });
 
   const symbolData = marketData[currentSymbol];
 
@@ -13,6 +14,34 @@ export default function StatusBar() {
     }, 1000);
 
     return () => clearInterval(timer);
+  }, []);
+
+  // Update performance metrics from global state
+  useEffect(() => {
+    const updatePerformanceMetrics = () => {
+      const globalMetrics = (window as any).__PERFORMANCE_METRICS__;
+      const wasmChart = (window as any).__wasmChart;
+      const perfMonitor = (window as any).__PERFORMANCE_MONITOR_STATE__;
+      
+      // Priority: wasmChart > globalMetrics > perfMonitor > defaults
+      const fps = wasmChart?.fps || 
+                  globalMetrics?.fps || 
+                  perfMonitor?.metrics?.fps || 
+                  60;
+      
+      const renderLatency = wasmChart?.renderLatency || 
+                           globalMetrics?.renderLatency || 
+                           perfMonitor?.metrics?.renderLatency || 
+                           16.67;
+      
+      setPerformanceMetrics({ fps, renderLatency });
+    };
+
+    // Update immediately and then every second
+    updatePerformanceMetrics();
+    const perfTimer = setInterval(updatePerformanceMetrics, 1000);
+
+    return () => clearInterval(perfTimer);
   }, []);
 
   const formatPrice = (price: number) => {
@@ -81,7 +110,13 @@ export default function StatusBar() {
 
         {/* Performance Metrics */}
         <div className="text-text-tertiary font-mono">
-          120 FPS | 8.33ms
+          <span className={performanceMetrics.fps < 30 ? 'text-accent-red' : performanceMetrics.fps < 45 ? 'text-yellow-400' : 'text-accent-green'}>
+            {Math.round(performanceMetrics.fps)} FPS
+          </span>
+          {' | '}
+          <span className={performanceMetrics.renderLatency > 50 ? 'text-accent-red' : performanceMetrics.renderLatency > 25 ? 'text-yellow-400' : 'text-accent-green'}>
+            {performanceMetrics.renderLatency.toFixed(1)}ms
+          </span>
         </div>
 
         {/* Current Time */}

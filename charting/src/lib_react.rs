@@ -1,25 +1,16 @@
 use std::{cell::RefCell, rc::Rc};
-use wasm_bindgen::prelude::*;
-use web_sys::{HtmlCanvasElement, console};
-use wasm_bindgen_futures::JsFuture;
 
-mod calcables;
-mod controls;
-mod drawables;
-mod renderer;
-mod wrappers;
-mod line_graph;
-pub mod store_state;
+#[allow(static_mut_refs)]
+
+use wasm_bindgen::prelude::*;
+use web_sys::HtmlCanvasElement;
+
+// Remove unused imports - we'll use them via crate:: when needed
 
 use crate::line_graph::LineGraph;
 use crate::controls::canvas_controller::CanvasController;
 use crate::store_state::{StoreState, StoreValidationResult, StateChangeDetection, ChangeDetectionConfig};
-use winit::{
-    dpi::PhysicalSize,
-    event::{WindowEvent, MouseScrollDelta, ElementState},
-    window::{Window, WindowId},
-    platform::web::WindowExtWebSys,
-};
+use crate::events::{WindowEvent, MouseScrollDelta, ElementState, PhysicalPosition, TouchPhase, MouseButton};
 
 extern crate nalgebra_glm as glm;
 
@@ -29,13 +20,13 @@ static mut CHART_INSTANCE: Option<ChartInstance> = None;
 struct ChartInstance {
     line_graph: Rc<RefCell<LineGraph>>,
     canvas_controller: CanvasController,
-    window: Rc<Window>,
     current_store_state: Option<StoreState>,
     change_detection_config: ChangeDetectionConfig,
 }
 
 #[wasm_bindgen]
 pub struct Chart {
+    #[allow(dead_code)]
     instance_id: u32,
 }
 
@@ -70,25 +61,8 @@ impl Chart {
         canvas.set_width(width);
         canvas.set_height(height);
 
-        // Create a mock event loop and window for winit compatibility
-        let event_loop = winit::event_loop::EventLoop::new()
-            .map_err(|e| format!("Failed to create event loop: {:?}", e))?;
-        
-        let window_attrs = Window::default_attributes()
-            .with_inner_size(PhysicalSize::new(width, height));
-
-        // For WASM, we need to associate with the canvas
-        #[cfg(target_arch = "wasm32")]
-        let window_attrs = {
-            use winit::platform::web::WindowAttributesExtWebSys;
-            window_attrs.with_canvas(Some(canvas))
-        };
-
-        let window = Rc::new(event_loop.create_window(window_attrs)
-            .map_err(|e| format!("Failed to create window: {:?}", e))?);
-
-        // Initialize the line graph
-        let line_graph = LineGraph::new(width, height, window.clone())
+        // Initialize the line graph directly with canvas
+        let line_graph = LineGraph::new(width, height, canvas)
             .await
             .map_err(|e| format!("Failed to create LineGraph: {:?}", e))?;
 
@@ -97,13 +71,12 @@ impl Chart {
         // Create canvas controller
         let data_store = line_graph.borrow().data_store.clone();
         let engine = line_graph.borrow().engine.clone();
-        let canvas_controller = CanvasController::new(window.clone(), data_store, engine);
+        let canvas_controller = CanvasController::new(data_store, engine);
 
         // Store globally (in a real app, you'd want better state management)
         let instance = ChartInstance {
             line_graph,
             canvas_controller,
-            window,
             current_store_state: None,
             change_detection_config: ChangeDetectionConfig::default(),
         };
@@ -122,7 +95,7 @@ impl Chart {
     #[wasm_bindgen]
     pub async fn render(&self) -> Result<(), JsValue> {
         unsafe {
-            if let Some(instance) = &CHART_INSTANCE {
+            if let Some(instance) = (&raw const CHART_INSTANCE).as_ref().unwrap() {
                 instance.line_graph.borrow().render()
                     .await
                     .map_err(|e| format!("Render failed: {:?}", e))?;
@@ -136,7 +109,7 @@ impl Chart {
         log::info!("Resizing chart to: {}x{}", width, height);
         
         unsafe {
-            if let Some(instance) = &mut CHART_INSTANCE {
+            if let Some(instance) = (&raw mut CHART_INSTANCE).as_mut().unwrap() {
                 instance.line_graph.borrow_mut().resized(width, height);
             }
         }
@@ -144,13 +117,12 @@ impl Chart {
     }
 
     #[wasm_bindgen]
-    pub fn handle_mouse_wheel(&self, delta_y: f64, x: f64, y: f64) -> Result<(), JsValue> {
+    pub fn handle_mouse_wheel(&self, delta_y: f64, x: f64, _y: f64) -> Result<(), JsValue> {
         unsafe {
-            if let Some(instance) = &mut CHART_INSTANCE {
+            if let Some(instance) = (&raw mut CHART_INSTANCE).as_mut().unwrap() {
                 let window_event = WindowEvent::MouseWheel {
-                    device_id: unsafe { std::mem::transmute(0u32) },
-                    delta: MouseScrollDelta::PixelDelta(winit::dpi::PhysicalPosition::new(0.0, delta_y)),
-                    phase: winit::event::TouchPhase::Moved,
+                    delta: MouseScrollDelta::PixelDelta(PhysicalPosition::new(x, delta_y)),
+                    phase: TouchPhase::Moved,
                 };
                 instance.canvas_controller.handle_cursor_event(window_event);
             }
@@ -161,10 +133,9 @@ impl Chart {
     #[wasm_bindgen]
     pub fn handle_mouse_move(&self, x: f64, y: f64) -> Result<(), JsValue> {
         unsafe {
-            if let Some(instance) = &mut CHART_INSTANCE {
+            if let Some(instance) = (&raw mut CHART_INSTANCE).as_mut().unwrap() {
                 let window_event = WindowEvent::CursorMoved {
-                    device_id: unsafe { std::mem::transmute(0u32) },
-                    position: winit::dpi::PhysicalPosition::new(x, y),
+                    position: PhysicalPosition::new(x, y),
                 };
                 instance.canvas_controller.handle_cursor_event(window_event);
             }
@@ -173,13 +144,12 @@ impl Chart {
     }
 
     #[wasm_bindgen]
-    pub fn handle_mouse_click(&self, x: f64, y: f64, pressed: bool) -> Result<(), JsValue> {
+    pub fn handle_mouse_click(&self, _x: f64, _y: f64, pressed: bool) -> Result<(), JsValue> {
         unsafe {
-            if let Some(instance) = &mut CHART_INSTANCE {
+            if let Some(instance) = (&raw mut CHART_INSTANCE).as_mut().unwrap() {
                 let window_event = WindowEvent::MouseInput {
-                    device_id: unsafe { std::mem::transmute(0u32) },
                     state: if pressed { ElementState::Pressed } else { ElementState::Released },
-                    button: winit::event::MouseButton::Left,
+                    button: MouseButton::Left,
                 };
                 instance.canvas_controller.handle_cursor_event(window_event);
             }
@@ -190,7 +160,7 @@ impl Chart {
     #[wasm_bindgen]
     pub fn set_data_range(&self, start: u32, end: u32) -> Result<(), JsValue> {
         unsafe {
-            if let Some(instance) = &CHART_INSTANCE {
+            if let Some(instance) = (&raw const CHART_INSTANCE).as_ref().unwrap() {
                 instance.line_graph.borrow().data_store.borrow_mut().set_x_range(start, end);
             }
         }
@@ -201,7 +171,7 @@ impl Chart {
     pub fn request_redraw(&self) -> Result<(), JsValue> {
         wasm_bindgen_futures::spawn_local(async move {
             unsafe {
-                if let Some(instance) = &CHART_INSTANCE {
+                if let Some(instance) = (&raw const CHART_INSTANCE).as_ref().unwrap() {
                     if let Ok(line_graph) = instance.line_graph.try_borrow() {
                         let _ = line_graph.render().await;
                     }
@@ -233,7 +203,7 @@ impl Chart {
 
         // Step 2: Smart change detection
         unsafe {
-            if let Some(instance) = &mut CHART_INSTANCE {
+            if let Some(instance) = (&raw mut CHART_INSTANCE).as_mut().unwrap() {
                 let change_detection = if let Some(ref current_state) = instance.current_store_state {
                     store_state.detect_changes_from(current_state, &instance.change_detection_config)
                 } else {
@@ -313,14 +283,17 @@ impl Chart {
     /// Check if the chart is initialized and has an active instance
     #[wasm_bindgen]
     pub fn is_initialized(&self) -> bool {
-        unsafe { CHART_INSTANCE.is_some() }
+        unsafe { 
+            let ptr = &raw const CHART_INSTANCE;
+            (*ptr).is_some()
+        }
     }
 
     /// Get current store state as JSON (for debugging/sync purposes)
     #[wasm_bindgen]
     pub fn get_current_store_state(&self) -> Result<String, JsValue> {
         unsafe {
-            if let Some(instance) = &CHART_INSTANCE {
+            if let Some(instance) = (&raw const CHART_INSTANCE).as_ref().unwrap() {
                 if let Some(ref state) = instance.current_store_state {
                     match serde_json::to_string(state) {
                         Ok(json) => Ok(json),
@@ -353,7 +326,7 @@ impl Chart {
         };
 
         unsafe {
-            if let Some(instance) = &mut CHART_INSTANCE {
+            if let Some(instance) = (&raw mut CHART_INSTANCE).as_mut().unwrap() {
                 match self.apply_store_state_changes(&store_state, instance) {
                     Ok(changes_applied) => {
                         instance.current_store_state = Some(store_state);
@@ -386,7 +359,7 @@ impl Chart {
         log::info!("configure_change_detection called with: {}", config_json);
         
         unsafe {
-            if let Some(instance) = &mut CHART_INSTANCE {
+            if let Some(instance) = (&raw mut CHART_INSTANCE).as_mut().unwrap() {
                 // Parse the configuration JSON
                 let config: ChangeDetectionConfig = match serde_json::from_str(config_json) {
                     Ok(config) => config,
@@ -427,7 +400,7 @@ impl Chart {
     #[wasm_bindgen]
     pub fn get_change_detection_config(&self) -> Result<String, JsValue> {
         unsafe {
-            if let Some(instance) = &CHART_INSTANCE {
+            if let Some(instance) = (&raw const CHART_INSTANCE).as_ref().unwrap() {
                 let config_json = serde_json::json!({
                     "enableSymbolChangeDetection": instance.change_detection_config.enable_symbol_change_detection,
                     "enableTimeRangeChangeDetection": instance.change_detection_config.enable_time_range_change_detection,
@@ -464,7 +437,7 @@ impl Chart {
         };
 
         unsafe {
-            if let Some(instance) = &CHART_INSTANCE {
+            if let Some(instance) = (&raw const CHART_INSTANCE).as_ref().unwrap() {
                 let change_detection = if let Some(ref current_state) = instance.current_store_state {
                     store_state.detect_changes_from(current_state, &instance.change_detection_config)
                 } else {
@@ -532,11 +505,7 @@ impl Chart {
         }
     }
 
-    /// Check if two store states are equivalent (for change detection - deprecated)
-    fn states_are_equivalent(&self, current: &StoreState, new: &StoreState) -> bool {
-        // Use new smart change detection
-        !new.differs_from(current)
-    }
+    // Removed unused states_are_equivalent method
 
     /// Apply store state changes to the chart
     fn apply_store_state_changes(&self, store_state: &StoreState, instance: &mut ChartInstance) -> Result<Vec<String>, String> {

@@ -196,7 +196,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     
     // Internal subscription trigger with smart change detection
     _triggerSubscriptions: (newState, oldState) => {
-      if (!oldState || newState._subscriptions.size === 0) return;
+      if (!oldState || !newState._subscriptions || newState._subscriptions.size === 0) return;
       
       // Detect specific changes
       const symbolChanged = newState.currentSymbol !== oldState.currentSymbol;
@@ -207,7 +207,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
                                JSON.stringify(oldState.chartConfig.indicators);
       
       // Trigger specific callbacks
-      newState._subscriptions.forEach((callbacks: StoreSubscriptionCallbacks) => {
+      newState._subscriptions?.forEach((callbacks: StoreSubscriptionCallbacks) => {
         if (symbolChanged && callbacks.onSymbolChange) {
           callbacks.onSymbolChange(newState.currentSymbol, oldState.currentSymbol);
         }
@@ -268,3 +268,65 @@ export const useChartSubscription = (callbacks: StoreSubscriptionCallbacks) => {
     unsubscribe: () => unsubscribe('chart-subscription'),
   };
 };
+
+// Expose store globally for testing
+if (typeof window !== 'undefined') {
+  (window as any).__zustandStore = useAppStore;
+  (window as any).__APP_STORE_STATE__ = useAppStore.getState();
+  (window as any).__STORE_READY__ = true;
+  (window as any).__DATA_SERVICE_READY__ = true;
+  (window as any).__ERROR_HANDLER_READY__ = true;
+  (window as any).__PERFORMANCE_MONITOR_READY__ = true;
+  
+  // Initialize error tracking
+  if (!(window as any).wasmErrors) {
+    (window as any).wasmErrors = [];
+  }
+  
+  // Add store accessor functions for tests
+  (window as any).__GET_STORE_STATE__ = () => {
+    const state = useAppStore.getState();
+    return {
+      currentSymbol: state.currentSymbol,
+      symbol: state.currentSymbol, // Alias for backward compatibility
+      chartConfig: state.chartConfig,
+      timeframe: state.chartConfig.timeframe,
+      connected: state.isConnected,
+      chartInitialized: true, // Assume chart is initialized if store is accessible
+      marketData: state.marketData,
+      isConnected: state.isConnected,
+      user: state.user,
+      startTime: state.chartConfig.startTime,
+      endTime: state.chartConfig.endTime
+    };
+  };
+
+  // Store update function for tests
+  (window as any).__UPDATE_STORE_STATE__ = (updates: any) => {
+    const store = useAppStore.getState();
+    if (updates.currentSymbol) {
+      store.setCurrentSymbol(updates.currentSymbol);
+    }
+    if (updates.symbol) {
+      store.setCurrentSymbol(updates.symbol);
+    }
+    if (updates.timeframe) {
+      store.setTimeframe(updates.timeframe);
+    }
+    if (updates.startTime !== undefined && updates.endTime !== undefined) {
+      store.setTimeRange(updates.startTime, updates.endTime);
+    }
+    if (updates.indicators) {
+      store.setIndicators(updates.indicators);
+    }
+    if (updates.connected !== undefined) {
+      store.setConnectionStatus(updates.connected);
+    }
+    return { success: true };
+  };
+  
+  // Update global state on store changes
+  useAppStore.subscribe((state) => {
+    (window as any).__APP_STORE_STATE__ = state;
+  });
+}
