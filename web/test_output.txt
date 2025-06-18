@@ -1,0 +1,342 @@
+
+> graph-web@0.0.0 test
+> playwright test
+
+
+Running 498 tests using 16 workers
+
+[1A[2K[1/498] [chromium] › tests/basic.spec.ts:25:3 › Basic App Functionality › should navigate to trading app
+[1A[2K[2/498] [chromium] › tests/app.spec.ts:251:3 › Browser Compatibility › should handle WebGPU unavailability
+[1A[2K[3/498] [chromium] › tests/app.spec.ts:188:3 › Graph Visualization App › should maintain performance during extended use
+[1A[2K[4/498] [chromium] › tests/app.spec.ts:120:3 › Graph Visualization App › should handle pan interactions
+[1A[2K[5/498] [chromium] › tests/app.spec.ts:21:3 › Graph Visualization App › should load the application successfully
+[1A[2K[6/498] [chromium] › tests/app.spec.ts:28:3 › Graph Visualization App › should detect WebGPU support
+[1A[2K[7/498] [chromium] › tests/app.spec.ts:156:3 › Graph Visualization App › should handle invalid data gracefully
+[1A[2K[8/498] [chromium] › tests/app.spec.ts:88:3 › Graph Visualization App › should handle zoom interactions
+[1A[2K[9/498] [chromium] › tests/app.spec.ts:171:3 › Graph Visualization App › should handle network failures gracefully
+[1A[2K[10/498] [chromium] › tests/basic.spec.ts:47:3 › Basic App Functionality › should show loading state initially
+[1A[2K[11/498] [chromium] › tests/app.spec.ts:53:3 › Graph Visualization App › should load WASM module successfully
+[1A[2K[12/498] [chromium] › tests/basic.spec.ts:65:3 › Basic App Functionality › should handle canvas rendering
+[1A[2K[13/498] [chromium] › tests/app.spec.ts:72:3 › Graph Visualization App › should render chart with valid data
+[1A[2K[14/498] [chromium] › tests/basic.spec.ts:5:3 › Basic App Functionality › should load the homepage
+[1A[2K[15/498] [chromium] › tests/app.spec.ts:228:3 › Browser Compatibility › should work in Chromium with WebGPU
+[1A[2K[16/498] [chromium] › tests/basic.spec.ts:88:3 › Basic App Functionality › should handle basic interactions
+[1A[2K[17/498] [chromium] › tests/data-scenarios.spec.ts:14:3 › Real-World Data Scenarios › should handle cryptocurrency data with high volatility
+[1A[2K[chromium] › tests/app.spec.ts:28:3 › Graph Visualization App › should detect WebGPU support
+WebGPU supported in chromium
+
+[1A[2K[18/498] [chromium] › tests/data-scenarios.spec.ts:39:3 › Real-World Data Scenarios › should handle stock market data with gaps (weekends)
+[1A[2K[19/498] [chromium] › tests/data-scenarios.spec.ts:69:3 › Real-World Data Scenarios › should handle forex data with 24/7 availability
+[1A[2K[20/498] [chromium] › tests/data-scenarios.spec.ts:95:3 › Real-World Data Scenarios › should handle commodity data with seasonal patterns
+[1A[2K[21/498] [chromium] › tests/data-scenarios.spec.ts:123:3 › Real-World Data Scenarios › should handle sensor data with irregular intervals
+[1A[2K[22/498] [chromium] › tests/data-scenarios.spec.ts:144:3 › Real-World Data Scenarios › should handle multiple symbol switching
+[1A[2K[23/498] [chromium] › tests/data-scenarios.spec.ts:148:3 › Real-World Data Scenarios › should handle time range modifications
+[1A[2K[24/498] [chromium] › tests/data-scenarios.spec.ts:152:3 › Real-World Data Scenarios › should handle data loading states
+[1A[2K[25/498] [chromium] › tests/data-scenarios.spec.ts:169:3 › Real-World Data Scenarios › should handle concurrent data requests
+[1A[2K[26/498] [chromium] › tests/data-scenarios.spec.ts:173:3 › Real-World Data Scenarios › should handle data with extreme values
+[1A[2K[27/498] [chromium] › tests/data-visualization.spec.ts:55:3 › Data Visualization API Integration › should fetch and display symbols list
+[1A[2K[28/498] [chromium] › tests/data-visualization.spec.ts:81:3 › Data Visualization API Integration › should handle data API with different column combinations
+[1A[2K[29/498] [chromium] › tests/data-visualization.spec.ts:85:3 › Data Visualization API Integration › should handle different time ranges correctly
+[1A[2K[30/498] [chromium] › tests/data-visualization.spec.ts:89:3 › Data Visualization API Integration › should handle API errors gracefully
+[1A[2K[31/498] [chromium] › tests/data-visualization.spec.ts:126:3 › Data Visualization API Integration › should validate data integrity in response
+[1A[2K[chromium] › tests/basic.spec.ts:88:3 › Basic App Functionality › should handle basic interactions
+Canvas initialization status: true
+
+[1A[2K[32/498] [chromium] › tests/data-visualization.spec.ts:138:3 › Data Visualization Chart Rendering › should render charts with different data sizes
+[1A[2K[33/498] [chromium] › tests/data-visualization.spec.ts:168:3 › Data Visualization Chart Rendering › should handle empty data gracefully
+[1A[2K[34/498] [chromium] › tests/data-visualization.spec.ts:187:3 › Data Visualization Chart Rendering › should update charts when data changes
+[1A[2K[35/498] [chromium] › tests/data-visualization.spec.ts:191:3 › Data Visualization Chart Rendering › should handle malformed data responses
+[1A[2K[36/498] [chromium] › tests/integration/react-rust-integration.spec.ts:31:5 › React-Rust Integration System › Store Contract Foundation › should validate store state structure
+[1A[2K[37/498] [chromium] › tests/integration/react-rust-integration.spec.ts:43:5 › React-Rust Integration System › Store Contract Foundation › should handle invalid store state gracefully
+[1A[2K  1) [chromium] › tests/integration/react-rust-integration.spec.ts:43:5 › React-Rust Integration System › Store Contract Foundation › should handle invalid store state gracefully 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32mtrue[39m
+    Received: [31mfalse[39m
+
+      63 |       });
+      64 |       
+    > 65 |       expect(errorOccurred).toBe(true);
+         |                             ^
+      66 |       
+      67 |       // Check that error notification appeared
+      68 |       await expect(page.locator('.bg-red-900')).toBeVisible({ timeout: 3000 });
+        at /home/xander/projects/graph/web/tests/integration/react-rust-integration.spec.ts:65:29
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/integration-react-rust-int-da010-alid-store-state-gracefully-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/integration-react-rust-int-da010-alid-store-state-gracefully-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/integration-react-rust-int-da010-alid-store-state-gracefully-chromium/error-context.md
+
+
+[1A[2K[chromium] › tests/data-visualization.spec.ts:191:3 › Data Visualization Chart Rendering › should handle malformed data responses
+✓ Handled invalid JSON
+
+[1A[2K✓ Handled wrong structure
+
+[1A[2K✓ Handled empty columns
+
+[1A[2K✓ Handled missing metadata
+
+[1A[2K[38/498] [chromium] › tests/integration/react-rust-integration.spec.ts:89:5 › React-Rust Integration System › WASM Bridge Communication › should initialize WASM chart successfully
+[1A[2K[39/498] [chromium] › tests/integration/react-rust-integration.spec.ts:99:5 › React-Rust Integration System › WASM Bridge Communication › should update chart state via WASM bridge
+[1A[2K[40/498] [chromium] › tests/integration/react-rust-integration.spec.ts:71:5 › React-Rust Integration System › Store Contract Foundation › should serialize and deserialize state correctly
+[1A[2K[41/498] [chromium] › tests/integration/react-rust-integration.spec.ts:114:5 › React-Rust Integration System › WASM Bridge Communication › should handle WASM method failures gracefully
+[1A[2K[42/498] [chromium] › tests/integration/react-rust-integration.spec.ts:132:5 › React-Rust Integration System › WASM Bridge Communication › should measure WASM method performance
+[1A[2K[43/498] [chromium] › tests/integration/react-rust-integration.spec.ts:158:5 › React-Rust Integration System › Smart State Change Detection › should detect symbol changes
+[1A[2K  2) [chromium] › tests/integration/react-rust-integration.spec.ts:99:5 › React-Rust Integration System › WASM Bridge Communication › should update chart state via WASM bridge 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m"ETH-USD"[39m
+    Received: [31m{"currentSymbol": "BTC-USD", "symbol": "BTC-USD"}[39m
+
+      109 |       });
+      110 |       
+    > 111 |       expect(wasmState.currentSymbol).toBe('ETH-USD');
+          |                                       ^
+      112 |     });
+      113 |
+      114 |     test('should handle WASM method failures gracefully', async () => {
+        at /home/xander/projects/graph/web/tests/integration/react-rust-integration.spec.ts:111:39
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/integration-react-rust-int-47b0c-chart-state-via-WASM-bridge-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/integration-react-rust-int-47b0c-chart-state-via-WASM-bridge-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/integration-react-rust-int-47b0c-chart-state-via-WASM-bridge-chromium/error-context.md
+
+
+[1A[2K[44/498] [chromium] › tests/integration/react-rust-integration.spec.ts:190:5 › React-Rust Integration System › Smart State Change Detection › should detect time range changes
+[1A[2K[45/498] [chromium] › tests/integration/react-rust-integration.spec.ts:177:5 › React-Rust Integration System › Smart State Change Detection › should detect timeframe changes
+[1A[2K[46/498] [chromium] › tests/integration/react-rust-integration.spec.ts:203:5 › React-Rust Integration System › Smart State Change Detection › should not trigger false positives
+[1A[2K[47/498] [chromium] › tests/integration/react-rust-integration.spec.ts:217:5 › React-Rust Integration System › React Store Subscription › should sync store changes to WASM automatically
+[1A[2K  3) [chromium] › tests/integration/react-rust-integration.spec.ts:158:5 › React-Rust Integration System › Smart State Change Detection › should detect symbol changes 
+
+    TypeError: Cannot read properties of undefined (reading 'symbolChanged')
+
+      171 |       });
+      172 |       
+    > 173 |       expect(changeDetection.symbolChanged).toBe(true);
+          |                              ^
+      174 |       expect(changeDetection.hasChanges).toBe(true);
+      175 |     });
+      176 |
+        at /home/xander/projects/graph/web/tests/integration/react-rust-integration.spec.ts:173:30
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/integration-react-rust-int-6849e-hould-detect-symbol-changes-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/integration-react-rust-int-6849e-hould-detect-symbol-changes-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[48/498] [chromium] › tests/integration/react-rust-integration.spec.ts:248:5 › React-Rust Integration System › React Store Subscription › should show uncommitted changes indicator
+[1A[2K[49/498] [chromium] › tests/integration/react-rust-integration.spec.ts:229:5 › React-Rust Integration System › React Store Subscription › should handle rapid state changes with debouncing
+[1A[2K  4) [chromium] › tests/integration/react-rust-integration.spec.ts:190:5 › React-Rust Integration System › Smart State Change Detection › should detect time range changes 
+
+    Error: Unknown chart interaction action: zoom
+
+       at helpers/test-utils.ts:303
+
+      301 |         break;
+      302 |       default:
+    > 303 |         throw new Error(`Unknown chart interaction action: ${action}`);
+          |               ^
+      304 |     }
+      305 |     
+      306 |     // Wait for interaction to process
+        at Function.triggerChartInteraction (/home/xander/projects/graph/web/tests/helpers/test-utils.ts:303:15)
+        at /home/xander/projects/graph/web/tests/integration/react-rust-integration.spec.ts:192:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/integration-react-rust-int-be1d6-d-detect-time-range-changes-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/integration-react-rust-int-be1d6-d-detect-time-range-changes-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[50/498] [chromium] › tests/integration/react-rust-integration.spec.ts:263:5 › React-Rust Integration System › Autonomous Data Fetching › should fetch data automatically on symbol change
+[1A[2K  5) [chromium] › tests/integration/react-rust-integration.spec.ts:248:5 › React-Rust Integration System › React Store Subscription › should show uncommitted changes indicator 
+
+    Error: [31mTimed out 500ms waiting for [39m[2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m()[22m
+
+    Locator: locator('[title="Syncing..."]')
+    Expected: visible
+    Received: <element(s) not found>
+    Call log:
+    [2m  - expect.toBeVisible with timeout 500ms[22m
+    [2m  - waiting for locator('[title="Syncing..."]')[22m
+
+
+      252 |       // Should immediately show syncing indicator
+      253 |       const syncingIndicator = page.locator('[title="Syncing..."]');
+    > 254 |       await expect(syncingIndicator).toBeVisible({ timeout: 500 });
+          |                                      ^
+      255 |       
+      256 |       // Should eventually show synced indicator
+      257 |       const syncedIndicator = page.locator('[title="Synced"]');
+        at /home/xander/projects/graph/web/tests/integration/react-rust-integration.spec.ts:254:38
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/integration-react-rust-int-d74fb-committed-changes-indicator-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/integration-react-rust-int-d74fb-committed-changes-indicator-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/integration-react-rust-int-d74fb-committed-changes-indicator-chromium/error-context.md
+
+
+[1A[2K  6) [chromium] › tests/integration/react-rust-integration.spec.ts:177:5 › React-Rust Integration System › Smart State Change Detection › should detect timeframe changes 
+
+    TypeError: Cannot read properties of undefined (reading 'timeframeChanged')
+
+      185 |       });
+      186 |       
+    > 187 |       expect(changeDetection.timeframeChanged).toBe(true);
+          |                              ^
+      188 |     });
+      189 |
+      190 |     test('should detect time range changes', async () => {
+        at /home/xander/projects/graph/web/tests/integration/react-rust-integration.spec.ts:187:30
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/integration-react-rust-int-1df34-ld-detect-timeframe-changes-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/integration-react-rust-int-1df34-ld-detect-timeframe-changes-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[51/498] [chromium] › tests/integration/react-rust-integration.spec.ts:280:5 › React-Rust Integration System › Autonomous Data Fetching › should cache data effectively
+[1A[2K[52/498] [chromium] › tests/integration/react-rust-integration.spec.ts:296:5 › React-Rust Integration System › Autonomous Data Fetching › should handle data fetch failures gracefully
+[1A[2K  7) [chromium] › tests/integration/react-rust-integration.spec.ts:203:5 › React-Rust Integration System › Smart State Change Detection › should not trigger false positives 
+
+    TypeError: Cannot read properties of undefined (reading 'hasChanges')
+
+      210 |       
+      211 |       // Should not detect changes when none occurred
+    > 212 |       expect(changeDetection.hasChanges).toBe(false);
+          |                              ^
+      213 |     });
+      214 |   });
+      215 |
+        at /home/xander/projects/graph/web/tests/integration/react-rust-integration.spec.ts:212:30
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/integration-react-rust-int-e1b57-not-trigger-false-positives-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/integration-react-rust-int-e1b57-not-trigger-false-positives-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[53/498] [chromium] › tests/integration/react-rust-integration.spec.ts:329:5 › React-Rust Integration System › Comprehensive Error Handling › should recover from WASM initialization failures
+[1A[2K  8) [chromium] › tests/integration/react-rust-integration.spec.ts:263:5 › React-Rust Integration System › Autonomous Data Fetching › should fetch data automatically on symbol change 
+
+    TypeError: DataMockHelper.mockServerResponse is not a function
+
+      263 |     test('should fetch data automatically on symbol change', async () => {
+      264 |       // Mock successful data response
+    > 265 |       await DataMockHelper.mockServerResponse(page, 
+          |                            ^
+      266 |         DataMockHelper.generateMarketData('BTC-USD', 1000)
+      267 |       );
+      268 |       
+        at /home/xander/projects/graph/web/tests/integration/react-rust-integration.spec.ts:265:28
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/integration-react-rust-int-15ac5-omatically-on-symbol-change-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/integration-react-rust-int-15ac5-omatically-on-symbol-change-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[54/498] [chromium] › tests/integration/react-rust-integration.spec.ts:312:5 › React-Rust Integration System › Autonomous Data Fetching › should display data fetching metrics
+[1A[2K[55/498] [chromium] › tests/integration/react-rust-integration.spec.ts:345:5 › React-Rust Integration System › Comprehensive Error Handling › should display user-friendly error notifications
+[1A[2K  9) [chromium] › tests/integration/react-rust-integration.spec.ts:217:5 › React-Rust Integration System › React Store Subscription › should sync store changes to WASM automatically 
+
+    Error: [31mTimed out 2000ms waiting for [39m[2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m()[22m
+
+    Locator: locator('[title="Synced"]')
+    Expected: visible
+    Received: <element(s) not found>
+    Call log:
+    [2m  - expect.toBeVisible with timeout 2000ms[22m
+    [2m  - waiting for locator('[title="Synced"]')[22m
+
+
+      224 |       // Verify WASM chart received the update
+      225 |       const syncIndicator = page.locator('[title="Synced"]');
+    > 226 |       await expect(syncIndicator).toBeVisible({ timeout: 2000 });
+          |                                   ^
+      227 |     });
+      228 |
+      229 |     test('should handle rapid state changes with debouncing', async () => {
+        at /home/xander/projects/graph/web/tests/integration/react-rust-integration.spec.ts:226:35
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/integration-react-rust-int-6b327-anges-to-WASM-automatically-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/integration-react-rust-int-6b327-anges-to-WASM-automatically-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/integration-react-rust-int-6b327-anges-to-WASM-automatically-chromium/error-context.md
+
+
+[1A[2K[56/498] [chromium] › tests/integration/react-rust-integration.spec.ts:362:5 › React-Rust Integration System › Comprehensive Error Handling › should handle network errors gracefully
+[1A[2K  10) [chromium] › tests/integration/react-rust-integration.spec.ts:329:5 › React-Rust Integration System › Comprehensive Error Handling › should recover from WASM initialization failures 
+
+    Error: [31mTimed out 2000ms waiting for [39m[2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m()[22m
+
+    Locator: locator(':text("Retry")')
+    Expected: visible
+    Received: <element(s) not found>
+    Call log:
+    [2m  - expect.toBeVisible with timeout 2000ms[22m
+    [2m  - waiting for locator(':text("Retry")')[22m
+
+
+      337 |       
+      338 |       // Should show retry attempts
+    > 339 |       await expect(page.locator(':text("Retry")')).toBeVisible({ timeout: 2000 });
+          |                                                    ^
+      340 |       
+      341 |       // Eventually should recover or show fallback
+      342 |       await expect(page.locator(':text("Chart engine unavailable")')).toBeVisible({ timeout: 10000 });
+        at /home/xander/projects/graph/web/tests/integration/react-rust-integration.spec.ts:339:52
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/integration-react-rust-int-de9ff-ASM-initialization-failures-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/integration-react-rust-int-de9ff-ASM-initialization-failures-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/integration-react-rust-int-de9ff-ASM-initialization-failures-chromium/error-context.md
+
+
+[1A[2K[57/498] [chromium] › tests/integration/react-rust-integration.spec.ts:381:5 › React-Rust Integration System › Comprehensive Error Handling › should provide error recovery actions

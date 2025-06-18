@@ -38,18 +38,73 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-        // Enable WebGPU for testing
+        // Enable WebGPU for testing with software fallback
         launchOptions: {
           args: [
             "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-accelerated-2d-canvas",
+            "--no-first-run",
+            "--no-zygote",
+            "--single-process", // Important for headless stability
+            "--disable-gpu-sandbox",
+            // WebGPU flags
             '--enable-unsafe-webgpu',
+            '--enable-webgpu-developer-features',
             '--disable-web-security',
             '--ignore-certificate-errors',
-            '--disable-features=IsolateOrigins',
             '--allow-running-insecure-content',
-            "--use-angle=vulkan",
-            "--enable-features=Vulkan",
-            "--disable-vulkan-surface"
+            // Graphics backend flags with fallbacks
+            "--use-angle=swiftshader", // Software renderer fallback
+            "--enable-features=VaapiVideoDecoder,WebGPU",
+            "--disable-features=VizDisplayCompositor",
+            // Memory and stability
+            "--memory-pressure-off",
+            "--max_old_space_size=4096",
+            // Disable problematic features that can cause crashes
+            "--disable-background-timer-throttling",
+            "--disable-backgrounding-occluded-windows",
+            "--disable-renderer-backgrounding",
+            "--disable-features=TranslateUI",
+            "--disable-component-extensions-with-background-pages",
+            // Force software rendering for WebGL/WebGPU compatibility
+            "--disable-gpu",
+            "--disable-software-rasterizer"
+          ]
+        }
+      },
+    },
+
+    {
+      name: 'chromium-headless',
+      use: {
+        ...devices['Desktop Chrome'],
+        // Headless mode with software rendering for CI/headless environments
+        launchOptions: {
+          headless: true,
+          args: [
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-gpu",
+            "--disable-gpu-sandbox", 
+            "--disable-software-rasterizer",
+            "--disable-background-timer-throttling",
+            "--disable-backgrounding-occluded-windows",
+            "--disable-renderer-backgrounding",
+            "--disable-web-security",
+            "--ignore-certificate-errors",
+            "--allow-running-insecure-content",
+            "--no-first-run",
+            "--no-zygote",
+            "--single-process",
+            "--memory-pressure-off",
+            // Force canvas to use software rendering
+            "--use-gl=swiftshader",
+            "--use-angle=swiftshader",
+            // Disable WebGPU for pure software fallback
+            "--disable-features=WebGPU"
           ]
         }
       },
@@ -98,10 +153,18 @@ export default defineConfig({
   ],
 
   /* Run your local dev server before starting the tests */
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000, // 2 minutes for WASM to build
-  },
+  webServer: [
+    {
+      command: 'npm run dev',
+      url: 'http://localhost:3000',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120 * 1000, // 2 minutes for WASM to build
+    },
+    {
+      command: 'node tests/test-server.js --port 8080 --http',
+      url: 'http://localhost:8080/health',
+      reuseExistingServer: !process.env.CI,
+      timeout: 30 * 1000, // 30 seconds for test server
+    }
+  ],
 });

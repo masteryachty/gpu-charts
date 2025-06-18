@@ -22,7 +22,7 @@ test.describe('Real-World Data Scenarios', () => {
     await utils.waitForChartRender();
 
     // Verify canvas is rendering chart
-    const canvas = page.locator('#new-api-canvas');
+    const canvas = page.locator('#wasm-chart-canvas');
     await expect(canvas).toBeVisible();
 
     // Test interactions work with crypto data
@@ -49,7 +49,7 @@ test.describe('Real-World Data Scenarios', () => {
     await utils.waitForChartRender();
 
     // Should handle potential data gaps gracefully
-    const canvas = page.locator('#new-api-canvas');
+    const canvas = page.locator('#wasm-chart-canvas');
     await expect(canvas).toBeVisible();
 
     // Test panning across potentially gapped data
@@ -88,7 +88,7 @@ test.describe('Real-World Data Scenarios', () => {
     const operationTime = Date.now() - startTime;
     expect(operationTime).toBeLessThan(5000); // Should complete in 5 seconds
 
-    const canvas = page.locator('#new-api-canvas');
+    const canvas = page.locator('#wasm-chart-canvas');
     await expect(canvas).toBeVisible();
   });
 
@@ -105,7 +105,7 @@ test.describe('Real-World Data Scenarios', () => {
     await utils.waitForChartRender();
 
     // Test scrolling through monthly data
-    const canvas = page.locator('#new-api-canvas');
+    const canvas = page.locator('#wasm-chart-canvas');
     const canvasBox = await utils.getCanvasDimensions();
     
     if (canvasBox) {
@@ -132,7 +132,7 @@ test.describe('Real-World Data Scenarios', () => {
     await utils.navigateToApp();
     await utils.waitForChartRender();
 
-    const canvas = page.locator('#new-api-canvas');
+    const canvas = page.locator('#wasm-chart-canvas');
     await expect(canvas).toBeVisible();
 
     // Verify it handles small datasets
@@ -162,7 +162,7 @@ test.describe('Real-World Data Scenarios', () => {
     // Eventually should load
     await utils.waitForChartRender(10000);
     
-    const canvas = page.locator('#new-api-canvas');
+    const canvas = page.locator('#wasm-chart-canvas');
     await expect(canvas).toBeVisible();
   });
 
@@ -191,7 +191,7 @@ test.describe('Real-World Data Scenarios', () => {
     await utils.waitForChartRender();
 
     // Should handle extreme values without crashing
-    const canvas = page.locator('#new-api-canvas');
+    const canvas = page.locator('#wasm-chart-canvas');
     await expect(canvas).toBeVisible();
 
     // Test interactions still work

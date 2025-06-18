@@ -9,7 +9,9 @@ use chrono::DateTime;
 use js_sys::Error;
 use std::cell::RefCell;
 use std::rc::Rc;
-use winit::window::Window;
+
+#[cfg(target_arch = "wasm32")]
+use web_sys::HtmlCanvasElement;
 
 pub struct LineGraph {
     pub data_store: Rc<RefCell<DataStore>>,
@@ -19,15 +21,29 @@ pub struct LineGraph {
 }
 
 impl LineGraph {
+    #[cfg(target_arch = "wasm32")]
     pub async fn new(
         width: u32,
         height: u32,
-        window: std::rc::Rc<Window>,
+        canvas: HtmlCanvasElement,
     ) -> Result<LineGraph, Error> {
         let params = get_query_params();
-        let topic = params.get("topic").unwrap();
-        let start = params.get("start").unwrap().parse().unwrap();
-        let end = params.get("end").unwrap().parse().unwrap();
+        
+        // Handle missing query parameters gracefully (for React integration)
+        let topic = params.get("topic").unwrap_or(&"default_topic".to_string()).clone();
+        let start = params.get("start")
+            .and_then(|s| s.parse().ok())
+            .unwrap_or_else(|| {
+                // Default to last hour if no start time provided
+                chrono::Utc::now().timestamp() - 3600
+            });
+        let end = params.get("end")
+            .and_then(|s| s.parse().ok())
+            .unwrap_or_else(|| {
+                // Default to current time if no end time provided
+                chrono::Utc::now().timestamp()
+            });
+            
         log::info!("topic: {:?}", topic);
         log::info!("start: {:?}", unix_timestamp_to_string(start));
         log::info!("end: {:?}", unix_timestamp_to_string(end));
@@ -40,7 +56,7 @@ impl LineGraph {
         let engine: Rc<RefCell<RenderEngine>>;
         {
             // let performance = web_sys::window().unwrap().performance().unwrap();
-            let engine_promise = RenderEngine::new(window.clone(), data_store.clone()).await;
+            let engine_promise = RenderEngine::new(canvas, data_store.clone()).await;
 
             engine = Rc::new(RefCell::new(engine_promise.unwrap()));
             let device = {
@@ -48,12 +64,17 @@ impl LineGraph {
                 engine_b.device.clone()
             };
             data_store.borrow_mut().topic = Some(topic.clone());
+            
+            // Try to fetch initial data, but don't fail if server is unavailable
+            log::info!("Attempting initial data fetch...");
             fetch_data(&device, start as u32, end as u32, data_store.clone()).await;
-            // let start_u32: u32 = start.parse().unwrap();
-            // let end_u32: u32 = end.parse().unwrap();
+            
+            // Set the time range regardless of whether data fetch succeeded
             data_store
                 .borrow_mut()
                 .set_x_range(start as u32, end as u32);
+            
+            log::info!("LineGraph initialization completed (data fetch may have failed gracefully)");
         }
 
         let plot_renderer = Box::new(PlotRenderer::new(

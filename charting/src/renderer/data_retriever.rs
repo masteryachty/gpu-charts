@@ -162,7 +162,16 @@ pub async fn fetch_data(
         end.to_string().as_str()
     );
 
-    let (api_header, binary_buffer) = fetch_api_response(&url).await.unwrap();
+    let result = fetch_api_response(&url).await;
+    let (api_header, binary_buffer) = match result {
+        Ok((header, buffer)) => (header, buffer),
+        Err(e) => {
+            log::warn!("Failed to fetch data from server: {:?}", e);
+            log::info!("Server might not be running. Using empty data for testing/fallback.");
+            // Return early - don't try to process data if fetch failed
+            return;
+        }
+    };
 
     // Split the binary data into separate ArrayBuffers for each column.
     let mut offset = 0u32;
@@ -189,6 +198,13 @@ pub async fn fetch_data(
     let (y_buffer, y_gpu_buffers) = column_buffers.remove("best_bid").unwrap();
 
     log::info!("xbuffer {:?}", x_buffer);
+
+    // Clear existing data groups before adding new data for zoom operations
+    {
+        let mut store_mut = data_store.borrow_mut();
+        store_mut.data_groups.clear();
+        store_mut.active_data_group_index = 0;
+    }
 
     data_store.borrow_mut().add_data_group(
         (x_buffer, x_gpu_buffers),

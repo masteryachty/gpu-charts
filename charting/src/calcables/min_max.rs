@@ -16,7 +16,30 @@ pub fn calculate_min_max_y(
     // let performance = web_sys::window().unwrap().performance().unwrap();
     // let start = performance.now();
 
-    let x_series = &data_store.get_active_data_group().x_raw;
+    // Early return if no data is available
+    let active_group = match data_store.get_active_data_group() {
+        Some(group) => group,
+        None => {
+            log::warn!("No active data group available for min/max calculation");
+            // Return empty buffers as fallback
+            let staging_buffer_size = (2 * std::mem::size_of::<f32>()) as u64;
+            let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("Empty Staging Buffer"),
+                size: staging_buffer_size,
+                usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
+                mapped_at_creation: false,
+            });
+            let staging_buffer2 = device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("Empty Staging Buffer 2"),
+                size: staging_buffer_size,
+                usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+            return (staging_buffer, staging_buffer2);
+        }
+    };
+
+    let x_series = &active_group.x_raw;
     let (start_idx, _) = find_closest(mix_x, x_series);
     let start_index = start_idx;
 
@@ -33,7 +56,7 @@ pub fn calculate_min_max_y(
     let sub_range_count = end_index - start_index;
     let num_groups = sub_range_count.div_ceil(chunk_size);
 
-    let y_buffers = &data_store.get_active_data_group().y_buffers;
+    let y_buffers = &active_group.y_buffers;
     let num_buffers = y_buffers.len();
 
     // Create staging buffer large enough for all min/max pairs

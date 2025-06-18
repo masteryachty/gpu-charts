@@ -27,8 +27,15 @@ jobs:
           cd server
           cargo audit
       
-      - name: Run cargo audit on main project
-        run: cargo audit
+      - name: Run cargo audit on charting
+        run: |
+          cd charting
+          cargo audit
+      
+      - name: Run cargo audit on coinbase-logger
+        run: |
+          cd coinbase-logger
+          cargo audit
 
   npm-security-audit:
     runs-on: ubuntu-latest

@@ -4,11 +4,9 @@ use super::data_store::DataStore;
 use crate::{calcables::min_max::calculate_min_max_y, drawables::plot::RenderListener};
 use futures::channel::oneshot;
 use getrandom::Error;
-// use web_sys;
-use winit::window::Window;
 
 #[cfg(target_arch = "wasm32")]
-use winit::platform::web::WindowExtWebSys;
+use web_sys::HtmlCanvasElement;
 
 pub struct RenderEngine {
     // instance: wgpu::Instance,
@@ -59,10 +57,14 @@ impl RenderEngine {
         let buffer_slice = staging_buffer.slice(..);
         let (sender, receiver) = oneshot::channel();
 
+        // For WASM, we can use a simpler approach since it's single-threaded
+        let sender = std::cell::RefCell::new(Some(sender));
         buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
             log::info!("Mapping callback triggered");
-            // Send whether mapping was successful.
-            let _ = sender.send(result.is_ok());
+            // Send only once to prevent multiple invocations
+            if let Some(sender) = sender.borrow_mut().take() {
+                let _ = sender.send(result.is_ok());
+            }
         });
 
         // let start_time = std::time::Instant::now();
@@ -141,8 +143,9 @@ impl RenderEngine {
         // }
     }
 
+    #[cfg(target_arch = "wasm32")]
     pub async fn new(
-        window: std::rc::Rc<Window>,
+        canvas: HtmlCanvasElement,
         data_store: Rc<RefCell<DataStore>>,
     ) -> Result<Self, Error> {
         let mut t = wgpu::InstanceDescriptor {
@@ -155,14 +158,9 @@ impl RenderEngine {
         // log::info!("a");
 
         let instance = wgpu::Instance::new(&t);
-        let surface = {
-            use wgpu::SurfaceTarget;
-            instance
-                .create_surface(SurfaceTarget::Canvas(
-                    window.canvas().expect("Window should have a canvas"),
-                ))
-                .unwrap()
-        };
+        let surface = instance
+            .create_surface(wgpu::SurfaceTarget::Canvas(canvas))
+            .unwrap();
         // get time in milliseconds
         // let performance = web_sys::window().unwrap().performance().unwrap();
         // let start = performance.now();
