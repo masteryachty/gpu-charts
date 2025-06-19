@@ -29,7 +29,8 @@ test.describe('Store State Validation', () => {
       timeframe: '1h',
       startTime: 1000000,
       endTime: 1003600, // 1 hour later
-      indicators: ['RSI', 'MACD']
+      indicators: ['RSI', 'MACD'],
+      selectedMetrics: ['best_bid', 'best_ask'] // Add dual-metric support
     };
 
     validStoreState = {
@@ -319,6 +320,145 @@ test.describe('Store State Validation', () => {
 
       expect(deserialized.chartConfig.indicators).toHaveLength(1000);
       expect(endTime - startTime).toBeLessThan(50); // Should complete in < 50ms
+    });
+  });
+
+  test.describe('Dual-Metric Validation', () => {
+    test('should validate selectedMetrics array', () => {
+      const config = { ...validChartConfig, selectedMetrics: ['best_bid', 'best_ask'] };
+      const result = validateChartConfig(config);
+      
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    test('should reject empty selectedMetrics array', () => {
+      const config = { ...validChartConfig, selectedMetrics: [] };
+      const result = validateChartConfig(config);
+      
+      expect(result.isValid).toBe(false);
+      expect(result.errors.some(e => e.includes('selectedMetrics'))).toBe(true);
+    });
+
+    test('should reject invalid metric names', () => {
+      const config = { ...validChartConfig, selectedMetrics: ['invalid_metric', 'best_bid'] };
+      const result = validateChartConfig(config);
+      
+      expect(result.isValid).toBe(false);
+      expect(result.errors.some(e => e.includes('invalid_metric'))).toBe(true);
+    });
+
+    test('should accept all valid metric combinations', () => {
+      const validCombinations = [
+        ['best_bid'],
+        ['best_ask'],
+        ['price'],
+        ['volume'],
+        ['best_bid', 'best_ask'],
+        ['best_bid', 'price', 'volume'],
+        ['best_bid', 'best_ask', 'price', 'volume']
+      ];
+
+      for (const metrics of validCombinations) {
+        const config = { ...validChartConfig, selectedMetrics: metrics };
+        const result = validateChartConfig(config);
+        
+        expect(result.isValid).toBe(true);
+      }
+    });
+
+    test('should include selectedMetrics in fetch parameters', () => {
+      const state = {
+        ...validStoreState,
+        chartConfig: { ...validChartConfig, selectedMetrics: ['best_bid', 'price'] }
+      };
+      
+      const params = extractFetchParams(state);
+      
+      expect(params.columns).toContain('time'); // Always included
+      expect(params.columns).toContain('best_bid');
+      expect(params.columns).toContain('price');
+      expect(params.columns).not.toContain('best_ask'); // Not selected
+      expect(params.columns).not.toContain('volume'); // Not selected
+    });
+
+    test('should handle metric serialization correctly', () => {
+      const state = {
+        ...validStoreState,
+        chartConfig: { ...validChartConfig, selectedMetrics: ['best_bid', 'best_ask', 'price'] }
+      };
+      
+      const serialized = serializeStoreState(state);
+      const deserialized = deserializeStoreState(serialized);
+      
+      expect(deserialized.chartConfig.selectedMetrics).toEqual(['best_bid', 'best_ask', 'price']);
+    });
+
+    test('should maintain camelCase for selectedMetrics field', () => {
+      const state = {
+        ...validStoreState,
+        chartConfig: { ...validChartConfig, selectedMetrics: ['best_bid', 'best_ask'] }
+      };
+      
+      const serialized = serializeStoreState(state);
+      const parsed = JSON.parse(serialized);
+      
+      expect(parsed.chartConfig).toHaveProperty('selectedMetrics');
+      expect(parsed.chartConfig.selectedMetrics).toEqual(['best_bid', 'best_ask']);
+    });
+
+    test('should validate metric array length constraints', () => {
+      // Test maximum reasonable metrics
+      const manyMetrics = Array.from({ length: 50 }, (_, i) => `metric_${i}`);
+      const config = { ...validChartConfig, selectedMetrics: manyMetrics };
+      const result = validateChartConfig(config);
+      
+      // Should warn about performance impact but not necessarily error
+      expect(result.warnings.some(w => w.includes('many metrics'))).toBe(true);
+    });
+
+    test('should handle metric validation edge cases', () => {
+      const edgeCases = [
+        { metrics: null, shouldBeValid: false },
+        { metrics: undefined, shouldBeValid: false },
+        { metrics: [''], shouldBeValid: false },
+        { metrics: ['  '], shouldBeValid: false },
+        { metrics: ['best_bid', 'best_bid'], shouldBeValid: true }, // Duplicates should be handled
+      ];
+
+      for (const { metrics, shouldBeValid } of edgeCases) {
+        const config = { ...validChartConfig, selectedMetrics: metrics as any };
+        const result = validateChartConfig(config);
+        
+        expect(result.isValid).toBe(shouldBeValid);
+      }
+    });
+
+    test('should generate appropriate column lists for API requests', () => {
+      const testCases = [
+        {
+          selectedMetrics: ['best_bid'],
+          expectedColumns: ['time', 'best_bid']
+        },
+        {
+          selectedMetrics: ['best_bid', 'best_ask'],
+          expectedColumns: ['time', 'best_bid', 'best_ask']
+        },
+        {
+          selectedMetrics: ['best_bid', 'best_ask', 'price', 'volume'],
+          expectedColumns: ['time', 'best_bid', 'best_ask', 'price', 'volume']
+        }
+      ];
+
+      for (const { selectedMetrics, expectedColumns } of testCases) {
+        const state = {
+          ...validStoreState,
+          chartConfig: { ...validChartConfig, selectedMetrics }
+        };
+        
+        const params = extractFetchParams(state);
+        expect(params.columns.sort()).toEqual(expectedColumns.sort());
+      }
     });
   });
 });
