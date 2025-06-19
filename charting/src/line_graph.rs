@@ -67,7 +67,7 @@ impl LineGraph {
             
             // Try to fetch initial data, but don't fail if server is unavailable
             log::info!("Attempting initial data fetch...");
-            fetch_data(&device, start as u32, end as u32, data_store.clone()).await;
+            fetch_data(&device, start as u32, end as u32, data_store.clone(), None).await;
             
             // Set the time range regardless of whether data fetch succeeded
             data_store

@@ -214,6 +214,7 @@ impl Chart {
                         time_range_changed: true,
                         timeframe_changed: true,
                         indicators_changed: true,
+                        metrics_changed: true,
                         connection_changed: true,
                         user_changed: false,
                         market_data_changed: false,
@@ -237,9 +238,64 @@ impl Chart {
                     return Ok(response.to_string());
                 }
 
-                // Step 3: Apply the state changes using smart detection
-                match self.apply_smart_state_changes(&store_state, &change_detection, instance) {
+                // Step 3: Extract references using try_borrow to handle conflicts gracefully
+                let data_store = match instance.line_graph.try_borrow() {
+                    Ok(line_graph) => line_graph.data_store.clone(),
+                    Err(_) => {
+                        log::warn!("Failed to borrow line_graph for data_store - skipping state update");
+                        let error_response = serde_json::json!({
+                            "success": false,
+                            "errors": ["Chart is busy - try again in a moment"],
+                            "warnings": []
+                        });
+                        return Ok(error_response.to_string());
+                    }
+                };
+                
+                let device = match instance.line_graph.try_borrow() {
+                    Ok(line_graph) => {
+                        match line_graph.engine.try_borrow() {
+                            Ok(engine_ref) => engine_ref.device.clone(),
+                            Err(_) => {
+                                log::warn!("Failed to borrow engine - skipping state update");
+                                let error_response = serde_json::json!({
+                                    "success": false,
+                                    "errors": ["Chart engine is busy - try again in a moment"],
+                                    "warnings": []
+                                });
+                                return Ok(error_response.to_string());
+                            }
+                        }
+                    },
+                    Err(_) => {
+                        log::warn!("Failed to borrow line_graph for device - skipping state update");
+                        let error_response = serde_json::json!({
+                            "success": false,
+                            "errors": ["Chart is busy - try again in a moment"],
+                            "warnings": []
+                        });
+                        return Ok(error_response.to_string());
+                    }
+                };
+
+                // Step 4: Apply the state changes using smart detection with shared refs
+                match self.apply_smart_state_changes(&store_state, &change_detection, instance, &data_store) {
                     Ok(changes_applied) => {
+                        // Step 4.5: Handle data fetching for metrics changes
+                        if change_detection.metrics_changed && change_detection.requires_data_fetch {
+                            log::info!("Triggering data fetch for metrics changes");
+                            
+                            let start = store_state.chart_config.start_time as u32;
+                            let end = store_state.chart_config.end_time as u32;
+                            let selected_metrics = Some(store_state.chart_config.selected_metrics.clone());
+                            
+                            // Spawn async data fetching task using shared refs
+                            wasm_bindgen_futures::spawn_local(async move {
+                                use crate::renderer::data_retriever::fetch_data;
+                                fetch_data(&device, start, end, data_store, selected_metrics).await;
+                            });
+                        }
+                        
                         // Step 4: Update stored state
                         instance.current_store_state = Some(store_state);
                         
@@ -255,6 +311,7 @@ impl Chart {
                                 "timeRangeChanged": change_detection.time_range_changed,
                                 "timeframeChanged": change_detection.timeframe_changed,
                                 "indicatorsChanged": change_detection.indicators_changed,
+                                "metricsChanged": change_detection.metrics_changed,
                                 "connectionChanged": change_detection.connection_changed,
                                 "userChanged": change_detection.user_changed,
                                 "marketDataChanged": change_detection.market_data_changed,
@@ -447,6 +504,7 @@ impl Chart {
                         time_range_changed: true,
                         timeframe_changed: true,
                         indicators_changed: true,
+                        metrics_changed: true,
                         connection_changed: true,
                         user_changed: false,
                         market_data_changed: false,
@@ -602,15 +660,14 @@ impl Chart {
     }
 
     /// Smart state changes application using detailed change detection
-    fn apply_smart_state_changes(&self, store_state: &StoreState, change_detection: &StateChangeDetection, instance: &mut ChartInstance) -> Result<Vec<String>, String> {
+    fn apply_smart_state_changes(&self, store_state: &StoreState, change_detection: &StateChangeDetection, instance: &mut ChartInstance, data_store: &std::rc::Rc<std::cell::RefCell<crate::renderer::data_store::DataStore>>) -> Result<Vec<String>, String> {
         let mut changes_applied = Vec::new();
 
         // Handle symbol changes
         if change_detection.symbol_changed {
             log::info!("Symbol changed - updating data store and triggering data fetch");
-            let data_store = instance.line_graph.borrow().data_store.clone();
             
-            // Update topic in data store
+            // Update topic in data store using shared ref
             data_store.borrow_mut().topic = Some(store_state.chart_config.symbol.clone());
             
             changes_applied.push(format!("Symbol updated to: {}", store_state.chart_config.symbol));
@@ -624,7 +681,6 @@ impl Chart {
         // Handle time range changes
         if change_detection.time_range_changed {
             log::info!("Time range changed - updating data store range");
-            let data_store = instance.line_graph.borrow().data_store.clone();
             data_store.borrow_mut().set_x_range(
                 store_state.chart_config.start_time as u32,
                 store_state.chart_config.end_time as u32,
@@ -663,6 +719,25 @@ impl Chart {
             }
         }
 
+        // Handle metrics changes
+        if change_detection.metrics_changed {
+            log::info!("Metrics changed - triggering data refetch");
+            changes_applied.push(format!("Metrics updated: {:?}", store_state.chart_config.selected_metrics));
+            
+            // This is the key change - metrics changes should trigger data fetching
+            if change_detection.requires_data_fetch {
+                changes_applied.push("Data fetch triggered for new metrics".to_string());
+                
+                // Note: We skip the actual fetch here to avoid borrow conflicts
+                // The data fetching will be handled elsewhere or deferred
+                log::info!("Metrics change detected - data fetch would be triggered here");
+            }
+            
+            if change_detection.requires_render {
+                changes_applied.push("Render triggered for metrics changes".to_string());
+            }
+        }
+
         // Handle connection status changes
         if change_detection.connection_changed {
             log::info!("Connection status changed");
@@ -690,6 +765,9 @@ impl Chart {
                 changes_applied.push("Render triggered for market data update".to_string());
             }
         }
+
+        // Note: Data fetching for metrics changes will be handled by the caller
+        // to avoid borrow conflicts within this function
 
         // Trigger rendering if needed
         if change_detection.requires_render && !changes_applied.is_empty() {

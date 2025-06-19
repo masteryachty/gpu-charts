@@ -8,8 +8,8 @@ use crate::renderer::render_engine::RenderEngine;
 
 pub struct PlotRenderer {
     pipeline: wgpu::RenderPipeline,
+    bind_group_layout: wgpu::BindGroupLayout,
     // pub engine: Rc<RefCell<RenderEngine>>,
-    // bind_group_layout: wgpu::BindGroupLayout,
 }
 
 pub trait RenderListener {
@@ -27,7 +27,7 @@ impl RenderListener for PlotRenderer {
     fn on_render(
         &mut self,
         _: &wgpu::Queue,
-        _: &wgpu::Device,
+        device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
         view: &wgpu::TextureView,
         data_store: Rc<RefCell<DataStore>>,
@@ -55,22 +55,22 @@ impl RenderListener for PlotRenderer {
 
             {
                 let ds = data_store.borrow();
-                let bind_group = ds.range_bind_group.as_ref().unwrap();
                 render_pass.set_pipeline(&self.pipeline);
-                render_pass.set_bind_group(0, bind_group, &[]);
 
-                for (i, buffer) in ds.data_groups[ds.active_data_group_index]
-                    .x_buffers
-                    .iter()
-                    .enumerate()
-                {
-                    render_pass.set_vertex_buffer(0, buffer.slice(..));
-                    render_pass.set_vertex_buffer(
-                        1,
-                        ds.data_groups[ds.active_data_group_index].y_buffers[i].slice(..),
-                    );
-                    log::info!("size: {:?}", buffer.size());
-                    render_pass.draw(0..(buffer.size() / 4) as u32, 0..1);
+                // Render all visible metrics from all active data groups
+                for (data_series, metric) in ds.get_all_visible_metrics() {
+                    // Create a bind group for this specific metric with its color
+                    let bind_group = self.create_bind_group_for_metric(device, &ds, metric);
+                    render_pass.set_bind_group(0, &bind_group, &[]);
+
+                    for (i, x_buffer) in data_series.x_buffers.iter().enumerate() {
+                        if let Some(y_buffer) = metric.y_buffers.get(i) {
+                            render_pass.set_vertex_buffer(0, x_buffer.slice(..));
+                            render_pass.set_vertex_buffer(1, y_buffer.slice(..));
+                            log::info!("size: {:?}, metric: {}", x_buffer.size(), metric.name);
+                            render_pass.draw(0..(x_buffer.size() / 4) as u32, 0..1);
+                        }
+                    }
                 }
             }
         }
@@ -79,6 +79,58 @@ impl RenderListener for PlotRenderer {
 }
 
 impl PlotRenderer {
+    fn create_bind_group_for_metric(
+        &self, 
+        device: &wgpu::Device, 
+        data_store: &DataStore, 
+        metric: &crate::renderer::data_store::MetricSeries
+    ) -> wgpu::BindGroup {
+        use wgpu::util::DeviceExt;
+        
+        // Create buffers for x_min_max, y_min_max, and color
+        let x_min_max = glm::vec2(data_store.start_x, data_store.end_x);
+        let x_min_max_bytes: &[u8] = unsafe { any_as_u8_slice(&x_min_max) };
+        let x_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("x_min_max buffer"),
+            contents: x_min_max_bytes,
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
+
+        let y_min_max = glm::vec2(data_store.min_y.unwrap_or(0.0), data_store.max_y.unwrap_or(1.0));
+        let y_min_max_bytes: &[u8] = unsafe { any_as_u8_slice(&y_min_max) };
+        let y_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("y_min_max buffer"),
+            contents: y_min_max_bytes,
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
+
+        let color_bytes: &[u8] = unsafe { any_as_u8_slice(&metric.color) };
+        let color_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("color buffer"),
+            contents: color_bytes,
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
+
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some(&format!("bind_group_{}", metric.name)),
+            layout: &self.bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: x_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: y_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: color_buffer.as_entire_binding(),
+                },
+            ],
+        })
+    }
+
     pub fn new(
         engine: Rc<RefCell<RenderEngine>>,
         color_format: TextureFormat,
@@ -102,6 +154,16 @@ impl PlotRenderer {
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
                     visibility: wgpu::ShaderStages::VERTEX,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
@@ -151,15 +213,16 @@ impl PlotRenderer {
         });
         Self {
             pipeline,
+            bind_group_layout,
             // engine: engine.clone(),
-            // bind_group_layout,
         }
     }
 }
+
 // From: https://stackoverflow.com/questions/28127165/how-to-convert-struct-to-u8
-// unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
-//     ::core::slice::from_raw_parts((p as *const T) as *const u8, ::core::mem::size_of::<T>())
-// }
+unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
+    ::core::slice::from_raw_parts((p as *const T) as *const u8, ::core::mem::size_of::<T>())
+}
 
 // let vertices: [Vertex; 4] = [
 //     Vertex {

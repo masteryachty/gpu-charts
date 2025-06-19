@@ -56,7 +56,14 @@ pub fn calculate_min_max_y(
     let sub_range_count = end_index - start_index;
     let num_groups = sub_range_count.div_ceil(chunk_size);
 
-    let y_buffers = &active_group.y_buffers;
+    // Get y_buffers from all visible metrics in the active group
+    let mut all_y_buffers = Vec::new();
+    for metric in &active_group.metrics {
+        if metric.visible {
+            all_y_buffers.extend(&metric.y_buffers);
+        }
+    }
+    let y_buffers = &all_y_buffers;
     let num_buffers = y_buffers.len();
 
     // Create staging buffer large enough for all min/max pairs

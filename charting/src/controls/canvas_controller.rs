@@ -119,7 +119,7 @@ impl CanvasController {
                 }
             };
 
-            fetch_data(&device, new_start, new_end, data_store.clone()).await;
+            fetch_data(&device, new_start, new_end, data_store.clone(), None).await;
             
             // Use try_borrow_mut to prevent panic
             if let Ok(mut data_store_mut) = data_store.try_borrow_mut() {
@@ -177,7 +177,7 @@ impl CanvasController {
                         }
                     };
 
-                    fetch_data(&device, new_start, new_end, data_store.clone()).await;
+                    fetch_data(&device, new_start, new_end, data_store.clone(), None).await;
                     
                     // Use try_borrow_mut to prevent panic
                     if let Ok(mut data_store_mut) = data_store.try_borrow_mut() {

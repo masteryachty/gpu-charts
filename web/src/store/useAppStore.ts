@@ -19,6 +19,11 @@ interface AppStore extends AppState {
   removeIndicator: (indicator: string) => void;
   setIndicators: (indicators: string[]) => void;
   
+  // Metric selection actions
+  addMetric: (metric: string) => void;
+  removeMetric: (metric: string) => void;
+  setSelectedMetrics: (metrics: string[]) => void;
+  
   // Batch operations
   updateChartState: (updates: Partial<ChartConfig>) => void;
   resetToDefaults: () => void;
@@ -38,6 +43,7 @@ const DEFAULT_CONFIG: ChartConfig = {
   startTime: Math.floor(Date.now() / 1000) - 24 * 60 * 60, // 24 hours ago
   endTime: Math.floor(Date.now() / 1000), // Now
   indicators: [],
+  selectedMetrics: ['best_bid', 'best_ask'], // Default to both bid and ask
 };
 
 export const useAppStore = create<AppStore>((set, get) => ({
@@ -154,6 +160,40 @@ export const useAppStore = create<AppStore>((set, get) => ({
       newState._triggerSubscriptions(newState, oldState);
     },
     
+    // Metric management
+    addMetric: (metric) => {
+      const oldState = get();
+      set((state) => ({
+        chartConfig: {
+          ...state.chartConfig,
+          selectedMetrics: [...state.chartConfig.selectedMetrics, metric],
+        },
+      }));
+      const newState = get();
+      newState._triggerSubscriptions(newState, oldState);
+    },
+    
+    removeMetric: (metric) => {
+      const oldState = get();
+      set((state) => ({
+        chartConfig: {
+          ...state.chartConfig,
+          selectedMetrics: state.chartConfig.selectedMetrics.filter(m => m !== metric),
+        },
+      }));
+      const newState = get();
+      newState._triggerSubscriptions(newState, oldState);
+    },
+    
+    setSelectedMetrics: (metrics) => {
+      const oldState = get();
+      set((state) => ({
+        chartConfig: { ...state.chartConfig, selectedMetrics: metrics },
+      }));
+      const newState = get();
+      newState._triggerSubscriptions(newState, oldState);
+    },
+    
     // Batch operations
     updateChartState: (updates) => {
       const oldState = get();
@@ -205,6 +245,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const timeframeChanged = newState.chartConfig.timeframe !== oldState.chartConfig.timeframe;
       const indicatorsChanged = JSON.stringify(newState.chartConfig.indicators) !== 
                                JSON.stringify(oldState.chartConfig.indicators);
+      const metricsChanged = JSON.stringify(newState.chartConfig.selectedMetrics) !== 
+                            JSON.stringify(oldState.chartConfig.selectedMetrics);
       
       // Trigger specific callbacks
       newState._subscriptions?.forEach((callbacks: StoreSubscriptionCallbacks) => {
@@ -225,6 +267,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
         
         if (indicatorsChanged && callbacks.onIndicatorsChange) {
           callbacks.onIndicatorsChange(newState.chartConfig.indicators, oldState.chartConfig.indicators);
+        }
+        
+        if (metricsChanged && callbacks.onMetricsChange) {
+          callbacks.onMetricsChange(newState.chartConfig.selectedMetrics, oldState.chartConfig.selectedMetrics);
         }
         
         // Always trigger general change callback

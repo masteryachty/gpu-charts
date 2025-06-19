@@ -15,6 +15,7 @@ export interface ChartConfig {
   startTime: number;
   endTime: number;
   indicators: string[];
+  selectedMetrics: string[]; // Multiple metrics like ['best_bid', 'best_ask']
 }
 
 // WASM integration types
@@ -29,6 +30,7 @@ export interface StoreSubscriptionCallbacks {
   onTimeRangeChange?: (newRange: { startTime: number; endTime: number }, oldRange: { startTime: number; endTime: number }) => void;
   onTimeframeChange?: (newTimeframe: string, oldTimeframe: string) => void;
   onIndicatorsChange?: (newIndicators: string[], oldIndicators: string[]) => void;
+  onMetricsChange?: (newMetrics: string[], oldMetrics: string[]) => void;
   onConnectionChange?: (connected: boolean) => void;
   onMarketDataChange?: (symbol: string, data: MarketData) => void;
   onAnyChange?: (newState: AppState, oldState: AppState) => void;
@@ -187,6 +189,6 @@ export function extractFetchParams(state: StoreState): DataFetchParams {
     symbol: state.chartConfig.symbol,
     startTime: state.chartConfig.startTime,
     endTime: state.chartConfig.endTime,
-    columns: ['time', 'best_bid'] // Default columns
+    columns: ['time', ...state.chartConfig.selectedMetrics] // Include selected metrics
   };
 }

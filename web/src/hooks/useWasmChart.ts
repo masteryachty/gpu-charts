@@ -199,6 +199,7 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
   const storeSymbol = useAppStore(state => state.currentSymbol);
   const storeTimeframe = useAppStore(state => state.chartConfig.timeframe);
   const storeConnected = useAppStore(state => state.isConnected);
+  const storeSelectedMetrics = useAppStore(state => state.chartConfig.selectedMetrics);
   
   // Initialize comprehensive error handling - temporarily disabled for testing
   // const [errorState, errorAPI] = useErrorHandler({
@@ -542,10 +543,11 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
   /**
    * Update chart state from store state
    */
-  const updateState = useCallback(async (symbol?: string, timeframe?: string, connected?: boolean): Promise<boolean> => {
+  const updateState = useCallback(async (symbol?: string, timeframe?: string, connected?: boolean, selectedMetrics?: string[]): Promise<boolean> => {
     const currentSymbol = symbol || storeSymbol;
     const currentTimeframe = timeframe || storeTimeframe;
     const currentConnected = connected || storeConnected;
+    const currentSelectedMetrics = selectedMetrics || storeSelectedMetrics;
     
     if (!chartState.chart || !chartState.isInitialized) {
       console.warn('[useWasmChart] Cannot update state - chart not initialized');
@@ -557,6 +559,7 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
         symbol: currentSymbol,
         timeframe: currentTimeframe,
         connected: currentConnected,
+        selectedMetrics: currentSelectedMetrics,
       });
 
       // Update chart state based on store changes
@@ -569,8 +572,34 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
       // Measure render latency
       const startTime = performance.now();
       
-      // Update chart with new parameters if available
-      if (chartState.chart.update_state) {
+      // Use the new update_chart_state method with full store state
+      if (chartState.chart.update_chart_state) {
+        try {
+          // Get the current store state and pass it to WASM
+          const storeState = useAppStore.getState();
+          const storeStateJson = JSON.stringify({
+            currentSymbol: currentSymbol,
+            chartConfig: {
+              symbol: currentSymbol,
+              timeframe: currentTimeframe,
+              selectedMetrics: currentSelectedMetrics,
+              startTime: storeState.chartConfig.startTime,
+              endTime: storeState.chartConfig.endTime,
+              indicators: storeState.chartConfig.indicators,
+            },
+            isConnected: currentConnected,
+            marketData: storeState.marketData,
+            user: storeState.user,
+          });
+          
+          console.log('[useWasmChart] Sending store state to WASM:', storeStateJson);
+          const result = chartState.chart.update_chart_state(storeStateJson);
+          console.log('[useWasmChart] WASM update result:', result);
+        } catch (wasmError) {
+          throw new Error(`WASM update_chart_state failed: ${wasmError}`);
+        }
+      } else if (chartState.chart.update_state) {
+        // Fallback to old method if new one isn't available
         try {
           await chartState.chart.update_state(currentSymbol, currentTimeframe, currentConnected);
         } catch (wasmError) {
@@ -624,7 +653,7 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
       
       return false;
     }
-  }, [chartState.chart, chartState.isInitialized, storeSymbol, storeTimeframe, storeConnected, errorAPI]);
+  }, [chartState.chart, chartState.isInitialized, storeSymbol, storeTimeframe, storeConnected, storeSelectedMetrics, errorAPI]);
 
   // Update updateState ref to avoid dependency cycles
   useEffect(() => {
@@ -849,7 +878,7 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
     // Debounced update
     debounceRef.current = setTimeout(() => {
       if (mountedRef.current && updateStateRef.current) {
-        updateStateRef.current(storeSymbol, storeTimeframe, storeConnected);
+        updateStateRef.current(storeSymbol, storeTimeframe, storeConnected, storeSelectedMetrics);
       }
     }, debounceMs);
 
@@ -858,7 +887,7 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
         clearTimeout(debounceRef.current);
       }
     };
-  }, [storeSymbol, storeTimeframe, storeConnected, enableAutoSync, chartState.isInitialized, debounceMs]);
+  }, [storeSymbol, storeTimeframe, storeConnected, storeSelectedMetrics, enableAutoSync, chartState.isInitialized, debounceMs]);
 
   // Performance monitoring sync effects - use ref to avoid infinite loops
   const lastUpdateRef = useRef({ fps: 0, renderLatency: 0, updateCount: 0 });

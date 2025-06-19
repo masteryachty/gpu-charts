@@ -56,6 +56,9 @@ pub struct ChartConfig {
 
     /// Array of indicator names
     pub indicators: Vec<String>,
+
+    /// Selected metrics for data fetching (e.g., "best_bid", "best_ask")
+    pub selected_metrics: Vec<String>,
 }
 
 /// Market data structure
@@ -118,6 +121,7 @@ pub struct StateChangeDetection {
     pub time_range_changed: bool,
     pub timeframe_changed: bool,
     pub indicators_changed: bool,
+    pub metrics_changed: bool,
     pub connection_changed: bool,
     pub user_changed: bool,
     pub market_data_changed: bool,
@@ -142,6 +146,10 @@ pub enum ChangeType {
         to: String,
     },
     IndicatorsChange {
+        added: Vec<String>,
+        removed: Vec<String>,
+    },
+    MetricsChange {
         added: Vec<String>,
         removed: Vec<String>,
     },
@@ -243,6 +251,7 @@ impl StoreState {
             time_range_changed: false,
             timeframe_changed: false,
             indicators_changed: false,
+            metrics_changed: false,
             connection_changed: false,
             user_changed: false,
             market_data_changed: false,
@@ -338,6 +347,39 @@ impl StoreState {
                         .change_summary
                         .push(format!("Indicators removed: {:?}", removed));
                 }
+            }
+        }
+
+        // Metrics change detection
+        let previous_metrics: std::collections::HashSet<_> =
+            previous.chart_config.selected_metrics.iter().collect();
+        let current_metrics: std::collections::HashSet<_> =
+            self.chart_config.selected_metrics.iter().collect();
+
+        if previous_metrics != current_metrics {
+            detection.metrics_changed = true;
+            detection.has_changes = true;
+            detection.requires_data_fetch = true; // Metrics changes should trigger data fetch
+            detection.requires_render = true;     // And rendering
+
+            let added: Vec<_> = current_metrics
+                .difference(&previous_metrics)
+                .map(|s| s.to_string())
+                .collect();
+            let removed: Vec<_> = previous_metrics
+                .difference(&current_metrics)
+                .map(|s| s.to_string())
+                .collect();
+
+            if !added.is_empty() {
+                detection
+                    .change_summary
+                    .push(format!("Metrics added: {:?}", added));
+            }
+            if !removed.is_empty() {
+                detection
+                    .change_summary
+                    .push(format!("Metrics removed: {:?}", removed));
             }
         }
 
