@@ -73,7 +73,7 @@ impl CanvasController {
                 self.start_drag_pos = None;
             }
         }
-        log::info!("MouseInput type: {:?} {:?}", button, state);
+        log::info!("MouseInput type: {button:?} {state:?}");
     }
 
     fn apply_drag_zoom(&self, start_pos: Position, end_position: Position) {
@@ -123,7 +123,7 @@ impl CanvasController {
                 data_store_mut.set_x_range(new_start, new_end);
             }
 
-            log::info!("Drag zoom completed: {} to {}", new_start, new_end);
+            log::info!("Drag zoom completed: {new_start} to {new_end}");
         });
     }
 
@@ -132,7 +132,7 @@ impl CanvasController {
         delta: crate::events::MouseScrollDelta,
         phase: crate::events::TouchPhase,
     ) {
-        log::info!("handle_cursor_wheel type: {:?} {:?}", delta, phase);
+        log::info!("handle_cursor_wheel type: {delta:?} {phase:?}");
 
         let MouseScrollDelta::PixelDelta(position) = delta;
         let data_store = self.data_store.clone();

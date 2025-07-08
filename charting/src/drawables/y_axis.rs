@@ -46,10 +46,7 @@ impl RenderListener for YAxisRenderer {
 
         if needs_recalculation {
             log::info!(
-                "Recalculating Y-axis with min: {}, max: {}, height: {}",
-                min,
-                max,
-                height
+                "Recalculating Y-axis with min: {min}, max: {max}, height: {height}"
             );
 
             let (interval, start, end) = calculate_y_axis_interval(min, max);

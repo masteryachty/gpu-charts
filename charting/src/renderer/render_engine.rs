@@ -83,10 +83,10 @@ impl RenderEngine {
         let (miny, maxy) = {
             let data = buffer_slice.get_mapped_range();
             let values: &[f32] = bytemuck::cast_slice(&data);
-            log::info!("Mapped values: {:?}", values);
+            log::info!("Mapped values: {values:?}");
             let miny = values[0];
             let maxy = values[1];
-            log::info!("Extracted miny: {} maxy: {}", miny, maxy);
+            log::info!("Extracted miny: {miny} maxy: {maxy}");
             self.data_store.borrow_mut().update_min_max_y(miny, maxy);
             (miny, maxy)
         };
@@ -118,7 +118,7 @@ impl RenderEngine {
             _keep_alive.present();
         }
 
-        log::info!("Rendered with min_y: {}, max_y: {}", miny, maxy);
+        log::info!("Rendered with min_y: {miny}, max_y: {maxy}");
         Ok(())
         //         loop {
         //             self.device.poll(wgpu::Maintain::Wait);

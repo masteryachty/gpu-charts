@@ -50,10 +50,7 @@ impl Chart {
         }
 
         log::info!(
-            "Initializing chart with canvas: {}, size: {}x{}",
-            canvas_id,
-            width,
-            height
+            "Initializing chart with canvas: {canvas_id}, size: {width}x{height}"
         );
 
         // Get the canvas element
@@ -72,7 +69,7 @@ impl Chart {
         // Initialize the line graph directly with canvas
         let line_graph = LineGraph::new(width, height, canvas)
             .await
-            .map_err(|e| format!("Failed to create LineGraph: {:?}", e))?;
+            .map_err(|e| format!("Failed to create LineGraph: {e:?}"))?;
 
         let line_graph = Rc::new(RefCell::new(line_graph));
 
@@ -113,7 +110,7 @@ impl Chart {
                     .borrow()
                     .render()
                     .await
-                    .map_err(|e| format!("Render failed: {:?}", e))?;
+                    .map_err(|e| format!("Render failed: {e:?}"))?;
             }
         }
         Ok(())
@@ -121,7 +118,7 @@ impl Chart {
 
     #[wasm_bindgen]
     pub fn resize(&self, width: u32, height: u32) -> Result<(), JsValue> {
-        log::info!("Resizing chart to: {}x{}", width, height);
+        log::info!("Resizing chart to: {width}x{height}");
 
         unsafe {
             if let Some(instance) = (&raw mut CHART_INSTANCE).as_mut().unwrap() {
@@ -204,7 +201,7 @@ impl Chart {
     /// This is the main integration point between React and Rust
     #[wasm_bindgen]
     pub fn update_chart_state(&self, store_state_json: &str) -> Result<String, JsValue> {
-        log::info!("update_chart_state called with: {}", store_state_json);
+        log::info!("update_chart_state called with: {store_state_json}");
 
         // Step 1: Deserialize and validate the store state
         let store_state = match self.deserialize_and_validate_store_state(store_state_json) {
@@ -384,7 +381,7 @@ impl Chart {
                 if let Some(ref state) = instance.current_store_state {
                     match serde_json::to_string(state) {
                         Ok(json) => Ok(json),
-                        Err(e) => Err(JsValue::from_str(&format!("Serialization failed: {}", e))),
+                        Err(e) => Err(JsValue::from_str(&format!("Serialization failed: {e}"))),
                     }
                 } else {
                     Ok("null".to_string())
@@ -443,7 +440,7 @@ impl Chart {
     /// Configure change detection behavior
     #[wasm_bindgen]
     pub fn configure_change_detection(&self, config_json: &str) -> Result<String, JsValue> {
-        log::info!("configure_change_detection called with: {}", config_json);
+        log::info!("configure_change_detection called with: {config_json}");
 
         unsafe {
             if let Some(instance) = (&raw mut CHART_INSTANCE).as_mut().unwrap() {

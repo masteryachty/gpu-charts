@@ -49,7 +49,7 @@ impl LineGraph {
                 chrono::Utc::now().timestamp()
             });
 
-        log::info!("topic: {:?}", topic);
+        log::info!("topic: {topic:?}");
         log::info!("start: {:?}", unix_timestamp_to_string(start));
         log::info!("end: {:?}", unix_timestamp_to_string(end));
 
@@ -90,7 +90,7 @@ impl LineGraph {
             data_store.clone(),
         ));
 
-        log::info!("wxh: {:?} {:?}", width, height);
+        log::info!("wxh: {width:?} {height:?}");
 
         let x_axis_renderer = Box::new(XAxisRenderer::new(
             engine.clone(),

@@ -91,11 +91,11 @@ pub async fn fetch_api_response(url: &str) -> Result<(ApiHeader, ArrayBuffer), j
     let resp = Request::get(url)
         .send()
         .await
-        .map_err(|e| js_sys::Error::new(&format!("Fetch failed: {:?}", e)))?;
+        .map_err(|e| js_sys::Error::new(&format!("Fetch failed: {e:?}")))?;
     let array_buffer: ArrayBuffer = JsFuture::from(resp.as_raw().array_buffer()?)
         .await
         .map(|v| v.unchecked_into::<ArrayBuffer>())
-        .map_err(|e| js_sys::Error::new(&format!("ArrayBuffer conversion failed: {:?}", e)))?;
+        .map_err(|e| js_sys::Error::new(&format!("ArrayBuffer conversion failed: {e:?}")))?;
 
     // Create a Uint8Array view of the full ArrayBuffer.
     let uint8 = Uint8Array::new(&array_buffer);
@@ -111,11 +111,11 @@ pub async fn fetch_api_response(url: &str) -> Result<(ApiHeader, ArrayBuffer), j
     // Extract header bytes and convert to a UTF-8 string.
     let header_bytes = uint8.slice(0, header_end);
     let header_string = String::from_utf8(header_bytes.to_vec())
-        .map_err(|e| js_sys::Error::new(&format!("UTF-8 conversion failed: {:?}", e)))?;
+        .map_err(|e| js_sys::Error::new(&format!("UTF-8 conversion failed: {e:?}")))?;
 
     // Parse the header JSON.
     let api_header: ApiHeader = serde_json::from_str(&header_string)
-        .map_err(|e| js_sys::Error::new(&format!("JSON parse failed: {:?}", e)))?;
+        .map_err(|e| js_sys::Error::new(&format!("JSON parse failed: {e:?}")))?;
 
     // The binary data starts after the newline.
     let total_length = uint8.length();
@@ -178,7 +178,7 @@ pub async fn fetch_data(
     let (api_header, binary_buffer) = match result {
         Ok((header, buffer)) => (header, buffer),
         Err(e) => {
-            log::warn!("Failed to fetch data from server: {:?}", e);
+            log::warn!("Failed to fetch data from server: {e:?}");
             log::info!("Server might not be running. Using empty data for testing/fallback.");
             // Return early - don't try to process data if fetch failed
             return;
@@ -207,7 +207,7 @@ pub async fn fetch_data(
     // Extract the time column (shared x-axis for all metrics)
     let (x_buffer, x_gpu_buffers) = column_buffers.remove("time").unwrap();
 
-    log::info!("xbuffer {:?}", x_buffer);
+    log::info!("xbuffer {x_buffer:?}");
 
     // Clear existing data groups before adding new data for zoom operations
     {

@@ -69,7 +69,7 @@ impl RenderListener for XAxisRenderer {
             || self.last_width != width;
 
         if needs_recalculation {
-            log::info!("Recalculating X-axis with min: {}, max: {}", min, max);
+            log::info!("Recalculating X-axis with min: {min}, max: {max}");
 
             // Find appropriate time unit for axis labels
             let mut base_unit = 0;
@@ -83,7 +83,7 @@ impl RenderListener for XAxisRenderer {
             if base_unit == 0 {
                 base_unit = *LOGIC_TS_DURATIONS.last().unwrap();
             }
-            log::info!("Using base_unit: {}", base_unit);
+            log::info!("Using base_unit: {base_unit}");
 
             let interval = 1;
             let mut timestamps = Vec::new();

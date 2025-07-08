@@ -48,7 +48,7 @@ pub fn calculate_min_max_y(
     let x_data = Float32Array::new(x_series);
     let max_index = x_data.length();
     let end_index = end_index.clamp(0, max_index);
-    log::info!("1.5 {:?} {:?}", start_index, end_index);
+    log::info!("1.5 {start_index:?} {end_index:?}");
 
     let thread_mult = 32u32;
     let workgroup_size: u64 = 256;
@@ -140,7 +140,7 @@ pub fn calculate_min_max_y(
             let next_num_groups = current_count.div_ceil(sub_chunk_size);
 
             let partial_out_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some(&format!("Partial Buffer Pass {}", pass_index)),
+                label: Some(&format!("Partial Buffer Pass {pass_index}")),
                 size: (next_num_groups * 2) as u64 * std::mem::size_of::<f32>() as u64,
                 usage: wgpu::BufferUsages::STORAGE
                     | wgpu::BufferUsages::COPY_SRC
@@ -150,13 +150,13 @@ pub fn calculate_min_max_y(
 
             let params_sub = [current_count, sub_chunk_size];
             let params_sub_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some(&format!("Pass {} Params", pass_index)),
+                label: Some(&format!("Pass {pass_index} Params")),
                 contents: bytemuck::cast_slice(&params_sub),
                 usage: wgpu::BufferUsages::UNIFORM,
             });
 
             let bind_group_sub_pass = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some(&format!("Sub Pass Bind Group {}", pass_index)),
+                label: Some(&format!("Sub Pass Bind Group {pass_index}")),
                 layout: &pipelines.sub_pass.get_bind_group_layout(0),
                 entries: &[
                     wgpu::BindGroupEntry {
@@ -176,7 +176,7 @@ pub fn calculate_min_max_y(
 
             {
                 let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                    label: Some(&format!("Subsequent Pass Compute {}", pass_index)),
+                    label: Some(&format!("Subsequent Pass Compute {pass_index}")),
                     timestamp_writes: None,
                 });
                 cpass.set_pipeline(&pipelines.sub_pass);
