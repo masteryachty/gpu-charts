@@ -718,7 +718,7 @@ mod tests {
             start_time: 2000,
             end_time: 1000, // Invalid: start > end
             indicators: vec![],
-                selected_metrics: vec![],
+            selected_metrics: vec![],
         };
 
         let validation = chart_config.validate();
@@ -737,7 +737,7 @@ mod tests {
             start_time: 1000,
             end_time: 2000,
             indicators: vec![],
-                selected_metrics: vec![],
+            selected_metrics: vec![],
         };
 
         let validation = chart_config.validate();

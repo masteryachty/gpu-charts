@@ -49,9 +49,7 @@ impl Chart {
             }
         }
 
-        log::info!(
-            "Initializing chart with canvas: {canvas_id}, size: {width}x{height}"
-        );
+        log::info!("Initializing chart with canvas: {canvas_id}, size: {width}x{height}");
 
         // Get the canvas element
         let window = web_sys::window().ok_or("No window")?;

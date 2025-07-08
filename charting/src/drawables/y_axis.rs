@@ -45,9 +45,7 @@ impl RenderListener for YAxisRenderer {
             self.last_min_y != min || self.last_max_y != max || self.last_height != height;
 
         if needs_recalculation {
-            log::info!(
-                "Recalculating Y-axis with min: {min}, max: {max}, height: {height}"
-            );
+            log::info!("Recalculating Y-axis with min: {min}, max: {max}, height: {height}");
 
             let (interval, start, end) = calculate_y_axis_interval(min, max);
             let mut y_values = Vec::new();
