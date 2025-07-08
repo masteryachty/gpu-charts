@@ -7,15 +7,17 @@ pub struct ScreenDimensions {
     pub height: u32,
 }
 
-pub struct DataSeries {
-    pub x_buffers: Vec<wgpu::Buffer>,
+pub struct MetricSeries {
     pub y_buffers: Vec<wgpu::Buffer>,
-    pub x_raw: ArrayBuffer,
-    // pub y_raw: ArrayBuffer,
-    // pub min_x: u32,
-    // pub max_x: u32,
+    pub color: [f32; 3],
+    pub visible: bool,
+    pub name: String, // e.g., "best_bid", "best_ask"
+}
 
-    // pub min_max_buffer: Option<wgpu::Buffer>,
+pub struct DataSeries {
+    pub x_buffers: Vec<wgpu::Buffer>, // Shared time axis
+    pub x_raw: ArrayBuffer,
+    pub metrics: Vec<MetricSeries>, // Multiple Y-series sharing same X
     length: u32,
 }
 
@@ -25,7 +27,7 @@ pub struct DataStore {
     pub min_y: Option<f32>,
     pub max_y: Option<f32>,
     pub data_groups: Vec<DataSeries>,
-    pub active_data_group_index: usize,
+    pub active_data_group_indices: Vec<usize>, // Multiple active series
     pub range_bind_group: Option<wgpu::BindGroup>,
     pub screen_size: ScreenDimensions,
     pub topic: Option<String>,
@@ -44,7 +46,7 @@ impl DataStore {
             min_y: None,
             max_y: None,
             data_groups: Vec::new(),
-            active_data_group_index: 0,
+            active_data_group_indices: Vec::new(),
             range_bind_group: None,
             screen_size: ScreenDimensions { width, height },
             topic: None,
@@ -55,53 +57,71 @@ impl DataStore {
     //     self.data.push(Coord { x, y });
     // }
 
-    pub fn add_data_group(
-        &mut self,
-        x_series: (ArrayBuffer, Vec<Buffer>),
-        y_series: (ArrayBuffer, Vec<Buffer>),
-        set_as_active: bool,
-        // start: u32,
-        // end: u32,
-    ) {
+    pub fn add_data_group(&mut self, x_series: (ArrayBuffer, Vec<Buffer>), set_as_active: bool) {
         let f: Uint32Array = Uint32Array::new(&x_series.0);
-        // let y: Float32Array = Float32Array::new(&y_series.0);
-        // // Copy contents to a Rust Vec<u32>
-        // let mut rust_vec = vec![0u32; f.length() as usize];
-        // let mut rust_y_vec = vec![0f32; y.length() as usize];
-        // f.copy_to(&mut rust_vec);
-        // y.copy_to(&mut rust_y_vec);
 
-        // // Now you can print the values
-        // log::info!("x buffer: {:?}", rust_vec);
-        // log::info!("y buffer: {:?}", rust_y_vec);
-        // let pairs: Vec<_> = rust_vec.iter().zip(rust_y_vec.iter()).collect();
-        // log::info!("(x, y) pairs: {:?}", pairs);
         self.data_groups.push(DataSeries {
             x_buffers: x_series.1,
-            y_buffers: y_series.1,
             x_raw: x_series.0,
-            // y_raw: y_series.0,
-            // min_x: start,
-            // max_x: end,
+            metrics: Vec::new(),
             length: f.length(),
         });
+
         if set_as_active {
-            self.active_data_group_index = self.data_groups.len() - 1;
+            let new_index = self.data_groups.len() - 1;
+            if !self.active_data_group_indices.contains(&new_index) {
+                self.active_data_group_indices.push(new_index);
+            }
         }
+    }
+
+    pub fn add_metric_to_group(
+        &mut self,
+        group_index: usize,
+        y_series: (ArrayBuffer, Vec<Buffer>),
+        color: [f32; 3],
+        name: String,
+    ) {
+        if let Some(data_group) = self.data_groups.get_mut(group_index) {
+            data_group.metrics.push(MetricSeries {
+                y_buffers: y_series.1,
+                color,
+                visible: true,
+                name,
+            });
+        }
+    }
+
+    pub fn get_active_data_groups(&self) -> Vec<&DataSeries> {
+        self.active_data_group_indices
+            .iter()
+            .filter_map(|&index| self.data_groups.get(index))
+            .collect()
     }
 
     pub fn get_active_data_group(&self) -> Option<&DataSeries> {
-        if self.data_groups.is_empty() {
-            None
-        } else {
-            Some(&self.data_groups[self.active_data_group_index])
-        }
+        self.get_active_data_groups().first().copied()
     }
 
     pub fn get_data_len(&self) -> u32 {
-        self.get_active_data_group()
+        self.get_active_data_groups()
+            .iter()
             .map(|group| group.length)
+            .max()
             .unwrap_or(0)
+    }
+
+    pub fn get_all_visible_metrics(&self) -> Vec<(&DataSeries, &MetricSeries)> {
+        self.get_active_data_groups()
+            .into_iter()
+            .flat_map(|data_series| {
+                data_series
+                    .metrics
+                    .iter()
+                    .filter(|metric| metric.visible)
+                    .map(move |metric| (data_series, metric))
+            })
+            .collect()
     }
 
     pub fn set_x_range(&mut self, min_x: u32, max_x: u32) {

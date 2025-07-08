@@ -56,6 +56,9 @@ pub struct ChartConfig {
 
     /// Array of indicator names
     pub indicators: Vec<String>,
+
+    /// Selected metrics for data fetching (e.g., "best_bid", "best_ask")
+    pub selected_metrics: Vec<String>,
 }
 
 /// Market data structure
@@ -118,6 +121,7 @@ pub struct StateChangeDetection {
     pub time_range_changed: bool,
     pub timeframe_changed: bool,
     pub indicators_changed: bool,
+    pub metrics_changed: bool,
     pub connection_changed: bool,
     pub user_changed: bool,
     pub market_data_changed: bool,
@@ -142,6 +146,10 @@ pub enum ChangeType {
         to: String,
     },
     IndicatorsChange {
+        added: Vec<String>,
+        removed: Vec<String>,
+    },
+    MetricsChange {
         added: Vec<String>,
         removed: Vec<String>,
     },
@@ -243,6 +251,7 @@ impl StoreState {
             time_range_changed: false,
             timeframe_changed: false,
             indicators_changed: false,
+            metrics_changed: false,
             connection_changed: false,
             user_changed: false,
             market_data_changed: false,
@@ -331,13 +340,46 @@ impl StoreState {
                 if !added.is_empty() {
                     detection
                         .change_summary
-                        .push(format!("Indicators added: {:?}", added));
+                        .push(format!("Indicators added: {added:?}"));
                 }
                 if !removed.is_empty() {
                     detection
                         .change_summary
-                        .push(format!("Indicators removed: {:?}", removed));
+                        .push(format!("Indicators removed: {removed:?}"));
                 }
+            }
+        }
+
+        // Metrics change detection
+        let previous_metrics: std::collections::HashSet<_> =
+            previous.chart_config.selected_metrics.iter().collect();
+        let current_metrics: std::collections::HashSet<_> =
+            self.chart_config.selected_metrics.iter().collect();
+
+        if previous_metrics != current_metrics {
+            detection.metrics_changed = true;
+            detection.has_changes = true;
+            detection.requires_data_fetch = true; // Metrics changes should trigger data fetch
+            detection.requires_render = true; // And rendering
+
+            let added: Vec<_> = current_metrics
+                .difference(&previous_metrics)
+                .map(|s| s.to_string())
+                .collect();
+            let removed: Vec<_> = previous_metrics
+                .difference(&current_metrics)
+                .map(|s| s.to_string())
+                .collect();
+
+            if !added.is_empty() {
+                detection
+                    .change_summary
+                    .push(format!("Metrics added: {added:?}"));
+            }
+            if !removed.is_empty() {
+                detection
+                    .change_summary
+                    .push(format!("Metrics removed: {removed:?}"));
             }
         }
 
@@ -395,7 +437,7 @@ impl StoreState {
             if !new_symbols.is_empty() {
                 detection
                     .change_summary
-                    .push(format!("Market data updated for: {:?}", new_symbols));
+                    .push(format!("Market data updated for: {new_symbols:?}"));
             }
         }
 
@@ -542,15 +584,13 @@ impl ChartConfig {
 
             if time_range < MIN_TIME_RANGE_SECONDS {
                 errors.push(format!(
-                    "Time range too small: {} seconds (minimum: {} seconds)",
-                    time_range, MIN_TIME_RANGE_SECONDS
+                    "Time range too small: {time_range} seconds (minimum: {MIN_TIME_RANGE_SECONDS} seconds)"
                 ));
             }
 
             if time_range > MAX_TIME_RANGE_SECONDS {
                 warnings.push(format!(
-                    "Time range very large: {} seconds (maximum recommended: {} seconds)",
-                    time_range, MAX_TIME_RANGE_SECONDS
+                    "Time range very large: {time_range} seconds (maximum recommended: {MAX_TIME_RANGE_SECONDS} seconds)"
                 ));
             }
         }
@@ -633,6 +673,7 @@ mod tests {
                 start_time: 1000,
                 end_time: 2000,
                 indicators: vec!["RSI".to_string()],
+                selected_metrics: vec![],
             },
             market_data: HashMap::new(),
             is_connected: true,
@@ -657,6 +698,7 @@ mod tests {
                 start_time: 1000,
                 end_time: 2000,
                 indicators: vec![],
+                selected_metrics: vec![],
             },
             market_data: HashMap::new(),
             is_connected: false,
@@ -676,6 +718,7 @@ mod tests {
             start_time: 2000,
             end_time: 1000, // Invalid: start > end
             indicators: vec![],
+            selected_metrics: vec![],
         };
 
         let validation = chart_config.validate();
@@ -694,6 +737,7 @@ mod tests {
             start_time: 1000,
             end_time: 2000,
             indicators: vec![],
+            selected_metrics: vec![],
         };
 
         let validation = chart_config.validate();
@@ -744,6 +788,7 @@ mod tests {
                 start_time: 1000,
                 end_time: 2000,
                 indicators: vec![],
+                selected_metrics: vec![],
             },
             market_data: HashMap::new(),
             is_connected: true,
@@ -769,6 +814,7 @@ mod tests {
                 start_time: 1000,
                 end_time: 2000,
                 indicators: vec!["RSI".to_string(), "MACD".to_string()],
+                selected_metrics: vec![],
             },
             market_data: {
                 let mut map = HashMap::new();
@@ -823,6 +869,7 @@ mod tests {
                 start_time: 1734567890,
                 end_time: 1734571490,
                 indicators: vec!["RSI".to_string(), "MACD".to_string()],
+                selected_metrics: vec![],
             },
             market_data: HashMap::new(),
             is_connected: true,
@@ -940,6 +987,7 @@ mod tests {
                 start_time: 1000,
                 end_time: 2000,
                 indicators: vec![],
+                selected_metrics: vec![],
             },
             market_data: HashMap::new(),
             is_connected: true,
@@ -954,6 +1002,7 @@ mod tests {
                 start_time: 1000,
                 end_time: 2000,
                 indicators: vec![],
+                selected_metrics: vec![],
             },
             market_data: HashMap::new(),
             is_connected: true,
@@ -984,6 +1033,7 @@ mod tests {
                 start_time: 1000,
                 end_time: 2000,
                 indicators: vec![],
+                selected_metrics: vec![],
             },
             market_data: HashMap::new(),
             is_connected: true,
@@ -998,6 +1048,7 @@ mod tests {
                 start_time: 1100, // Different time range
                 end_time: 2100,
                 indicators: vec![],
+                selected_metrics: vec![],
             },
             market_data: HashMap::new(),
             is_connected: true,
@@ -1027,6 +1078,7 @@ mod tests {
                 start_time: 1000,
                 end_time: 2000,
                 indicators: vec!["RSI".to_string()],
+                selected_metrics: vec![],
             },
             market_data: HashMap::new(),
             is_connected: true,
@@ -1041,6 +1093,7 @@ mod tests {
                 start_time: 1000,
                 end_time: 2000,
                 indicators: vec!["RSI".to_string(), "MACD".to_string()],
+                selected_metrics: vec![],
             },
             market_data: HashMap::new(),
             is_connected: true,
@@ -1069,6 +1122,7 @@ mod tests {
                 start_time: 1000,
                 end_time: 2000,
                 indicators: vec![],
+                selected_metrics: vec![],
             },
             market_data: HashMap::new(),
             is_connected: true,
@@ -1083,6 +1137,7 @@ mod tests {
                 start_time: 1030, // Only 30 second difference
                 end_time: 2030,
                 indicators: vec![],
+                selected_metrics: vec![],
             },
             market_data: HashMap::new(),
             is_connected: true,
@@ -1107,6 +1162,7 @@ mod tests {
                 start_time: 1000,
                 end_time: 2000,
                 indicators: vec![],
+                selected_metrics: vec![],
             },
             market_data: HashMap::new(),
             is_connected: true,
@@ -1121,6 +1177,7 @@ mod tests {
                 start_time: 1000,
                 end_time: 2000,
                 indicators: vec![],
+                selected_metrics: vec![],
             },
             market_data: HashMap::new(),
             is_connected: true,
@@ -1148,6 +1205,7 @@ mod tests {
                 start_time: 1000,
                 end_time: 2000,
                 indicators: vec!["RSI".to_string()],
+                selected_metrics: vec![],
             },
             market_data: HashMap::new(),
             is_connected: true,
@@ -1162,6 +1220,7 @@ mod tests {
                 start_time: 1500,
                 end_time: 2500,
                 indicators: vec!["RSI".to_string(), "MACD".to_string()],
+                selected_metrics: vec![],
             },
             market_data: HashMap::new(),
             is_connected: false,

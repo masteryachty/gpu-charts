@@ -34,6 +34,8 @@ export default function ChartControls({
     setTimeframe,
     addIndicator,
     removeIndicator,
+    addMetric,
+    removeMetric,
     updateChartState,
     resetToDefaults
   } = useAppStore();
@@ -46,6 +48,7 @@ export default function ChartControls({
   const symbols = useMemo(() => ['BTC-USD', 'ETH-USD', 'ADA-USD', 'DOT-USD', 'LINK-USD', 'AVAX-USD'], []);
   const timeframes = useMemo(() => ['1m', '5m', '15m', '1h', '4h', '1d'], []);
   const availableIndicators = useMemo(() => ['RSI', 'MACD', 'EMA', 'SMA', 'BB', 'STOCH'], []);
+  const availableMetrics = useMemo(() => ['best_bid', 'best_ask', 'price', 'volume'], []);
 
   // Set up chart subscription for change tracking
   const chartSubscription = useChartSubscription({
@@ -89,6 +92,17 @@ export default function ChartControls({
           type: 'Indicators Change',
           timestamp: Date.now(),
           details: { from: oldIndicators, to: newIndicators }
+        }]);
+      }
+    },
+    
+    onMetricsChange: (newMetrics, oldMetrics) => {
+      console.log('[ChartControls] Metrics changed:', { from: oldMetrics, to: newMetrics });
+      if (enableChangeTracking) {
+        setSubscriptionEvents(prev => [...prev, {
+          type: 'Metrics Change',
+          timestamp: Date.now(),
+          details: { from: oldMetrics, to: newMetrics }
         }]);
       }
     },
@@ -149,6 +163,18 @@ export default function ChartControls({
       addIndicator(indicator);
     }
   }, [chartConfig.indicators, addIndicator, removeIndicator]);
+
+  // Metric management
+  const handleMetricToggle = useCallback((metric: string) => {
+    if (chartConfig.selectedMetrics.includes(metric)) {
+      // Don't allow removing all metrics
+      if (chartConfig.selectedMetrics.length > 1) {
+        removeMetric(metric);
+      }
+    } else {
+      addMetric(metric);
+    }
+  }, [chartConfig.selectedMetrics, addMetric, removeMetric]);
 
   // Batch update example
   const handleRandomUpdate = useCallback(() => {
@@ -264,6 +290,33 @@ export default function ChartControls({
         </div>
       </div>
       
+      {/* Metrics Selection */}
+      <div className="space-y-2">
+        <label className="text-gray-300 text-sm font-medium">
+          Data Metrics ({chartConfig.selectedMetrics.length})
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          {availableMetrics.map(metric => (
+            <button
+              key={metric}
+              onClick={() => handleMetricToggle(metric)}
+              disabled={chartConfig.selectedMetrics.includes(metric) && chartConfig.selectedMetrics.length === 1}
+              className={`px-3 py-2 text-xs rounded transition-colors ${
+                chartConfig.selectedMetrics.includes(metric)
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              } ${chartConfig.selectedMetrics.includes(metric) && chartConfig.selectedMetrics.length === 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
+              data-testid={`metric-${metric}`}
+            >
+              {metric.replace('_', ' ').toUpperCase()}
+            </button>
+          ))}
+        </div>
+        <div className="text-xs text-gray-500">
+          Select multiple metrics to overlay on the chart
+        </div>
+      </div>
+
       {/* Indicators */}
       <div className="space-y-2">
         <label className="text-gray-300 text-sm font-medium">

@@ -91,11 +91,11 @@ pub async fn fetch_api_response(url: &str) -> Result<(ApiHeader, ArrayBuffer), j
     let resp = Request::get(url)
         .send()
         .await
-        .map_err(|e| js_sys::Error::new(&format!("Fetch failed: {:?}", e)))?;
+        .map_err(|e| js_sys::Error::new(&format!("Fetch failed: {e:?}")))?;
     let array_buffer: ArrayBuffer = JsFuture::from(resp.as_raw().array_buffer()?)
         .await
         .map(|v| v.unchecked_into::<ArrayBuffer>())
-        .map_err(|e| js_sys::Error::new(&format!("ArrayBuffer conversion failed: {:?}", e)))?;
+        .map_err(|e| js_sys::Error::new(&format!("ArrayBuffer conversion failed: {e:?}")))?;
 
     // Create a Uint8Array view of the full ArrayBuffer.
     let uint8 = Uint8Array::new(&array_buffer);
@@ -111,11 +111,11 @@ pub async fn fetch_api_response(url: &str) -> Result<(ApiHeader, ArrayBuffer), j
     // Extract header bytes and convert to a UTF-8 string.
     let header_bytes = uint8.slice(0, header_end);
     let header_string = String::from_utf8(header_bytes.to_vec())
-        .map_err(|e| js_sys::Error::new(&format!("UTF-8 conversion failed: {:?}", e)))?;
+        .map_err(|e| js_sys::Error::new(&format!("UTF-8 conversion failed: {e:?}")))?;
 
     // Parse the header JSON.
     let api_header: ApiHeader = serde_json::from_str(&header_string)
-        .map_err(|e| js_sys::Error::new(&format!("JSON parse failed: {:?}", e)))?;
+        .map_err(|e| js_sys::Error::new(&format!("JSON parse failed: {e:?}")))?;
 
     // The binary data starts after the newline.
     let total_length = uint8.length();
@@ -149,24 +149,36 @@ pub async fn fetch_data(
     start: u32,
     end: u32,
     data_store: Rc<RefCell<DataStore>>,
+    selected_metrics: Option<Vec<String>>,
 ) {
     // Construct the API URL.
     // For example, if topic is "BTC-USD", the URL might look like:
     //   https://localhost:8443/api/data?symbol=BTC-USD&type=MD&start=0&end=1739785500000&columns=time,best_bid
     let topic = data_store.borrow().topic.clone().unwrap();
 
+    // Build columns string - always include time, plus selected metrics
+    let columns = if let Some(ref metrics) = selected_metrics {
+        let mut cols = vec!["time".to_string()];
+        cols.extend(metrics.clone());
+        cols.join(",")
+    } else {
+        // Default fallback
+        "time,best_bid,best_ask".to_string()
+    };
+
     let url = format!(
-        "https://localhost:8443/api/data?symbol={}&type=MD&start={}&end={}&columns=time,best_bid",
+        "https://localhost:8443/api/data?symbol={}&type=MD&start={}&end={}&columns={}",
         topic,
         start.to_string().as_str(),
-        end.to_string().as_str()
+        end.to_string().as_str(),
+        columns
     );
 
     let result = fetch_api_response(&url).await;
     let (api_header, binary_buffer) = match result {
         Ok((header, buffer)) => (header, buffer),
         Err(e) => {
-            log::warn!("Failed to fetch data from server: {:?}", e);
+            log::warn!("Failed to fetch data from server: {e:?}");
             log::info!("Server might not be running. Using empty data for testing/fallback.");
             // Return early - don't try to process data if fetch failed
             return;
@@ -192,27 +204,93 @@ pub async fn fetch_data(
         column_buffers.insert(column.name.clone(), (col_buffer, gpu_buffers));
     }
 
-    // Here we assume that the API returns columns named "time" and "best_bid".
-    // Map them to x and y, respectively.
+    // Extract the time column (shared x-axis for all metrics)
     let (x_buffer, x_gpu_buffers) = column_buffers.remove("time").unwrap();
-    let (y_buffer, y_gpu_buffers) = column_buffers.remove("best_bid").unwrap();
 
-    log::info!("xbuffer {:?}", x_buffer);
+    log::info!("xbuffer {x_buffer:?}");
 
     // Clear existing data groups before adding new data for zoom operations
     {
         let mut store_mut = data_store.borrow_mut();
         store_mut.data_groups.clear();
-        store_mut.active_data_group_index = 0;
+        store_mut.active_data_group_indices.clear();
     }
 
-    data_store.borrow_mut().add_data_group(
-        (x_buffer, x_gpu_buffers),
-        (y_buffer, y_gpu_buffers),
-        true,
-        // start,
-        // end,
-    );
+    // Create a single data group with the shared time axis
+    data_store
+        .borrow_mut()
+        .add_data_group((x_buffer, x_gpu_buffers), true);
+    let data_group_index = 0; // We just added the first group
+
+    // Add metrics dynamically based on selected_metrics
+    if let Some(ref metrics) = selected_metrics {
+        for (i, metric) in metrics.iter().enumerate() {
+            if let Some((y_buffer, y_gpu_buffers)) = column_buffers.remove(metric) {
+                // Assign different colors for each metric
+                let color = match metric.as_str() {
+                    "best_bid" => [0.0, 0.5, 1.0], // Blue
+                    "best_ask" => [1.0, 0.2, 0.2], // Red
+                    "price" => [0.0, 1.0, 0.0],    // Green
+                    "volume" => [1.0, 1.0, 0.0],   // Yellow
+                    _ => {
+                        // Generate a color based on index for unknown metrics
+                        let hue = (i as f32 * 137.5) % 360.0; // Golden angle for good distribution
+                        let (r, g, b) = hsv_to_rgb(hue, 0.8, 0.9);
+                        [r, g, b]
+                    }
+                };
+
+                data_store.borrow_mut().add_metric_to_group(
+                    data_group_index,
+                    (y_buffer, y_gpu_buffers),
+                    color,
+                    metric.clone(),
+                );
+            }
+        }
+    } else {
+        // Fallback for when no metrics specified - add both bid and ask
+        if let Some((y_buffer, y_gpu_buffers)) = column_buffers.remove("best_bid") {
+            data_store.borrow_mut().add_metric_to_group(
+                data_group_index,
+                (y_buffer, y_gpu_buffers),
+                [0.0, 0.5, 1.0], // Blue color for best_bid
+                "best_bid".to_string(),
+            );
+        }
+
+        if let Some((y_buffer, y_gpu_buffers)) = column_buffers.remove("best_ask") {
+            data_store.borrow_mut().add_metric_to_group(
+                data_group_index,
+                (y_buffer, y_gpu_buffers),
+                [1.0, 0.2, 0.2], // Red color for best_ask
+                "best_ask".to_string(),
+            );
+        }
+    }
+}
+
+// Helper function to convert HSV to RGB
+fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (f32, f32, f32) {
+    let c = v * s;
+    let x = c * (1.0 - ((h / 60.0) % 2.0 - 1.0).abs());
+    let m = v - c;
+
+    let (r_prime, g_prime, b_prime) = if h < 60.0 {
+        (c, x, 0.0)
+    } else if h < 120.0 {
+        (x, c, 0.0)
+    } else if h < 180.0 {
+        (0.0, c, x)
+    } else if h < 240.0 {
+        (0.0, x, c)
+    } else if h < 300.0 {
+        (x, 0.0, c)
+    } else {
+        (c, 0.0, x)
+    };
+
+    (r_prime + m, g_prime + m, b_prime + m)
 }
 
 // --- (Optional) Old fetch_binary for backwards compatibility ---

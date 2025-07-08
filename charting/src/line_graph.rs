@@ -28,23 +28,28 @@ impl LineGraph {
         canvas: HtmlCanvasElement,
     ) -> Result<LineGraph, Error> {
         let params = get_query_params();
-        
+
         // Handle missing query parameters gracefully (for React integration)
-        let topic = params.get("topic").unwrap_or(&"default_topic".to_string()).clone();
-        let start = params.get("start")
+        let topic = params
+            .get("topic")
+            .unwrap_or(&"default_topic".to_string())
+            .clone();
+        let start = params
+            .get("start")
             .and_then(|s| s.parse().ok())
             .unwrap_or_else(|| {
                 // Default to last hour if no start time provided
                 chrono::Utc::now().timestamp() - 3600
             });
-        let end = params.get("end")
+        let end = params
+            .get("end")
             .and_then(|s| s.parse().ok())
             .unwrap_or_else(|| {
                 // Default to current time if no end time provided
                 chrono::Utc::now().timestamp()
             });
-            
-        log::info!("topic: {:?}", topic);
+
+        log::info!("topic: {topic:?}");
         log::info!("start: {:?}", unix_timestamp_to_string(start));
         log::info!("end: {:?}", unix_timestamp_to_string(end));
 
@@ -64,17 +69,19 @@ impl LineGraph {
                 engine_b.device.clone()
             };
             data_store.borrow_mut().topic = Some(topic.clone());
-            
+
             // Try to fetch initial data, but don't fail if server is unavailable
             log::info!("Attempting initial data fetch...");
-            fetch_data(&device, start as u32, end as u32, data_store.clone()).await;
-            
+            fetch_data(&device, start as u32, end as u32, data_store.clone(), None).await;
+
             // Set the time range regardless of whether data fetch succeeded
             data_store
                 .borrow_mut()
                 .set_x_range(start as u32, end as u32);
-            
-            log::info!("LineGraph initialization completed (data fetch may have failed gracefully)");
+
+            log::info!(
+                "LineGraph initialization completed (data fetch may have failed gracefully)"
+            );
         }
 
         let plot_renderer = Box::new(PlotRenderer::new(
@@ -83,7 +90,7 @@ impl LineGraph {
             data_store.clone(),
         ));
 
-        log::info!("wxh: {:?} {:?}", width, height);
+        log::info!("wxh: {width:?} {height:?}");
 
         let x_axis_renderer = Box::new(XAxisRenderer::new(
             engine.clone(),

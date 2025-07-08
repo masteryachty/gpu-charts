@@ -20,6 +20,7 @@ struct MinMaxU32 {
 
 @group(0) @binding(0) var<uniform> x_min_max: MinMaxU32;
 @group(0) @binding(1) var<uniform> y_min_max: MinMax;
+@group(0) @binding(2) var<uniform> line_color: vec3<f32>;
 
 @vertex
 fn vs_main(vertex: Vertex) -> VertexPayload {
@@ -31,7 +32,7 @@ fn vs_main(vertex: Vertex) -> VertexPayload {
     out.position = projection * vec4f(x_f32, vertex.y, 0., 1.);
     out.position.z = 1.;
     out.position.w = 1.;
-    out.color = vec3f(1., 1., 1.);
+    out.color = line_color;
     return out;
 }
 
