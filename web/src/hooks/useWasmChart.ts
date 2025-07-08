@@ -980,7 +980,7 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
         return false; // For now, disable auto-recovery to prevent infinite loops
       }
     });
-  }, [errorAPI]); // errorAPI is stable due to useMemo with empty deps
+  }, [errorAPI, maxRetries, retryDelayMs]); // Add missing dependencies
 
   // Cleanup on unmount
   useEffect(() => {

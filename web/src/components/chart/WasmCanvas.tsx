@@ -170,7 +170,7 @@ export default function WasmCanvas({
     return () => {
       clearTimeout(initTimeout);
     };
-  }, []); // Only run once on mount
+  }, [chartAPI, chartState.isInitialized, chartState.isLoading]); // Add missing dependencies
 
   // Handle resize events
   useEffect(() => {
