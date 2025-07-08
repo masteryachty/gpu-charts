@@ -108,7 +108,7 @@ impl Chart {
                 // Clone the Rc to avoid holding the borrow across await
                 let line_graph = instance.line_graph.clone();
                 // Drop the instance reference before the await point
-                
+
                 line_graph
                     .borrow()
                     .render()
