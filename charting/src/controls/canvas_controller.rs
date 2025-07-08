@@ -21,10 +21,7 @@ pub struct CanvasController {
 }
 
 impl CanvasController {
-    pub fn new(
-        data_store: Rc<RefCell<DataStore>>,
-        engine: Rc<RefCell<RenderEngine>>,
-    ) -> Self {
+    pub fn new(data_store: Rc<RefCell<DataStore>>, engine: Rc<RefCell<RenderEngine>>) -> Self {
         CanvasController {
             position: Position { x: -1., y: -1. },
             start_drag_pos: None,
@@ -88,14 +85,14 @@ impl CanvasController {
             .data_store
             .borrow()
             .screen_to_world_with_margin(end_position.x as f32, end_position.y as f32);
-        
+
         // Ensure start is less than end
         let (new_start, new_end) = if start_ts.0 < end_ts.0 {
             (start_ts.0 as u32, end_ts.0 as u32)
         } else {
             (end_ts.0 as u32, start_ts.0 as u32)
         };
-        
+
         log::info!(
             "Drag zoom: {} to {} ({} to {})",
             new_start,
@@ -107,7 +104,7 @@ impl CanvasController {
         // Fetch data for the new range and update
         let data_store = self.data_store.clone();
         let engine = self.engine.clone();
-        
+
         spawn_local(async move {
             let device = {
                 let engine_borrow = engine.try_borrow();
@@ -120,7 +117,7 @@ impl CanvasController {
             };
 
             fetch_data(&device, new_start, new_end, data_store.clone(), None).await;
-            
+
             // Use try_borrow_mut to prevent panic
             if let Ok(mut data_store_mut) = data_store.try_borrow_mut() {
                 data_store_mut.set_x_range(new_start, new_end);
@@ -142,50 +139,55 @@ impl CanvasController {
         let engine = self.engine.clone();
 
         spawn_local(async move {
-                let start_x = data_store.borrow().start_x;
-                let end_x = data_store.borrow().end_x;
-                let range = end_x - start_x;
-                
-                let (new_start, new_end) = if position.y < 0. {
-                    // Scrolling up = zoom out (expand range)
-                    let new_start = start_x - (range / 2);
-                    let new_end = end_x + (range / 2);
+            let start_x = data_store.borrow().start_x;
+            let end_x = data_store.borrow().end_x;
+            let range = end_x - start_x;
+
+            let (new_start, new_end) = if position.y < 0. {
+                // Scrolling up = zoom out (expand range)
+                let new_start = start_x - (range / 2);
+                let new_end = end_x + (range / 2);
+                (new_start, new_end)
+            } else if position.y > 0. {
+                // Scrolling down = zoom in (shrink range)
+                let new_start = start_x + (range / 4);
+                let new_end = end_x - (range / 4);
+                // Ensure we don't zoom in too much
+                if new_end > new_start {
                     (new_start, new_end)
-                } else if position.y > 0. {
-                    // Scrolling down = zoom in (shrink range)
-                    let new_start = start_x + (range / 4);
-                    let new_end = end_x - (range / 4);
-                    // Ensure we don't zoom in too much
-                    if new_end > new_start {
-                        (new_start, new_end)
-                    } else {
-                        (start_x, end_x) // Keep current range if too zoomed in
-                    }
                 } else {
-                    (start_x, end_x) // No change
+                    (start_x, end_x) // Keep current range if too zoomed in
+                }
+            } else {
+                (start_x, end_x) // No change
+            };
+
+            // Only update if range actually changed
+            if new_start != start_x || new_end != end_x {
+                let device = {
+                    let engine_borrow = engine.try_borrow();
+                    if let Ok(engine_ref) = engine_borrow {
+                        engine_ref.device.clone()
+                    } else {
+                        log::warn!("Engine is borrowed, skipping data fetch");
+                        return;
+                    }
                 };
 
-                // Only update if range actually changed
-                if new_start != start_x || new_end != end_x {
-                    let device = {
-                        let engine_borrow = engine.try_borrow();
-                        if let Ok(engine_ref) = engine_borrow {
-                            engine_ref.device.clone()
-                        } else {
-                            log::warn!("Engine is borrowed, skipping data fetch");
-                            return;
-                        }
-                    };
+                fetch_data(&device, new_start, new_end, data_store.clone(), None).await;
 
-                    fetch_data(&device, new_start, new_end, data_store.clone(), None).await;
-                    
-                    // Use try_borrow_mut to prevent panic
-                    if let Ok(mut data_store_mut) = data_store.try_borrow_mut() {
-                        data_store_mut.set_x_range(new_start, new_end);
-                    }
-
-                    log::info!("Zoom: new_start = {}, new_end = {} (delta_y = {})", new_start, new_end, position.y);
+                // Use try_borrow_mut to prevent panic
+                if let Ok(mut data_store_mut) = data_store.try_borrow_mut() {
+                    data_store_mut.set_x_range(new_start, new_end);
                 }
-            });
+
+                log::info!(
+                    "Zoom: new_start = {}, new_end = {} (delta_y = {})",
+                    new_start,
+                    new_end,
+                    position.y
+                );
+            }
+        });
     }
 }

@@ -8,11 +8,11 @@ extern crate nalgebra_glm as glm;
 mod calcables;
 mod controls;
 mod drawables;
+mod events;
+mod line_graph;
 mod renderer;
 pub mod store_state;
 mod wrappers;
-mod line_graph;
-mod events;
 
 // React integration module
 #[cfg(target_arch = "wasm32")]

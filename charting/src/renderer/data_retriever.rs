@@ -206,7 +206,7 @@ pub async fn fetch_data(
 
     // Extract the time column (shared x-axis for all metrics)
     let (x_buffer, x_gpu_buffers) = column_buffers.remove("time").unwrap();
-    
+
     log::info!("xbuffer {:?}", x_buffer);
 
     // Clear existing data groups before adding new data for zoom operations
@@ -217,7 +217,9 @@ pub async fn fetch_data(
     }
 
     // Create a single data group with the shared time axis
-    data_store.borrow_mut().add_data_group((x_buffer, x_gpu_buffers), true);
+    data_store
+        .borrow_mut()
+        .add_data_group((x_buffer, x_gpu_buffers), true);
     let data_group_index = 0; // We just added the first group
 
     // Add metrics dynamically based on selected_metrics
@@ -226,10 +228,10 @@ pub async fn fetch_data(
             if let Some((y_buffer, y_gpu_buffers)) = column_buffers.remove(metric) {
                 // Assign different colors for each metric
                 let color = match metric.as_str() {
-                    "best_bid" => [0.0, 0.5, 1.0],   // Blue
-                    "best_ask" => [1.0, 0.2, 0.2],   // Red
-                    "price" => [0.0, 1.0, 0.0],      // Green
-                    "volume" => [1.0, 1.0, 0.0],     // Yellow
+                    "best_bid" => [0.0, 0.5, 1.0], // Blue
+                    "best_ask" => [1.0, 0.2, 0.2], // Red
+                    "price" => [0.0, 1.0, 0.0],    // Green
+                    "volume" => [1.0, 1.0, 0.0],   // Yellow
                     _ => {
                         // Generate a color based on index for unknown metrics
                         let hue = (i as f32 * 137.5) % 360.0; // Golden angle for good distribution
@@ -237,7 +239,7 @@ pub async fn fetch_data(
                         [r, g, b]
                     }
                 };
-                
+
                 data_store.borrow_mut().add_metric_to_group(
                     data_group_index,
                     (y_buffer, y_gpu_buffers),
@@ -273,7 +275,7 @@ fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (f32, f32, f32) {
     let c = v * s;
     let x = c * (1.0 - ((h / 60.0) % 2.0 - 1.0).abs());
     let m = v - c;
-    
+
     let (r_prime, g_prime, b_prime) = if h < 60.0 {
         (c, x, 0.0)
     } else if h < 120.0 {
@@ -287,7 +289,7 @@ fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (f32, f32, f32) {
     } else {
         (c, 0.0, x)
     };
-    
+
     (r_prime + m, g_prime + m, b_prime + m)
 }
 

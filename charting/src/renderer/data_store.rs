@@ -17,7 +17,7 @@ pub struct MetricSeries {
 pub struct DataSeries {
     pub x_buffers: Vec<wgpu::Buffer>, // Shared time axis
     pub x_raw: ArrayBuffer,
-    pub metrics: Vec<MetricSeries>,   // Multiple Y-series sharing same X
+    pub metrics: Vec<MetricSeries>, // Multiple Y-series sharing same X
     length: u32,
 }
 
@@ -59,14 +59,14 @@ impl DataStore {
 
     pub fn add_data_group(&mut self, x_series: (ArrayBuffer, Vec<Buffer>), set_as_active: bool) {
         let f: Uint32Array = Uint32Array::new(&x_series.0);
-        
+
         self.data_groups.push(DataSeries {
             x_buffers: x_series.1,
             x_raw: x_series.0,
             metrics: Vec::new(),
             length: f.length(),
         });
-        
+
         if set_as_active {
             let new_index = self.data_groups.len() - 1;
             if !self.active_data_group_indices.contains(&new_index) {
@@ -115,7 +115,8 @@ impl DataStore {
         self.get_active_data_groups()
             .into_iter()
             .flat_map(|data_series| {
-                data_series.metrics
+                data_series
+                    .metrics
                     .iter()
                     .filter(|metric| metric.visible)
                     .map(move |metric| (data_series, metric))

@@ -360,7 +360,7 @@ impl StoreState {
             detection.metrics_changed = true;
             detection.has_changes = true;
             detection.requires_data_fetch = true; // Metrics changes should trigger data fetch
-            detection.requires_render = true;     // And rendering
+            detection.requires_render = true; // And rendering
 
             let added: Vec<_> = current_metrics
                 .difference(&previous_metrics)

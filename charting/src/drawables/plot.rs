@@ -80,13 +80,13 @@ impl RenderListener for PlotRenderer {
 
 impl PlotRenderer {
     fn create_bind_group_for_metric(
-        &self, 
-        device: &wgpu::Device, 
-        data_store: &DataStore, 
-        metric: &crate::renderer::data_store::MetricSeries
+        &self,
+        device: &wgpu::Device,
+        data_store: &DataStore,
+        metric: &crate::renderer::data_store::MetricSeries,
     ) -> wgpu::BindGroup {
         use wgpu::util::DeviceExt;
-        
+
         // Create buffers for x_min_max, y_min_max, and color
         let x_min_max = glm::vec2(data_store.start_x, data_store.end_x);
         let x_min_max_bytes: &[u8] = unsafe { any_as_u8_slice(&x_min_max) };
@@ -96,7 +96,10 @@ impl PlotRenderer {
             usage: wgpu::BufferUsages::UNIFORM,
         });
 
-        let y_min_max = glm::vec2(data_store.min_y.unwrap_or(0.0), data_store.max_y.unwrap_or(1.0));
+        let y_min_max = glm::vec2(
+            data_store.min_y.unwrap_or(0.0),
+            data_store.max_y.unwrap_or(1.0),
+        );
         let y_min_max_bytes: &[u8] = unsafe { any_as_u8_slice(&y_min_max) };
         let y_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("y_min_max buffer"),
