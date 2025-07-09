@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  coinbase-logger:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: coinbase-logger:latest
+    container_name: coinbase-logger
+    restart: unless-stopped
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 2G
+        reservations:
+          cpus: '2'
+          memory: 1G
+    
+    # Volumes for data persistence
+    volumes:
+      - ${DATA_PATH:-./data}:/usr/src/app/data
+      # Alternative: use named volume for portability
+      # - coinbase-data:/usr/src/app/data
+    
+    # Network mode
+    network_mode: bridge
+    
+    # Environment variables (if needed in future)
+    environment:
+      - TZ=UTC
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Health check inherited from Dockerfile
+    
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+    # Removed read_only: true to allow writing to data volume
+    tmpfs:
+      - /tmp
+    
+    # Labels for better management
+    labels:
+      - "com.example.description=Coinbase WebSocket Logger"
+      - "com.example.department=trading"
+      - "com.example.version=1.0.0"
+
+# Optional: named volume configuration
+# volumes:
+#   coinbase-data:
+#     driver: local

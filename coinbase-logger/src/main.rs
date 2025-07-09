@@ -111,7 +111,7 @@ async fn get_all_products() -> Result<Vec<String>, Box<dyn Error>> {
 /// WebSocket feed to subscribe to ticker data.
 async fn handle_symbol(symbol: &str) -> Result<(), Box<dyn Error>> {
     // Create a directory structure: "./data/{symbol}/MD"
-    let base_path = format!("/mnt/md/data/{}/MD", symbol);
+    let base_path = format!("/usr/src/app/data/{}/MD", symbol);
     tokio::fs::create_dir_all(&base_path).await?;
     let date = Local::now().format("%d.%m.%y").to_string();
 

@@ -1,0 +1,54 @@
+version: '3.8'
+
+# Production docker-compose file that uses the published Docker Hub image
+# Usage: docker-compose -f docker-compose.prod.yml up -d
+
+services:
+  coinbase-logger:
+    # Replace YOUR_DOCKER_USERNAME with your actual Docker Hub username
+    image: ${DOCKER_USERNAME:-YOUR_DOCKER_USERNAME}/coinbase-logger:latest
+    container_name: coinbase-logger
+    restart: unless-stopped
+    
+    # Pull policy ensures latest image is always used
+    pull_policy: always
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 2G
+        reservations:
+          cpus: '2'
+          memory: 1G
+    
+    # Volumes for data persistence
+    volumes:
+      - ${DATA_PATH:-./data}:/usr/src/app/data
+    
+    # Network mode
+    network_mode: bridge
+    
+    # Environment variables
+    environment:
+      - TZ=${TZ:-UTC}
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+    
+    # Labels for better management
+    labels:
+      - "com.example.description=Coinbase WebSocket Logger"
+      - "com.example.department=trading"
+      - "com.example.version=latest"
