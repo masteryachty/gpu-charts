@@ -62,22 +62,23 @@ cargo test --target x86_64-unknown-linux-gnu
 
 ## Application Architecture
 
-### Multi-Threading Model
+### Multi-Threading Model (Improved)
 ```rust
 #[tokio::main(flavor = "multi_thread", worker_threads = 4)]
 async fn main() -> Result<(), Box<dyn Error>> {
     // 1. Discover all available trading pairs via status channel
-    // 2. Split pairs into 4 groups for optimal CPU utilization
-    // 3. Spawn concurrent tasks for each group
-    // 4. Each symbol gets its own WebSocket connection and file handles
+    // 2. Create 10 connection handlers, each managing ~20 symbols
+    // 3. Each connection subscribes to multiple symbols at once
+    // 4. Rate-limited connection creation (1 per second)
 }
 ```
 
 **Key Features:**
-- **4 Worker Threads**: Optimal for modern multi-core systems
-- **Per-Symbol Tasks**: Independent WebSocket connections prevent cross-contamination
-- **Concurrent Processing**: Hundreds of trading pairs processed simultaneously
-- **Resource Isolation**: Each symbol has dedicated file handles and error handling
+- **Connection Pooling**: 10 connections handle 200+ symbols (20x reduction)
+- **Multi-Symbol Subscriptions**: Each connection subscribes to 20 symbols
+- **Message Buffering**: BTreeMap automatically sorts messages by timestamp
+- **Exponential Backoff**: Smart reconnection with delays from 1s to 60s
+- **Nanosecond Precision**: Full timestamp precision preserved in separate files
 
 ### WebSocket Client Design
 
@@ -91,21 +92,30 @@ async fn get_all_products() -> Result<Vec<String>, Box<dyn Error>> {
 }
 ```
 
-#### Per-Symbol Processing
+#### Connection Handler (Improved)
 ```rust
-async fn handle_symbol(symbol: &str) -> Result<(), Box<dyn Error>> {
-    // 1. Create directory structure: /mnt/md/data/{symbol}/MD/
-    // 2. Open daily binary files for each data column
-    // 3. Infinite reconnection loop with error handling
-    // 4. Process ticker messages and write binary data
+struct ConnectionHandler {
+    connection_id: usize,
+    symbols: Vec<String>,
+    buffer: BTreeMap<(u64, String), TickerData>, // Auto-sorted by timestamp
+    file_handles: HashMap<String, FileHandles>,
+    reconnect_delay: Duration,
+}
+
+impl ConnectionHandler {
+    // 1. Subscribe to multiple symbols in one WebSocket connection
+    // 2. Buffer messages in BTreeMap for automatic timestamp sorting  
+    // 3. Flush buffer every second with messages in chronological order
+    // 4. Handle reconnection with exponential backoff
 }
 ```
 
-### Reconnection and Fault Tolerance
-- **Infinite Reconnection Loop**: Never gives up on failed connections
-- **5-Second Backoff**: Prevents overwhelming the server on failures
-- **Per-Symbol Isolation**: One failed symbol doesn't affect others
-- **Graceful Error Handling**: Comprehensive error logging without crashes
+### Reconnection and Fault Tolerance (Enhanced)
+- **Exponential Backoff**: Starts at 1s, doubles up to 60s max
+- **Per-Connection Isolation**: Failed connections don't affect others  
+- **Rate-Limited Connections**: Respects 1 connection/second limit
+- **Automatic Recovery**: Resets backoff timer on successful reconnection
+- **Buffer Management**: Flushes remaining messages before reconnecting
 
 ## Data Format and Output
 
@@ -122,10 +132,11 @@ Examples:
 - /mnt/md/data/ETH-USD/MD/best_bid.07.06.25.bin
 ```
 
-#### Data Columns and Format
+#### Data Columns and Format (Enhanced)
 ```rust
 // All values written as 4-byte little-endian records
 time:     u32  // Unix timestamp (seconds since epoch)
+nanos:    u32  // Nanosecond component (NEW - separate file)
 price:    f32  // Trade price 
 volume:   f32  // Trade volume (last_size)
 side:     u8   // 1 = buy, 0 = sell (padded to 4 bytes)
