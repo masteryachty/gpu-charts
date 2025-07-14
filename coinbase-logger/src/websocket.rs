@@ -15,10 +15,10 @@ pub async fn get_all_products() -> Result<Vec<String>> {
             return Ok(products);
         }
         Err(e) => {
-            println!("REST API failed: {}, trying WebSocket...", e);
+            println!("REST API failed: {e}, trying WebSocket...");
         }
     }
-    
+
     get_products_from_websocket().await
 }
 
@@ -28,10 +28,13 @@ async fn get_products_from_rest_api() -> Result<Vec<String>> {
         .await?
         .json::<serde_json::Value>()
         .await?;
-    
+
     println!("REST API response received");
     if let Some(products_array) = response.as_array() {
-        println!("Found {} products in REST API response", products_array.len());
+        println!(
+            "Found {} products in REST API response",
+            products_array.len()
+        );
         let products = products_array
             .iter()
             .filter_map(|p| {
@@ -70,22 +73,22 @@ async fn get_products_from_websocket() -> Result<Vec<String>> {
             "name": "status"
         }]
     });
-    println!("Sending subscription message: {}", subscribe_msg);
+    println!("Sending subscription message: {subscribe_msg}");
     write.send(Message::Text(subscribe_msg.to_string())).await?;
 
     // Wait for status message with timeout
     let mut message_count = 0;
     while let Some(message) = read.next().await {
         message_count += 1;
-        println!("Received message #{}: {:?}", message_count, message);
-        
+        println!("Received message #{message_count}: {message:?}");
+
         if let Ok(msg) = message {
             if msg.is_text() {
                 let text = msg.into_text()?;
-                println!("Message text: {}", text);
-                
+                println!("Message text: {text}");
+
                 let v: serde_json::Value = serde_json::from_str(&text)?;
-                println!("Parsed JSON: {}", v);
+                println!("Parsed JSON: {v}");
 
                 if v.get("type") == Some(&json!("status")) {
                     println!("Found status message!");
@@ -107,10 +110,10 @@ async fn get_products_from_websocket() -> Result<Vec<String>> {
                 }
             }
         }
-        
+
         // Safety timeout - don't wait forever
         if message_count > 10 {
-            println!("Received {} messages but no status message, giving up", message_count);
+            println!("Received {message_count} messages but no status message, giving up");
             break;
         }
     }

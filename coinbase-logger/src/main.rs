@@ -7,13 +7,13 @@ const CONNECTIONS_COUNT: usize = 10;
 #[tokio::main(flavor = "multi_thread", worker_threads = 4)]
 async fn main() -> Result<(), Error> {
     println!("Starting coinbase-logger...");
-    
+
     // Fetch all available products
     println!("Calling get_all_products...");
     let products = match get_all_products().await {
         Ok(p) => p,
         Err(e) => {
-            eprintln!("Error fetching products: {}", e);
+            eprintln!("Error fetching products: {e}");
             return Err(e);
         }
     };
