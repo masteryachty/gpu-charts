@@ -1,6 +1,6 @@
 # Multi-stage build for efficient image size
 # Stage 1: Build the Rust application
-FROM --platform=$BUILDPLATFORM rust:1.82-slim as builder
+FROM --platform=$BUILDPLATFORM rust:1.82-slim AS builder
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
 
@@ -16,9 +16,10 @@ WORKDIR /usr/src/app
 # Copy manifest files first for better caching
 COPY Cargo.toml Cargo.lock ./
 
-# Create dummy main.rs to build dependencies
+# Create dummy source files to build dependencies
 RUN mkdir src && \
     echo "fn main() {}" > src/main.rs && \
+    echo "pub fn dummy() {}" > src/lib.rs && \
     cargo build --release --target x86_64-unknown-linux-gnu && \
     rm -rf src
 
