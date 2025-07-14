@@ -52,7 +52,7 @@ impl FileHandles {
             self.best_bid_file.flush(),
             self.best_ask_file.flush(),
         ];
-        
+
         try_join_all(flush_futures).await?;
         Ok(())
     }
@@ -60,7 +60,7 @@ impl FileHandles {
     async fn close(mut self) -> Result<(), Error> {
         // Flush all buffers before closing
         self.flush_all().await?;
-        
+
         // Shutdown all writers to ensure data is written
         self.time_file.shutdown().await?;
         self.nanos_file.shutdown().await?;
@@ -69,7 +69,7 @@ impl FileHandles {
         self.side_file.shutdown().await?;
         self.best_bid_file.shutdown().await?;
         self.best_ask_file.shutdown().await?;
-        
+
         Ok(())
     }
 }
@@ -90,7 +90,7 @@ impl ConnectionHandler {
         // Create file handles for each symbol with proper error handling
         for symbol in &symbols {
             let base_path = format!("/usr/src/app/data/{}/MD", symbol);
-            
+
             // Try to create directory and files
             match Self::create_file_handles_for_symbol(&base_path, &date).await {
                 Ok(handles) => {
@@ -98,15 +98,18 @@ impl ConnectionHandler {
                 }
                 Err(e) => {
                     // Clean up any file handles that were successfully created
-                    eprintln!("Connection {}: Failed to create file handles for {}: {}", connection_id, symbol, e);
-                    
+                    eprintln!(
+                        "Connection {}: Failed to create file handles for {}: {}",
+                        connection_id, symbol, e
+                    );
+
                     // Close all successfully created file handles
                     for (sym, handles) in file_handles {
                         if let Err(close_err) = handles.close().await {
                             eprintln!("Connection {}: Error closing file handles for {} during cleanup: {}", connection_id, sym, close_err);
                         }
                     }
-                    
+
                     return Err(e);
                 }
             }
@@ -121,17 +124,41 @@ impl ConnectionHandler {
         })
     }
 
-    async fn create_file_handles_for_symbol(base_path: &str, date: &str) -> Result<FileHandles, Error> {
+    async fn create_file_handles_for_symbol(
+        base_path: &str,
+        date: &str,
+    ) -> Result<FileHandles, Error> {
         tokio::fs::create_dir_all(&base_path).await?;
 
         let handles = FileHandles {
-            time_file: BufWriter::with_capacity(FILE_BUFFER_SIZE, open_file(&format!("{}/time.{}.bin", base_path, date)).await?),
-            nanos_file: BufWriter::with_capacity(FILE_BUFFER_SIZE, open_file(&format!("{}/nanos.{}.bin", base_path, date)).await?),
-            price_file: BufWriter::with_capacity(FILE_BUFFER_SIZE, open_file(&format!("{}/price.{}.bin", base_path, date)).await?),
-            volume_file: BufWriter::with_capacity(FILE_BUFFER_SIZE, open_file(&format!("{}/volume.{}.bin", base_path, date)).await?),
-            side_file: BufWriter::with_capacity(FILE_BUFFER_SIZE, open_file(&format!("{}/side.{}.bin", base_path, date)).await?),
-            best_bid_file: BufWriter::with_capacity(FILE_BUFFER_SIZE, open_file(&format!("{}/best_bid.{}.bin", base_path, date)).await?),
-            best_ask_file: BufWriter::with_capacity(FILE_BUFFER_SIZE, open_file(&format!("{}/best_ask.{}.bin", base_path, date)).await?),
+            time_file: BufWriter::with_capacity(
+                FILE_BUFFER_SIZE,
+                open_file(&format!("{}/time.{}.bin", base_path, date)).await?,
+            ),
+            nanos_file: BufWriter::with_capacity(
+                FILE_BUFFER_SIZE,
+                open_file(&format!("{}/nanos.{}.bin", base_path, date)).await?,
+            ),
+            price_file: BufWriter::with_capacity(
+                FILE_BUFFER_SIZE,
+                open_file(&format!("{}/price.{}.bin", base_path, date)).await?,
+            ),
+            volume_file: BufWriter::with_capacity(
+                FILE_BUFFER_SIZE,
+                open_file(&format!("{}/volume.{}.bin", base_path, date)).await?,
+            ),
+            side_file: BufWriter::with_capacity(
+                FILE_BUFFER_SIZE,
+                open_file(&format!("{}/side.{}.bin", base_path, date)).await?,
+            ),
+            best_bid_file: BufWriter::with_capacity(
+                FILE_BUFFER_SIZE,
+                open_file(&format!("{}/best_bid.{}.bin", base_path, date)).await?,
+            ),
+            best_ask_file: BufWriter::with_capacity(
+                FILE_BUFFER_SIZE,
+                open_file(&format!("{}/best_ask.{}.bin", base_path, date)).await?,
+            ),
         };
 
         Ok(handles)
@@ -162,7 +189,10 @@ impl ConnectionHandler {
 
             // Clean up file handles before reconnecting
             if let Err(e) = self.cleanup().await {
-                eprintln!("Connection {}: Error during cleanup: {}", self.connection_id, e);
+                eprintln!(
+                    "Connection {}: Error during cleanup: {}",
+                    self.connection_id, e
+                );
             }
 
             sleep(self.reconnect_delay).await;
@@ -174,22 +204,24 @@ impl ConnectionHandler {
             // If this fails, we need to retry with backoff to avoid infinite loops with no file handles
             let mut retry_count = 0;
             const MAX_RETRIES: u32 = 3;
-            
+
             loop {
                 match self.recreate_file_handles().await {
                     Ok(()) => break, // Success, continue with connection
                     Err(e) => {
                         retry_count += 1;
-                        eprintln!("Connection {}: Failed to recreate file handles (attempt {}/{}): {}", 
-                                 self.connection_id, retry_count, MAX_RETRIES, e);
-                        
+                        eprintln!(
+                            "Connection {}: Failed to recreate file handles (attempt {}/{}): {}",
+                            self.connection_id, retry_count, MAX_RETRIES, e
+                        );
+
                         if retry_count >= MAX_RETRIES {
                             eprintln!("Connection {}: Maximum retries exceeded for file handle recreation. Waiting longer before retry.", self.connection_id);
                             // Wait longer before the next full reconnection attempt
                             sleep(Duration::from_secs(30)).await;
                             continue 'outer; // Continue to next iteration of main loop
                         }
-                        
+
                         // Short delay before retry
                         sleep(Duration::from_secs(5)).await;
                     }
@@ -242,7 +274,7 @@ impl ConnectionHandler {
                         Ok(msg) if msg.is_text() => {
                             let text = msg.into_text()?;
                             self.process_message(&text).await?;
-                            
+
                             // Smart flushing: flush if buffer is getting large
                             if self.buffer.len() >= MAX_BUFFER_SIZE {
                                 self.flush_buffer().await?;
@@ -269,14 +301,20 @@ impl ConnectionHandler {
     async fn process_message(&mut self, text: &str) -> Result<(), Error> {
         // Guard against message processing with no file handles
         if self.file_handles.is_empty() {
-            eprintln!("Connection {}: Ignoring message - no file handles available", self.connection_id);
+            eprintln!(
+                "Connection {}: Ignoring message - no file handles available",
+                self.connection_id
+            );
             return Ok(());
         }
 
         let v: serde_json::Value = match serde_json::from_str(text) {
             Ok(val) => val,
             Err(e) => {
-                eprintln!("Connection {}: Failed to parse JSON: {}", self.connection_id, e);
+                eprintln!(
+                    "Connection {}: Failed to parse JSON: {}",
+                    self.connection_id, e
+                );
                 return Ok(());
             }
         };
@@ -360,7 +398,10 @@ impl ConnectionHandler {
 
         // Guard against operations with no file handles
         if self.file_handles.is_empty() {
-            eprintln!("Connection {}: Cannot flush buffer - no file handles available", self.connection_id);
+            eprintln!(
+                "Connection {}: Cannot flush buffer - no file handles available",
+                self.connection_id
+            );
             self.buffer.clear(); // Clear buffer to prevent infinite accumulation
             return Ok(());
         }
@@ -400,11 +441,12 @@ impl ConnectionHandler {
         }
 
         // Flush all buffered writers in parallel
-        let flush_futures: Vec<_> = self.file_handles
+        let flush_futures: Vec<_> = self
+            .file_handles
             .values_mut()
             .map(|handles| handles.flush_all())
             .collect();
-        
+
         try_join_all(flush_futures).await?;
 
         self.buffer.clear();
@@ -414,7 +456,10 @@ impl ConnectionHandler {
     async fn cleanup(&mut self) -> Result<(), Error> {
         // Flush any remaining buffered messages
         if let Err(e) = self.flush_buffer().await {
-            eprintln!("Connection {}: Error flushing buffer during cleanup: {}", self.connection_id, e);
+            eprintln!(
+                "Connection {}: Error flushing buffer during cleanup: {}",
+                self.connection_id, e
+            );
         }
 
         // Close all file handles one by one to avoid race conditions
@@ -423,7 +468,10 @@ impl ConnectionHandler {
         for symbol in symbols {
             if let Some(handles) = self.file_handles.remove(&symbol) {
                 if let Err(e) = handles.close().await {
-                    eprintln!("Connection {}: Error closing file handles for {}: {}", self.connection_id, symbol, e);
+                    eprintln!(
+                        "Connection {}: Error closing file handles for {}: {}",
+                        self.connection_id, symbol, e
+                    );
                 }
             }
         }
@@ -441,21 +489,24 @@ impl ConnectionHandler {
         // Create file handles for each symbol with proper error handling
         for symbol in &self.symbols {
             let base_path = format!("/usr/src/app/data/{}/MD", symbol);
-            
+
             match Self::create_file_handles_for_symbol(&base_path, &date).await {
                 Ok(handles) => {
                     new_file_handles.insert(symbol.clone(), handles);
                 }
                 Err(e) => {
-                    eprintln!("Connection {}: Failed to recreate file handles for {}: {}", self.connection_id, symbol, e);
-                    
+                    eprintln!(
+                        "Connection {}: Failed to recreate file handles for {}: {}",
+                        self.connection_id, symbol, e
+                    );
+
                     // Close any successfully created handles
                     for (sym, handles) in new_file_handles {
                         if let Err(close_err) = handles.close().await {
                             eprintln!("Connection {}: Error closing file handles for {} during cleanup: {}", self.connection_id, sym, close_err);
                         }
                     }
-                    
+
                     return Err(e);
                 }
             }
@@ -546,7 +597,7 @@ async fn main() -> Result<(), Error> {
         }
 
         let connection_symbols = products[start_idx..end_idx].to_vec();
-        
+
         println!(
             "Connection {}: Handling {} symbols",
             i,
