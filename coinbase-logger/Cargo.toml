@@ -14,3 +14,16 @@ chrono = "0.4"
 http = "0.2"
 base64 = "0.22.1"
 rand = "0.9.0"
+
+[dev-dependencies]
+tempfile = "3.8"
+mockall = "0.11"
+tokio-test = "0.4"
+
+[lib]
+name = "coinbase_logger"
+path = "src/lib.rs"
+
+[[bin]]
+name = "coinbase-logger"
+path = "src/main.rs"
