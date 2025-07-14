@@ -44,10 +44,20 @@ jobs:
           cd charting
           cargo fmt --check
       
+      - name: Check Rust formatting (coinbase-logger)
+        run: |
+          cd coinbase-logger
+          cargo fmt --check
+      
       - name: Run Clippy (charting WASM)
         run: |
           cd charting
           cargo clippy --target wasm32-unknown-unknown -- -D warnings
+      
+      - name: Run Clippy (coinbase-logger)
+        run: |
+          cd coinbase-logger
+          cargo clippy --target x86_64-unknown-linux-gnu -- -D warnings
 
   # API Server Tests
   server-tests:
@@ -84,6 +94,43 @@ jobs:
     - name: Generate test coverage report
       run: |
         cd server
+        cargo test --target x86_64-unknown-linux-gnu -- --nocapture
+
+  # Coinbase Logger Tests  
+  coinbase-logger-tests:
+    runs-on: ubuntu-latest
+    name: Coinbase Logger Tests
+    needs: lint
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: x86_64-unknown-linux-gnu
+    
+    - name: Cache Rust dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          coinbase-logger/target
+        key: ${{ runner.os }}-coinbase-logger-cargo-${{ hashFiles('coinbase-logger/Cargo.lock', 'coinbase-logger/Cargo.toml') }}
+    
+    - name: Build coinbase-logger
+      run: |
+        cd coinbase-logger
+        cargo build --target x86_64-unknown-linux-gnu
+    
+    - name: Run coinbase-logger comprehensive test suite
+      run: |
+        cd coinbase-logger
+        cargo test --target x86_64-unknown-linux-gnu --verbose
+    
+    - name: Run coinbase-logger test coverage
+      run: |
+        cd coinbase-logger
         cargo test --target x86_64-unknown-linux-gnu -- --nocapture
 
   # Frontend E2E Tests
@@ -155,7 +202,7 @@ jobs:
   browser-compatibility:
     runs-on: ubuntu-latest
     name: Browser Compatibility
-    needs: [lint, frontend-tests]
+    needs: [lint, frontend-tests, coinbase-logger-tests]
     strategy:
       matrix:
         browser: [chromium, firefox, webkit]
