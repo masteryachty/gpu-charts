@@ -30,7 +30,7 @@ impl ConnectionHandler {
         let date = Local::now().format("%d.%m.%y").to_string();
 
         for symbol in &symbols {
-            let base_path = format!("/usr/src/app/data/{}/MD", symbol);
+            let base_path = format!("/usr/src/app/data/{symbol}/MD");
 
             match Self::create_file_handles_for_symbol(&base_path, &date).await {
                 Ok(handles) => {
@@ -38,13 +38,12 @@ impl ConnectionHandler {
                 }
                 Err(e) => {
                     eprintln!(
-                        "Connection {}: Failed to create file handles for {}: {}",
-                        connection_id, symbol, e
+                        "Connection {connection_id}: Failed to create file handles for {symbol}: {e}"
                     );
 
                     for (sym, handles) in file_handles {
                         if let Err(close_err) = handles.close().await {
-                            eprintln!("Connection {}: Error closing file handles for {} during cleanup: {}", connection_id, sym, close_err);
+                            eprintln!("Connection {connection_id}: Error closing file handles for {sym} during cleanup: {close_err}");
                         }
                     }
 
@@ -71,31 +70,31 @@ impl ConnectionHandler {
         let handles = FileHandles {
             time_file: BufWriter::with_capacity(
                 FILE_BUFFER_SIZE,
-                open_file(&format!("{}/time.{}.bin", base_path, date)).await?,
+                open_file(&format!("{base_path}/time.{date}.bin")).await?,
             ),
             nanos_file: BufWriter::with_capacity(
                 FILE_BUFFER_SIZE,
-                open_file(&format!("{}/nanos.{}.bin", base_path, date)).await?,
+                open_file(&format!("{base_path}/nanos.{date}.bin")).await?,
             ),
             price_file: BufWriter::with_capacity(
                 FILE_BUFFER_SIZE,
-                open_file(&format!("{}/price.{}.bin", base_path, date)).await?,
+                open_file(&format!("{base_path}/price.{date}.bin")).await?,
             ),
             volume_file: BufWriter::with_capacity(
                 FILE_BUFFER_SIZE,
-                open_file(&format!("{}/volume.{}.bin", base_path, date)).await?,
+                open_file(&format!("{base_path}/volume.{date}.bin")).await?,
             ),
             side_file: BufWriter::with_capacity(
                 FILE_BUFFER_SIZE,
-                open_file(&format!("{}/side.{}.bin", base_path, date)).await?,
+                open_file(&format!("{base_path}/side.{date}.bin")).await?,
             ),
             best_bid_file: BufWriter::with_capacity(
                 FILE_BUFFER_SIZE,
-                open_file(&format!("{}/best_bid.{}.bin", base_path, date)).await?,
+                open_file(&format!("{base_path}/best_bid.{date}.bin")).await?,
             ),
             best_ask_file: BufWriter::with_capacity(
                 FILE_BUFFER_SIZE,
-                open_file(&format!("{}/best_ask.{}.bin", base_path, date)).await?,
+                open_file(&format!("{base_path}/best_ask.{date}.bin")).await?,
             ),
         };
 
@@ -393,7 +392,7 @@ impl ConnectionHandler {
         let mut new_file_handles = HashMap::new();
 
         for symbol in &self.symbols {
-            let base_path = format!("/usr/src/app/data/{}/MD", symbol);
+            let base_path = format!("/usr/src/app/data/{symbol}/MD");
 
             match Self::create_file_handles_for_symbol(&base_path, &date).await {
                 Ok(handles) => {

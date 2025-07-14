@@ -11,7 +11,7 @@ async fn main() -> Result<(), Error> {
     println!("Found {} products", products.len());
 
     // Calculate symbols per connection
-    let symbols_per_connection = (products.len() + CONNECTIONS_COUNT - 1) / CONNECTIONS_COUNT;
+    let symbols_per_connection = products.len().div_ceil(CONNECTIONS_COUNT);
 
     // Create connection handlers
     let mut tasks = vec![];
@@ -36,7 +36,7 @@ async fn main() -> Result<(), Error> {
             let mut handler = match ConnectionHandler::new(i, connection_symbols).await {
                 Ok(h) => h,
                 Err(e) => {
-                    eprintln!("Failed to create connection handler {}: {}", i, e);
+                    eprintln!("Failed to create connection handler {i}: {e}");
                     return;
                 }
             };
