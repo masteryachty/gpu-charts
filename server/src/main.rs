@@ -58,8 +58,14 @@ async fn service_handler(req: Request<Body>) -> Result<Response<Body>, Infallibl
 
 /// Load the TLS certificate and private key from files.
 fn load_tls_config() -> Result<ServerConfig, Box<dyn std::error::Error>> {
-    let certs = load_certs("localhost.crt")?;
-    let key = load_private_key("localhost.key")?;
+    // Get certificate paths from environment or use defaults
+    let cert_path = std::env::var("SSL_CERT_PATH")
+        .unwrap_or_else(|_| "localhost.crt".to_string());
+    let key_path = std::env::var("SSL_KEY_PATH")
+        .unwrap_or_else(|_| "localhost.key".to_string());
+    
+    let certs = load_certs(&cert_path)?;
+    let key = load_private_key(&key_path)?;
     let mut config = ServerConfig::builder()
         .with_safe_defaults()
         .with_no_client_auth()
@@ -102,8 +108,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let tls_config = load_tls_config()?;
     let tls_acceptor = TlsAcceptor::from(Arc::new(tls_config));
 
-    // Bind a TCP listener (here on port 8443).
-    let addr = SocketAddr::from(([0, 0, 0, 0], 8443));
+    // Bind a TCP listener (port from env or default to 8443).
+    let port = std::env::var("PORT")
+        .unwrap_or_else(|_| "8443".to_string())
+        .parse::<u16>()
+        .unwrap_or(8443);
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
     let listener = TcpListener::bind(&addr).await?;
     println!("Listening on https://{}", addr);
 

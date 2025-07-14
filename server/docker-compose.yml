@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  gpu-charts-server:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    container_name: gpu-charts-server
+    restart: unless-stopped
+    ports:
+      - "8443:8443"
+    volumes:
+      # Mount data directory
+      - /mnt/md/data:/data:ro
+      # Mount SSL certificates (optional, can use built-in for dev)
+      # - ./certs:/app/certs:ro
+    environment:
+      - RUST_LOG=info
+      - SSL_CERT_PATH=/app/certs/localhost.crt
+      - SSL_KEY_PATH=/app/certs/localhost.key
+      - DATA_PATH=/data
+    networks:
+      - gpu-charts-network
+    healthcheck:
+      test: ["CMD", "timeout", "5s", "bash", "-c", ":> /dev/tcp/127.0.0.1/8443"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+networks:
+  gpu-charts-network:
+    driver: bridge
