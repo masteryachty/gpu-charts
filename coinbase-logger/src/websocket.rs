@@ -8,6 +8,48 @@ use tokio_tungstenite::{
 use crate::Result;
 
 pub async fn get_all_products() -> Result<Vec<String>> {
+    // Try REST API first as fallback
+    match get_products_from_rest_api().await {
+        Ok(products) => {
+            println!("Found {} products from REST API", products.len());
+            return Ok(products);
+        }
+        Err(e) => {
+            println!("REST API failed: {}, trying WebSocket...", e);
+        }
+    }
+    
+    get_products_from_websocket().await
+}
+
+async fn get_products_from_rest_api() -> Result<Vec<String>> {
+    println!("Calling REST API...");
+    let response = reqwest::get("https://api.exchange.coinbase.com/products")
+        .await?
+        .json::<serde_json::Value>()
+        .await?;
+    
+    println!("REST API response received");
+    if let Some(products_array) = response.as_array() {
+        println!("Found {} products in REST API response", products_array.len());
+        let products = products_array
+            .iter()
+            .filter_map(|p| {
+                if p.get("status").and_then(|s| s.as_str()) == Some("online") {
+                    p.get("id").and_then(|id| id.as_str()).map(String::from)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<String>>();
+        println!("Found {} online products", products.len());
+        Ok(products)
+    } else {
+        Err("Invalid response format from REST API".into())
+    }
+}
+
+async fn get_products_from_websocket() -> Result<Vec<String>> {
     println!("Fetching all available products from Coinbase...");
 
     let (ws_stream, _) = connect_async_with_config(
@@ -16,6 +58,8 @@ pub async fn get_all_products() -> Result<Vec<String>> {
         true,
     )
     .await?;
+
+    println!("WebSocket connection established");
 
     let (mut write, mut read) = ws_stream.split();
 
@@ -26,18 +70,28 @@ pub async fn get_all_products() -> Result<Vec<String>> {
             "name": "status"
         }]
     });
+    println!("Sending subscription message: {}", subscribe_msg);
     write.send(Message::Text(subscribe_msg.to_string())).await?;
 
-    // Wait for status message
+    // Wait for status message with timeout
+    let mut message_count = 0;
     while let Some(message) = read.next().await {
+        message_count += 1;
+        println!("Received message #{}: {:?}", message_count, message);
+        
         if let Ok(msg) = message {
             if msg.is_text() {
                 let text = msg.into_text()?;
+                println!("Message text: {}", text);
+                
                 let v: serde_json::Value = serde_json::from_str(&text)?;
+                println!("Parsed JSON: {}", v);
 
                 if v.get("type") == Some(&json!("status")) {
+                    println!("Found status message!");
                     if let Some(products_array) = v.get("products").and_then(|p| p.as_array()) {
-                        let products = products_array
+                        println!("Found products array with {} items", products_array.len());
+                        let products: Vec<String> = products_array
                             .iter()
                             .filter_map(|p| {
                                 if p.get("status").and_then(|s| s.as_str()) == Some("online") {
@@ -47,10 +101,17 @@ pub async fn get_all_products() -> Result<Vec<String>> {
                                 }
                             })
                             .collect();
+                        println!("Found {} online products", products.len());
                         return Ok(products);
                     }
                 }
             }
+        }
+        
+        // Safety timeout - don't wait forever
+        if message_count > 10 {
+            println!("Received {} messages but no status message, giving up", message_count);
+            break;
         }
     }
 
