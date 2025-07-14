@@ -138,7 +138,7 @@ impl ConnectionHandler {
     }
 
     async fn run(&mut self) {
-        loop {
+        'outer: loop {
             println!(
                 "Connection {}: Connecting to Coinbase WebSocket for {} symbols...",
                 self.connection_id,
@@ -171,9 +171,29 @@ impl ConnectionHandler {
             self.reconnect_delay = std::cmp::min(self.reconnect_delay * 2, MAX_RECONNECT_DELAY);
 
             // Recreate file handles for the new connection
-            if let Err(e) = self.recreate_file_handles().await {
-                eprintln!("Connection {}: Failed to recreate file handles: {}. Skipping reconnection attempt.", self.connection_id, e);
-                continue;
+            // If this fails, we need to retry with backoff to avoid infinite loops with no file handles
+            let mut retry_count = 0;
+            const MAX_RETRIES: u32 = 3;
+            
+            loop {
+                match self.recreate_file_handles().await {
+                    Ok(()) => break, // Success, continue with connection
+                    Err(e) => {
+                        retry_count += 1;
+                        eprintln!("Connection {}: Failed to recreate file handles (attempt {}/{}): {}", 
+                                 self.connection_id, retry_count, MAX_RETRIES, e);
+                        
+                        if retry_count >= MAX_RETRIES {
+                            eprintln!("Connection {}: Maximum retries exceeded for file handle recreation. Waiting longer before retry.", self.connection_id);
+                            // Wait longer before the next full reconnection attempt
+                            sleep(Duration::from_secs(30)).await;
+                            continue 'outer; // Continue to next iteration of main loop
+                        }
+                        
+                        // Short delay before retry
+                        sleep(Duration::from_secs(5)).await;
+                    }
+                }
             }
         }
     }
@@ -247,6 +267,12 @@ impl ConnectionHandler {
     }
 
     async fn process_message(&mut self, text: &str) -> Result<(), Error> {
+        // Guard against message processing with no file handles
+        if self.file_handles.is_empty() {
+            eprintln!("Connection {}: Ignoring message - no file handles available", self.connection_id);
+            return Ok(());
+        }
+
         let v: serde_json::Value = match serde_json::from_str(text) {
             Ok(val) => val,
             Err(e) => {
@@ -332,6 +358,13 @@ impl ConnectionHandler {
             return Ok(());
         }
 
+        // Guard against operations with no file handles
+        if self.file_handles.is_empty() {
+            eprintln!("Connection {}: Cannot flush buffer - no file handles available", self.connection_id);
+            self.buffer.clear(); // Clear buffer to prevent infinite accumulation
+            return Ok(());
+        }
+
         println!(
             "Connection {}: Flushing {} messages",
             self.connection_id,
@@ -384,13 +417,19 @@ impl ConnectionHandler {
             eprintln!("Connection {}: Error flushing buffer during cleanup: {}", self.connection_id, e);
         }
 
-        // Close all file handles
-        let file_handles = std::mem::take(&mut self.file_handles);
-        for (symbol, handles) in file_handles {
-            if let Err(e) = handles.close().await {
-                eprintln!("Connection {}: Error closing file handles for {}: {}", self.connection_id, symbol, e);
+        // Close all file handles one by one to avoid race conditions
+        // We iterate over the keys first to avoid borrowing issues
+        let symbols: Vec<String> = self.file_handles.keys().cloned().collect();
+        for symbol in symbols {
+            if let Some(handles) = self.file_handles.remove(&symbol) {
+                if let Err(e) = handles.close().await {
+                    eprintln!("Connection {}: Error closing file handles for {}: {}", self.connection_id, symbol, e);
+                }
             }
         }
+
+        // Ensure file_handles is completely empty
+        self.file_handles.clear();
 
         Ok(())
     }
