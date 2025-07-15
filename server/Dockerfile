@@ -25,7 +25,7 @@ RUN mkdir -p src && \
     echo "pub fn lib() {}" > src/lib.rs
 
 # Build dependencies
-RUN cargo build --release --target x86_64-unknown-linux-gnu && \
+RUN cargo build --release && \
     rm -rf src
 
 # Copy actual source code
@@ -33,7 +33,7 @@ COPY server/src ./src
 
 # Build the application
 RUN touch src/main.rs src/lib.rs && \
-    cargo build --release --target x86_64-unknown-linux-gnu
+    cargo build --release
 
 # Runtime stage
 FROM debian:bookworm-slim
@@ -54,7 +54,7 @@ RUN mkdir -p /app/certs /data && \
 WORKDIR /app
 
 # Copy the built binary
-COPY --from=builder /usr/src/app/target/x86_64-unknown-linux-gnu/release/ultra_low_latency_server_chunked_parallel /app/server
+COPY --from=builder /usr/src/app/target/release/ultra_low_latency_server_chunked_parallel /app/server
 
 # Copy certificate generation script
 COPY server/generate-certs.sh /tmp/
