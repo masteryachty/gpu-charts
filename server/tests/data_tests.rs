@@ -77,7 +77,7 @@ async fn test_load_mmap_success() {
     let file_path = temp_dir.path().join("test.bin");
 
     // Create test data
-    let test_data = vec![1u32, 2, 3, 4, 5];
+    let test_data = [1u32, 2, 3, 4, 5];
     let mut file = fs::File::create(&file_path).unwrap();
     let bytes: Vec<u8> = test_data
         .iter()
@@ -110,7 +110,7 @@ mod integration_tests {
         fs::create_dir_all(&base_path).unwrap();
 
         // Create time data for one day (01.01.25)
-        let time_data = vec![1000u32, 2000, 3000, 4000, 5000];
+        let time_data = [1000u32, 2000, 3000, 4000, 5000];
         let time_bytes: Vec<u8> = time_data
             .iter()
             .flat_map(|&x| x.to_le_bytes().to_vec())
@@ -118,7 +118,7 @@ mod integration_tests {
         fs::write(base_path.join("time.01.01.25.bin"), &time_bytes).unwrap();
 
         // Create best_bid data
-        let bid_data = vec![100u32, 101, 102, 103, 104];
+        let bid_data = [100u32, 101, 102, 103, 104];
         let bid_bytes: Vec<u8> = bid_data
             .iter()
             .flat_map(|&x| x.to_le_bytes().to_vec())

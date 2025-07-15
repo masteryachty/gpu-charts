@@ -113,7 +113,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or(8443);
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     let listener = TcpListener::bind(&addr).await?;
-    println!("Listening on https://{}", addr);
+    println!("Listening on https://{addr}");
 
     loop {
         let (stream, _peer_addr) = listener.accept().await?;
@@ -126,7 +126,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let tls_stream = match acceptor.accept(stream).await {
                 Ok(s) => s,
                 Err(e) => {
-                    eprintln!("TLS accept error: {:?}", e);
+                    eprintln!("TLS accept error: {e:?}");
                     return;
                 }
             };
@@ -135,7 +135,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .serve_connection(tls_stream, service_fn(service_handler))
                 .await
             {
-                eprintln!("Error serving connection: {:?}", e);
+                eprintln!("Error serving connection: {e:?}");
             }
         });
     }

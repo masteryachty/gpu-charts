@@ -106,7 +106,7 @@ async fn test_load_mmap_success() {
     let file_path = temp_dir.path().join("test.bin");
 
     // Create test data: 5 u32 values
-    let test_data = vec![1u32, 2, 3, 4, 5];
+    let test_data = [1u32, 2, 3, 4, 5];
     let mut file = fs::File::create(&file_path).unwrap();
     let bytes: Vec<u8> = test_data
         .iter()

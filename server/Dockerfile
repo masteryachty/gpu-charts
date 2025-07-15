@@ -53,7 +53,7 @@ WORKDIR /app
 COPY --from=builder /usr/src/app/target/x86_64-unknown-linux-gnu/release/ultra_low_latency_server_chunked_parallel /app/server
 
 # Copy certificate generation script
-COPY generate-certs.sh /tmp/
+COPY server/generate-certs.sh /tmp/
 
 # Generate SSL certificates during build
 RUN chmod +x /tmp/generate-certs.sh && \
@@ -72,6 +72,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD timeout 5s bash -c ':> /dev/tcp/127.0.0.1/8443' || exit 1
 
 # Environment variables for production
+# Note: These are just paths, not actual secrets
 ENV SSL_CERT_PATH=/app/certs/localhost.crt
 ENV SSL_KEY_PATH=/app/certs/localhost.key
 ENV DATA_PATH=/data

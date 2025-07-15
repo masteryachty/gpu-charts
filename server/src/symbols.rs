@@ -30,7 +30,7 @@ pub async fn handle_symbols_request() -> Result<Response<Body>, Infallible> {
             }
         }
         Err(err) => {
-            eprintln!("Failed to read data directory: {}", err);
+            eprintln!("Failed to read data directory: {err}");
             return Ok(Response::builder()
                 .status(StatusCode::INTERNAL_SERVER_ERROR)
                 .body(Body::from("Failed to read symbol directory"))
