@@ -275,9 +275,7 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
         let time_mmap = match load_mmap(&time_path).await {
             Ok(mmap) => mmap,
             Err(e) => {
-                println!(
-                    "Warning: Could not load time file {time_path}: {e}. Skipping day."
-                );
+                println!("Warning: Could not load time file {time_path}: {e}. Skipping day.");
                 continue;
             }
         };
