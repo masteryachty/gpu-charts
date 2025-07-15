@@ -26,9 +26,9 @@ fn main() {
     let port = config[&profile]["port"].as_integer().unwrap_or(8443);
 
     // Make configuration available to the compiled binary
-    println!("cargo:rustc-env=GRAPH_DATA_PATH={}", data_path);
-    println!("cargo:rustc-env=GRAPH_PORT={}", port);
-    println!("cargo:rustc-env=GRAPH_PROFILE={}", profile);
+    println!("cargo:rustc-env=GRAPH_DATA_PATH={data_path}");
+    println!("cargo:rustc-env=GRAPH_PORT={port}");
+    println!("cargo:rustc-env=GRAPH_PROFILE={profile}");
 
     // Re-run build script if config file changes
     println!("cargo:rerun-if-changed=config.toml");

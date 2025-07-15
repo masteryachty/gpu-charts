@@ -39,8 +39,8 @@ async fn get_products_from_rest_api() -> Result<Vec<String>> {
             resp
         }
         Err(e) => {
-            println!("HTTP request failed: {:?}", e);
-            return Err(format!("HTTP request failed: {}", e).into());
+            println!("HTTP request failed: {e:?}");
+            return Err(format!("HTTP request failed: {e}").into());
         }
     };
 
@@ -51,8 +51,8 @@ async fn get_products_from_rest_api() -> Result<Vec<String>> {
             json
         }
         Err(e) => {
-            println!("JSON parsing failed: {:?}", e);
-            return Err(format!("JSON parsing failed: {}", e).into());
+            println!("JSON parsing failed: {e:?}");
+            return Err(format!("JSON parsing failed: {e}").into());
         }
     };
 
