@@ -19,9 +19,9 @@ services:
     
     # Volumes for data persistence
     volumes:
-      - ${DATA_PATH:-./data}:/usr/src/app/data
+      - ${DATA_PATH:-./data}:/mnt/md/data
       # Alternative: use named volume for portability
-      # - coinbase-data:/usr/src/app/data
+      # - coinbase-data:/mnt/md/data
     
     # Network mode
     network_mode: bridge

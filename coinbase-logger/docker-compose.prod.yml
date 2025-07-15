@@ -25,7 +25,7 @@ services:
     
     # Volumes for data persistence
     volumes:
-      - ${DATA_PATH:-./data}:/usr/src/app/data
+      - ${DATA_PATH:-./data}:/mnt/md/data
     
     # Network mode
     network_mode: bridge

@@ -48,8 +48,8 @@ RUN apt-get update && apt-get install -y \
 RUN useradd -m -u 1000 -s /bin/bash logger
 
 # Create data directory with proper permissions
-RUN mkdir -p /usr/src/app/data && \
-    chown -R logger:logger /usr/src/app/data
+RUN mkdir -p /mnt/md/data && \
+    chown -R logger:logger /mnt/md/data
 
 # Copy binary from builder
 COPY --from=builder /usr/src/app/target/x86_64-unknown-linux-gnu/release/coinbase-logger /usr/local/bin/coinbase-logger
@@ -65,7 +65,7 @@ USER logger
 WORKDIR /home/logger
 
 # Volume for data persistence
-VOLUME ["/usr/src/app/data"]
+VOLUME ["/mnt/md/data"]
 
 # Health check to ensure the process is running
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \

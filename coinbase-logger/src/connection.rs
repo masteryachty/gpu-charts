@@ -30,7 +30,7 @@ impl ConnectionHandler {
         let date = Local::now().format("%d.%m.%y").to_string();
 
         for symbol in &symbols {
-            let base_path = format!("/usr/src/app/data/{symbol}/MD");
+            let base_path = format!("/mnt/md/data/{symbol}/MD");
 
             match Self::create_file_handles_for_symbol(&base_path, &date).await {
                 Ok(handles) => {
@@ -392,7 +392,7 @@ impl ConnectionHandler {
         let mut new_file_handles = HashMap::new();
 
         for symbol in &self.symbols {
-            let base_path = format!("/usr/src/app/data/{symbol}/MD");
+            let base_path = format!("/mnt/md/data/{symbol}/MD");
 
             match Self::create_file_handles_for_symbol(&base_path, &date).await {
                 Ok(handles) => {
