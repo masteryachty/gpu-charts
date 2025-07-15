@@ -231,8 +231,8 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
 
     // Build a base path using the configured data path
     // First try runtime env var, then fall back to compile-time config
-    let data_root = std::env::var("DATA_PATH")
-        .unwrap_or_else(|_| env!("GRAPH_DATA_PATH").to_string());
+    let data_root =
+        std::env::var("DATA_PATH").unwrap_or_else(|_| env!("GRAPH_DATA_PATH").to_string());
     let base_path = format!(
         "{}/{}/{}",
         data_root, query_params.symbol, query_params.type_

@@ -10,10 +10,10 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /usr/src/app
 
 # Copy only server-specific files
-COPY server/Cargo.toml ./Cargo.toml
-COPY server/Cargo.lock ./Cargo.lock
-COPY server/build.rs ./
-COPY server/config.toml ./
+COPY Cargo.toml ./Cargo.toml
+COPY Cargo.lock ./Cargo.lock
+COPY build.rs ./
+COPY config.toml ./
 
 # Create dummy source files for dependency caching
 RUN mkdir -p src && \
@@ -25,7 +25,7 @@ RUN cargo build --release --target x86_64-unknown-linux-gnu && \
     rm -rf src
 
 # Copy actual source code
-COPY server/src ./src
+COPY src ./src
 
 # Build the application
 RUN touch src/main.rs src/lib.rs && \
@@ -52,12 +52,13 @@ WORKDIR /app
 # Copy the built binary
 COPY --from=builder /usr/src/app/target/x86_64-unknown-linux-gnu/release/ultra_low_latency_server_chunked_parallel /app/server
 
-# Copy SSL certificates (these will be mounted in production)
-COPY server/localhost.crt /app/certs/
-COPY server/localhost.key /app/certs/
+# Copy certificate generation script
+COPY generate-certs.sh /tmp/
 
-# Set proper permissions
-RUN chmod 600 /app/certs/localhost.key && \
+# Generate SSL certificates during build
+RUN chmod +x /tmp/generate-certs.sh && \
+    bash /tmp/generate-certs.sh && \
+    rm /tmp/generate-certs.sh && \
     chown -R server:server /app/certs
 
 # Switch to non-root user

@@ -98,11 +98,14 @@ services:
 
 ## SSL Certificates
 
-### Development
-The image includes self-signed certificates for localhost. For development, you can use these built-in certificates.
+### Built-in Certificates
+The Docker image automatically generates self-signed certificates during the build process. These certificates are suitable for development and include:
+- CN=localhost with additional SANs for Docker networking
+- 365-day validity period
+- Proper TLS extensions for server authentication
 
-### Production
-Mount your production certificates:
+### Production Certificates
+For production, mount your own certificates to override the built-in ones:
 ```bash
 docker run -d \
   -v /etc/letsencrypt/live/yourdomain.com/fullchain.pem:/app/certs/localhost.crt:ro \

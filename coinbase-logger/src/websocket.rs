@@ -24,12 +24,16 @@ pub async fn get_all_products() -> Result<Vec<String>> {
 
 async fn get_products_from_rest_api() -> Result<Vec<String>> {
     println!("Calling REST API...");
-    
+
     println!("Creating reqwest client...");
     let client = reqwest::Client::new();
-    
+
     println!("Making GET request to https://api.exchange.coinbase.com/products");
-    let response = match client.get("https://api.exchange.coinbase.com/products").send().await {
+    let response = match client
+        .get("https://api.exchange.coinbase.com/products")
+        .send()
+        .await
+    {
         Ok(resp) => {
             println!("HTTP request successful, status: {}", resp.status());
             resp
@@ -39,7 +43,7 @@ async fn get_products_from_rest_api() -> Result<Vec<String>> {
             return Err(format!("HTTP request failed: {}", e).into());
         }
     };
-    
+
     println!("Parsing JSON response...");
     let json_result = match response.json::<serde_json::Value>().await {
         Ok(json) => {

@@ -24,7 +24,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-          targets: wasm32-unknown-unknown
+          targets: wasm32-unknown-unknown,x86_64-unknown-linux-gnu
       
       - name: Install dependencies
         run: |
@@ -44,6 +44,11 @@ jobs:
           cd charting
           cargo fmt --check
       
+      - name: Check Rust formatting (server)
+        run: |
+          cd server
+          cargo fmt --check
+      
       - name: Check Rust formatting (coinbase-logger)
         run: |
           cd coinbase-logger
@@ -53,6 +58,11 @@ jobs:
         run: |
           cd charting
           cargo clippy --target wasm32-unknown-unknown -- -D warnings
+      
+      - name: Run Clippy (server)
+        run: |
+          cd server
+          cargo clippy --target x86_64-unknown-linux-gnu -- -D warnings
       
       - name: Run Clippy (coinbase-logger)
         run: |
@@ -71,6 +81,11 @@ jobs:
       uses: dtolnay/rust-toolchain@stable
       with:
         targets: x86_64-unknown-linux-gnu
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y pkg-config libssl-dev
     
     - name: Cache Rust dependencies
       uses: actions/cache@v4
@@ -108,6 +123,11 @@ jobs:
       uses: dtolnay/rust-toolchain@stable
       with:
         targets: x86_64-unknown-linux-gnu
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y pkg-config libssl-dev
     
     - name: Cache Rust dependencies
       uses: actions/cache@v4
@@ -173,6 +193,16 @@ jobs:
     - name: Build WASM module
       run: npm run build:wasm
     
+    - name: Run TypeScript type checking
+      run: |
+        cd web
+        npm run type-check
+    
+    - name: Build frontend
+      run: |
+        cd web
+        npm run build
+    
     - name: Install Playwright Browsers
       run: |
         cd web
@@ -182,7 +212,8 @@ jobs:
       run: |
         cd web
         echo "Web tests are currently disabled due to technical issues"
-        echo "Server tests will be run instead"
+        echo "WASM module built successfully: $(ls -la pkg/)"
+        echo "Frontend built successfully: $(ls -la dist/)"
     
     - uses: actions/upload-artifact@v4
       if: always()
@@ -198,14 +229,11 @@ jobs:
         path: web/test-results/
         retention-days: 30
 
-  # Browser Compatibility Testing
-  browser-compatibility:
+  # Build Validation
+  build-validation:
     runs-on: ubuntu-latest
-    name: Browser Compatibility
-    needs: [lint, frontend-tests, coinbase-logger-tests]
-    strategy:
-      matrix:
-        browser: [chromium, firefox, webkit]
+    name: Build Validation
+    needs: [lint, frontend-tests, server-tests, coinbase-logger-tests]
     
     steps:
     - uses: actions/checkout@v4
@@ -219,7 +247,12 @@ jobs:
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
       with:
-        targets: wasm32-unknown-unknown
+        targets: wasm32-unknown-unknown,x86_64-unknown-linux-gnu
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y pkg-config libssl-dev
     
     - name: Install wasm-pack
       run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
@@ -229,22 +262,42 @@ jobs:
         cd web
         npm ci
     
-    - name: Build WASM module
-      run: npm run build:wasm
-    
-    - name: Install Playwright Browsers
+    - name: Build all components
       run: |
+        # Build WASM module
+        npm run build:wasm
+        
+        # Build frontend
         cd web
-        npx playwright install --with-deps ${{ matrix.browser }}
+        npm run build
+        cd ..
+        
+        # Build server
+        npm run build:server
+        
+        # Build coinbase-logger
+        npm run build:logger
     
-    - name: Run Playwright tests on ${{ matrix.browser }} (disabled)
+    - name: Validate build artifacts
       run: |
-        cd web
-        echo "Browser compatibility tests disabled - web tests have issues"
+        echo "=== WASM Build Artifacts ==="
+        ls -la web/pkg/
+        
+        echo "=== Frontend Build Artifacts ==="
+        ls -la web/dist/
+        
+        echo "=== Server Build Artifacts ==="
+        ls -la server/target/x86_64-unknown-linux-gnu/release/
+        
+        echo "=== Coinbase Logger Build Artifacts ==="
+        ls -la coinbase-logger/target/x86_64-unknown-linux-gnu/release/
     
     - uses: actions/upload-artifact@v4
-      if: always()
       with:
-        name: playwright-report-${{ matrix.browser }}
-        path: web/playwright-report/
+        name: build-artifacts
+        path: |
+          web/pkg/
+          web/dist/
+          server/target/x86_64-unknown-linux-gnu/release/ultra_low_latency_server_chunked_parallel
+          coinbase-logger/target/x86_64-unknown-linux-gnu/release/
         retention-days: 30

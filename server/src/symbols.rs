@@ -9,8 +9,8 @@ use hyper::{body::Body, header, Response, StatusCode};
 /// Handler for the /api/symbols endpoint.
 pub async fn handle_symbols_request() -> Result<Response<Body>, Infallible> {
     // First try runtime env var, then fall back to compile-time config
-    let base_path = std::env::var("DATA_PATH")
-        .unwrap_or_else(|_| env!("GRAPH_DATA_PATH").to_string());
+    let base_path =
+        std::env::var("DATA_PATH").unwrap_or_else(|_| env!("GRAPH_DATA_PATH").to_string());
     let mut symbols = Vec::new();
 
     match fs::read_dir(base_path).await {
