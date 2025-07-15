@@ -79,7 +79,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Note: These are just paths, not actual secrets
 ENV SSL_CERT_PATH=/app/certs/localhost.crt
 ENV SSL_KEY_PATH=/app/certs/localhost.key
-ENV DATA_PATH=/data
+ENV DATA_PATH=/mnt/md/data
 
 # Run the server
 CMD ["./server"]
