@@ -15,6 +15,10 @@ COPY server/Cargo.lock ./Cargo.lock
 COPY server/build.rs ./
 COPY server/config.toml ./
 
+# Remove workspace configuration from Cargo.toml if present
+RUN sed -i '/\[workspace\]/d' ./Cargo.toml && \
+    sed -i '/workspace\./d' ./Cargo.toml
+
 # Create dummy source files for dependency caching
 RUN mkdir -p src && \
     echo "fn main() {}" > src/main.rs && \
