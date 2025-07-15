@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # Coinbase Logger Service
+  coinbase-logger:
+    image: masteryachty/coinbase-logger:latest
+    container_name: coinbase-logger
+    restart: unless-stopped
+    volumes:
+      # Production data path
+      - /mnt/md/data:/app/data
+    environment:
+      - RUST_LOG=info
+      - DATA_OUTPUT_PATH=/app/data
+    networks:
+      - gpu-charts-network
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "coinbase-logger"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # GPU Charts Server
+  gpu-charts-server:
+    image: masteryachty/gpu-charts-server:latest
+    container_name: gpu-charts-server
+    restart: unless-stopped
+    ports:
+      - "8443:8443"
+    volumes:
+      # Mount production data directory
+      - /mnt/md/data:/data:ro
+      # Mount production SSL certificates
+      - /etc/letsencrypt/live/yourdomain.com/fullchain.pem:/app/certs/localhost.crt:ro
+      - /etc/letsencrypt/live/yourdomain.com/privkey.pem:/app/certs/localhost.key:ro
+    environment:
+      - RUST_LOG=info
+      - SSL_CERT_PATH=/app/certs/localhost.crt
+      - SSL_KEY_PATH=/app/certs/localhost.key
+      - DATA_PATH=/data
+      - PORT=8443
+    networks:
+      - gpu-charts-network
+    depends_on:
+      - coinbase-logger
+    healthcheck:
+      test: ["CMD", "timeout", "5s", "bash", "-c", ":> /dev/tcp/127.0.0.1/8443"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+networks:
+  gpu-charts-network:
+    driver: bridge

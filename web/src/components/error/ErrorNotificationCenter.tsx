@@ -53,14 +53,14 @@ export default function ErrorNotificationCenter({
   
   // Mock error state for now
   const errorState = { 
-    recentErrors: [], 
+    recentErrors: [] as AppError[], 
     isLoading: false, 
     pendingNotifications: 0 
   };
   const errorAPI = useMemo(() => ({ 
-    getNotifications: () => [],
+    getNotifications: (): AppError[] => [],
     clearNotifications: () => {},
-    getRecentErrors: () => []
+    getRecentErrors: (): AppError[] => []
   }), []);
   
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -82,7 +82,7 @@ export default function ErrorNotificationCenter({
         };
         
         // Auto-hide low severity errors
-        if (error.severity === 'low' && autoHideTimeoutMs > 0) {
+        if ('severity' in error && error.severity === 'low' && autoHideTimeoutMs > 0) {
           item.autoHideTimer = setTimeout(() => {
             // dismissNotification(item.id); // Fixed: avoid hoisting issue
           }, autoHideTimeoutMs);
@@ -97,7 +97,7 @@ export default function ErrorNotificationCenter({
       });
       
       // Play notification sound
-      if (enableSounds && newNotifications.some(n => n.severity === 'critical' || n.severity === 'high')) {
+      if (enableSounds && newNotifications.some(n => 'severity' in n && (n.severity === 'critical' || n.severity === 'high'))) {
         // playNotificationSound(newNotifications[0].severity); // Fixed: avoid hoisting issue
       }
     }
@@ -136,32 +136,32 @@ export default function ErrorNotificationCenter({
     }, 300);
   }, [notifications]);
   
-  // Play notification sound
-  const _playNotificationSound = useCallback((_severity: string) => {
-    if (!enableSounds) return;
-    
-    try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      // Different frequencies for different severities
-      const frequency = _severity === 'critical' ? 800 : _severity === 'high' ? 600 : 400;
-      oscillator.frequency.value = frequency;
-      oscillator.type = 'sine';
-      
-      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.5);
-    } catch (error) {
-      console.warn('[ErrorNotificationCenter] Failed to play notification sound:', error);
-    }
-  }, [enableSounds]);
+  // Play notification sound - commented out until needed
+  // const playNotificationSound = useCallback((_severity: string) => {
+  //   if (!enableSounds) return;
+  //   
+  //   try {
+  //     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+  //     const oscillator = audioContext.createOscillator();
+  //     const gainNode = audioContext.createGain();
+  //     
+  //     // Different frequencies for different severities
+  //     const frequency = _severity === 'critical' ? 800 : _severity === 'high' ? 600 : 400;
+  //     oscillator.frequency.value = frequency;
+  //     oscillator.type = 'sine';
+  //     
+  //     gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+  //     gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+  //     
+  //     oscillator.connect(gainNode);
+  //     gainNode.connect(audioContext.destination);
+  //     
+  //     oscillator.start(audioContext.currentTime);
+  //     oscillator.stop(audioContext.currentTime + 0.5);
+  //   } catch (error) {
+  //     console.warn('[ErrorNotificationCenter] Failed to play notification sound:', error);
+  //   }
+  // }, [enableSounds]);
   
   // Position classes
   const getPositionClasses = (position: string): string => {

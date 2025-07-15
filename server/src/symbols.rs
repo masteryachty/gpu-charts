@@ -8,8 +8,9 @@ use hyper::{body::Body, header, Response, StatusCode};
 
 /// Handler for the /api/symbols endpoint.
 pub async fn handle_symbols_request() -> Result<Response<Body>, Infallible> {
-    let base_path = "/home/xander/projects/graph/md";
-    // let base_path = "/mnt/md/data";
+    // First try runtime env var, then fall back to compile-time config
+    let base_path =
+        std::env::var("DATA_PATH").unwrap_or_else(|_| env!("GRAPH_DATA_PATH").to_string());
     let mut symbols = Vec::new();
 
     match fs::read_dir(base_path).await {
@@ -29,7 +30,7 @@ pub async fn handle_symbols_request() -> Result<Response<Body>, Infallible> {
             }
         }
         Err(err) => {
-            eprintln!("Failed to read data directory: {}", err);
+            eprintln!("Failed to read data directory: {err}");
             return Ok(Response::builder()
                 .status(StatusCode::INTERNAL_SERVER_ERROR)
                 .body(Body::from("Failed to read symbol directory"))

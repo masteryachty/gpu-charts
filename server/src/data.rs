@@ -227,10 +227,12 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
         }
     };
 
-    println!("Query Params: {:?}", query_params);
+    println!("Query Params: {query_params:?}");
 
     // Build a base path using the configured data path
-    let data_root = env!("GRAPH_DATA_PATH");
+    // First try runtime env var, then fall back to compile-time config
+    let data_root =
+        std::env::var("DATA_PATH").unwrap_or_else(|_| env!("GRAPH_DATA_PATH").to_string());
     let base_path = format!(
         "{}/{}/{}",
         data_root, query_params.symbol, query_params.type_
@@ -240,7 +242,7 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
     let start_dt = Utc.timestamp_opt(query_params.start as i64, 0).unwrap();
     let end_dt = Utc.timestamp_opt(query_params.end as i64, 0).unwrap();
 
-    println!("date: {:?}, {:?}", start_dt, end_dt);
+    println!("date: {start_dt:?}, {end_dt:?}");
 
     // Build a list of days (inclusive) in the query range.
     let mut days = Vec::new();
@@ -249,7 +251,7 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
         days.push(current_date);
         current_date = current_date.succ_opt().unwrap();
     }
-    println!("Days in range: {:?}", days);
+    println!("Days in range: {days:?}");
 
     // Prepare per–column accumulators.
     let mut col_chunks: HashMap<String, Vec<ZeroCopyChunk>> = HashMap::new();
@@ -273,10 +275,7 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
         let time_mmap = match load_mmap(&time_path).await {
             Ok(mmap) => mmap,
             Err(e) => {
-                println!(
-                    "Warning: Could not load time file {}: {}. Skipping day.",
-                    time_path, e
-                );
+                println!("Warning: Could not load time file {time_path}: {e}. Skipping day.");
                 continue;
             }
         };
@@ -318,9 +317,9 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
         }
 
         if is_sorted {
-            println!("Day {}: time array is sorted.", date_suffix);
+            println!("Day {date_suffix}: time array is sorted.");
         } else {
-            println!("Day {}: time array has unsorted jumps.", date_suffix);
+            println!("Day {date_suffix}: time array has unsorted jumps.");
         }
 
         // if (!time_slice.windows(2).all(|w| w[0] <= w[1])) {
@@ -331,7 +330,7 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
         let day_first = time_slice[0];
         let day_last = time_slice[num_time_records - 1];
         if query_params.end < day_first || query_params.start > day_last {
-            println!("No overlap for day {}.", date_suffix);
+            println!("No overlap for day {date_suffix}.");
             continue;
         }
 
@@ -341,13 +340,12 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
         let start_idx = find_start_index(time_slice, effective_start);
         let end_idx = find_end_index(time_slice, effective_end);
         if start_idx >= num_time_records || start_idx > end_idx {
-            println!("Invalid time slice for day {}.", date_suffix);
+            println!("Invalid time slice for day {date_suffix}.");
             continue;
         }
         let day_num_records = end_idx - start_idx + 1;
         println!(
-            "Day {}: start_idx = {}, end_idx = {}, num_records = {}",
-            date_suffix, start_idx, end_idx, day_num_records
+            "Day {date_suffix}: start_idx = {start_idx}, end_idx = {end_idx}, num_records = {day_num_records}"
         );
 
         // For each requested column, load its day–specific file and extract the slice.
@@ -361,15 +359,14 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
                         .unwrap());
                 }
             };
-            let file_path = format!("{}/{}.{}.bin", base_path, col, date_suffix);
+            let file_path = format!("{base_path}/{col}.{date_suffix}.bin");
             let mmap = match load_mmap(&file_path).await {
                 Ok(m) => m,
                 Err(e) => {
                     return Ok(Response::builder()
                         .status(StatusCode::INTERNAL_SERVER_ERROR)
                         .body(Body::from(format!(
-                            "Error loading column {} for day {}: {}",
-                            col, date_suffix, e
+                            "Error loading column {col} for day {date_suffix}: {e}"
                         )))
                         .unwrap());
                 }
@@ -378,15 +375,13 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
             let offset = start_idx * record_size;
             let length = day_num_records * record_size;
             println!(
-                "Day {} column '{}': record_size = {}, offset = {}, length = {}",
-                date_suffix, col, record_size, offset, length
+                "Day {date_suffix} column '{col}': record_size = {record_size}, offset = {offset}, length = {length}"
             );
             if offset + length > mmap.len() {
                 return Ok(Response::builder()
                     .status(StatusCode::INTERNAL_SERVER_ERROR)
                     .body(Body::from(format!(
-                        "Column {} file for day {} is too short",
-                        col, date_suffix
+                        "Column {col} file for day {date_suffix} is too short"
                     )))
                     .unwrap());
             }
@@ -442,7 +437,7 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
     println!("Response prepared.");
 
     let duration = start_time.elapsed(); // End timing
-    println!("Request handled in {:?}", duration);
+    println!("Request handled in {duration:?}");
 
     Ok(response)
 }

@@ -145,10 +145,11 @@ Returns available trading symbols from the data directory.
 ## Security Configuration
 
 ### TLS Setup
-- **Certificates**: Development certificates included (localhost.crt/key)
+- **Certificates**: Auto-generated during Docker build (no pre-existing files needed)
 - **Modern TLS**: rustls for memory-safe TLS implementation
 - **ALPN Support**: HTTP/2 and HTTP/1.1 protocol negotiation
 - **Certificate Loading**: Supports both .crt/.key and .pem formats
+- **Build-time Generation**: Certificates created with proper SANs for Docker networking
 
 ### CORS Configuration
 - **Wildcard Origins**: `Access-Control-Allow-Origin: *`
@@ -256,7 +257,7 @@ bytes = "1.0"                                       # Zero-copy byte handling
 
 ### Build Requirements
 - **Target Platform**: Must use `x86_64-unknown-linux-gnu` for native performance
-- **SSL Certificates**: Required for HTTPS (localhost.crt/key included)
+- **SSL Certificates**: Generated automatically during Docker build
 - **Data Directory**: Expects `/mnt/md/data/` structure or configure path
 - **Memory Permissions**: May require increased memory limits for large datasets
 
@@ -298,12 +299,12 @@ bytes = "1.0"                                       # Zero-copy byte handling
 ## Deployment Considerations
 
 ### Development Deployment
-- SSL certificates included for localhost development
+- SSL certificates auto-generated during Docker build
 - Default port 8443 (configurable)
 - Expects data in `/mnt/md/data/` (or configure alternative path)
 
 ### Production Deployment
-- Replace development certificates with production certificates
+- Mount production certificates to override auto-generated ones
 - Configure proper data directory paths
 - Consider file permissions and security
 - Monitor memory usage and file handle limits
