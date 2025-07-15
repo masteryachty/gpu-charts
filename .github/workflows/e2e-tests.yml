@@ -79,8 +79,6 @@ jobs:
     
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
-      with:
-        targets: x86_64-unknown-linux-gnu
     
     - name: Install system dependencies
       run: |
@@ -99,17 +97,17 @@ jobs:
     - name: Build server
       run: |
         cd server
-        cargo build --target x86_64-unknown-linux-gnu
+        cargo build --release
     
     - name: Run server unit and integration tests
       run: |
         cd server
-        cargo test --target x86_64-unknown-linux-gnu --verbose
+        cargo test --verbose
     
     - name: Generate test coverage report
       run: |
         cd server
-        cargo test --target x86_64-unknown-linux-gnu -- --nocapture
+        cargo test -- --nocapture
 
   # Coinbase Logger Tests  
   coinbase-logger-tests:
@@ -121,8 +119,6 @@ jobs:
     
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
-      with:
-        targets: x86_64-unknown-linux-gnu
     
     - name: Install system dependencies
       run: |
@@ -141,17 +137,17 @@ jobs:
     - name: Build coinbase-logger
       run: |
         cd coinbase-logger
-        cargo build --target x86_64-unknown-linux-gnu
+        cargo build --release
     
     - name: Run coinbase-logger comprehensive test suite
       run: |
         cd coinbase-logger
-        cargo test --target x86_64-unknown-linux-gnu --verbose
+        cargo test --verbose
     
     - name: Run coinbase-logger test coverage
       run: |
         cd coinbase-logger
-        cargo test --target x86_64-unknown-linux-gnu -- --nocapture
+        cargo test -- --nocapture
 
   # Frontend E2E Tests
   frontend-tests:
@@ -287,10 +283,10 @@ jobs:
         ls -la web/dist/
         
         echo "=== Server Build Artifacts ==="
-        ls -la server/target/x86_64-unknown-linux-gnu/release/
+        ls -la server/target/release/
         
         echo "=== Coinbase Logger Build Artifacts ==="
-        ls -la coinbase-logger/target/x86_64-unknown-linux-gnu/release/
+        ls -la coinbase-logger/target/release/
     
     - uses: actions/upload-artifact@v4
       with:
@@ -298,6 +294,6 @@ jobs:
         path: |
           web/pkg/
           web/dist/
-          server/target/x86_64-unknown-linux-gnu/release/ultra_low_latency_server_chunked_parallel
-          coinbase-logger/target/x86_64-unknown-linux-gnu/release/
+          server/target/release/ultra_low_latency_server_chunked_parallel
+          coinbase-logger/target/release/
         retention-days: 30
