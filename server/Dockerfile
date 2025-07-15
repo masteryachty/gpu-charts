@@ -10,10 +10,10 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /usr/src/app
 
 # Copy only server-specific files
-COPY Cargo.toml ./Cargo.toml
-COPY Cargo.lock ./Cargo.lock
-COPY build.rs ./
-COPY config.toml ./
+COPY server/Cargo.toml ./Cargo.toml
+COPY server/Cargo.lock ./Cargo.lock
+COPY server/build.rs ./
+COPY server/config.toml ./
 
 # Create dummy source files for dependency caching
 RUN mkdir -p src && \
@@ -25,7 +25,7 @@ RUN cargo build --release --target x86_64-unknown-linux-gnu && \
     rm -rf src
 
 # Copy actual source code
-COPY src ./src
+COPY server/src ./src
 
 # Build the application
 RUN touch src/main.rs src/lib.rs && \
