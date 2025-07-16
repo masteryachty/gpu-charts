@@ -11,7 +11,7 @@ pub async fn start_health_server() {
         .and_then(health_check)
         .with(warp::cors().allow_any_origin());
 
-    println!("Starting health check server on port {}", HEALTH_CHECK_PORT);
+    println!("Starting health check server on port {HEALTH_CHECK_PORT}");
 
     warp::serve(health_route)
         .run(([0, 0, 0, 0], HEALTH_CHECK_PORT))
@@ -30,8 +30,8 @@ async fn health_check() -> Result<impl Reply, Rejection> {
             StatusCode::SERVICE_UNAVAILABLE,
         ),
         Err(e) => {
-            eprintln!("Health check error: {}", e);
-            (format!("ERROR: {}", e), StatusCode::INTERNAL_SERVER_ERROR)
+            eprintln!("Health check error: {e}");
+            (format!("ERROR: {e}"), StatusCode::INTERNAL_SERVER_ERROR)
         }
     };
 
