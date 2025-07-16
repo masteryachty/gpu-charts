@@ -1,4 +1,6 @@
-use coinbase_logger::{connection::ConnectionHandler, start_health_server, websocket::get_all_products};
+use coinbase_logger::{
+    connection::ConnectionHandler, start_health_server, websocket::get_all_products,
+};
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 
@@ -7,7 +9,7 @@ const CONNECTIONS_COUNT: usize = 10;
 #[tokio::main(flavor = "multi_thread", worker_threads = 4)]
 async fn main() -> Result<(), Error> {
     println!("Starting coinbase-logger...");
-    
+
     // Start health check server in background
     tokio::spawn(async {
         start_health_server().await;

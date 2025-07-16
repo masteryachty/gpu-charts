@@ -20,7 +20,7 @@ pub fn calculate_min_max_y(
     let active_group = match data_store.get_active_data_group() {
         Some(group) => group,
         None => {
-            log::warn!("No active data group available for min/max calculation");
+            // log::warn!("No active data group available for min/max calculation");
             // Return empty buffers as fallback
             let staging_buffer_size = (2 * std::mem::size_of::<f32>()) as u64;
             let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {

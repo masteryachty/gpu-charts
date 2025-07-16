@@ -12,7 +12,7 @@ pub async fn start_health_server() {
         .with(warp::cors().allow_any_origin());
 
     println!("Starting health check server on port {}", HEALTH_CHECK_PORT);
-    
+
     warp::serve(health_route)
         .run(([0, 0, 0, 0], HEALTH_CHECK_PORT))
         .await;
@@ -31,13 +31,10 @@ async fn health_check() -> Result<impl Reply, Rejection> {
         ),
         Err(e) => {
             eprintln!("Health check error: {}", e);
-            (
-                format!("ERROR: {}", e),
-                StatusCode::INTERNAL_SERVER_ERROR,
-            )
+            (format!("ERROR: {}", e), StatusCode::INTERNAL_SERVER_ERROR)
         }
     };
-    
+
     Ok(warp::reply::with_status(message, status))
 }
 
@@ -45,34 +42,34 @@ async fn check_recent_file_writes() -> Result<bool, Box<dyn std::error::Error + 
     let data_dir = "/mnt/md/data";
     let now = SystemTime::now();
     let max_age = Duration::from_secs(MAX_FILE_AGE_SECONDS);
-    
+
     // Check if the data directory exists
     if !Path::new(data_dir).exists() {
         return Ok(false);
     }
-    
+
     // Read the data directory
     let mut entries = fs::read_dir(data_dir).await?;
-    
+
     while let Some(entry) = entries.next_entry().await? {
         let path = entry.path();
-        
+
         // Only check directories (symbol directories)
         if path.is_dir() {
             let md_path = path.join("MD");
-            
+
             if md_path.exists() {
                 // Check for recent .bin files in the MD directory
                 let mut md_entries = fs::read_dir(&md_path).await?;
-                
+
                 while let Some(md_entry) = md_entries.next_entry().await? {
                     let file_path = md_entry.path();
-                    
+
                     // Check if it's a .bin file
                     if file_path.extension().and_then(|s| s.to_str()) == Some("bin") {
                         // Get file metadata
                         let metadata = fs::metadata(&file_path).await?;
-                        
+
                         // Check last modified time
                         if let Ok(modified) = metadata.modified() {
                             if let Ok(age) = now.duration_since(modified) {
@@ -87,7 +84,7 @@ async fn check_recent_file_writes() -> Result<bool, Box<dyn std::error::Error + 
             }
         }
     }
-    
+
     // No recent file writes found
     Ok(false)
 }
