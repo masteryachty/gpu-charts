@@ -81,100 +81,100 @@ jobs:
           repository: ${{ secrets.DOCKER_USERNAME }}/gpu-charts-server-production
           readme-filepath: ./server/README-PRODUCTION.md
 
-  deploy:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-    
-    steps:
-      - name: Deploy to production server
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.PRODUCTION_HOST }}
-          username: ${{ secrets.PRODUCTION_USER }}
-          key: ${{ secrets.PRODUCTION_SSH_KEY }}
-          port: ${{ secrets.PRODUCTION_SSH_PORT || 22 }}
-          script: |
-            # Pull latest image
-            docker pull ${{ env.PRODUCTION_IMAGE_NAME }}:latest
-            
-            # Stop existing container
-            docker stop gpu-charts-server-production || true
-            docker rm gpu-charts-server-production || true
-            
-            # Start new container with Let's Encrypt support
-            docker run -d \
-              --name gpu-charts-server-production \
-              --restart unless-stopped \
-              -p 80:80 \
-              -p 8443:8443 \
-              -v /var/lib/letsencrypt:/etc/letsencrypt \
-              -v /var/log/letsencrypt:/var/log \
-              -v /mnt/md/data:/mnt/md/data:ro \
-              -e DOMAIN=${{ secrets.PRODUCTION_DOMAIN || 'api.rednax.io' }} \
-              -e EMAIL=${{ secrets.PRODUCTION_EMAIL || 'admin@rednax.io' }} \
-              -e USE_LETSENCRYPT=true \
-              -e LETSENCRYPT_STAGING=${{ github.event.inputs.use_staging || 'false' }} \
-              -e AUTO_RENEW=true \
-              ${{ env.PRODUCTION_IMAGE_NAME }}:latest
-            
-            # Wait for container to start
-            sleep 10
-            
-            # Check if container is running
-            if docker ps | grep -q gpu-charts-server-production; then
-              echo "✅ Production server started successfully"
-              
-              # Check SSL certificate
-              timeout 30 bash -c 'until curl -k https://localhost:8443/api/symbols; do sleep 2; done'
-              echo "✅ SSL endpoint is responding"
-              
-              # Show container logs
-              docker logs --tail 50 gpu-charts-server-production
-            else
-              echo "❌ Production server failed to start"
-              docker logs gpu-charts-server-production
-              exit 1
-            fi
+  # deploy:
+  #   needs: build-and-push
+  #   runs-on: ubuntu-latest
+  #   if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+  #   
+  #   steps:
+  #     - name: Deploy to production server
+  #       uses: appleboy/ssh-action@v1.0.0
+  #       with:
+  #         host: ${{ secrets.PRODUCTION_HOST }}
+  #         username: ${{ secrets.PRODUCTION_USER }}
+  #         key: ${{ secrets.PRODUCTION_SSH_KEY }}
+  #         port: ${{ secrets.PRODUCTION_SSH_PORT || 22 }}
+  #         script: |
+  #           # Pull latest image
+  #           docker pull ${{ env.PRODUCTION_IMAGE_NAME }}:latest
+  #           
+  #           # Stop existing container
+  #           docker stop gpu-charts-server-production || true
+  #           docker rm gpu-charts-server-production || true
+  #           
+  #           # Start new container with Let's Encrypt support
+  #           docker run -d \
+  #             --name gpu-charts-server-production \
+  #             --restart unless-stopped \
+  #             -p 80:80 \
+  #             -p 8443:8443 \
+  #             -v /var/lib/letsencrypt:/etc/letsencrypt \
+  #             -v /var/log/letsencrypt:/var/log \
+  #             -v /mnt/md/data:/mnt/md/data:ro \
+  #             -e DOMAIN=${{ secrets.PRODUCTION_DOMAIN || 'api.rednax.io' }} \
+  #             -e EMAIL=${{ secrets.PRODUCTION_EMAIL || 'admin@rednax.io' }} \
+  #             -e USE_LETSENCRYPT=true \
+  #             -e LETSENCRYPT_STAGING=${{ github.event.inputs.use_staging || 'false' }} \
+  #             -e AUTO_RENEW=true \
+  #             ${{ env.PRODUCTION_IMAGE_NAME }}:latest
+  #           
+  #           # Wait for container to start
+  #           sleep 10
+  #           
+  #           # Check if container is running
+  #           if docker ps | grep -q gpu-charts-server-production; then
+  #             echo "✅ Production server started successfully"
+  #             
+  #             # Check SSL certificate
+  #             timeout 30 bash -c 'until curl -k https://localhost:8443/api/symbols; do sleep 2; done'
+  #             echo "✅ SSL endpoint is responding"
+  #             
+  #             # Show container logs
+  #             docker logs --tail 50 gpu-charts-server-production
+  #           else
+  #             echo "❌ Production server failed to start"
+  #             docker logs gpu-charts-server-production
+  #             exit 1
+  #           fi
 
-  health-check:
-    needs: deploy
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-    
-    steps:
-      - name: Health check production endpoint
-        run: |
-          # Wait for deployment to complete
-          sleep 30
-          
-          # Test HTTPS endpoint
-          DOMAIN=${{ secrets.PRODUCTION_DOMAIN || 'api.rednax.io' }}
-          
-          echo "Testing HTTPS endpoint: https://$DOMAIN:8443"
-          
-          # Test symbols endpoint
-          if curl -f -s "https://$DOMAIN:8443/api/symbols" > /dev/null; then
-            echo "✅ Symbols endpoint is healthy"
-          else
-            echo "❌ Symbols endpoint failed"
-            exit 1
-          fi
-          
-          # Test data endpoint
-          if curl -f -s "https://$DOMAIN:8443/api/data?symbol=BTC-USD&type=MD&start=1&end=2&columns=time" > /dev/null; then
-            echo "✅ Data endpoint is healthy"
-          else
-            echo "❌ Data endpoint failed"
-            exit 1
-          fi
-          
-          # Test SSL certificate
-          echo "Testing SSL certificate..."
-          if echo | openssl s_client -servername "$DOMAIN" -connect "$DOMAIN:8443" 2>/dev/null | openssl x509 -noout -text | grep -q "Let's Encrypt"; then
-            echo "✅ Let's Encrypt certificate is active"
-          else
-            echo "⚠️  Certificate may not be from Let's Encrypt (could be self-signed for testing)"
-          fi
-          
-          echo "🎉 Production deployment successful!"
+  # health-check:
+  #   needs: deploy
+  #   runs-on: ubuntu-latest
+  #   if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+  #   
+  #   steps:
+  #     - name: Health check production endpoint
+  #       run: |
+  #         # Wait for deployment to complete
+  #         sleep 30
+  #         
+  #         # Test HTTPS endpoint
+  #         DOMAIN=${{ secrets.PRODUCTION_DOMAIN || 'api.rednax.io' }}
+  #         
+  #         echo "Testing HTTPS endpoint: https://$DOMAIN:8443"
+  #         
+  #         # Test symbols endpoint
+  #         if curl -f -s "https://$DOMAIN:8443/api/symbols" > /dev/null; then
+  #           echo "✅ Symbols endpoint is healthy"
+  #         else
+  #           echo "❌ Symbols endpoint failed"
+  #           exit 1
+  #         fi
+  #         
+  #         # Test data endpoint
+  #         if curl -f -s "https://$DOMAIN:8443/api/data?symbol=BTC-USD&type=MD&start=1&end=2&columns=time" > /dev/null; then
+  #           echo "✅ Data endpoint is healthy"
+  #         else
+  #           echo "❌ Data endpoint failed"
+  #           exit 1
+  #         fi
+  #         
+  #         # Test SSL certificate
+  #         echo "Testing SSL certificate..."
+  #         if echo | openssl s_client -servername "$DOMAIN" -connect "$DOMAIN:8443" 2>/dev/null | openssl x509 -noout -text | grep -q "Let's Encrypt"; then
+  #           echo "✅ Let's Encrypt certificate is active"
+  #         else
+  #           echo "⚠️  Certificate may not be from Let's Encrypt (could be self-signed for testing)"
+  #         fi
+  #         
+  #         echo "🎉 Production deployment successful!"
