@@ -62,12 +62,12 @@ jobs:
       - name: Run Clippy (server)
         run: |
           cd server
-          cargo clippy -- -D warnings
+          cargo clippy --target x86_64-unknown-linux-gnu -- -D warnings
       
       - name: Run Clippy (coinbase-logger)
         run: |
           cd coinbase-logger
-          cargo clippy -- -D warnings
+          cargo clippy --target x86_64-unknown-linux-gnu -- -D warnings
 
   # API Server Tests
   server-tests:
