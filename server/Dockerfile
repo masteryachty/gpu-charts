@@ -1,5 +1,23 @@
+# Chef stage for better dependency caching
+FROM rust:1.82-slim AS chef
+RUN cargo install cargo-chef --locked
+WORKDIR /usr/src/app
+
+# Planner stage
+FROM chef AS planner
+COPY Cargo.toml ./Cargo.toml
+COPY Cargo.lock ./Cargo.lock
+COPY build.rs ./
+COPY config.toml ./
+
+# Remove workspace configuration from Cargo.toml if present
+RUN sed -i '/\[workspace\]/d' ./Cargo.toml && \
+    sed -i '/workspace\./d' ./Cargo.toml
+
+RUN cargo chef prepare --recipe-path recipe.json
+
 # Build stage
-FROM rust:1.82-slim AS builder
+FROM chef AS builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
@@ -7,33 +25,26 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /usr/src/app
+COPY --from=planner /usr/src/app/recipe.json recipe.json
 
-# Copy only server-specific files
-COPY server/Cargo.toml ./Cargo.toml
-COPY server/Cargo.lock ./Cargo.lock
-COPY server/build.rs ./
-COPY server/config.toml ./
+# Build dependencies with cargo-chef (much better caching)
+RUN CARGO_NET_GIT_FETCH_WITH_CLI=true cargo chef cook --release --recipe-path recipe.json --jobs $(nproc)
+
+# Copy project files
+COPY Cargo.toml ./Cargo.toml
+COPY Cargo.lock ./Cargo.lock
+COPY build.rs ./
+COPY config.toml ./
 
 # Remove workspace configuration from Cargo.toml if present
 RUN sed -i '/\[workspace\]/d' ./Cargo.toml && \
     sed -i '/workspace\./d' ./Cargo.toml
 
-# Create dummy source files for dependency caching
-RUN mkdir -p src && \
-    echo "fn main() {}" > src/main.rs && \
-    echo "pub fn lib() {}" > src/lib.rs
-
-# Build dependencies
-RUN cargo build --release && \
-    rm -rf src
-
 # Copy actual source code
-COPY server/src ./src
+COPY src ./src
 
-# Build the application
-RUN touch src/main.rs src/lib.rs && \
-    cargo build --release
+# Build the application with parallel compilation
+RUN CARGO_NET_GIT_FETCH_WITH_CLI=true cargo build --release --jobs $(nproc)
 
 # Runtime stage
 FROM debian:bookworm-slim
@@ -57,7 +68,7 @@ WORKDIR /app
 COPY --from=builder /usr/src/app/target/release/ultra_low_latency_server_chunked_parallel /app/server
 
 # Copy certificate generation script
-COPY server/generate-certs.sh /tmp/
+COPY generate-certs.sh /tmp/
 
 # Generate SSL certificates during build
 RUN chmod +x /tmp/generate-certs.sh && \

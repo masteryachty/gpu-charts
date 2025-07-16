@@ -33,9 +33,11 @@ openssl req -new -x509 -key "$KEY_FILE" -out "$CERT_FILE" -days "$CERT_VALIDITY_
         echo 'DNS.1 = localhost'
         echo 'DNS.2 = gpu-charts-server'
         echo 'DNS.3 = *.local'
+        echo 'DNS.4 = api.rednax.io'
         echo 'IP.1 = 127.0.0.1'
         echo 'IP.2 = ::1'
         echo 'IP.3 = 0.0.0.0'
+        echo 'IP.4 = 192.168.1.91'
     )
 
 # Set proper permissions

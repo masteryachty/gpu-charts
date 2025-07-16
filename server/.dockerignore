@@ -1,0 +1,73 @@
+# Rust build artifacts
+target/
+**/*.rs.bk
+
+# Dependency directories
+node_modules/
+web/
+charting/
+file_server/
+coinbase-logger/
+scripts/
+
+# Git files
+.git/
+.gitignore
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation
+*.md
+docs/
+
+# Test files
+tests/
+test_data/
+
+# Build artifacts
+*.o
+*.so
+*.a
+*.dylib
+*.dll
+*.exe
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.log
+
+# SSL certificates (generated during build)
+*.crt
+*.key
+*.pem
+
+# Configuration files (except required ones)
+.env
+.env.local
+*.toml.backup
+
+# Cache directories
+.cache/
+.cargo/registry/
+.cargo/git/
+
+# Package manager files
+package-lock.json
+yarn.lock
+Cargo.lock.backup
+
+# CI/CD files
+.github/
+.gitlab-ci.yml
+.travis.yml
