@@ -94,8 +94,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD timeout 5s bash -c ':> /dev/tcp/127.0.0.1/8443' || exit 1
 
 # Environment variables for production
-ENV SSL_CERT_PATH=/app/certs/localhost.crt
-ENV SSL_KEY_PATH=/app/certs/localhost.key
+# SSL paths are set by the application, not environment variables
 ENV DATA_PATH=/mnt/md/data
 ENV WEBROOT_PATH=/app/webroot
 ENV DOMAIN=api.rednax.io
