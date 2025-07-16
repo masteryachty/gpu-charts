@@ -28,7 +28,7 @@ RUN apt-get update && apt-get install -y \
 COPY --from=planner /usr/src/app/recipe.json recipe.json
 
 # Build dependencies with cargo-chef (much better caching)
-RUN CARGO_NET_GIT_FETCH_WITH_CLI=true cargo chef cook --release --recipe-path recipe.json --jobs $(nproc)
+RUN CARGO_NET_GIT_FETCH_WITH_CLI=true cargo chef cook --release --recipe-path recipe.json
 
 # Copy project files
 COPY Cargo.toml ./Cargo.toml
