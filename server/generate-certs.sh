@@ -18,7 +18,7 @@ mkdir -p "$CERT_DIR"
 # Generate private key
 openssl genrsa -out "$KEY_FILE" 2048
 
-# Generate self-signed certificate with proper extensions
+# Generate self-signed certificate with Chrome-compatible extensions
 openssl req -new -x509 -key "$KEY_FILE" -out "$CERT_FILE" -days "$CERT_VALIDITY_DAYS" \
     -subj "/CN=localhost" \
     -extensions v3_req \
@@ -26,7 +26,8 @@ openssl req -new -x509 -key "$KEY_FILE" -out "$CERT_FILE" -days "$CERT_VALIDITY_
         echo '[req]'
         echo 'distinguished_name = req'
         echo '[v3_req]'
-        echo 'keyUsage = keyEncipherment, dataEncipherment'
+        echo 'basicConstraints = CA:FALSE'
+        echo 'keyUsage = critical, digitalSignature, keyEncipherment'
         echo 'extendedKeyUsage = serverAuth'
         echo 'subjectAltName = @alt_names'
         echo '[alt_names]'
