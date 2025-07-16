@@ -1,21 +1,16 @@
 name: Build and Publish GPU Charts Server
 
 on:
-  push:
-    branches:
-      - main
-      - master
-    paths:
-      - 'server/**'
-      - '.github/workflows/docker-publish-server.yml'
-  pull_request:
-    branches:
-      - main
-      - master
-    paths:
-      - 'server/**'
-      - '.github/workflows/docker-publish-server.yml'
+  # Only trigger manually for legacy server builds
   workflow_dispatch:
+  # Remove automatic triggers to avoid conflicts with production workflow
+  # push:
+  #   branches:
+  #     - main
+  #     - master
+  #   paths:
+  #     - 'server/**'
+  #     - '.github/workflows/docker-publish-server.yml'
 
 env:
   REGISTRY: docker.io
