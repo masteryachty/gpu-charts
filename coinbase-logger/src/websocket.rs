@@ -10,7 +10,7 @@ use crate::Result;
 
 pub async fn get_all_products() -> Result<Vec<String>> {
     eprintln!("DEBUG: get_all_products() called");
-    
+
     // Try REST API first as fallback
     eprintln!("DEBUG: Attempting REST API approach");
     match get_products_from_rest_api().await {
@@ -40,10 +40,10 @@ async fn get_products_from_rest_api() -> Result<Vec<String>> {
 
     println!("Creating reqwest client...");
     eprintln!("DEBUG: Building HTTP client");
-    
+
     // Create a client with custom settings for better debugging
     let client = match reqwest::Client::builder()
-        .danger_accept_invalid_certs(true)  // Accept any cert for debugging
+        .danger_accept_invalid_certs(true) // Accept any cert for debugging
         .timeout(std::time::Duration::from_secs(30))
         .user_agent("coinbase-logger/1.0")
         .build()
@@ -60,7 +60,7 @@ async fn get_products_from_rest_api() -> Result<Vec<String>> {
 
     println!("Making GET request to https://api.exchange.coinbase.com/products");
     eprintln!("DEBUG: Sending HTTP request...");
-    
+
     let response = match client
         .get("https://api.exchange.coinbase.com/products")
         .send()
@@ -68,7 +68,11 @@ async fn get_products_from_rest_api() -> Result<Vec<String>> {
     {
         Ok(resp) => {
             println!("HTTP request successful, status: {}", resp.status());
-            eprintln!("DEBUG: Response status: {}, headers: {:?}", resp.status(), resp.headers());
+            eprintln!(
+                "DEBUG: Response status: {}, headers: {:?}",
+                resp.status(),
+                resp.headers()
+            );
             resp
         }
         Err(e) => {
@@ -104,7 +108,7 @@ async fn get_products_from_rest_api() -> Result<Vec<String>> {
         Err(e) => {
             println!("JSON parsing failed: {e:?}");
             eprintln!("DEBUG: JSON parse error: {e:?}");
-            eprintln!("DEBUG: Raw response: {}", response_text);
+            eprintln!("DEBUG: Raw response: {response_text}");
             return Err(format!("JSON parsing failed: {e}").into());
         }
     };
@@ -128,7 +132,7 @@ async fn get_products_from_rest_api() -> Result<Vec<String>> {
         println!("Found {} online products", products.len());
         Ok(products)
     } else {
-        eprintln!("DEBUG: Response is not an array. Type: {:?}", json_result);
+        eprintln!("DEBUG: Response is not an array. Type: {json_result:?}");
         Err("Invalid response format from REST API".into())
     }
 }
