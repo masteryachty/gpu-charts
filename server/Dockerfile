@@ -5,10 +5,10 @@ WORKDIR /usr/src/app
 
 # Planner stage
 FROM chef AS planner
-COPY Cargo.toml ./Cargo.toml
-COPY Cargo.lock ./Cargo.lock
-COPY build.rs ./
-COPY config.toml ./
+COPY server/Cargo.toml ./Cargo.toml
+COPY server/Cargo.lock ./Cargo.lock
+COPY server/build.rs ./
+COPY server/config.toml ./
 
 # Remove workspace configuration from Cargo.toml if present
 RUN sed -i '/\[workspace\]/d' ./Cargo.toml && \
@@ -31,17 +31,17 @@ COPY --from=planner /usr/src/app/recipe.json recipe.json
 RUN CARGO_NET_GIT_FETCH_WITH_CLI=true cargo chef cook --release --recipe-path recipe.json
 
 # Copy project files
-COPY Cargo.toml ./Cargo.toml
-COPY Cargo.lock ./Cargo.lock
-COPY build.rs ./
-COPY config.toml ./
+COPY server/Cargo.toml ./Cargo.toml
+COPY server/Cargo.lock ./Cargo.lock
+COPY server/build.rs ./
+COPY server/config.toml ./
 
 # Remove workspace configuration from Cargo.toml if present
 RUN sed -i '/\[workspace\]/d' ./Cargo.toml && \
     sed -i '/workspace\./d' ./Cargo.toml
 
 # Copy actual source code
-COPY src ./src
+COPY server/src ./src
 
 # Build the application with parallel compilation
 RUN CARGO_NET_GIT_FETCH_WITH_CLI=true cargo build --release --jobs $(nproc)
@@ -68,7 +68,7 @@ WORKDIR /app
 COPY --from=builder /usr/src/app/target/release/ultra_low_latency_server_chunked_parallel /app/server
 
 # Copy certificate generation script
-COPY generate-certs.sh /tmp/
+COPY server/generate-certs.sh /tmp/
 
 # Generate SSL certificates during build
 RUN chmod +x /tmp/generate-certs.sh && \
@@ -86,11 +86,10 @@ EXPOSE 8443
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD timeout 5s bash -c ':> /dev/tcp/127.0.0.1/8443' || exit 1
 
-# Environment variables for production
-# Note: These are just paths, not actual secrets
-ENV SSL_CERT_PATH=/app/certs/localhost.crt
-ENV SSL_KEY_PATH=/app/certs/localhost.key
-ENV DATA_PATH=/mnt/md/data
+# Environment variables for production (file paths only)
+ENV SSL_CERT_PATH="/app/certs/localhost.crt" \
+    SSL_PRIVATE_FILE="/app/certs/localhost.key" \
+    DATA_PATH="/mnt/md/data"
 
 # Run the server
 CMD ["./server"]

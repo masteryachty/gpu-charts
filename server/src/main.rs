@@ -60,7 +60,7 @@ async fn service_handler(req: Request<Body>) -> Result<Response<Body>, Infallibl
 fn load_tls_config() -> Result<ServerConfig, Box<dyn std::error::Error>> {
     // Get certificate paths from environment or use defaults
     let cert_path = std::env::var("SSL_CERT_PATH").unwrap_or_else(|_| "localhost.crt".to_string());
-    let key_path = std::env::var("SSL_KEY_PATH").unwrap_or_else(|_| "localhost.key".to_string());
+    let key_path = std::env::var("SSL_PRIVATE_FILE").unwrap_or_else(|_| "localhost.key".to_string());
 
     let certs = load_certs(&cert_path)?;
     let key = load_private_key(&key_path)?;
