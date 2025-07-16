@@ -283,10 +283,10 @@ jobs:
         ls -la web/dist/
         
         echo "=== Server Build Artifacts ==="
-        ls -la server/target/release/
+        ls -la target/x86_64-unknown-linux-gnu/release/
         
         echo "=== Coinbase Logger Build Artifacts ==="
-        ls -la coinbase-logger/target/release/
+        ls -la target/x86_64-unknown-linux-gnu/release/
     
     - uses: actions/upload-artifact@v4
       with:
@@ -294,6 +294,6 @@ jobs:
         path: |
           web/pkg/
           web/dist/
-          server/target/release/ultra_low_latency_server_chunked_parallel
-          coinbase-logger/target/release/
+          target/x86_64-unknown-linux-gnu/release/ultra_low_latency_server_chunked_parallel
+          target/x86_64-unknown-linux-gnu/release/coinbase-logger
         retention-days: 30
