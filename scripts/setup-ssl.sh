@@ -52,8 +52,10 @@ generate_certificate() {
             echo '[alt_names]'
             echo 'DNS.1 = localhost'
             echo 'DNS.2 = 127.0.0.1'
+            echo 'DNS.3 = api.rednax.io'
             echo 'IP.1 = 127.0.0.1'
             echo 'IP.2 = ::1'
+            echo 'IP.3 = 192.168.1.91'
         )
     
     # Set proper permissions

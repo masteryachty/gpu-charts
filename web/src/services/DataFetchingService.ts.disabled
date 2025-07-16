@@ -296,7 +296,7 @@ export class DataFetchingService {
    * Build data server URL from request parameters
    */
   private buildDataServerUrl(request: DataFetchRequest): string {
-    const baseUrl = 'https://localhost:8443/api/data';
+    const baseUrl = 'https://192.168.1.91:8443/api/data';
     const params = new URLSearchParams({
       symbol: request.symbol,
       type: 'MD',

@@ -167,7 +167,7 @@ pub async fn fetch_data(
     };
 
     let url = format!(
-        "https://localhost:8443/api/data?symbol={}&type=MD&start={}&end={}&columns={}",
+        "https://192.168.1.91:8443/api/data?symbol={}&type=MD&start={}&end={}&columns={}",
         topic,
         start.to_string().as_str(),
         end.to_string().as_str(),

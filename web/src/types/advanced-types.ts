@@ -394,7 +394,7 @@ export function parseEnvironmentConfig(): EnvironmentConfig {
   
   return {
     NODE_ENV: (env.NODE_ENV as any) || 'development',
-    API_BASE_URL: env.REACT_APP_API_BASE_URL || 'https://localhost:8443',
+    API_BASE_URL: env.REACT_APP_API_BASE_URL || 'https://192.168.1.91:8443',
     ENABLE_DEBUG: env.REACT_APP_ENABLE_DEBUG === 'true',
     PERFORMANCE_MONITORING: env.REACT_APP_PERFORMANCE_MONITORING !== 'false'
   };

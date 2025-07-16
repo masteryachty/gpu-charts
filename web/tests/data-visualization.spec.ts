@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { GraphTestUtils } from './helpers/test-utils';
 
 // Test data constants based on your API structure
-const API_BASE = 'https://localhost:8443'; // Your TLS server
+const API_BASE = 'https://192.168.1.91:8443'; // Your TLS server
 const TEST_SYMBOLS = ['BTC', 'ETH', 'AAPL']; // Common symbols
 const TEST_TIME_RANGES = {
   SHORT: { start: 1745322750, end: 1745322850 }, // 100 seconds
