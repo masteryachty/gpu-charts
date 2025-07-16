@@ -19,11 +19,12 @@ COPY Cargo.toml Cargo.lock ./
 # Create dummy source files to build dependencies
 RUN mkdir src && \
     echo "fn main() {}" > src/main.rs && \
-    echo "pub mod connection; pub mod data_types; pub mod file_handlers; pub mod websocket; pub use connection::ConnectionHandler; pub use data_types::TickerData; pub use file_handlers::FileHandles; use std::error::Error; pub type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;" > src/lib.rs && \
-    mkdir src/connection src/data_types src/file_handlers src/websocket && \
+    echo "pub mod connection; pub mod data_types; pub mod file_handlers; pub mod health; pub mod websocket; pub use connection::ConnectionHandler; pub use data_types::TickerData; pub use file_handlers::FileHandles; pub use health::start_health_server; use std::error::Error; pub type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;" > src/lib.rs && \
+    mkdir src/connection src/data_types src/file_handlers src/health src/websocket && \
     echo "pub struct ConnectionHandler; impl ConnectionHandler { pub async fn new(_: usize, _: Vec<String>) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> { Ok(Self) } pub async fn run(&mut self) {} }" > src/connection.rs && \
     echo "pub struct TickerData;" > src/data_types.rs && \
     echo "pub struct FileHandles;" > src/file_handlers.rs && \
+    echo "pub async fn start_health_server() {}" > src/health.rs && \
     echo "pub async fn get_all_products() -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> { Ok(vec![]) }" > src/websocket.rs && \
     cargo build --release --target x86_64-unknown-linux-gnu && \
     rm -rf src
@@ -42,6 +43,7 @@ FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     libssl3 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security
@@ -67,9 +69,12 @@ WORKDIR /home/logger
 # Volume for data persistence
 VOLUME ["/mnt/md/data"]
 
-# Health check to ensure the process is running
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD pgrep -f coinbase-logger || exit 1
+# Expose health check port
+EXPOSE 8080
+
+# Health check using the HTTP endpoint
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
 
 # Run the application
 CMD ["coinbase-logger"]
