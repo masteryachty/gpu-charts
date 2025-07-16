@@ -1,4 +1,4 @@
-use coinbase_logger::{connection::ConnectionHandler, health::start_health_server, websocket::get_all_products};
+use coinbase_logger::{connection::ConnectionHandler, start_health_server, websocket::get_all_products};
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 

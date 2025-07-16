@@ -7,6 +7,7 @@ pub mod websocket;
 pub use connection::ConnectionHandler;
 pub use data_types::TickerData;
 pub use file_handlers::FileHandles;
+pub use health::start_health_server;
 
 use std::error::Error;
 
