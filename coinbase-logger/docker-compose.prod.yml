@@ -30,6 +30,10 @@ services:
     # Network mode
     network_mode: bridge
     
+    # Port mapping for health check endpoint
+    ports:
+      - "8080:8080"
+    
     # Environment variables
     environment:
       - TZ=${TZ:-UTC}

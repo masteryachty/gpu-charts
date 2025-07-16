@@ -345,6 +345,42 @@ eprintln!("{}: Error in WebSocket connection: {}. Reconnecting in 5 seconds...",
 ```
 
 ### Health Monitoring
+
+#### HTTP Health Check Endpoint
+The logger exposes an HTTP health check endpoint that verifies the application is actively writing data:
+
+- **Port**: 8080
+- **Endpoint**: `/health`
+- **Method**: GET
+- **Response Codes**:
+  - `200 OK`: Data files have been written within the last 60 seconds
+  - `503 Service Unavailable`: No recent file writes detected
+  - `500 Internal Server Error`: Error checking file status
+
+The health check:
+1. Scans the data directory for `.bin` files
+2. Checks if any file has been modified within the last 60 seconds
+3. Returns healthy status if recent writes are detected
+
+This health check is used by:
+- Docker's HEALTHCHECK directive
+- TrueNAS Scale app health monitoring
+- Kubernetes liveness/readiness probes
+- External monitoring systems
+
+Example usage:
+```bash
+# Check health status
+curl http://localhost:8080/health
+
+# Response when healthy:
+# OK: Data files are being written
+
+# Response when unhealthy:
+# UNHEALTHY: No recent file writes detected
+```
+
+#### Traditional Monitoring
 - **Connection Status**: Per-symbol connection monitoring
 - **Message Rates**: Real-time throughput tracking
 - **Error Rates**: Parse and connection error tracking
@@ -470,12 +506,9 @@ hexdump -C /mnt/md/data/BTC-USD/MD/time.07.06.25.bin | head
 # Using pre-built image from Docker Hub
 docker run -d \
   --name coinbase-logger \
-  -v ./data:/usr/src/app/data \
+  -v ./data:/mnt/md/data \
+  -p 8080:8080 \
   --security-opt no-new-privileges:true \
-  --health-cmd="test -f /usr/src/app/data/health" \
-  --health-interval=30s \
-  --health-timeout=3s \
-  --health-retries=3 \
   masteryachty/coinbase-logger:latest
 
 # Using Docker Compose (production)
@@ -489,10 +522,11 @@ docker compose up --build
 - **Multi-stage Build**: Optimized ~100MB images
 - **Multi-platform**: Supports linux/amd64 and linux/arm64
 - **Security**: Non-root user, minimal base image, security options
-- **Health Checks**: Built-in monitoring
+- **Health Checks**: HTTP endpoint on port 8080 for monitoring
 - **Resource Limits**: CPU (4 cores) and memory (2GB) limits
-- **Volume Management**: Persistent data storage
+- **Volume Management**: Persistent data storage at `/mnt/md/data`
 - **Automatic Restart**: Always restart policy
+- **Port Exposure**: Port 8080 for health check endpoint
 
 #### Docker Configuration
 ```yaml

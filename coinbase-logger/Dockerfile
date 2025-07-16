@@ -42,6 +42,7 @@ FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     libssl3 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security
@@ -67,9 +68,12 @@ WORKDIR /home/logger
 # Volume for data persistence
 VOLUME ["/mnt/md/data"]
 
-# Health check to ensure the process is running
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD pgrep -f coinbase-logger || exit 1
+# Expose health check port
+EXPOSE 8080
+
+# Health check using the HTTP endpoint
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
 
 # Run the application
 CMD ["coinbase-logger"]

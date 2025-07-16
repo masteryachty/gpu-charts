@@ -1,6 +1,7 @@
 pub mod connection;
 pub mod data_types;
 pub mod file_handlers;
+pub mod health;
 pub mod websocket;
 
 pub use connection::ConnectionHandler;
