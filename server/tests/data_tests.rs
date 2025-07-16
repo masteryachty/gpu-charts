@@ -28,13 +28,13 @@ async fn test_parse_query_params_missing_fields() {
 
 #[tokio::test]
 async fn test_get_record_size() {
-    assert_eq!(get_record_size("time"), Some(4));
-    assert_eq!(get_record_size("price"), Some(4));
-    assert_eq!(get_record_size("best_bid"), Some(4));
-    assert_eq!(get_record_size("best_ask"), Some(4));
-    assert_eq!(get_record_size("volume"), Some(4));
-    assert_eq!(get_record_size("side"), Some(4));
-    assert_eq!(get_record_size("unknown"), Some(4)); // default
+    assert_eq!(get_record_size("time"), 4);
+    assert_eq!(get_record_size("price"), 4);
+    assert_eq!(get_record_size("best_bid"), 4);
+    assert_eq!(get_record_size("best_ask"), 4);
+    assert_eq!(get_record_size("volume"), 4);
+    assert_eq!(get_record_size("side"), 4);
+    assert_eq!(get_record_size("unknown"), 4); // default
 }
 
 #[tokio::test]

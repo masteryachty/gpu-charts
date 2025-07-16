@@ -154,29 +154,23 @@ pub fn parse_query_params(query: Option<&str>) -> Result<QueryParams, String> {
 }
 
 /// Return the record size (in bytes) for a given column name.
-pub fn get_record_size(column: &str) -> Option<usize> {
-    match column {
-        "time" => Some(4),
-        "price" => Some(4),
-        "volume" => Some(4),
-        "best_bid" => Some(4),
-        "best_ask" => Some(4),
-        "side" => Some(4),
-        _ => Some(4), // default to 4 bytes for unknown columns
-    }
+#[must_use]
+pub fn get_record_size(_column: &str) -> usize {
+    4 // All columns are 4 bytes
 }
 
 /// Given a sorted slice of u32 values (the “time” column),
 /// return the first index whose value is >= target.
+#[must_use]
 pub fn find_start_index(time_slice: &[u32], target: u32) -> usize {
     match time_slice.binary_search(&target) {
-        Ok(idx) => idx,
-        Err(idx) => idx,
+        Ok(idx) | Err(idx) => idx,
     }
 }
 
 /// Given a sorted slice of u32 values (the “time” column),
 /// return the last index whose value is <= target.
+#[must_use]
 pub fn find_end_index(time_slice: &[u32], target: u32) -> usize {
     match time_slice.binary_search(&target) {
         Ok(idx) => idx,
@@ -200,7 +194,7 @@ pub async fn load_mmap(path: &str) -> Result<Mmap, String> {
 
         // Optionally lock the mmap pages in memory.
         unsafe {
-            let ret = libc::mlock(mmap.as_ptr() as *const libc::c_void, mmap.len());
+            let ret = libc::mlock(mmap.as_ptr().cast::<libc::c_void>(), mmap.len());
             if ret != 0 {
                 eprintln!("Warning: mlock failed for {path} (errno {ret})");
             }
@@ -238,8 +232,8 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
     );
 
     // Convert the query's start and end timestamps into UTC DateTime.
-    let start_dt = Utc.timestamp_opt(query_params.start as i64, 0).unwrap();
-    let end_dt = Utc.timestamp_opt(query_params.end as i64, 0).unwrap();
+    let start_dt = Utc.timestamp_opt(i64::from(query_params.start), 0).unwrap();
+    let end_dt = Utc.timestamp_opt(i64::from(query_params.end), 0).unwrap();
 
     println!("date: {start_dt:?}, {end_dt:?}");
 
@@ -291,7 +285,7 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
         }
         let num_time_records = time_mmap.len() / 4;
         let time_slice: &[u32] = unsafe {
-            std::slice::from_raw_parts(time_mmap.as_ptr() as *const u32, num_time_records)
+            std::slice::from_raw_parts(time_mmap.as_ptr().cast::<u32>(), num_time_records)
         };
         println!(
             "Day {}: first time = {}, last time = {}",
@@ -349,15 +343,7 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
 
         // For each requested column, load its day–specific file and extract the slice.
         for col in &query_params.columns {
-            let record_size = match get_record_size(col) {
-                Some(s) => s,
-                None => {
-                    return Ok(Response::builder()
-                        .status(StatusCode::BAD_REQUEST)
-                        .body(Body::from(format!("Unknown column: {col}")))
-                        .unwrap());
-                }
-            };
+            let record_size = get_record_size(col);
             let file_path = format!("{base_path}/{col}.{date_suffix}.bin");
             let mmap = match load_mmap(&file_path).await {
                 Ok(m) => m,
@@ -401,7 +387,7 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
     // Build the JSON header with aggregated metadata for each column.
     let mut columns_meta = Vec::with_capacity(query_params.columns.len());
     for col in &query_params.columns {
-        let record_size = get_record_size(col).unwrap();
+        let record_size = get_record_size(col);
         let num_records = *col_total_records.get(col).unwrap_or(&0);
         let data_length = *col_total_lengths.get(col).unwrap_or(&0);
         columns_meta.push(ColumnMeta {
