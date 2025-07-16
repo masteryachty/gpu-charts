@@ -10,14 +10,14 @@ services:
     ports:
       - "8443:8443"
     volumes:
-      # Mount data directory
-      - /mnt/md/data:/data:ro
+      # Mount data directory (coinbase-logger writes here)
+      - /home/xander/projects/gpu-charts/coinbase-logger/data:/data:ro
       # Mount SSL certificates (optional, can use built-in for dev)
       # - ./certs:/app/certs:ro
     environment:
       - RUST_LOG=info
       - SSL_CERT_PATH=/app/certs/localhost.crt
-      - SSL_KEY_PATH=/app/certs/localhost.key
+      - SSL_PRIVATE_FILE=/app/certs/localhost.key
       - DATA_PATH=/data
     networks:
       - gpu-charts-network

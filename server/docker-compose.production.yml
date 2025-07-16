@@ -34,7 +34,7 @@ services:
       # Application configuration
       - DATA_PATH=/mnt/md/data
       - SSL_CERT_PATH=/app/certs/localhost.crt
-      - SSL_KEY_PATH=/app/certs/localhost.key
+      - SSL_PRIVATE_FILE=/app/certs/localhost.key
       
       # Certificate user
       - CERT_USER=server
