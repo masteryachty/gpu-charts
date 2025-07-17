@@ -1,3 +1,6 @@
+# Multi-stage build for GPU Charts Server
+# Works both locally and from api.rednax.io
+
 # Chef stage for better dependency caching
 FROM rust:1.82-slim AS chef
 RUN cargo install cargo-chef --locked
@@ -28,23 +31,24 @@ RUN apt-get update && apt-get install -y \
 COPY --from=planner /usr/src/app/recipe.json recipe.json
 
 # Build dependencies with cargo-chef (much better caching)
-RUN CARGO_NET_GIT_FETCH_WITH_CLI=true cargo chef cook --release --recipe-path recipe.json
+ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
+RUN cargo chef cook --release --recipe-path recipe.json
 
-# Copy project files
+# Copy all project files
 COPY server/Cargo.toml ./Cargo.toml
 COPY server/Cargo.lock ./Cargo.lock
 COPY server/build.rs ./
 COPY server/config.toml ./
 
-# Remove workspace configuration from Cargo.toml if present
+# Remove workspace configuration
 RUN sed -i '/\[workspace\]/d' ./Cargo.toml && \
     sed -i '/workspace\./d' ./Cargo.toml
 
-# Copy actual source code
+# Copy source code
 COPY server/src ./src
 
-# Build the application with parallel compilation
-RUN CARGO_NET_GIT_FETCH_WITH_CLI=true cargo build --release --jobs $(nproc)
+# Build the application
+RUN cargo build --release --jobs $(nproc)
 
 # Runtime stage
 FROM debian:bookworm-slim
@@ -53,6 +57,7 @@ FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     openssl \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
@@ -67,29 +72,46 @@ WORKDIR /app
 # Copy the built binary
 COPY --from=builder /usr/src/app/target/release/ultra_low_latency_server_chunked_parallel /app/server
 
-# Copy certificate generation script
-COPY server/generate-certs.sh /tmp/
+# Conditionally copy certificates if they exist (for TLS mode)
+# Using a workaround since COPY doesn't support conditional operations
+RUN mkdir -p /app/certs && chown -R server:server /app/certs
 
-# Generate SSL certificates during build
-RUN chmod +x /tmp/generate-certs.sh && \
-    bash /tmp/generate-certs.sh && \
-    rm /tmp/generate-certs.sh && \
-    chown -R server:server /app/certs
+# Copy certificates directory - will be empty if no certs
+COPY server/certs /tmp/certs
+
+# Move certificates if they exist
+RUN if [ -f /tmp/certs/api.rednax.io.crt ] && [ -f /tmp/certs/api.rednax.io.key ]; then \
+        echo "Certificates found - TLS mode available"; \
+        cp /tmp/certs/api.rednax.io.crt /app/certs/localhost.crt; \
+        cp /tmp/certs/api.rednax.io.key /app/certs/localhost.key; \
+        chmod 644 /app/certs/localhost.crt; \
+        chmod 600 /app/certs/localhost.key; \
+    else \
+        echo "No certificates found - HTTP mode only"; \
+    fi && \
+    rm -rf /tmp/certs
+
+# Set permissions
+RUN chmod +x /app/server && \
+    chown -R server:server /app
+
+# Expose both HTTP and HTTPS ports
+EXPOSE 8080 8443
+
+# Environment variables
+# Optimized for Cloudflare Tunnel by default
+ENV SSL_CERT_PATH="/app/certs/localhost.crt" \
+    SSL_PRIVATE_FILE="/app/certs/localhost.key" \
+    DATA_PATH="/mnt/md/data" \
+    USE_TLS="false" \
+    PORT="8443"
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8443/api/symbols || exit 1
 
 # Switch to non-root user
 USER server
 
-# Expose HTTPS port
-EXPOSE 8443
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD timeout 5s bash -c ':> /dev/tcp/127.0.0.1/8443' || exit 1
-
-# Environment variables for production (file paths only)
-ENV SSL_CERT_PATH="/app/certs/localhost.crt" \
-    SSL_PRIVATE_FILE="/app/certs/localhost.key" \
-    DATA_PATH="/mnt/md/data"
-
-# Run the server
-CMD ["./server"]
+# Run the server directly
+CMD ["/app/server"]
