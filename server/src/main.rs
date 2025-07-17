@@ -102,41 +102,65 @@ fn load_private_key(path: &str) -> Result<PrivateKey, Box<dyn std::error::Error>
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Load TLS configuration.
-    let tls_config = load_tls_config()?;
-    let tls_acceptor = TlsAcceptor::from(Arc::new(tls_config));
+    // Check if we should use TLS or plain HTTP
+    let use_tls = std::env::var("USE_TLS")
+        .map(|v| v.to_lowercase() != "false")
+        .unwrap_or(true);
 
-    // Bind a TCP listener (port from env or default to 8443).
+    // Bind a TCP listener (default to 8443 for both modes)
     let port = std::env::var("PORT")
         .unwrap_or_else(|_| "8443".to_string())
         .parse::<u16>()
         .unwrap_or(8443);
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     let listener = TcpListener::bind(&addr).await?;
-    println!("Listening on https://{addr}");
-
-    loop {
-        let (stream, _peer_addr) = listener.accept().await?;
-        // Set TCP_NODELAY to disable Nagle’s algorithm.
-        stream.set_nodelay(true).ok();
-
-        let acceptor = tls_acceptor.clone();
-        // Spawn a task per connection.
-        tokio::spawn(async move {
-            let tls_stream = match acceptor.accept(stream).await {
-                Ok(s) => s,
-                Err(e) => {
-                    eprintln!("TLS accept error: {e:?}");
-                    return;
+    
+    if use_tls {
+        println!("Listening on https://{addr} (TLS enabled)");
+        
+        // Load TLS configuration
+        let tls_config = load_tls_config()?;
+        let tls_acceptor = TlsAcceptor::from(Arc::new(tls_config));
+        
+        loop {
+            let (stream, _peer_addr) = listener.accept().await?;
+            stream.set_nodelay(true).ok();
+            
+            let acceptor = tls_acceptor.clone();
+            tokio::spawn(async move {
+                let tls_stream = match acceptor.accept(stream).await {
+                    Ok(s) => s,
+                    Err(e) => {
+                        eprintln!("TLS accept error: {e:?}");
+                        return;
+                    }
+                };
+                if let Err(e) = Http::new()
+                    .http2_only(true)
+                    .serve_connection(tls_stream, service_fn(service_handler))
+                    .await
+                {
+                    eprintln!("Error serving connection: {e:?}");
                 }
-            };
-            if let Err(e) = Http::new()
-                .http2_only(true)
-                .serve_connection(tls_stream, service_fn(service_handler))
-                .await
-            {
-                eprintln!("Error serving connection: {e:?}");
-            }
-        });
+            });
+        }
+    } else {
+        println!("Listening on http://{addr} (HTTP/1.1 for Cloudflare Tunnel)");
+        
+        loop {
+            let (stream, _peer_addr) = listener.accept().await?;
+            stream.set_nodelay(true).ok();
+            
+            tokio::spawn(async move {
+                // Serve HTTP/1.1 only for Cloudflare Tunnel
+                if let Err(e) = Http::new()
+                    .http1_only(true)
+                    .serve_connection(stream, service_fn(service_handler))
+                    .await
+                {
+                    eprintln!("Error serving connection: {e:?}");
+                }
+            });
+        }
     }
 }

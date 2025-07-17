@@ -25,7 +25,7 @@ RUN mkdir src && \
     echo "pub struct TickerData;" > src/data_types.rs && \
     echo "pub struct FileHandles;" > src/file_handlers.rs && \
     echo "pub async fn start_health_server() {}" > src/health.rs && \
-    echo "pub async fn get_all_products() -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> { Ok(vec![]) }" > src/websocket.rs && \
+    echo "pub async fn get_all_products() -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> { unimplemented!() } pub fn create_websocket_config() -> tokio_tungstenite::tungstenite::protocol::WebSocketConfig { Default::default() }" > src/websocket.rs && \
     cargo build --release --target x86_64-unknown-linux-gnu && \
     rm -rf src
 

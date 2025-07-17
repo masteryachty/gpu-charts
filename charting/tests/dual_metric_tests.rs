@@ -76,7 +76,7 @@ fn test_known_metric_color_assignments() {
 #[wasm_bindgen_test]
 fn test_metric_selection_url_construction() {
     // Test that URL construction works with different metric combinations
-    let base_url = "https://localhost:8443/api/data";
+    let base_url = "https://api.rednax.io/api/data";
     let symbol = "BTC-USD";
     let start = 1234567890u32;
     let end = 1234567900u32;

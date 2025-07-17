@@ -455,3 +455,13 @@ target
 web/public/pkg/
 md/
 coinbase-logger/data
+
+# SSL/TLS Certificates - NEVER commit these
+server/certs/*.key
+server/certs/*.crt
+server/certs/*.pem
+server/localhost.key
+server/localhost.crt
+
+# Keep the certs directory itself
+!server/certs/.gitkeep
