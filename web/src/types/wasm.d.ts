@@ -41,6 +41,10 @@ declare module '@pkg/tutorial1_window' {
     handle_mouse_click(x: number, y: number, pressed: boolean): void;
     request_redraw(): void;
     set_data_range(start: number, end: number): void;
+    
+    // Chart type controls
+    set_chart_type(chart_type: string): void;
+    set_candle_timeframe(timeframe_seconds: number): void;
   }
 
   // Main chart class - uses WasmCanvas for full-featured rendering
@@ -97,6 +101,10 @@ declare module '@pkg/tutorial1_window.js' {
     handle_mouse_click(x: number, y: number, pressed: boolean): void;
     request_redraw(): void;
     set_data_range(start: number, end: number): void;
+    
+    // Chart type controls
+    set_chart_type(chart_type: string): void;
+    set_candle_timeframe(timeframe_seconds: number): void;
   }
 
   // Main chart class - uses WasmCanvas for full-featured rendering

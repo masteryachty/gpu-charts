@@ -251,6 +251,11 @@ impl RenderEngine {
     pub fn add_render_listener(&mut self, listener: Box<dyn RenderListener>) {
         self.render_listeners.push(listener);
     }
+    
+    // Clear all render listeners
+    pub fn clear_render_listeners(&mut self) {
+        self.render_listeners.clear();
+    }
 
     // Notify all listeners
     pub fn notify_render_listeners(

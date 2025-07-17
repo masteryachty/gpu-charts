@@ -9,6 +9,7 @@ pub struct ScreenDimensions {
 
 pub struct MetricSeries {
     pub y_buffers: Vec<wgpu::Buffer>,
+    pub y_raw: ArrayBuffer, // Raw data for CPU access
     pub color: [f32; 3],
     pub visible: bool,
     pub name: String, // e.g., "best_bid", "best_ask"
@@ -21,6 +22,12 @@ pub struct DataSeries {
     length: u32,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ChartType {
+    Line,
+    Candlestick,
+}
+
 pub struct DataStore {
     pub start_x: u32,
     pub end_x: u32,
@@ -31,6 +38,8 @@ pub struct DataStore {
     pub range_bind_group: Option<wgpu::BindGroup>,
     pub screen_size: ScreenDimensions,
     pub topic: Option<String>,
+    pub chart_type: ChartType,
+    pub candle_timeframe: u32, // in seconds
 }
 
 // pub struct Coord {
@@ -50,6 +59,8 @@ impl DataStore {
             range_bind_group: None,
             screen_size: ScreenDimensions { width, height },
             topic: None,
+            chart_type: ChartType::Line,
+            candle_timeframe: 60, // Default 1 minute
         }
     }
 
@@ -85,6 +96,7 @@ impl DataStore {
         if let Some(data_group) = self.data_groups.get_mut(group_index) {
             data_group.metrics.push(MetricSeries {
                 y_buffers: y_series.1,
+                y_raw: y_series.0,
                 color,
                 visible: true,
                 name,
@@ -275,6 +287,14 @@ impl DataStore {
     pub fn update_min_max_y(&mut self, min_y: f32, max_y: f32) {
         self.min_y = Some(min_y);
         self.max_y = Some(max_y);
+    }
+    
+    pub fn set_chart_type(&mut self, chart_type: ChartType) {
+        self.chart_type = chart_type;
+    }
+    
+    pub fn set_candle_timeframe(&mut self, timeframe_seconds: u32) {
+        self.candle_timeframe = timeframe_seconds;
     }
 }
 
