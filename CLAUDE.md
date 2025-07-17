@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Important Development Standards
+
+- **ALWAYS use Linux line endings (LF) for all files in this project**. Do not use Windows line endings (CRLF).
+
 ## Project Overview
 
 This is a WebAssembly-based real-time data visualization application built in Rust that renders interactive line graphs using WebGPU for high-performance GPU-accelerated rendering. The application has both a standalone WASM module and a React web frontend for development.
@@ -78,17 +82,42 @@ cd file_server && cargo build && cargo run
 
 ### Testing the Application
 - **React dev server**: `http://localhost:3000/app?topic=BTC-usd&start=1745322750&end=1745691150`
-- **Data server API**: `https://localhost:8443/api/` (requires SSL certificates)
+- **Production API**: `https://api.rednax.io/api/` (via Cloudflare Tunnel)
   - `/api/data` - Time-series data endpoint
   - `/api/symbols` - Available symbols endpoint
+- **Local development API**: `https://localhost:8443/api/` (requires SSL certificates)
 - **Legacy file server**: `http://localhost:8080` with query parameters:
   - `topic`: data source identifier
   - `start`: start timestamp  
   - `end`: end timestamp
 
-Example data server request: `https://localhost:8443/api/data?symbol=BTC-USD&type=MD&start=1234567890&end=1234567900&columns=time,best_bid`
+Example production API request: `https://api.rednax.io/api/data?symbol=BTC-USD&type=MD&start=1234567890&end=1234567900&columns=time,best_bid`
+
+Example local development: `https://localhost:8443/api/data?symbol=BTC-USD&type=MD&start=1234567890&end=1234567900&columns=time,best_bid`
 
 Example legacy server: `http://localhost:8080?topic=sensor_data&start=1234567890&end=1234567900`
+
+## API Configuration
+
+The application uses `api.rednax.io` as the default API endpoint. To override this:
+
+### Environment Variables (Web App)
+```bash
+# For production deployment
+REACT_APP_API_BASE_URL=https://api.rednax.io
+
+# For local development
+REACT_APP_API_BASE_URL=https://localhost:8443
+```
+
+### Testing API Endpoints
+```bash
+# Test production API
+npm run test:server:api:production
+
+# Test local development API
+npm run test:server:api
+```
 
 ## Server Architecture
 
