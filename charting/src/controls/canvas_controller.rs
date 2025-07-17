@@ -144,12 +144,7 @@ impl CanvasController {
             let range = end_x - start_x;
 
             let (new_start, new_end) = if position.y < 0. {
-                // Scrolling up = zoom out (expand range)
-                let new_start = start_x - (range / 2);
-                let new_end = end_x + (range / 2);
-                (new_start, new_end)
-            } else if position.y > 0. {
-                // Scrolling down = zoom in (shrink range)
+                // Scrolling up = zoom in (shrink range)
                 let new_start = start_x + (range / 4);
                 let new_end = end_x - (range / 4);
                 // Ensure we don't zoom in too much
@@ -158,6 +153,11 @@ impl CanvasController {
                 } else {
                     (start_x, end_x) // Keep current range if too zoomed in
                 }
+            } else if position.y > 0. {
+                // Scrolling down = zoom out (expand range)
+                let new_start = start_x - (range / 2);
+                let new_end = end_x + (range / 2);
+                (new_start, new_end)
             } else {
                 (start_x, end_x) // No change
             };
