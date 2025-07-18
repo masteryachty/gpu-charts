@@ -1,8 +1,7 @@
 use wgpu::util::DeviceExt;
-use crate::calcables::OhlcData;
 
 /// GPU-accelerated OHLC candle aggregator using compute shaders.
-/// 
+///
 /// This module processes tick data in parallel on the GPU to generate
 /// OHLC (Open, High, Low, Close) candles for financial charting.
 pub struct CandleAggregator {
@@ -35,6 +34,7 @@ pub struct GpuOhlcCandle {
 
 impl CandleAggregator {
     /// Creates a new GPU candle aggregator with compiled compute pipeline.
+    #[allow(dead_code)]
     pub fn new(device: &wgpu::Device) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Candle Aggregation Shader"),
@@ -116,7 +116,7 @@ impl CandleAggregator {
     }
 
     /// Aggregates tick data into OHLC candles using GPU compute.
-    /// 
+    ///
     /// Returns a buffer containing the computed candles in GPU memory.
     /// The buffer can be used directly for rendering without CPU readback.
     pub fn aggregate_candles(
@@ -139,8 +139,8 @@ impl CandleAggregator {
             self.output_buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some("Candle Output Buffer"),
                 size: output_size,
-                usage: wgpu::BufferUsages::STORAGE 
-                    | wgpu::BufferUsages::COPY_SRC 
+                usage: wgpu::BufferUsages::STORAGE
+                    | wgpu::BufferUsages::COPY_SRC
                     | wgpu::BufferUsages::VERTEX,
                 mapped_at_creation: false,
             }));
@@ -156,11 +156,13 @@ impl CandleAggregator {
         };
 
         if self.params_buffer.is_none() {
-            self.params_buffer = Some(device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Candle Params"),
-                contents: bytemuck::cast_slice(&[params]),
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            }));
+            self.params_buffer = Some(device.create_buffer_init(
+                &wgpu::util::BufferInitDescriptor {
+                    label: Some("Candle Params"),
+                    contents: bytemuck::cast_slice(&[params]),
+                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                },
+            ));
         } else {
             // Update existing buffer
             queue.write_buffer(
@@ -202,7 +204,7 @@ impl CandleAggregator {
             });
             compute_pass.set_pipeline(&self.pipeline);
             compute_pass.set_bind_group(0, &bind_group, &[]);
-            
+
             // Each workgroup processes one candle
             compute_pass.dispatch_workgroups(num_candles, 1, 1);
         }
@@ -211,7 +213,7 @@ impl CandleAggregator {
     }
 
     /// Aggregates tick data from multiple buffer chunks.
-    /// 
+    ///
     /// This handles the case where data is split across multiple GPU buffers.
     pub fn aggregate_candles_chunked(
         &mut self,
@@ -229,10 +231,10 @@ impl CandleAggregator {
         // For multiple chunks, we need to either:
         // 1. Concatenate chunks into a single buffer (simple but uses more memory)
         // 2. Process each chunk separately and merge results (complex but memory efficient)
-        
+
         // For now, implement option 1 for simplicity
         // TODO: Implement option 2 for better memory efficiency with very large datasets
-        
+
         if timestamps_chunks.len() == 1 && prices_chunks.len() == 1 {
             // Single chunk - use direct method
             return self.aggregate_candles(
@@ -247,30 +249,30 @@ impl CandleAggregator {
                 num_candles,
             );
         }
-        
+
         // Multiple chunks - concatenate into single buffer
         let total_time_size = (total_tick_count * 4) as u64; // u32 = 4 bytes
         let total_price_size = (total_tick_count * 4) as u64; // f32 = 4 bytes
-        
+
         let concat_time_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Concatenated Time Buffer"),
             size: total_time_size,
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        
+
         let concat_price_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Concatenated Price Buffer"),
             size: total_price_size,
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        
+
         // Copy chunks to concatenated buffers
         let mut offset = 0u64;
         for (i, chunk_size) in chunk_sizes.iter().enumerate() {
             let size = (*chunk_size * 4) as u64;
-            
+
             encoder.copy_buffer_to_buffer(
                 &timestamps_chunks[i],
                 0,
@@ -278,18 +280,12 @@ impl CandleAggregator {
                 offset,
                 size,
             );
-            
-            encoder.copy_buffer_to_buffer(
-                &prices_chunks[i],
-                0,
-                &concat_price_buffer,
-                offset,
-                size,
-            );
-            
+
+            encoder.copy_buffer_to_buffer(&prices_chunks[i], 0, &concat_price_buffer, offset, size);
+
             offset += size;
         }
-        
+
         // Process concatenated buffers
         self.aggregate_candles(
             device,
@@ -305,6 +301,7 @@ impl CandleAggregator {
     }
 
     /// Returns the size of the output buffer in bytes.
+    #[allow(dead_code)]
     pub fn get_output_buffer_size(&self) -> u64 {
         (self.last_num_candles as usize * std::mem::size_of::<GpuOhlcCandle>()) as u64
     }

@@ -2,12 +2,16 @@ use crate::drawables::candlestick::CandlestickRenderer;
 use crate::drawables::plot::{PlotRenderer, RenderListener};
 use crate::drawables::x_axis::XAxisRenderer;
 use crate::drawables::y_axis::YAxisRenderer;
-use crate::renderer::data_retriever::fetch_data;
 use crate::renderer::data_store::ChartType;
 use crate::renderer::data_store::DataStore;
 use crate::renderer::render_engine::RenderEngine;
-use crate::wrappers::js::get_query_params;
 use chrono::DateTime;
+
+#[cfg(target_arch = "wasm32")]
+use crate::renderer::data_retriever::fetch_data;
+#[cfg(target_arch = "wasm32")]
+use crate::wrappers::js::get_query_params;
+#[cfg(target_arch = "wasm32")]
 use js_sys::Error;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -51,7 +55,6 @@ impl LineGraph {
                 chrono::Utc::now().timestamp()
             });
 
-
         let ds = DataStore::new(width, height);
 
         // log::info!("0");
@@ -83,7 +86,6 @@ impl LineGraph {
             );
         }
 
-
         // Create the LineGraph instance
         let mut line_graph = Self { engine, data_store };
 
@@ -99,7 +101,7 @@ impl LineGraph {
         if !self.data_store.borrow().is_dirty() {
             return Ok(());
         }
-        
+
         // We need to be careful with RefCell borrows across await points
         // Check if we can borrow first, then clone the future
         match self.engine.try_borrow_mut() {
@@ -110,7 +112,7 @@ impl LineGraph {
                     self.data_store.borrow_mut().mark_clean();
                 }
                 result
-            },
+            }
             Err(_) => Ok(()),
         }
     }
@@ -126,24 +128,20 @@ impl LineGraph {
         let format = self.engine.borrow().config.format;
         let chart_type = self.data_store.borrow().chart_type;
 
-        log::info!("Setting up renderers for chart type: {:?}", chart_type);
+        log::info!("Setting up renderers for chart type: {chart_type:?}");
 
         // Create all renderers before mutably borrowing engine
         let plot_renderer: Box<dyn RenderListener> = match chart_type {
-            ChartType::Line => {
-                Box::new(PlotRenderer::new(
-                    self.engine.clone(),
-                    format,
-                    self.data_store.clone(),
-                ))
-            },
-            ChartType::Candlestick => {
-                Box::new(CandlestickRenderer::new(
-                    self.engine.clone(),
-                    format,
-                    self.data_store.clone(),
-                ))
-            },
+            ChartType::Line => Box::new(PlotRenderer::new(
+                self.engine.clone(),
+                format,
+                self.data_store.clone(),
+            )),
+            ChartType::Candlestick => Box::new(CandlestickRenderer::new(
+                self.engine.clone(),
+                format,
+                self.data_store.clone(),
+            )),
         };
 
         let x_axis_renderer = Box::new(XAxisRenderer::new(
@@ -166,9 +164,9 @@ impl LineGraph {
                     engine_mut.add_render_listener(plot_renderer);
                     engine_mut.add_render_listener(x_axis_renderer);
                     engine_mut.add_render_listener(y_axis_renderer);
-                },
+                }
                 Err(e) => {
-                    log::error!("Failed to borrow engine mutably: {:?}", e);
+                    log::error!("Failed to borrow engine mutably: {e:?}");
                 }
             }
         }
@@ -181,7 +179,7 @@ impl LineGraph {
             _ => ChartType::Line,
         };
 
-        log::info!("Setting chart type to {:?}", new_type);
+        log::info!("Setting chart type to {new_type:?}");
         self.data_store.borrow_mut().set_chart_type(new_type);
         self.setup_renderers();
     }

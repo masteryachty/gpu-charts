@@ -742,7 +742,6 @@ impl Chart {
 
         // Handle symbol changes
         if change_detection.symbol_changed {
-
             // Update topic in data store using shared ref
             data_store.borrow_mut().topic = Some(store_state.chart_config.symbol.clone());
 

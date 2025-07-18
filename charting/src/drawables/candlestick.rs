@@ -1,11 +1,11 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use wgpu::TextureFormat;
-use wgpu::util::DeviceExt;
 use nalgebra_glm as glm;
+use wgpu::util::DeviceExt;
+use wgpu::TextureFormat;
 
-use crate::calcables::{CandleAggregator};
+use crate::calcables::CandleAggregator;
 use crate::renderer::data_store::DataStore;
 use crate::renderer::render_engine::RenderEngine;
 
@@ -58,7 +58,11 @@ impl BufferPool {
         }
     }
 
-    fn get_or_create_x_range_buffer(&mut self, device: &wgpu::Device, data: &[f32]) -> wgpu::Buffer {
+    fn get_or_create_x_range_buffer(
+        &mut self,
+        device: &wgpu::Device,
+        data: &[f32],
+    ) -> wgpu::Buffer {
         if let Some(buffer) = self.x_range_buffers.pop() {
             // Reuse existing buffer - write new data to it
             buffer
@@ -72,7 +76,11 @@ impl BufferPool {
         }
     }
 
-    fn get_or_create_y_range_buffer(&mut self, device: &wgpu::Device, data: &[f32]) -> wgpu::Buffer {
+    fn get_or_create_y_range_buffer(
+        &mut self,
+        device: &wgpu::Device,
+        data: &[f32],
+    ) -> wgpu::Buffer {
         if let Some(buffer) = self.y_range_buffers.pop() {
             buffer
         } else {
@@ -84,7 +92,11 @@ impl BufferPool {
         }
     }
 
-    fn get_or_create_timeframe_buffer(&mut self, device: &wgpu::Device, data: &[f32]) -> wgpu::Buffer {
+    fn get_or_create_timeframe_buffer(
+        &mut self,
+        device: &wgpu::Device,
+        data: &[f32],
+    ) -> wgpu::Buffer {
         if let Some(buffer) = self.timeframe_buffers.pop() {
             buffer
         } else {
@@ -96,7 +108,12 @@ impl BufferPool {
         }
     }
 
-    fn return_buffers(&mut self, x_buffer: wgpu::Buffer, y_buffer: wgpu::Buffer, timeframe_buffer: wgpu::Buffer) {
+    fn return_buffers(
+        &mut self,
+        x_buffer: wgpu::Buffer,
+        y_buffer: wgpu::Buffer,
+        timeframe_buffer: wgpu::Buffer,
+    ) {
         // Return buffers to pool for reuse (in a real implementation, we'd check buffer sizes)
         self.x_range_buffers.push(x_buffer);
         self.y_range_buffers.push(y_buffer);
@@ -383,7 +400,7 @@ impl CandlestickRenderer {
         let extended_time_range = last_candle_end - first_candle_start;
         let num_candles = (extended_time_range / self.candle_timeframe) as u32;
         self.num_candles = num_candles;
-        
+
         // Get the active data groups
         let active_groups = ds.get_active_data_groups();
         if active_groups.is_empty() {
@@ -408,11 +425,14 @@ impl CandlestickRenderer {
 
         // Handle multiple buffer chunks if necessary
         let tick_count = data_series.length;
-        
+
         // Validate array lengths match before aggregation
         if data_series.x_buffers.len() != data_series.metrics[0].y_buffers.len() {
-            log::error!("CandlestickRenderer: X and Y buffer array lengths don't match: {} vs {}", 
-                data_series.x_buffers.len(), data_series.metrics[0].y_buffers.len());
+            log::error!(
+                "CandlestickRenderer: X and Y buffer array lengths don't match: {} vs {}",
+                data_series.x_buffers.len(),
+                data_series.metrics[0].y_buffers.len()
+            );
             return;
         }
 
@@ -424,71 +444,77 @@ impl CandlestickRenderer {
             let y_buffer_size = data_series.metrics[0].y_buffers[0].size();
             let expected_x_elements = x_buffer_size / 4; // u32 = 4 bytes
             let expected_y_elements = y_buffer_size / 4; // f32 = 4 bytes
-            
+
             if expected_x_elements != expected_y_elements {
-                log::error!("CandlestickRenderer: X and Y buffer sizes don't match: {} vs {} elements", 
-                    expected_x_elements, expected_y_elements);
+                log::error!(
+                    "CandlestickRenderer: X and Y buffer sizes don't match: {expected_x_elements} vs {expected_y_elements} elements"
+                );
                 return;
             }
-            
+
             if expected_x_elements != tick_count as u64 {
-                log::warn!("CandlestickRenderer: Buffer size ({}) doesn't match tick count ({})", 
-                    expected_x_elements, tick_count);
+                log::warn!(
+                    "CandlestickRenderer: Buffer size ({expected_x_elements}) doesn't match tick count ({tick_count})"
+                );
             }
 
             self.gpu_candles_buffer = Some(
-                self.candle_aggregator.aggregate_candles(
-                    device,
-                    queue,
-                    &mut encoder,
-                    &data_series.x_buffers[0],
-                    &data_series.metrics[0].y_buffers[0],
-                    tick_count,
-                    first_candle_start,
-                    self.candle_timeframe,
-                    num_candles,
-                ).clone()
+                self.candle_aggregator
+                    .aggregate_candles(
+                        device,
+                        queue,
+                        &mut encoder,
+                        &data_series.x_buffers[0],
+                        &data_series.metrics[0].y_buffers[0],
+                        tick_count,
+                        first_candle_start,
+                        self.candle_timeframe,
+                        num_candles,
+                    )
+                    .clone(),
             );
         } else {
             // Multiple chunks - use chunked aggregation
             let mut chunk_sizes = Vec::new();
             let mut total_expected_elements = 0u64;
-            
+
             for (i, buffer) in data_series.x_buffers.iter().enumerate() {
                 // Calculate chunk size from buffer size
                 let x_buffer_size = buffer.size();
                 let y_buffer_size = data_series.metrics[0].y_buffers[i].size();
                 let x_chunk_size = (x_buffer_size / 4) as u32; // u32 = 4 bytes
                 let y_chunk_size = (y_buffer_size / 4) as u32; // f32 = 4 bytes
-                
+
                 if x_chunk_size != y_chunk_size {
-                    log::error!("CandlestickRenderer: Chunk {} X and Y buffer sizes don't match: {} vs {} elements", 
-                        i, x_chunk_size, y_chunk_size);
+                    log::error!("CandlestickRenderer: Chunk {i} X and Y buffer sizes don't match: {x_chunk_size} vs {y_chunk_size} elements");
                     return;
                 }
-                
+
                 chunk_sizes.push(x_chunk_size);
                 total_expected_elements += x_chunk_size as u64;
             }
-            
+
             if total_expected_elements != tick_count as u64 {
-                log::warn!("CandlestickRenderer: Total chunk size ({}) doesn't match tick count ({})", 
-                    total_expected_elements, tick_count);
+                log::warn!(
+                    "CandlestickRenderer: Total chunk size ({total_expected_elements}) doesn't match tick count ({tick_count})"
+                );
             }
-            
+
             self.gpu_candles_buffer = Some(
-                self.candle_aggregator.aggregate_candles_chunked(
-                    device,
-                    queue,
-                    &mut encoder,
-                    &data_series.x_buffers,
-                    &data_series.metrics[0].y_buffers,
-                    &chunk_sizes,
-                    tick_count,
-                    first_candle_start,
-                    self.candle_timeframe,
-                    num_candles,
-                ).clone()
+                self.candle_aggregator
+                    .aggregate_candles_chunked(
+                        device,
+                        queue,
+                        &mut encoder,
+                        &data_series.x_buffers,
+                        &data_series.metrics[0].y_buffers,
+                        &chunk_sizes,
+                        tick_count,
+                        first_candle_start,
+                        self.candle_timeframe,
+                        num_candles,
+                    )
+                    .clone(),
             );
         }
 
@@ -496,34 +522,31 @@ impl CandlestickRenderer {
         queue.submit(Some(encoder.finish()));
     }
 
-    fn create_bind_group(&mut self, device: &wgpu::Device, data_store: &DataStore) -> Option<wgpu::BindGroup> {
-
+    fn create_bind_group(
+        &mut self,
+        device: &wgpu::Device,
+        data_store: &DataStore,
+    ) -> Option<wgpu::BindGroup> {
         // Check if we have GPU candles buffer
-        let candles_buffer = match self.gpu_candles_buffer.as_ref() {
-            Some(buffer) => buffer,
-            None => return None,
-        };
+        let candles_buffer = self.gpu_candles_buffer.as_ref()?;
 
         // Create uniform buffers using buffer pool
         let x_min_max = glm::vec2(data_store.start_x, data_store.end_x);
-        let x_buffer = self.uniform_buffer_pool.get_or_create_x_range_buffer(
-            device,
-            &[x_min_max.x as f32, x_min_max.y as f32],
-        );
+        let x_buffer = self
+            .uniform_buffer_pool
+            .get_or_create_x_range_buffer(device, &[x_min_max.x as f32, x_min_max.y as f32]);
 
         let y_min_max = glm::vec2(
             data_store.min_y.unwrap_or(0.0),
             data_store.max_y.unwrap_or(1.0),
         );
-        let y_buffer = self.uniform_buffer_pool.get_or_create_y_range_buffer(
-            device,
-            &[y_min_max.x, y_min_max.y],
-        );
+        let y_buffer = self
+            .uniform_buffer_pool
+            .get_or_create_y_range_buffer(device, &[y_min_max.x, y_min_max.y]);
 
-        let timeframe_buffer = self.uniform_buffer_pool.get_or_create_timeframe_buffer(
-            device,
-            &[self.candle_timeframe as f32],
-        );
+        let timeframe_buffer = self
+            .uniform_buffer_pool
+            .get_or_create_timeframe_buffer(device, &[self.candle_timeframe as f32]);
 
         Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Candlestick Bind Group"),

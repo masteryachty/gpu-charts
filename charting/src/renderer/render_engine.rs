@@ -3,6 +3,7 @@ use std::{cell::RefCell, rc::Rc};
 use super::data_store::DataStore;
 use crate::{calcables::min_max::calculate_min_max_y, drawables::plot::RenderListener};
 use futures::channel::oneshot;
+#[cfg(target_arch = "wasm32")]
 use getrandom::Error;
 
 #[cfg(target_arch = "wasm32")]

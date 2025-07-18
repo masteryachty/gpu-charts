@@ -1,10 +1,11 @@
-pub mod min_max;
 pub mod candle_aggregator;
+pub mod min_max;
 
-pub use candle_aggregator::{CandleAggregator, GpuOhlcCandle};
+pub use candle_aggregator::CandleAggregator;
 
 // Simple OHLC data structure used by candlestick renderer
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 pub struct OhlcData {
     pub open: f32,
     pub high: f32,

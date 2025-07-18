@@ -40,7 +40,7 @@ pub struct DataStore {
     pub topic: Option<String>,
     pub chart_type: ChartType,
     pub candle_timeframe: u32, // in seconds
-    dirty: bool, // Track if data has changed and needs re-rendering
+    dirty: bool,               // Track if data has changed and needs re-rendering
 }
 
 // pub struct Coord {
@@ -62,7 +62,7 @@ impl DataStore {
             topic: None,
             chart_type: ChartType::Candlestick,
             candle_timeframe: 60, // Default 1 minute
-            dirty: true, // Start dirty to ensure initial render
+            dirty: true,          // Start dirty to ensure initial render
         }
     }
 
@@ -101,7 +101,7 @@ impl DataStore {
                 self.active_data_group_indices.push(new_index);
             }
         }
-        
+
         self.mark_dirty();
     }
 
@@ -121,7 +121,7 @@ impl DataStore {
                 name,
             });
         }
-        
+
         self.mark_dirty();
     }
 

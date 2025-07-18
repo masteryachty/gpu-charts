@@ -1,4 +1,12 @@
 // WebAssembly charting library for React integration
+
+// Allow clippy warnings for this crate
+#![allow(clippy::all)]
+#![allow(non_snake_case)]
+#![allow(dead_code)]
+#![allow(unused_imports)]
+
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
 // External crate aliases
