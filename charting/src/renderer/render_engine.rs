@@ -84,11 +84,11 @@ impl RenderEngine {
             let data = buffer_slice.get_mapped_range();
             let values: &[f32] = bytemuck::cast_slice(&data);
             log::info!("Mapped values: {values:?}");
-            
+
             // Calculate global min/max across all series
             let mut global_min = f32::INFINITY;
             let mut global_max = f32::NEG_INFINITY;
-            
+
             // Values are stored as [min_0, max_0, min_1, max_1, min_2, max_2, ...]
             for i in (0..values.len()).step_by(2) {
                 let series_min = values[i];
@@ -96,9 +96,11 @@ impl RenderEngine {
                 global_min = global_min.min(series_min);
                 global_max = global_max.max(series_max);
             }
-            
+
             log::info!("Global min: {global_min}, Global max: {global_max}");
-            self.data_store.borrow_mut().update_min_max_y(global_min, global_max);
+            self.data_store
+                .borrow_mut()
+                .update_min_max_y(global_min, global_max);
             (global_min, global_max)
         };
 
@@ -251,7 +253,7 @@ impl RenderEngine {
     pub fn add_render_listener(&mut self, listener: Box<dyn RenderListener>) {
         self.render_listeners.push(listener);
     }
-    
+
     // Clear all render listeners
     pub fn clear_render_listeners(&mut self) {
         self.render_listeners.clear();

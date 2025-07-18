@@ -288,11 +288,11 @@ impl DataStore {
         self.min_y = Some(min_y);
         self.max_y = Some(max_y);
     }
-    
+
     pub fn set_chart_type(&mut self, chart_type: ChartType) {
         self.chart_type = chart_type;
     }
-    
+
     pub fn set_candle_timeframe(&mut self, timeframe_seconds: u32) {
         self.candle_timeframe = timeframe_seconds;
     }

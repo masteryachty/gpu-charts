@@ -563,23 +563,20 @@ impl Chart {
             }
         }
     }
-    
+
     /// Set the chart type (line or candlestick)
     #[wasm_bindgen]
     pub fn set_chart_type(&self, chart_type: &str) -> Result<(), JsValue> {
         unsafe {
             if let Some(ref mut instance) = CHART_INSTANCE {
-                instance
-                    .line_graph
-                    .borrow_mut()
-                    .set_chart_type(chart_type);
+                instance.line_graph.borrow_mut().set_chart_type(chart_type);
                 Ok(())
             } else {
                 Err(JsValue::from_str("Chart not initialized"))
             }
         }
     }
-    
+
     /// Set the candle timeframe in seconds (e.g., 60 for 1 minute, 300 for 5 minutes)
     #[wasm_bindgen]
     pub fn set_candle_timeframe(&self, timeframe_seconds: u32) -> Result<(), JsValue> {

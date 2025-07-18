@@ -1,9 +1,9 @@
+use crate::drawables::candlestick::CandlestickRenderer;
 use crate::drawables::plot::{PlotRenderer, RenderListener};
 use crate::drawables::x_axis::XAxisRenderer;
 use crate::drawables::y_axis::YAxisRenderer;
-use crate::drawables::candlestick::CandlestickRenderer;
-use crate::renderer::data_store::ChartType;
 use crate::renderer::data_retriever::fetch_data;
+use crate::renderer::data_store::ChartType;
 use crate::renderer::data_store::DataStore;
 use crate::renderer::render_engine::RenderEngine;
 use crate::wrappers::js::get_query_params;
@@ -89,14 +89,11 @@ impl LineGraph {
         log::info!("wxh: {width:?} {height:?}");
 
         // Create the LineGraph instance
-        let mut line_graph = Self {
-            engine,
-            data_store,
-        };
-        
+        let mut line_graph = Self { engine, data_store };
+
         // Set up initial renderers
         line_graph.setup_renderers();
-        
+
         Ok(line_graph)
     }
 
@@ -114,43 +111,39 @@ impl LineGraph {
         self.data_store.borrow_mut().resized(width, height);
         self.engine.borrow_mut().resized(width, height);
     }
-    
+
     // Set up renderers based on current chart type
     fn setup_renderers(&mut self) {
         // Get all the values we need before mutably borrowing
         let format = self.engine.borrow().config.format;
         let chart_type = self.data_store.borrow().chart_type;
-        
+
         // Create all renderers before mutably borrowing engine
         let plot_renderer: Box<dyn RenderListener> = match chart_type {
-            ChartType::Line => {
-                Box::new(PlotRenderer::new(
-                    self.engine.clone(),
-                    format,
-                    self.data_store.clone(),
-                ))
-            }
-            ChartType::Candlestick => {
-                Box::new(CandlestickRenderer::new(
-                    self.engine.clone(),
-                    format,
-                    self.data_store.clone(),
-                ))
-            }
+            ChartType::Line => Box::new(PlotRenderer::new(
+                self.engine.clone(),
+                format,
+                self.data_store.clone(),
+            )),
+            ChartType::Candlestick => Box::new(CandlestickRenderer::new(
+                self.engine.clone(),
+                format,
+                self.data_store.clone(),
+            )),
         };
-        
+
         let x_axis_renderer = Box::new(XAxisRenderer::new(
             self.engine.clone(),
             format,
             self.data_store.clone(),
         ));
-        
+
         let y_axis_renderer = Box::new(YAxisRenderer::new(
             self.engine.clone(),
             format,
             self.data_store.clone(),
         ));
-        
+
         // Now do all the mutations in one go
         {
             let mut engine_mut = self.engine.borrow_mut();
@@ -160,21 +153,23 @@ impl LineGraph {
             engine_mut.add_render_listener(y_axis_renderer);
         }
     }
-    
+
     // Switch chart type
     pub fn set_chart_type(&mut self, chart_type: &str) {
         let new_type = match chart_type {
             "candlestick" => ChartType::Candlestick,
             _ => ChartType::Line,
         };
-        
+
         self.data_store.borrow_mut().set_chart_type(new_type);
         self.setup_renderers();
     }
-    
+
     // Set candle timeframe (in seconds)
     pub fn set_candle_timeframe(&mut self, timeframe_seconds: u32) {
-        self.data_store.borrow_mut().set_candle_timeframe(timeframe_seconds);
+        self.data_store
+            .borrow_mut()
+            .set_candle_timeframe(timeframe_seconds);
         // Note: The candlestick renderer will read this value from data_store
     }
 }
