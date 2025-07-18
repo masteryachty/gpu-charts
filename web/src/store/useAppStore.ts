@@ -24,6 +24,10 @@ interface AppStore extends AppState {
   removeMetric: (metric: string) => void;
   setSelectedMetrics: (metrics: string[]) => void;
   
+  // Chart type actions
+  setChartType: (chartType: 'line' | 'candlestick') => void;
+  setCandleTimeframe: (timeframe: number) => void;
+  
   // Batch operations
   updateChartState: (updates: Partial<ChartConfig>) => void;
   resetToDefaults: () => void;
@@ -44,6 +48,8 @@ const DEFAULT_CONFIG: ChartConfig = {
   endTime: Math.floor(Date.now() / 1000), // Now
   indicators: [],
   selectedMetrics: ['best_bid', 'best_ask'], // Default to both bid and ask
+  chartType: 'candlestick',
+  candleTimeframe: 60, // Default 1 minute candles
 };
 
 export const useAppStore = create<AppStore>((set, get) => ({
@@ -189,6 +195,25 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const oldState = get();
       set((state) => ({
         chartConfig: { ...state.chartConfig, selectedMetrics: metrics },
+      }));
+      const newState = get();
+      newState._triggerSubscriptions(newState, oldState);
+    },
+    
+    // Chart type actions
+    setChartType: (chartType) => {
+      const oldState = get();
+      set((state) => ({
+        chartConfig: { ...state.chartConfig, chartType },
+      }));
+      const newState = get();
+      newState._triggerSubscriptions(newState, oldState);
+    },
+    
+    setCandleTimeframe: (timeframe) => {
+      const oldState = get();
+      set((state) => ({
+        chartConfig: { ...state.chartConfig, candleTimeframe: timeframe },
       }));
       const newState = get();
       newState._triggerSubscriptions(newState, oldState);

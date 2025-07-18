@@ -63,11 +63,16 @@ export interface WasmChartInstance {
   handle_mouse_move?(x: number, y: number): void;
   handle_mouse_click?(x: number, y: number, pressed: boolean): void;
   render?(): Promise<void>;
+  needs_render?(): boolean;
   resize?(width: number, height: number): void;
   
   // Chart state management
   update_state?(symbol: string, timeframe: string, connected: boolean): void;
   update_chart_state?(stateJson: string): string;
+  
+  // Chart type controls
+  set_chart_type?(chart_type: string): void;
+  set_candle_timeframe?(timeframe_seconds: number): void;
   
   // Change detection
   configure_change_detection?(config: any): string;
@@ -200,6 +205,8 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
   const storeTimeframe = useAppStore(state => state.chartConfig.timeframe);
   const storeConnected = useAppStore(state => state.isConnected);
   const storeSelectedMetrics = useAppStore(state => state.chartConfig.selectedMetrics);
+  const storeChartType = useAppStore(state => state.chartConfig.chartType);
+  const storeCandleTimeframe = useAppStore(state => state.chartConfig.candleTimeframe);
   
   // Initialize comprehensive error handling - temporarily disabled for testing
   // const [errorState, errorAPI] = useErrorHandler({
@@ -336,7 +343,7 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
       
       try {
         console.log('[useWasmChart] Loading WASM module...');
-        const wasmModule = await import('@pkg/tutorial1_window.js');
+        const wasmModule = await import('@pkg/GPU_charting.js');
         console.log('[useWasmChart] WASM module imported, initializing...');
         await wasmModule.default();
         console.log('[useWasmChart] WASM module initialized');
@@ -586,6 +593,8 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
               startTime: storeState.chartConfig.startTime,
               endTime: storeState.chartConfig.endTime,
               indicators: storeState.chartConfig.indicators,
+              chartType: storeState.chartConfig.chartType,
+              candleTimeframe: storeState.chartConfig.candleTimeframe,
             },
             isConnected: currentConnected,
             marketData: storeState.marketData,
@@ -888,6 +897,34 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
       }
     };
   }, [storeSymbol, storeTimeframe, storeConnected, storeSelectedMetrics, enableAutoSync, chartState.isInitialized, debounceMs]);
+  
+  // Effect to update chart type when it changes
+  useEffect(() => {
+    if (!chartState.isInitialized || !chartState.chart || !enableAutoSync) return;
+    
+    if (chartState.chart.set_chart_type) {
+      try {
+        console.log('[useWasmChart] Setting chart type:', storeChartType);
+        chartState.chart.set_chart_type(storeChartType);
+      } catch (error) {
+        console.error('[useWasmChart] Error setting chart type:', error);
+      }
+    }
+  }, [storeChartType, chartState.isInitialized, chartState.chart, enableAutoSync]);
+  
+  // Effect to update candle timeframe when it changes
+  useEffect(() => {
+    if (!chartState.isInitialized || !chartState.chart || !enableAutoSync) return;
+    
+    if (chartState.chart.set_candle_timeframe) {
+      try {
+        console.log('[useWasmChart] Setting candle timeframe:', storeCandleTimeframe);
+        chartState.chart.set_candle_timeframe(storeCandleTimeframe);
+      } catch (error) {
+        console.error('[useWasmChart] Error setting candle timeframe:', error);
+      }
+    }
+  }, [storeCandleTimeframe, chartState.isInitialized, chartState.chart, enableAutoSync]);
 
   // Performance monitoring sync effects - use ref to avoid infinite loops
   const lastUpdateRef = useRef({ fps: 0, renderLatency: 0, updateCount: 0 });

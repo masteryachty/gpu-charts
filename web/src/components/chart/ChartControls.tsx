@@ -37,7 +37,9 @@ export default function ChartControls({
     addMetric,
     removeMetric,
     updateChartState,
-    resetToDefaults
+    resetToDefaults,
+    setChartType,
+    setCandleTimeframe
   } = useAppStore();
 
   // Track subscription events
@@ -49,6 +51,14 @@ export default function ChartControls({
   const timeframes = useMemo(() => ['1m', '5m', '15m', '1h', '4h', '1d'], []);
   const availableIndicators = useMemo(() => ['RSI', 'MACD', 'EMA', 'SMA', 'BB', 'STOCH'], []);
   const availableMetrics = useMemo(() => ['best_bid', 'best_ask', 'price', 'volume'], []);
+  const candleTimeframes = useMemo(() => [
+    { label: '1m', value: 60 },
+    { label: '5m', value: 300 },
+    { label: '15m', value: 900 },
+    { label: '1h', value: 3600 },
+    { label: '4h', value: 14400 },
+    { label: '1d', value: 86400 },
+  ], []);
 
   // Set up chart subscription for change tracking
   const chartSubscription = useChartSubscription({
@@ -289,6 +299,52 @@ export default function ChartControls({
           ))}
         </div>
       </div>
+      
+      {/* Chart Type Selection */}
+      <div className="space-y-2">
+        <label className="text-gray-300 text-sm font-medium">Chart Type</label>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setChartType('line')}
+            className={`px-3 py-2 text-sm rounded transition-colors ${
+              chartConfig.chartType === 'line'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            }`}
+            data-testid="chart-type-line"
+          >
+            Line Chart
+          </button>
+          <button
+            onClick={() => setChartType('candlestick')}
+            className={`px-3 py-2 text-sm rounded transition-colors ${
+              chartConfig.chartType === 'candlestick'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            }`}
+            data-testid="chart-type-candlestick"
+          >
+            Candlestick
+          </button>
+        </div>
+      </div>
+      
+      {/* Candle Timeframe (show only when candlestick is selected) */}
+      {chartConfig.chartType === 'candlestick' && (
+        <div className="space-y-2">
+          <label className="text-gray-300 text-sm font-medium">Candle Timeframe</label>
+          <select
+            value={chartConfig.candleTimeframe}
+            onChange={(e) => setCandleTimeframe(Number(e.target.value))}
+            className="w-full bg-gray-700 border border-gray-600 text-white rounded px-3 py-2 text-sm"
+            data-testid="candle-timeframe-selector"
+          >
+            {candleTimeframes.map(({ label, value }) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </div>
+      )}
       
       {/* Metrics Selection */}
       <div className="space-y-2">

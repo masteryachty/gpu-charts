@@ -3,6 +3,7 @@ use std::{cell::RefCell, rc::Rc};
 use super::data_store::DataStore;
 use crate::{calcables::min_max::calculate_min_max_y, drawables::plot::RenderListener};
 use futures::channel::oneshot;
+#[cfg(target_arch = "wasm32")]
 use getrandom::Error;
 
 #[cfg(target_arch = "wasm32")]
@@ -28,11 +29,6 @@ impl RenderEngine {
                     label: Some("Compute Encoder"),
                 });
 
-        log::info!(
-            "1 {:?} {:?}",
-            self.data_store.borrow().start_x,
-            self.data_store.borrow().end_x
-        );
         // Calculate min/max values and get the two staging buffers.
         let (min_max_buffer, staging_buffer) = calculate_min_max_y(
             &self.device,
@@ -42,16 +38,13 @@ impl RenderEngine {
             self.data_store.borrow().start_x,
             self.data_store.borrow().end_x,
         );
-        log::info!("2");
 
         // Submit GPU commands.
         self.queue.submit(std::iter::once(command_encoder.finish()));
-        log::info!("3");
 
         // Force the GPU to finish its work.
         self.device.poll(wgpu::Maintain::Wait);
         self.device.poll(wgpu::Maintain::Wait);
-        log::info!("4");
 
         // Prepare to asynchronously map the staging buffer.
         let buffer_slice = staging_buffer.slice(..);
@@ -77,18 +70,17 @@ impl RenderEngine {
         }
 
         // Mapping succeeded
-        log::info!("7");
 
         // Read values from the mapped buffer.
         let (miny, maxy) = {
             let data = buffer_slice.get_mapped_range();
             let values: &[f32] = bytemuck::cast_slice(&data);
             log::info!("Mapped values: {values:?}");
-            
+
             // Calculate global min/max across all series
             let mut global_min = f32::INFINITY;
             let mut global_max = f32::NEG_INFINITY;
-            
+
             // Values are stored as [min_0, max_0, min_1, max_1, min_2, max_2, ...]
             for i in (0..values.len()).step_by(2) {
                 let series_min = values[i];
@@ -96,9 +88,11 @@ impl RenderEngine {
                 global_min = global_min.min(series_min);
                 global_max = global_max.max(series_max);
             }
-            
+
             log::info!("Global min: {global_min}, Global max: {global_max}");
-            self.data_store.borrow_mut().update_min_max_y(global_min, global_max);
+            self.data_store
+                .borrow_mut()
+                .update_min_max_y(global_min, global_max);
             (global_min, global_max)
         };
 
@@ -252,13 +246,18 @@ impl RenderEngine {
         self.render_listeners.push(listener);
     }
 
+    // Clear all render listeners
+    pub fn clear_render_listeners(&mut self) {
+        self.render_listeners.clear();
+    }
+
     // Notify all listeners
     pub fn notify_render_listeners(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         image_view: &wgpu::TextureView,
     ) {
-        for listener in &mut self.render_listeners {
+        for listener in self.render_listeners.iter_mut() {
             listener.on_render(
                 &self.queue,
                 &self.device,

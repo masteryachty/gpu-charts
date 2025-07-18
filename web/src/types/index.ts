@@ -16,6 +16,8 @@ export interface ChartConfig {
   endTime: number;
   indicators: string[];
   selectedMetrics: string[]; // Multiple metrics like ['best_bid', 'best_ask']
+  chartType: 'line' | 'candlestick';
+  candleTimeframe: number; // in seconds (60, 300, 900, 3600, etc.)
 }
 
 // WASM integration types

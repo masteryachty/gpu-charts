@@ -187,29 +187,35 @@ export default function WasmCanvas({
     };
   }, [updateCanvasSize]);
 
-  // Continuous render loop for smooth updates
+  // On-demand render loop - only renders when chart state is dirty
   useEffect(() => {
     if (!chartState.chart || !chartState.isInitialized) return;
 
     let animationId: number;
-    let lastRenderTime = 0;
-    const targetFPS = 60;
-    const frameInterval = 1000 / targetFPS;
+    let isRendering = false;
 
-    const renderLoop = (currentTime: number) => {
-      if (currentTime - lastRenderTime >= frameInterval) {
-        if (chartState.chart && chartState.isInitialized) {
-          chartState.chart.render?.().catch(error => {
+    const checkAndRender = async () => {
+      if (!isRendering && chartState.chart && chartState.isInitialized) {
+        // Check if rendering is needed
+        const needsRender = chartState.chart.needs_render?.() ?? false;
+        
+        if (needsRender) {
+          isRendering = true;
+          try {
+            await chartState.chart.render?.();
+          } catch (error) {
             console.warn('[WasmCanvas] Render failed:', error);
-          });
+          } finally {
+            isRendering = false;
+          }
         }
-        lastRenderTime = currentTime;
       }
       
-      animationId = requestAnimationFrame(renderLoop);
+      // Continue checking at 60fps rate
+      animationId = requestAnimationFrame(checkAndRender);
     };
 
-    animationId = requestAnimationFrame(renderLoop);
+    animationId = requestAnimationFrame(checkAndRender);
 
     return () => {
       if (animationId) {
@@ -217,6 +223,9 @@ export default function WasmCanvas({
       }
     };
   }, [chartState.chart, chartState.isInitialized]);
+
+  // Note: If you need to force render on specific state changes,
+  // you should pass those as props to this component and include them here
 
   // Make chart available globally for testing
   useEffect(() => {

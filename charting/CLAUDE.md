@@ -65,7 +65,7 @@ The library is configured to build for both WASM and native targets:
 crate-type = ["cdylib", "rlib"]
 
 [[bin]]
-name = "tutorial1-window"
+name = "GPU-charting"
 path = "src/main.rs"
 ```
 
