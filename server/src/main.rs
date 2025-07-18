@@ -60,7 +60,8 @@ async fn service_handler(req: Request<Body>) -> Result<Response<Body>, Infallibl
 fn load_tls_config() -> Result<ServerConfig, Box<dyn std::error::Error>> {
     // Get certificate paths from environment or use defaults
     let cert_path = std::env::var("SSL_CERT_PATH").unwrap_or_else(|_| "localhost.crt".to_string());
-    let key_path = std::env::var("SSL_PRIVATE_FILE").unwrap_or_else(|_| "localhost.key".to_string());
+    let key_path =
+        std::env::var("SSL_PRIVATE_FILE").unwrap_or_else(|_| "localhost.key".to_string());
 
     let certs = load_certs(&cert_path)?;
     let key = load_private_key(&key_path)?;
@@ -114,18 +115,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or(8443);
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     let listener = TcpListener::bind(&addr).await?;
-    
+
     if use_tls {
         println!("Listening on https://{addr} (TLS enabled)");
-        
+
         // Load TLS configuration
         let tls_config = load_tls_config()?;
         let tls_acceptor = TlsAcceptor::from(Arc::new(tls_config));
-        
+
         loop {
             let (stream, _peer_addr) = listener.accept().await?;
             stream.set_nodelay(true).ok();
-            
+
             let acceptor = tls_acceptor.clone();
             tokio::spawn(async move {
                 let tls_stream = match acceptor.accept(stream).await {
@@ -146,11 +147,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     } else {
         println!("Listening on http://{addr} (HTTP/1.1 for Cloudflare Tunnel)");
-        
+
         loop {
             let (stream, _peer_addr) = listener.accept().await?;
             stream.set_nodelay(true).ok();
-            
+
             tokio::spawn(async move {
                 // Serve HTTP/1.1 only for Cloudflare Tunnel
                 if let Err(e) = Http::new()
