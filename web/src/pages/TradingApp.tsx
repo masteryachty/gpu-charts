@@ -6,6 +6,7 @@ import Sidebar from '../components/layout/Sidebar';
 import StatusBar from '../components/layout/StatusBar';
 import WasmCanvas from '../components/chart/WasmCanvas';
 import ChartControls from '../components/chart/ChartControls';
+import { SimpleChartControls } from '../components/chart/SimpleChartControls';
 // import DataFetchingMonitor from '../components/monitoring/DataFetchingMonitor'; // Disabled temporarily
 
 function ChartView() {
@@ -121,6 +122,11 @@ function ChartView() {
               
               {/* Main Chart Area */}
               <div className="flex-1 flex flex-col">
+                {/* Simple Chart Controls */}
+                <div className="mb-4">
+                  <SimpleChartControls />
+                </div>
+                
                 <WasmCanvas 
                   enableAutoSync={true}
                   debounceMs={100}
