@@ -51,9 +51,6 @@ impl LineGraph {
                 chrono::Utc::now().timestamp()
             });
 
-        log::info!("topic: {topic:?}");
-        log::info!("start: {:?}", unix_timestamp_to_string(start));
-        log::info!("end: {:?}", unix_timestamp_to_string(end));
 
         let ds = DataStore::new(width, height);
 
@@ -86,7 +83,6 @@ impl LineGraph {
             );
         }
 
-        log::info!("wxh: {width:?} {height:?}");
 
         // Create the LineGraph instance
         let mut line_graph = Self { engine, data_store };

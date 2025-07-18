@@ -742,7 +742,6 @@ impl Chart {
 
         // Handle symbol changes
         if change_detection.symbol_changed {
-            log::info!("Symbol changed - updating data store and triggering data fetch");
 
             // Update topic in data store using shared ref
             data_store.borrow_mut().topic = Some(store_state.chart_config.symbol.clone());
@@ -760,7 +759,6 @@ impl Chart {
 
         // Handle time range changes
         if change_detection.time_range_changed {
-            log::info!("Time range changed - updating data store range");
             data_store.borrow_mut().set_x_range(
                 store_state.chart_config.start_time as u32,
                 store_state.chart_config.end_time as u32,
@@ -778,7 +776,6 @@ impl Chart {
 
         // Handle timeframe changes
         if change_detection.timeframe_changed {
-            log::info!("Timeframe changed - updating aggregation settings");
             changes_applied.push(format!(
                 "Timeframe updated to: {}",
                 store_state.chart_config.timeframe
@@ -792,7 +789,6 @@ impl Chart {
 
         // Handle indicator changes
         if change_detection.indicators_changed {
-            log::info!("Indicators changed - updating indicator settings");
             changes_applied.push(format!(
                 "Indicators updated: {:?}",
                 store_state.chart_config.indicators
@@ -806,7 +802,6 @@ impl Chart {
 
         // Handle metrics changes
         if change_detection.metrics_changed {
-            log::info!("Metrics changed - triggering data refetch");
             changes_applied.push(format!(
                 "Metrics updated: {:?}",
                 store_state.chart_config.selected_metrics
@@ -818,7 +813,6 @@ impl Chart {
 
                 // Note: We skip the actual fetch here to avoid borrow conflicts
                 // The data fetching will be handled elsewhere or deferred
-                log::info!("Metrics change detected - data fetch would be triggered here");
             }
 
             if change_detection.requires_render {
@@ -846,7 +840,6 @@ impl Chart {
 
         // Handle market data changes
         if change_detection.market_data_changed {
-            log::info!("Market data changed - updating display");
             changes_applied.push("Market data refreshed".to_string());
 
             if change_detection.requires_render {

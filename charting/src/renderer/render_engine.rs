@@ -28,11 +28,6 @@ impl RenderEngine {
                     label: Some("Compute Encoder"),
                 });
 
-        log::info!(
-            "1 {:?} {:?}",
-            self.data_store.borrow().start_x,
-            self.data_store.borrow().end_x
-        );
         // Calculate min/max values and get the two staging buffers.
         let (min_max_buffer, staging_buffer) = calculate_min_max_y(
             &self.device,
@@ -42,16 +37,13 @@ impl RenderEngine {
             self.data_store.borrow().start_x,
             self.data_store.borrow().end_x,
         );
-        log::info!("2");
 
         // Submit GPU commands.
         self.queue.submit(std::iter::once(command_encoder.finish()));
-        log::info!("3");
 
         // Force the GPU to finish its work.
         self.device.poll(wgpu::Maintain::Wait);
         self.device.poll(wgpu::Maintain::Wait);
-        log::info!("4");
 
         // Prepare to asynchronously map the staging buffer.
         let buffer_slice = staging_buffer.slice(..);
@@ -77,7 +69,6 @@ impl RenderEngine {
         }
 
         // Mapping succeeded
-        log::info!("7");
 
         // Read values from the mapped buffer.
         let (miny, maxy) = {
