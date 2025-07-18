@@ -63,6 +63,7 @@ export interface WasmChartInstance {
   handle_mouse_move?(x: number, y: number): void;
   handle_mouse_click?(x: number, y: number, pressed: boolean): void;
   render?(): Promise<void>;
+  needs_render?(): boolean;
   resize?(width: number, height: number): void;
   
   // Chart state management
