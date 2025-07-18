@@ -19,7 +19,7 @@ pub struct DataSeries {
     pub x_buffers: Vec<wgpu::Buffer>, // Shared time axis
     pub x_raw: ArrayBuffer,
     pub metrics: Vec<MetricSeries>, // Multiple Y-series sharing same X
-    length: u32,
+    pub length: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -40,6 +40,7 @@ pub struct DataStore {
     pub topic: Option<String>,
     pub chart_type: ChartType,
     pub candle_timeframe: u32, // in seconds
+    dirty: bool, // Track if data has changed and needs re-rendering
 }
 
 // pub struct Coord {
@@ -59,9 +60,25 @@ impl DataStore {
             range_bind_group: None,
             screen_size: ScreenDimensions { width, height },
             topic: None,
-            chart_type: ChartType::Line,
+            chart_type: ChartType::Candlestick,
             candle_timeframe: 60, // Default 1 minute
+            dirty: true, // Start dirty to ensure initial render
         }
+    }
+
+    /// Check if the data store needs re-rendering
+    pub fn is_dirty(&self) -> bool {
+        self.dirty
+    }
+
+    /// Mark the data store as clean (rendered)
+    pub fn mark_clean(&mut self) {
+        self.dirty = false;
+    }
+
+    /// Mark the data store as dirty (needs re-rendering)
+    pub fn mark_dirty(&mut self) {
+        self.dirty = true;
     }
 
     // pub fn add_data(&mut self, x: f32, y: f32) {
@@ -84,6 +101,8 @@ impl DataStore {
                 self.active_data_group_indices.push(new_index);
             }
         }
+        
+        self.mark_dirty();
     }
 
     pub fn add_metric_to_group(
@@ -102,6 +121,8 @@ impl DataStore {
                 name,
             });
         }
+        
+        self.mark_dirty();
     }
 
     pub fn get_active_data_groups(&self) -> Vec<&DataSeries> {
@@ -137,15 +158,21 @@ impl DataStore {
     }
 
     pub fn set_x_range(&mut self, min_x: u32, max_x: u32) {
-        self.start_x = min_x;
-        self.end_x = max_x;
-        self.min_y = None;
-        self.max_y = None;
-        self.range_bind_group = None;
+        if self.start_x != min_x || self.end_x != max_x {
+            self.start_x = min_x;
+            self.end_x = max_x;
+            self.min_y = None;
+            self.max_y = None;
+            self.range_bind_group = None;
+            self.mark_dirty();
+        }
     }
 
     pub fn resized(&mut self, width: u32, height: u32) {
-        self.screen_size = ScreenDimensions { width, height }
+        if self.screen_size.width != width || self.screen_size.height != height {
+            self.screen_size = ScreenDimensions { width, height };
+            self.mark_dirty();
+        }
     }
 
     // pub fn get_data(&self) -> Uint8Array {
@@ -285,16 +312,26 @@ impl DataStore {
     }
 
     pub fn update_min_max_y(&mut self, min_y: f32, max_y: f32) {
-        self.min_y = Some(min_y);
-        self.max_y = Some(max_y);
+        let changed = self.min_y != Some(min_y) || self.max_y != Some(max_y);
+        if changed {
+            self.min_y = Some(min_y);
+            self.max_y = Some(max_y);
+            self.mark_dirty();
+        }
     }
 
     pub fn set_chart_type(&mut self, chart_type: ChartType) {
-        self.chart_type = chart_type;
+        if self.chart_type != chart_type {
+            self.chart_type = chart_type;
+            self.mark_dirty();
+        }
     }
 
     pub fn set_candle_timeframe(&mut self, timeframe_seconds: u32) {
-        self.candle_timeframe = timeframe_seconds;
+        if self.candle_timeframe != timeframe_seconds {
+            self.candle_timeframe = timeframe_seconds;
+            self.mark_dirty();
+        }
     }
 }
 

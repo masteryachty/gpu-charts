@@ -99,10 +99,22 @@ impl LineGraph {
 
     #[allow(clippy::await_holding_refcell_ref)]
     pub async fn render(&self) -> Result<(), wgpu::SurfaceError> {
+        // Check if rendering is needed
+        if !self.data_store.borrow().is_dirty() {
+            return Ok(());
+        }
+        
         // We need to be careful with RefCell borrows across await points
         // Check if we can borrow first, then clone the future
         match self.engine.try_borrow_mut() {
-            Ok(mut engine) => engine.render().await,
+            Ok(mut engine) => {
+                let result = engine.render().await;
+                if result.is_ok() {
+                    // Mark as clean after successful render
+                    self.data_store.borrow_mut().mark_clean();
+                }
+                result
+            },
             Err(_) => Ok(()),
         }
     }
@@ -118,18 +130,24 @@ impl LineGraph {
         let format = self.engine.borrow().config.format;
         let chart_type = self.data_store.borrow().chart_type;
 
+        log::info!("Setting up renderers for chart type: {:?}", chart_type);
+
         // Create all renderers before mutably borrowing engine
         let plot_renderer: Box<dyn RenderListener> = match chart_type {
-            ChartType::Line => Box::new(PlotRenderer::new(
-                self.engine.clone(),
-                format,
-                self.data_store.clone(),
-            )),
-            ChartType::Candlestick => Box::new(CandlestickRenderer::new(
-                self.engine.clone(),
-                format,
-                self.data_store.clone(),
-            )),
+            ChartType::Line => {
+                Box::new(PlotRenderer::new(
+                    self.engine.clone(),
+                    format,
+                    self.data_store.clone(),
+                ))
+            },
+            ChartType::Candlestick => {
+                Box::new(CandlestickRenderer::new(
+                    self.engine.clone(),
+                    format,
+                    self.data_store.clone(),
+                ))
+            },
         };
 
         let x_axis_renderer = Box::new(XAxisRenderer::new(
@@ -146,11 +164,17 @@ impl LineGraph {
 
         // Now do all the mutations in one go
         {
-            let mut engine_mut = self.engine.borrow_mut();
-            engine_mut.clear_render_listeners();
-            engine_mut.add_render_listener(plot_renderer);
-            engine_mut.add_render_listener(x_axis_renderer);
-            engine_mut.add_render_listener(y_axis_renderer);
+            match self.engine.try_borrow_mut() {
+                Ok(mut engine_mut) => {
+                    engine_mut.clear_render_listeners();
+                    engine_mut.add_render_listener(plot_renderer);
+                    engine_mut.add_render_listener(x_axis_renderer);
+                    engine_mut.add_render_listener(y_axis_renderer);
+                },
+                Err(e) => {
+                    log::error!("Failed to borrow engine mutably: {:?}", e);
+                }
+            }
         }
     }
 
@@ -161,6 +185,7 @@ impl LineGraph {
             _ => ChartType::Line,
         };
 
+        log::info!("Setting chart type to {:?}", new_type);
         self.data_store.borrow_mut().set_chart_type(new_type);
         self.setup_renderers();
     }

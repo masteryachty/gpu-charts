@@ -342,7 +342,7 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
       
       try {
         console.log('[useWasmChart] Loading WASM module...');
-        const wasmModule = await import('@pkg/tutorial1_window.js');
+        const wasmModule = await import('@pkg/GPU_charting.js');
         console.log('[useWasmChart] WASM module imported, initializing...');
         await wasmModule.default();
         console.log('[useWasmChart] WASM module initialized');

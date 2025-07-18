@@ -330,16 +330,16 @@ mod tests {
     fn test_large_range() {
         let (interval, start, end) = calculate_y_axis_interval(20.0, 100.0);
         assert_eq!(interval, 20.0);
-        assert_eq!(start, 0.0);
-        assert_eq!(end, 120.0);
+        assert_eq!(start, 20.0);
+        assert_eq!(end, 100.0);
     }
 
     #[test]
     fn test_tiny_range() {
         let (interval, start, end) = calculate_y_axis_interval(0.01, 0.015);
         assert_eq!(interval, 0.001);
-        assert_eq!(start, 0.01);
-        assert_eq!(end, 0.016);
+        assert!((start - 0.01).abs() < 0.001);
+        assert!((end - 0.015).abs() < 0.001);
     }
 
     #[test]

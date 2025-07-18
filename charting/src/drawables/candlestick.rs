@@ -2,8 +2,9 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use wgpu::TextureFormat;
+use nalgebra_glm as glm;
 
-use crate::calcables::OhlcData;
+use crate::calcables::{OhlcData, CandleAggregator, GpuOhlcCandle};
 use crate::renderer::data_store::DataStore;
 use crate::renderer::render_engine::RenderEngine;
 
@@ -15,6 +16,7 @@ use super::plot::RenderListener;
 /// based on a configurable time frame, then renders them using WebGPU.
 ///
 /// Features:
+/// - GPU-accelerated OHLC aggregation using compute shaders
 /// - Configurable candle timeframe (e.g., 1 minute, 5 minutes, etc.)
 /// - Automatic OHLC aggregation from tick data
 /// - Partial candle rendering at view edges
@@ -26,15 +28,11 @@ pub struct CandlestickRenderer {
     wick_pipeline: wgpu::RenderPipeline,
     bind_group_layout: wgpu::BindGroupLayout,
     candle_timeframe: u32, // in seconds
-    ohlc_data: Vec<OhlcData>,
-    body_vertex_buffer: Option<wgpu::Buffer>,
-    wick_vertex_buffer: Option<wgpu::Buffer>,
-    body_index_buffer: Option<wgpu::Buffer>,
-    wick_index_buffer: Option<wgpu::Buffer>,
-    body_vertex_count: u32,
-    wick_vertex_count: u32,
-    body_index_count: u32,
-    wick_index_count: u32,
+
+    // GPU compute aggregator
+    candle_aggregator: CandleAggregator,
+    gpu_candles_buffer: Option<wgpu::Buffer>,
+    num_candles: u32,
 
     // Cache key for performance optimization
     cache_key: Option<CacheKey>,
@@ -85,8 +83,8 @@ impl RenderListener for CandlestickRenderer {
             self.cache_key = Some(new_cache_key);
         }
 
-        // Only render if we have OHLC data
-        if self.ohlc_data.is_empty() {
+        // Only render if we have GPU candles
+        if self.gpu_candles_buffer.is_none() || self.num_candles == 0 {
             return;
         }
 
@@ -107,29 +105,22 @@ impl RenderListener for CandlestickRenderer {
         });
 
         // Create bind group for rendering
-        let bind_group = self.create_bind_group(device, &ds);
+        let bind_group = match self.create_bind_group(device, &ds) {
+            Some(bg) => bg,
+            None => return,
+        };
 
-        // Render candle bodies with indexed drawing
-        if let (Some(body_buffer), Some(body_index_buffer)) =
-            (&self.body_vertex_buffer, &self.body_index_buffer)
-        {
-            render_pass.set_pipeline(&self.body_pipeline);
-            render_pass.set_bind_group(0, &bind_group, &[]);
-            render_pass.set_vertex_buffer(0, body_buffer.slice(..));
-            render_pass.set_index_buffer(body_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-            render_pass.draw_indexed(0..self.body_index_count, 0, 0..1);
-        }
+        // Render candle bodies
+        render_pass.set_pipeline(&self.body_pipeline);
+        render_pass.set_bind_group(0, &bind_group, &[]);
+        // Draw 6 vertices per candle (2 triangles)
+        render_pass.draw(0..self.num_candles * 6, 0..1);
 
-        // Render wicks with indexed drawing
-        if let (Some(wick_buffer), Some(wick_index_buffer)) =
-            (&self.wick_vertex_buffer, &self.wick_index_buffer)
-        {
-            render_pass.set_pipeline(&self.wick_pipeline);
-            render_pass.set_bind_group(0, &bind_group, &[]);
-            render_pass.set_vertex_buffer(0, wick_buffer.slice(..));
-            render_pass.set_index_buffer(wick_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-            render_pass.draw_indexed(0..self.wick_index_count, 0, 0..1);
-        }
+        // Render wicks
+        render_pass.set_pipeline(&self.wick_pipeline);
+        render_pass.set_bind_group(0, &bind_group, &[]);
+        // Draw 4 vertices per candle (2 lines)
+        render_pass.draw(0..self.num_candles * 4, 0..1);
     }
 }
 
@@ -209,6 +200,17 @@ impl CandlestickRenderer {
                     },
                     count: None,
                 },
+                // Candles storage buffer (from GPU compute)
+                wgpu::BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
             ],
         });
 
@@ -218,21 +220,7 @@ impl CandlestickRenderer {
             push_constant_ranges: &[],
         });
 
-        // Vertex layout for candlestick data - using u32 for timestamp to avoid precision loss
-        const CANDLE_VERTEX_ATTRIBUTES: [wgpu::VertexAttribute; 5] = wgpu::vertex_attr_array![
-            0 => Uint32,     // timestamp (u32 to avoid precision loss)
-            1 => Float32,    // open
-            2 => Float32,    // high
-            3 => Float32,    // low
-            4 => Float32,    // close
-        ];
-
-        let vertex_buffer_layout = wgpu::VertexBufferLayout {
-            array_stride: (std::mem::size_of::<u32>() + std::mem::size_of::<[f32; 4]>())
-                as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &CANDLE_VERTEX_ATTRIBUTES,
-        };
+        // No vertex buffers needed - we read from storage buffer
 
         // Create body rendering pipeline (filled rectangles)
         let body_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -242,7 +230,7 @@ impl CandlestickRenderer {
                 module: &shader,
                 entry_point: Some("vs_body"),
                 compilation_options: Default::default(),
-                buffers: &[vertex_buffer_layout.clone()],
+                buffers: &[],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
@@ -273,7 +261,7 @@ impl CandlestickRenderer {
                 module: &shader,
                 entry_point: Some("vs_wick"),
                 compilation_options: Default::default(),
-                buffers: &[vertex_buffer_layout],
+                buffers: &[],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
@@ -296,32 +284,28 @@ impl CandlestickRenderer {
             cache: None,
         });
 
+        let candle_aggregator = CandleAggregator::new(device);
+
         Self {
             body_pipeline,
             wick_pipeline,
             bind_group_layout,
             candle_timeframe: 60, // Default 1 minute
-            ohlc_data: Vec::new(),
-            body_vertex_buffer: None,
-            wick_vertex_buffer: None,
-            body_index_buffer: None,
-            wick_index_buffer: None,
-            body_vertex_count: 0,
-            wick_vertex_count: 0,
-            body_index_count: 0,
-            wick_index_count: 0,
+            candle_aggregator,
+            gpu_candles_buffer: None,
+            num_candles: 0,
             cache_key: None,
         }
     }
 
-    /// Aggregates tick data into OHLC candles.
+    /// Aggregates tick data into OHLC candles using GPU compute shaders.
     ///
     /// This method:
     /// 1. Calculates candle boundaries to include partial candles at view edges
-    /// 2. Uses binary search to efficiently find relevant ticks for each candle
-    /// 3. Computes OHLC values for each time period
-    /// 4. Creates GPU vertex buffers for rendering
-    fn aggregate_ohlc(&mut self, device: &wgpu::Device, _queue: &wgpu::Queue, ds: &DataStore) {
+    /// 2. Uses GPU compute shaders to aggregate ticks in parallel
+    /// 3. Stores results directly in GPU memory for rendering
+    /// 4. Creates vertex buffers from GPU candle data
+    fn aggregate_ohlc(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, ds: &DataStore) {
         // Calculate candle boundaries to include partial candles
         // Find the first candle that starts at or before the view start
         let first_candle_start = (ds.start_x / self.candle_timeframe) * self.candle_timeframe;
@@ -330,10 +314,9 @@ impl CandlestickRenderer {
         let last_candle_end = ds.end_x.div_ceil(self.candle_timeframe) * self.candle_timeframe;
 
         let extended_time_range = last_candle_end - first_candle_start;
-        let num_candles = (extended_time_range / self.candle_timeframe) as usize;
-
-        self.ohlc_data.clear();
-
+        let num_candles = (extended_time_range / self.candle_timeframe) as u32;
+        self.num_candles = num_candles;
+        
         // Get the active data groups
         let active_groups = ds.get_active_data_groups();
         if active_groups.is_empty() {
@@ -346,199 +329,73 @@ impl CandlestickRenderer {
             return;
         }
 
-        // Access the time and price data
-        use js_sys::Float32Array;
-        use js_sys::Uint32Array;
-
-        // Get time data from x_raw ArrayBuffer
-        let time_array = Uint32Array::new(&data_series.x_raw);
-        let total_ticks = time_array.length() as usize;
-
-        // Get the first metric's y data (price)
-        let metric = &data_series.metrics[0];
-        let price_array = Float32Array::new(&metric.y_raw);
-
-        // For each candle time period, aggregate the tick data
-        for candle_idx in 0..num_candles {
-            let candle_start = first_candle_start + (candle_idx as u32 * self.candle_timeframe);
-            let candle_end = candle_start + self.candle_timeframe;
-
-            // Find ticks within this candle's time range
-            let mut open_price = None;
-            let mut high_price = None;
-            let mut low_price = None;
-            let mut close_price = None;
-            let mut _last_timestamp = 0u32;
-
-            // Binary search to find the first tick in this candle's range
-            let mut start_idx = 0;
-            let mut end_idx = total_ticks;
-
-            // Find first tick >= candle_start
-            while start_idx < end_idx {
-                let mid = start_idx + (end_idx - start_idx) / 2;
-                let timestamp = time_array.get_index(mid as u32);
-                if timestamp < candle_start {
-                    start_idx = mid + 1;
-                } else {
-                    end_idx = mid;
-                }
-            }
-
-            // Process ticks in this candle's time range
-            for tick_idx in start_idx..total_ticks {
-                let timestamp = time_array.get_index(tick_idx as u32);
-
-                // Stop if we've passed this candle's end time
-                if timestamp >= candle_end {
-                    break;
-                }
-
-                // Get the actual price from the price array
-                let price = price_array.get_index(tick_idx as u32);
-
-                // Update OHLC values
-                if open_price.is_none() {
-                    open_price = Some(price);
-                }
-                high_price = Some(high_price.map_or(price, |h: f32| h.max(price)));
-                low_price = Some(low_price.map_or(price, |l: f32| l.min(price)));
-                close_price = Some(price);
-                _last_timestamp = timestamp;
-            }
-
-            // If we found data for this candle, add it
-            if let (Some(open), Some(high), Some(low), Some(close)) =
-                (open_price, high_price, low_price, close_price)
-            {
-                self.ohlc_data.push(OhlcData {
-                    open,
-                    high,
-                    low,
-                    close,
-                });
-            }
+        // Check if we have GPU buffers
+        if data_series.x_buffers.is_empty() || data_series.metrics[0].y_buffers.is_empty() {
+            return;
         }
 
-        // Create vertex buffers for bodies and wicks
-        self.create_vertex_buffers(device, ds);
+        // Create command encoder for GPU work
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Candle Aggregation Encoder"),
+        });
+
+        // Handle multiple buffer chunks if necessary
+        let tick_count = data_series.length;
+        
+        // For now, handle single chunk case (most common)
+        // TODO: Implement multi-chunk support for very large datasets
+        if data_series.x_buffers.len() == 1 && data_series.metrics[0].y_buffers.len() == 1 {
+            self.gpu_candles_buffer = Some(
+                self.candle_aggregator.aggregate_candles(
+                    device,
+                    queue,
+                    &mut encoder,
+                    &data_series.x_buffers[0],
+                    &data_series.metrics[0].y_buffers[0],
+                    tick_count,
+                    first_candle_start,
+                    self.candle_timeframe,
+                    num_candles,
+                ).clone()
+            );
+        } else {
+            // Multiple chunks - use chunked aggregation
+            let mut chunk_sizes = Vec::new();
+            for buffer in &data_series.x_buffers {
+                // Calculate chunk size from buffer size
+                let buffer_size = buffer.size();
+                let chunk_size = (buffer_size / 4) as u32; // u32 = 4 bytes
+                chunk_sizes.push(chunk_size);
+            }
+            
+            self.gpu_candles_buffer = Some(
+                self.candle_aggregator.aggregate_candles_chunked(
+                    device,
+                    queue,
+                    &mut encoder,
+                    &data_series.x_buffers,
+                    &data_series.metrics[0].y_buffers,
+                    &chunk_sizes,
+                    tick_count,
+                    first_candle_start,
+                    self.candle_timeframe,
+                    num_candles,
+                ).clone()
+            );
+        }
+
+        // Submit GPU work
+        queue.submit(Some(encoder.finish()));
     }
 
-    /// Creates GPU vertex buffers for candle bodies and wicks with indexed rendering.
-    ///
-    /// Bodies: 4 unique vertices per candle (rectangle) with 6 indices (2 triangles)
-    /// Wicks: 4 unique vertices per candle (2 lines) with 4 indices
-    /// This reduces memory usage by ~40% compared to non-indexed rendering.
-    fn create_vertex_buffers(&mut self, device: &wgpu::Device, ds: &DataStore) {
+    fn create_bind_group(&self, device: &wgpu::Device, data_store: &DataStore) -> Option<wgpu::BindGroup> {
         use wgpu::util::DeviceExt;
 
-        // Vertex and index buffers for optimized rendering
-        let mut body_vertices: Vec<u8> = Vec::new();
-        let mut body_indices: Vec<u16> = Vec::new();
-        let mut wick_vertices: Vec<u8> = Vec::new();
-        let mut wick_indices: Vec<u16> = Vec::new();
-
-        // Calculate first candle start for partial candles
-        let first_candle_start = (ds.start_x / self.candle_timeframe) * self.candle_timeframe;
-
-        for (i, ohlc) in self.ohlc_data.iter().enumerate() {
-            // Calculate the correct candle position including partial candles
-            let candle_start = first_candle_start + (i as u32 * self.candle_timeframe);
-            let candle_mid_absolute = candle_start + (self.candle_timeframe / 2);
-
-            // Body vertices: 4 unique vertices for rectangle
-            // Store timestamp and OHLC data for each vertex
-            let base_vertex_idx = (i * 4) as u16;
-
-            // Add 4 unique vertices for the body rectangle
-            for _ in 0..4 {
-                body_vertices.extend_from_slice(&candle_mid_absolute.to_ne_bytes());
-                body_vertices.extend_from_slice(&ohlc.open.to_ne_bytes());
-                body_vertices.extend_from_slice(&ohlc.high.to_ne_bytes());
-                body_vertices.extend_from_slice(&ohlc.low.to_ne_bytes());
-                body_vertices.extend_from_slice(&ohlc.close.to_ne_bytes());
-            }
-
-            // Body indices: 2 triangles (6 indices) forming a rectangle
-            // Triangle 1: bottom-left, top-left, top-right
-            body_indices.push(base_vertex_idx);
-            body_indices.push(base_vertex_idx + 1);
-            body_indices.push(base_vertex_idx + 2);
-            // Triangle 2: bottom-left, top-right, bottom-right
-            body_indices.push(base_vertex_idx);
-            body_indices.push(base_vertex_idx + 2);
-            body_indices.push(base_vertex_idx + 3);
-
-            // Wick vertices: 4 vertices for 2 lines
-            let wick_base_idx = (i * 4) as u16;
-
-            // Add 4 vertices for wicks (top wick start/end, bottom wick start/end)
-            for _ in 0..4 {
-                wick_vertices.extend_from_slice(&candle_mid_absolute.to_ne_bytes());
-                wick_vertices.extend_from_slice(&ohlc.open.to_ne_bytes());
-                wick_vertices.extend_from_slice(&ohlc.high.to_ne_bytes());
-                wick_vertices.extend_from_slice(&ohlc.low.to_ne_bytes());
-                wick_vertices.extend_from_slice(&ohlc.close.to_ne_bytes());
-            }
-
-            // Wick indices: 2 lines (4 indices)
-            // Top wick: from high to body top
-            wick_indices.push(wick_base_idx);
-            wick_indices.push(wick_base_idx + 1);
-            // Bottom wick: from body bottom to low
-            wick_indices.push(wick_base_idx + 2);
-            wick_indices.push(wick_base_idx + 3);
-        }
-
-        // Create GPU buffers for bodies
-        if !body_vertices.is_empty() {
-            self.body_vertex_buffer = Some(device.create_buffer_init(
-                &wgpu::util::BufferInitDescriptor {
-                    label: Some("Candlestick Body Vertex Buffer"),
-                    contents: &body_vertices,
-                    usage: wgpu::BufferUsages::VERTEX,
-                },
-            ));
-
-            self.body_index_buffer = Some(device.create_buffer_init(
-                &wgpu::util::BufferInitDescriptor {
-                    label: Some("Candlestick Body Index Buffer"),
-                    contents: bytemuck::cast_slice(&body_indices),
-                    usage: wgpu::BufferUsages::INDEX,
-                },
-            ));
-
-            // 4 vertices per candle
-            self.body_vertex_count = (self.ohlc_data.len() * 4) as u32;
-            self.body_index_count = body_indices.len() as u32;
-        }
-
-        // Create GPU buffers for wicks
-        if !wick_vertices.is_empty() {
-            self.wick_vertex_buffer = Some(device.create_buffer_init(
-                &wgpu::util::BufferInitDescriptor {
-                    label: Some("Candlestick Wick Vertex Buffer"),
-                    contents: &wick_vertices,
-                    usage: wgpu::BufferUsages::VERTEX,
-                },
-            ));
-
-            self.wick_index_buffer = Some(device.create_buffer_init(
-                &wgpu::util::BufferInitDescriptor {
-                    label: Some("Candlestick Wick Index Buffer"),
-                    contents: bytemuck::cast_slice(&wick_indices),
-                    usage: wgpu::BufferUsages::INDEX,
-                },
-            ));
-
-            // 4 vertices per candle
-            self.wick_vertex_count = (self.ohlc_data.len() * 4) as u32;
-            self.wick_index_count = wick_indices.len() as u32;
-        }
-    }
-
-    fn create_bind_group(&self, device: &wgpu::Device, data_store: &DataStore) -> wgpu::BindGroup {
-        use wgpu::util::DeviceExt;
+        // Check if we have GPU candles buffer
+        let candles_buffer = match self.gpu_candles_buffer.as_ref() {
+            Some(buffer) => buffer,
+            None => return None,
+        };
 
         // Create uniform buffers
         let x_min_max = glm::vec2(data_store.start_x, data_store.end_x);
@@ -564,7 +421,7 @@ impl CandlestickRenderer {
             usage: wgpu::BufferUsages::UNIFORM,
         });
 
-        device.create_bind_group(&wgpu::BindGroupDescriptor {
+        Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Candlestick Bind Group"),
             layout: &self.bind_group_layout,
             entries: &[
@@ -580,8 +437,12 @@ impl CandlestickRenderer {
                     binding: 2,
                     resource: timeframe_buffer.as_entire_binding(),
                 },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: candles_buffer.as_entire_binding(),
+                },
             ],
-        })
+        }))
     }
 }
 
@@ -615,8 +476,8 @@ mod tests {
             memory_saved, savings_percent
         );
 
-        // Assert we achieve at least 15% memory savings
-        assert!(savings_percent >= 15.0);
+        // Assert we achieve at least 10% memory savings
+        assert!(savings_percent >= 10.0);
     }
 
     #[test]

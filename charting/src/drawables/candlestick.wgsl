@@ -1,11 +1,12 @@
-// Vertex data structure for candlestick rendering
-// Each vertex contains the full OHLC data to allow flexible rendering
-struct CandleVertex {
-    @location(0) timestamp: u32,  // Unix timestamp in seconds
-    @location(1) open: f32,       // Opening price
-    @location(2) high: f32,       // Highest price in period
-    @location(3) low: f32,        // Lowest price in period
-    @location(4) close: f32,      // Closing price
+// GPU-accelerated candlestick rendering shader
+// Reads candle data directly from GPU compute output buffer
+
+struct OhlcCandle {
+    timestamp: u32,    // Candle start time
+    open: f32,         // Opening price
+    high: f32,         // Highest price
+    low: f32,          // Lowest price
+    close: f32,        // Closing price
 };
 
 struct VertexOutput {
@@ -26,27 +27,27 @@ struct MinMax {
 @group(0) @binding(0) var<uniform> x_range: MinMaxU32;
 @group(0) @binding(1) var<uniform> y_range: MinMax;
 @group(0) @binding(2) var<uniform> candle_timeframe: f32;
+@group(0) @binding(3) var<storage, read> candles: array<OhlcCandle>;
 
 // Vertex shader for candle bodies (rectangles)
 @vertex
-fn vs_body(
-    vertex: CandleVertex,
-    @builtin(vertex_index) vertex_idx: u32,
-) -> VertexOutput {
+fn vs_body(@builtin(vertex_index) vertex_idx: u32) -> VertexOutput {
     var out: VertexOutput;
+    
+    // Calculate which candle and which corner of the rectangle
+    let candle_idx = vertex_idx / 6u;  // 6 vertices per candle (2 triangles)
+    let corner_idx = vertex_idx % 6u;
+    
+    // Get the candle data
+    let candle = candles[candle_idx];
     
     // Calculate candle width - use 80% of timeframe to leave gaps
     let candle_width = candle_timeframe * 0.8;
     let actual_half_width = candle_width * 0.5;
     
-    // Determine which corner of the rectangle this vertex represents
-    let corner_idx = vertex_idx % 6u;
-    var x_offset: f32;
-    var y_value: f32;
-    
     // Get the top and bottom of the candle body
-    let body_top = max(vertex.open, vertex.close);
-    let body_bottom = min(vertex.open, vertex.close);
+    let body_top = max(candle.open, candle.close);
+    let body_bottom = min(candle.open, candle.close);
     
     // Ensure minimum body height for visibility (at least 0.5% of the y range)
     let y_range_size = y_range.max_val - y_range.min_val;
@@ -56,9 +57,13 @@ fn vs_body(
     // Adjust body positions if needed to ensure minimum height
     let adjusted_body_top = body_bottom + body_height;
     
+    // Determine vertex position based on corner index
+    var x_offset: f32;
+    var y_value: f32;
+    
     // Create rectangle from 6 vertices (2 triangles)
-    // Triangle 1: top-left, bottom-left, bottom-right
-    // Triangle 2: top-left, bottom-right, top-right
+    // Triangle 1: 0=top-left, 1=bottom-left, 2=bottom-right
+    // Triangle 2: 3=top-left, 4=bottom-right, 5=top-right
     if (corner_idx == 0u || corner_idx == 3u) {
         // Top-left
         x_offset = -actual_half_width;
@@ -77,11 +82,13 @@ fn vs_body(
         y_value = adjusted_body_top;
     }
     
-    // Convert to relative coordinates (same as plot.wgsl)
+    // Calculate the x position for this vertex
+    // Center the candle body on the candle's time period
     var start_ts = x_range.min_val;
-    var x_f32 = f32(vertex.timestamp - start_ts) + x_offset;
+    var candle_center_x = f32(candle.timestamp - start_ts) + (candle_timeframe / 2.0);
+    var x_f32 = candle_center_x + x_offset;
     
-    // Apply the same projection as plot.wgsl
+    // Apply projection
     var projection = world_to_screen_conversion_with_margin(
         0., f32(x_range.max_val - start_ts), 
         y_range.min_val, y_range.max_val, 
@@ -93,9 +100,9 @@ fn vs_body(
     out.position.w = 1.0;
     
     // Color based on bullish/bearish
-    if (vertex.close > vertex.open) {
+    if (candle.close > candle.open) {
         out.color = vec3<f32>(0.0, 1.0, 0.0); // Green for bullish
-    } else if (vertex.close < vertex.open) {
+    } else if (candle.close < candle.open) {
         out.color = vec3<f32>(1.0, 0.0, 0.0); // Red for bearish
     } else {
         out.color = vec3<f32>(1.0, 1.0, 0.0); // Yellow for doji
@@ -106,35 +113,39 @@ fn vs_body(
 
 // Vertex shader for wicks (lines)
 @vertex
-fn vs_wick(
-    vertex: CandleVertex,
-    @builtin(vertex_index) vertex_idx: u32,
-) -> VertexOutput {
+fn vs_wick(@builtin(vertex_index) vertex_idx: u32) -> VertexOutput {
     var out: VertexOutput;
     
-    // Determine which part of the wick this vertex represents
+    // Calculate which candle and which wick vertex
+    let candle_idx = vertex_idx / 4u;  // 4 vertices per candle (2 lines)
     let wick_idx = vertex_idx % 4u;
+    
+    // Get the candle data
+    let candle = candles[candle_idx];
+    
+    // Determine y position based on wick vertex
     var y_value: f32;
     
     if (wick_idx == 0u) {
         // Upper wick start (high)
-        y_value = vertex.high;
+        y_value = candle.high;
     } else if (wick_idx == 1u) {
         // Upper wick end (top of body)
-        y_value = max(vertex.open, vertex.close);
+        y_value = max(candle.open, candle.close);
     } else if (wick_idx == 2u) {
         // Lower wick start (bottom of body)
-        y_value = min(vertex.open, vertex.close);
+        y_value = min(candle.open, candle.close);
     } else {
         // Lower wick end (low)
-        y_value = vertex.low;
+        y_value = candle.low;
     }
     
-    // All wick vertices are at the center of the candle (no x offset)
+    // Calculate center position of candle
+    // The wick is centered on the candle
     var start_ts = x_range.min_val;
-    var x_f32 = f32(vertex.timestamp - start_ts);
+    var x_f32 = f32(candle.timestamp - start_ts) + (candle_timeframe / 2.0);
     
-    // Apply the same projection as plot.wgsl
+    // Apply projection
     var projection = world_to_screen_conversion_with_margin(
         0., f32(x_range.max_val - start_ts), 
         y_range.min_val, y_range.max_val, 

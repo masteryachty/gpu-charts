@@ -265,7 +265,7 @@ impl RenderEngine {
         encoder: &mut wgpu::CommandEncoder,
         image_view: &wgpu::TextureView,
     ) {
-        for listener in &mut self.render_listeners {
+        for listener in self.render_listeners.iter_mut() {
             listener.on_render(
                 &self.queue,
                 &self.device,

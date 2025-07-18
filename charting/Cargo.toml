@@ -1,7 +1,7 @@
 [package]
-name = "tutorial1-window"
+name = "GPU-charting"
 version = "0.1.0"
-authors = ["Ben Hansen"]
+authors = ["Xander  Barnes"]
 edition = "2018"
 
 [features]
@@ -12,7 +12,7 @@ react-mode = []
 crate-type = ["cdylib", "rlib"]
 
 [[bin]]
-name = "tutorial1-window"
+name = "GPU-charting"
 path = "src/main.rs"
 
 [dependencies]

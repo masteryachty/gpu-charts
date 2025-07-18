@@ -115,6 +115,17 @@ impl Chart {
     }
 
     #[wasm_bindgen]
+    pub fn needs_render(&self) -> bool {
+        unsafe {
+            if let Some(instance) = (&raw const CHART_INSTANCE).as_ref().unwrap() {
+                instance.line_graph.borrow().data_store.borrow().is_dirty()
+            } else {
+                false
+            }
+        }
+    }
+
+    #[wasm_bindgen]
     pub fn resize(&self, width: u32, height: u32) -> Result<(), JsValue> {
         log::info!("Resizing chart to: {width}x{height}");
 
