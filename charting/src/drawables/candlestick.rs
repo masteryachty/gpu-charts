@@ -324,7 +324,7 @@ impl CandlestickRenderer {
         let first_candle_start = (ds.start_x / self.candle_timeframe) * self.candle_timeframe;
         
         // Find the last candle that ends at or after the view end
-        let last_candle_end = ((ds.end_x + self.candle_timeframe - 1) / self.candle_timeframe) * self.candle_timeframe;
+        let last_candle_end = ds.end_x.div_ceil(self.candle_timeframe) * self.candle_timeframe;
         
         let extended_time_range = last_candle_end - first_candle_start;
         let num_candles = (extended_time_range / self.candle_timeframe) as usize;
