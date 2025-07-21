@@ -57,8 +57,9 @@ impl CandleData {
         }
 
         // Update VWAP
-        self.vwap =
-            (self.vwap * self.volume + trade.price * trade.size) / (self.volume + trade.size);
+        let new_volume = self.volume + trade.size;
+        self.vwap = (self.vwap * self.volume + trade.price * trade.size) / new_volume;
+        self.volume = new_volume;
 
         self.trade_count += 1;
     }
