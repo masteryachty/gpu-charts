@@ -7,12 +7,12 @@ use web_sys::{Request, RequestInit, Response};
 
 /// Fetches binary data from the server with maximum performance
 pub struct DataFetcher {
-    base_url: String,
+    _base_url: String,
 }
 
 impl DataFetcher {
     pub fn new(base_url: String) -> Self {
-        Self { base_url }
+        Self { _base_url: base_url }
     }
 
     /// Fetch data with HTTP/2 streaming
@@ -20,8 +20,8 @@ impl DataFetcher {
         let window = web_sys::window()
             .ok_or_else(|| Error::NetworkError("No window object available".to_string()))?;
 
-        let mut opts = RequestInit::new();
-        opts.method("GET");
+        let opts = RequestInit::new();
+        opts.set_method("GET");
 
         let request = Request::new_with_str_and_init(url, &opts)
             .map_err(|_| Error::NetworkError("Failed to create request".to_string()))?;
@@ -55,7 +55,7 @@ impl DataFetcher {
     }
 
     /// Fetch with progress callback for large datasets
-    pub async fn fetch_with_progress<F>(&self, url: &str, mut on_progress: F) -> Result<Vec<u8>>
+    pub async fn fetch_with_progress<F>(&self, url: &str, _on_progress: F) -> Result<Vec<u8>>
     where
         F: FnMut(u64, u64) + 'static,
     {

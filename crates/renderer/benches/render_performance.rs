@@ -1,6 +1,66 @@
-//! Benchmarks for rendering performance
+//! Performance benchmarks for the GPU renderer
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use gpu_charts_renderer::{Renderer, Viewport, GpuBufferSet};
+use gpu_charts_shared::{ChartConfiguration, ChartType, VisualConfig, DataHandle, TimeRange, DataMetadata};
+use std::sync::Arc;
+use std::collections::HashMap;
+
+/// Create a mock GPU buffer set for benchmarking
+fn create_mock_buffer_set(device: &wgpu::Device, num_points: usize) -> Arc<GpuBufferSet> {
+    use wgpu::util::DeviceExt;
+    
+    // Create mock time and price data
+    let time_data: Vec<u32> = (0..num_points).map(|i| i as u32).collect();
+    let price_data: Vec<f32> = (0..num_points).map(|i| (i as f32).sin() * 100.0 + 1000.0).collect();
+    
+    let time_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some("Time Buffer"),
+        contents: bytemuck::cast_slice(&time_data),
+        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::VERTEX,
+    });
+    
+    let price_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some("Price Buffer"),
+        contents: bytemuck::cast_slice(&price_data),
+        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::VERTEX,
+    });
+    
+    let mut buffers = HashMap::new();
+    buffers.insert("time".to_string(), vec![time_buffer]);
+    buffers.insert("price".to_string(), vec![price_buffer]);
+    
+    Arc::new(GpuBufferSet {
+        buffers,
+        metadata: DataMetadata {
+            symbol: "BTC-USD".to_string(),
+            column_types: vec!["time".to_string(), "price".to_string()],
+            time_range: TimeRange::new(0, num_points as u64),
+            total_points: num_points as u64,
+            resolution: 1,
+        },
+    })
+}
+
+/// Create a test configuration
+fn create_test_config(chart_type: ChartType) -> ChartConfiguration {
+    ChartConfiguration {
+        chart_type,
+        visual_config: VisualConfig {
+            background_color: [0.0, 0.0, 0.0, 1.0],
+            grid_color: [0.2, 0.2, 0.2, 1.0],
+            text_color: [1.0, 1.0, 1.0, 1.0],
+            margin_percent: 0.1,
+            show_grid: true,
+            show_axes: true,
+        },
+        overlays: vec![],
+        data_handles: vec![DataHandle {
+            id: uuid::Uuid::new_v4(),
+            data_type: "market_data".to_string(),
+        }],
+    }
+}
 
 fn bench_viewport_culling(c: &mut Criterion) {
     // Benchmark viewport culling with different point counts

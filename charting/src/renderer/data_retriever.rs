@@ -236,7 +236,7 @@ pub async fn fetch_data(
 
     // Add metrics dynamically based on chart type and selected_metrics
     let chart_type = data_store.borrow().chart_type;
-    
+
     match chart_type {
         crate::renderer::data_store::ChartType::Candlestick => {
             // For candlestick charts, we specifically need the price column
@@ -252,7 +252,9 @@ pub async fn fetch_data(
                 log::error!("Candlestick chart requires 'price' data column, but it was not found in response");
                 // Fallback: try to use best_bid as a proxy for price
                 if let Some((y_buffer, y_gpu_buffers)) = column_buffers.remove("best_bid") {
-                    log::warn!("Using best_bid as fallback for missing price data in candlestick chart");
+                    log::warn!(
+                        "Using best_bid as fallback for missing price data in candlestick chart"
+                    );
                     data_store.borrow_mut().add_metric_to_group(
                         data_group_index,
                         (y_buffer, y_gpu_buffers),

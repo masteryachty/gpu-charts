@@ -34,16 +34,16 @@ pub struct PipelineBuilder;
 
 impl PipelineBuilder {
     pub fn create_line_pipeline(
-        device: &wgpu::Device,
-        format: wgpu::TextureFormat,
+        _device: &wgpu::Device,
+        _format: wgpu::TextureFormat,
     ) -> wgpu::RenderPipeline {
         // TODO: Implement pipeline creation
         unsafe { std::mem::zeroed() } // Placeholder
     }
 
     pub fn create_candlestick_pipeline(
-        device: &wgpu::Device,
-        format: wgpu::TextureFormat,
+        _device: &wgpu::Device,
+        _format: wgpu::TextureFormat,
     ) -> (wgpu::RenderPipeline, wgpu::RenderPipeline) {
         // TODO: Implement pipeline creation
         (unsafe { std::mem::zeroed() }, unsafe { std::mem::zeroed() }) // Placeholder

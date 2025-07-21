@@ -138,7 +138,7 @@ pub struct AggregationConfig {
 }
 
 /// Types of aggregation supported
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "typescript", derive(Tsify))]
 #[serde(rename_all = "lowercase")]
 pub enum AggregationType {

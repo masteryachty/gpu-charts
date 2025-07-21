@@ -1,7 +1,6 @@
 //! High-performance GPU buffer pool for zero-allocation data processing
 
 use std::collections::VecDeque;
-use wgpu::util::DeviceExt;
 
 /// Buffer pool for reusing GPU allocations
 pub struct BufferPool {

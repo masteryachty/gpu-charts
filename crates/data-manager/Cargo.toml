@@ -12,9 +12,13 @@ wasm-bindgen = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
 web-sys = { workspace = true, features = [
     "Window",
+    "Document",
+    "Element",
+    "HtmlCanvasElement",
     "Request",
     "RequestInit", 
     "Response",
+    "Headers",
     "ReadableStream",
     "console"
 ] }
@@ -31,6 +35,9 @@ futures = { workspace = true }
 # Performance optimizations
 lru = "0.12"
 parking_lot = "0.12"
+
+# WASM utilities
+console_error_panic_hook = "0.1"
 
 [dev-dependencies]
 criterion = { workspace = true }

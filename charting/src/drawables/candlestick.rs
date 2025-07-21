@@ -172,8 +172,11 @@ impl RenderListener for CandlestickRenderer {
                 self.gpu_candles_buffer.is_some(), self.num_candles);
             return;
         }
-        
-        log::info!("CandlestickRenderer: Rendering {} candles", self.num_candles);
+
+        log::info!(
+            "CandlestickRenderer: Rendering {} candles",
+            self.num_candles
+        );
 
         // Begin render pass
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -407,7 +410,7 @@ impl CandlestickRenderer {
         let extended_time_range = last_candle_end - first_candle_start;
         let num_candles = (extended_time_range / self.candle_timeframe) as u32;
         self.num_candles = num_candles;
-        
+
         log::info!(
             "CandlestickRenderer::aggregate_ohlc: start_x={}, end_x={}, timeframe={}, num_candles={}, first_candle_start={}, last_candle_end={}",
             ds.start_x, ds.end_x, self.candle_timeframe, num_candles, first_candle_start, last_candle_end
@@ -426,22 +429,28 @@ impl CandlestickRenderer {
             log::warn!("CandlestickRenderer: No metrics in data series");
             return;
         }
-        
+
         // Find the price metric specifically (or use first metric as fallback)
-        let price_metric_index = data_series.metrics.iter()
+        let price_metric_index = data_series
+            .metrics
+            .iter()
             .position(|m| m.name == "price")
             .unwrap_or_else(|| {
-                log::warn!("CandlestickRenderer: 'price' metric not found, using first metric: {}", 
-                    data_series.metrics[0].name);
+                log::warn!(
+                    "CandlestickRenderer: 'price' metric not found, using first metric: {}",
+                    data_series.metrics[0].name
+                );
                 0
             });
 
         // Check if we have GPU buffers
-        if data_series.x_buffers.is_empty() || data_series.metrics[price_metric_index].y_buffers.is_empty() {
+        if data_series.x_buffers.is_empty()
+            || data_series.metrics[price_metric_index].y_buffers.is_empty()
+        {
             log::warn!("CandlestickRenderer: No GPU buffers available");
             return;
         }
-        
+
         log::info!(
             "CandlestickRenderer: Found {} x_buffers and {} y_buffers for metric '{}', tick_count={}",
             data_series.x_buffers.len(),
@@ -470,7 +479,9 @@ impl CandlestickRenderer {
 
         // For now, handle single chunk case (most common)
         // TODO: Implement multi-chunk support for very large datasets
-        if data_series.x_buffers.len() == 1 && data_series.metrics[price_metric_index].y_buffers.len() == 1 {
+        if data_series.x_buffers.len() == 1
+            && data_series.metrics[price_metric_index].y_buffers.len() == 1
+        {
             // Validate buffer sizes are consistent
             let x_buffer_size = data_series.x_buffers[0].size();
             let y_buffer_size = data_series.metrics[price_metric_index].y_buffers[0].size();
@@ -490,23 +501,25 @@ impl CandlestickRenderer {
                 );
             }
 
-            let candles_buffer = self.candle_aggregator
-                .aggregate_candles(
-                    device,
-                    queue,
-                    &mut encoder,
-                    &data_series.x_buffers[0],
-                    &data_series.metrics[price_metric_index].y_buffers[0],
-                    tick_count,
-                    first_candle_start,
-                    self.candle_timeframe,
-                    num_candles,
-                );
-            
+            let candles_buffer = self.candle_aggregator.aggregate_candles(
+                device,
+                queue,
+                &mut encoder,
+                &data_series.x_buffers[0],
+                &data_series.metrics[price_metric_index].y_buffers[0],
+                tick_count,
+                first_candle_start,
+                self.candle_timeframe,
+                num_candles,
+            );
+
             // Clone the buffer reference since aggregate_candles returns a reference
             self.gpu_candles_buffer = Some(candles_buffer.clone());
-            
-            log::info!("CandlestickRenderer: Created GPU candles buffer for {} candles", num_candles);
+
+            log::info!(
+                "CandlestickRenderer: Created GPU candles buffer for {} candles",
+                num_candles
+            );
         } else {
             // Multiple chunks - use chunked aggregation
             let mut chunk_sizes = Vec::new();
@@ -563,7 +576,7 @@ impl CandlestickRenderer {
     ) -> Option<wgpu::BindGroup> {
         // Check if we have GPU candles buffer
         let candles_buffer = self.gpu_candles_buffer.as_ref()?;
-        
+
         log::info!("CandlestickRenderer: Creating bind group with candles buffer");
 
         // Create uniform buffers using buffer pool

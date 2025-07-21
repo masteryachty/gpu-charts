@@ -1,9 +1,8 @@
 //! Zero-copy binary parser for direct GPU buffer creation
 
-use bytemuck::cast_slice;
-use gpu_charts_shared::{Error, Result};
+use gpu_charts_shared::{DataMetadata, Error, Result};
 use std::collections::HashMap;
-use wgpu::util::DeviceExt;
+use crate::buffer_pool::BufferPool;
 
 /// Header structure for binary data format
 #[derive(Debug, Clone)]
@@ -11,6 +10,12 @@ pub struct BinaryHeader {
     pub columns: Vec<String>,
     pub row_count: u32,
     pub column_types: Vec<ColumnType>,
+}
+
+/// Set of GPU buffers for a dataset
+pub struct GpuBufferSet {
+    pub buffers: HashMap<String, Vec<wgpu::Buffer>>,
+    pub metadata: DataMetadata,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -36,14 +41,70 @@ pub struct BinaryParser;
 impl BinaryParser {
     /// Parse binary data header
     pub fn parse_header(data: &[u8]) -> Result<(BinaryHeader, usize)> {
-        // TODO: Implement actual header parsing
-        // For now, return a dummy header
+        if data.len() < 16 {
+            return Err(Error::ParseError("Data too small for header".to_string()));
+        }
+
+        // Read header format:
+        // [0..4] magic number (0x47504348 = "GPCH")
+        // [4..8] header size (u32)
+        // [8..12] row count (u32)
+        // [12..16] column count (u32)
+        // Then column definitions...
+        
+        let magic = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
+        if magic != 0x47504348 {
+            return Err(Error::ParseError("Invalid magic number".to_string()));
+        }
+        
+        let header_size = u32::from_le_bytes([data[4], data[5], data[6], data[7]]) as usize;
+        let row_count = u32::from_le_bytes([data[8], data[9], data[10], data[11]]);
+        let column_count = u32::from_le_bytes([data[12], data[13], data[14], data[15]]) as usize;
+        
+        // Parse column definitions
+        let mut offset = 16;
+        let mut columns = Vec::with_capacity(column_count);
+        let mut column_types = Vec::with_capacity(column_count);
+        
+        for _ in 0..column_count {
+            if offset + 5 > data.len() {
+                return Err(Error::ParseError("Invalid column definition".to_string()));
+            }
+            
+            // Read column name length
+            let name_len = data[offset] as usize;
+            offset += 1;
+            
+            if offset + name_len + 1 > data.len() {
+                return Err(Error::ParseError("Invalid column name".to_string()));
+            }
+            
+            // Read column name
+            let name = String::from_utf8(data[offset..offset + name_len].to_vec())
+                .map_err(|_| Error::ParseError("Invalid column name encoding".to_string()))?;
+            offset += name_len;
+            
+            // Read column type
+            let col_type = match data[offset] {
+                0 => ColumnType::U32,
+                1 => ColumnType::F32,
+                2 => ColumnType::U64,
+                3 => ColumnType::F64,
+                _ => return Err(Error::ParseError("Invalid column type".to_string())),
+            };
+            offset += 1;
+            
+            columns.push(name);
+            column_types.push(col_type);
+        }
+        
         let header = BinaryHeader {
-            columns: vec!["time".to_string(), "price".to_string()],
-            row_count: 1000,
-            column_types: vec![ColumnType::U32, ColumnType::F32],
+            columns,
+            row_count,
+            column_types,
         };
-        Ok((header, 100)) // 100 bytes header size
+        
+        Ok((header, header_size))
     }
 
     /// Parse binary data directly to GPU buffers without intermediate allocations
@@ -53,6 +114,7 @@ impl BinaryParser {
         data: &[u8],
         header: &BinaryHeader,
         header_size: usize,
+        buffer_pool: &mut BufferPool,
     ) -> Result<HashMap<String, Vec<wgpu::Buffer>>> {
         let mut buffers = HashMap::new();
         let mut offset = header_size;
@@ -72,14 +134,13 @@ impl BinaryParser {
 
             while remaining_bytes > 0 {
                 let chunk_size = remaining_bytes.min(MAX_BUFFER_SIZE);
-                let chunk_elements = chunk_size / bytes_per_element;
+                let _chunk_elements = chunk_size / bytes_per_element;
 
-                // Create GPU buffer
-                let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some(&format!("{} buffer chunk", column)),
-                    contents: &data[data_offset..data_offset + chunk_size],
-                    usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-                });
+                // Get buffer from pool or create new one
+                let buffer = buffer_pool.acquire(device, chunk_size as u64);
+                
+                // Write data to buffer
+                queue.write_buffer(&buffer, 0, &data[data_offset..data_offset + chunk_size]);
 
                 column_buffers.push(buffer);
 
