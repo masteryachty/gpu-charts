@@ -1,7 +1,9 @@
+pub mod aggregation;
 pub mod connection;
 pub mod data_types;
 pub mod file_handlers;
 pub mod health;
+pub mod simple_analytics;
 pub mod websocket;
 
 pub use connection::ConnectionHandler;

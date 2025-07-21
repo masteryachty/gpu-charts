@@ -45,7 +45,7 @@ mod file_io_tests {
         ];
 
         for column in &columns {
-            let filename = format!("{}.{}.bin", column, formatted_date);
+            let filename = format!("{column}.{formatted_date}.bin");
 
             // Verify format
             assert!(filename.ends_with(".bin"));
@@ -238,10 +238,11 @@ mod file_io_tests {
         let mut write_futures = vec![];
 
         for column in columns {
-            let path = base_path.join(format!("{}.bin", column));
+            let path = base_path.join(format!("{column}.bin"));
             let future = async move {
                 let mut file = tokio::fs::OpenOptions::new()
                     .create(true)
+                    .truncate(true)
                     .write(true)
                     .open(&path)
                     .await?;

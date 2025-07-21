@@ -12,6 +12,39 @@ This is a WebAssembly-based real-time data visualization application built in Ru
 
 ## Development Commands
 
+### Code Quality and Pre-commit Hooks
+
+A comprehensive pre-commit hook is configured to run all code quality checks before allowing commits:
+
+```bash
+# The pre-commit hook automatically runs when you commit:
+git commit -m "Your commit message"
+
+# Manual testing of pre-commit checks:
+.git/hooks/pre-commit
+
+# Individual commands the pre-commit hook runs:
+cd coinbase-logger
+cargo fmt --all -- --check           # Rust formatting check
+cargo clippy --target x86_64-unknown-linux-gnu -- -D warnings  # Linting
+cargo audit                           # Security vulnerability scan
+cargo deny check                      # Dependency and license audit
+cargo build --target x86_64-unknown-linux-gnu   # Build verification
+cargo test --target x86_64-unknown-linux-gnu    # Full test suite
+```
+
+The pre-commit hook ensures:
+- ✅ **Rust formatting** is correct (via `cargo fmt`)
+- ✅ **Clippy linting** passes with no warnings
+- 🔒 **Security audit** passes (via `cargo audit`) - blocks commits if vulnerabilities found
+- ⚠️ **Dependency and license check** (via `cargo deny`) - shows warnings but doesn't block
+- ✅ **Code builds** successfully 
+- ✅ **All tests pass** (49 tests across 6 test files)
+- ✅ **Frontend linting** passes (if web directory exists)
+- ✅ **Server code quality** checks pass (if server directory exists)
+
+If any critical checks fail, the commit is blocked with helpful error messages and fix suggestions.
+
 ### Primary Development Workflow (from project root)
 ```bash
 # Build WASM module for development (generates files in web/pkg)

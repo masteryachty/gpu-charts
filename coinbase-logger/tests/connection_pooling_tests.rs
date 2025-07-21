@@ -10,8 +10,7 @@ mod connection_pooling_tests {
         const EXPECTED_CONNECTIONS: usize = 10;
         const TOTAL_SYMBOLS: usize = 200;
 
-        let symbols_per_connection =
-            (TOTAL_SYMBOLS + EXPECTED_CONNECTIONS - 1) / EXPECTED_CONNECTIONS;
+        let symbols_per_connection = TOTAL_SYMBOLS.div_ceil(EXPECTED_CONNECTIONS);
 
         assert_eq!(symbols_per_connection, 20);
     }
@@ -20,9 +19,9 @@ mod connection_pooling_tests {
     fn test_symbol_distribution() {
         // Test that symbols are evenly distributed across connections
         const CONNECTIONS: usize = 10;
-        let symbols: Vec<String> = (0..197).map(|i| format!("SYMBOL-{}", i)).collect();
+        let symbols: Vec<String> = (0..197).map(|i| format!("SYMBOL-{i}")).collect();
 
-        let symbols_per_connection = (symbols.len() + CONNECTIONS - 1) / CONNECTIONS;
+        let symbols_per_connection = symbols.len().div_ceil(CONNECTIONS);
 
         for i in 0..CONNECTIONS {
             let start_idx = i * symbols_per_connection;
@@ -77,7 +76,7 @@ mod connection_pooling_tests {
         // Override the default path for testing
         std::env::set_var("TEST_DATA_PATH", base_path);
 
-        let symbols = vec!["BTC-USD".to_string(), "ETH-USD".to_string()];
+        let symbols = ["BTC-USD".to_string(), "ETH-USD".to_string()];
 
         // Create a mock connection handler for testing
         // Note: In real tests, we'd mock the file system operations
