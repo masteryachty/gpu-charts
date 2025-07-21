@@ -123,24 +123,16 @@ The container includes a health check that verifies the process is running:
 docker-compose ps
 ```
 
-### Daily Restarts
+### Automatic File Rotation
 
-For production deployments, you may want daily restarts at midnight:
+The coinbase-logger now includes built-in automatic file rotation at midnight:
 
-1. **Install the cron job:**
-   ```bash
-   ./docker-restart.sh install-cron
-   ```
+- **No Restarts Required**: Files automatically rotate without restarting the container
+- **Zero Downtime**: WebSocket connections maintained during rotation
+- **Automatic Detection**: Checks every 5 seconds for date changes
+- **Seamless Operation**: Flushes data, closes old files, creates new files with new date
 
-2. **Remove the cron job:**
-   ```bash
-   ./docker-restart.sh remove-cron
-   ```
-
-3. **Manual restart:**
-   ```bash
-   ./docker-restart.sh
-   ```
+This eliminates the need for external restart mechanisms like cron jobs or Docker restarts.
 
 ## Monitoring
 

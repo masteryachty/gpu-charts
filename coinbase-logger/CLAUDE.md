@@ -184,11 +184,18 @@ let best_ask_bytes = best_ask.to_le_bytes();   // [u8; 4]
 let side_bytes = [side, 0, 0, 0];             // [u8; 4] with padding
 ```
 
-### Daily File Rotation
-- **Automatic Rotation**: New files created daily at midnight
+### Daily File Rotation (Automatic Internal Rotation)
+- **Automatic Rotation**: Files automatically rotate at midnight without restarting
+- **Internal Implementation**: Built-in file rotation during flush operations (every 5 seconds)
+- **Zero Downtime**: WebSocket connections maintained during rotation
 - **Date Format**: `DD.MM.YY` (e.g., `07.06.25` for June 7, 2025)
 - **Append Mode**: Continuous writing throughout the day
 - **Sort Order**: Records naturally sorted by timestamp for server binary search
+- **Rotation Process**:
+  1. Every 5 seconds, check if date has changed
+  2. If midnight passed: flush buffers, close old files, create new files
+  3. Continue data collection seamlessly with new date
+- **No External Dependencies**: No cron jobs, systemd timers, or restart scripts needed
 
 ## WebSocket Integration
 

@@ -30,6 +30,7 @@ pub struct ConnectionHandler {
     pub market_trade_file_handles: HashMap<String, MarketTradeFileHandles>,
     pub analytics_manager: AnalyticsManager,
     pub reconnect_delay: Duration,
+    pub current_date: String,
 }
 
 impl ConnectionHandler {
@@ -126,6 +127,7 @@ impl ConnectionHandler {
             market_trade_file_handles,
             analytics_manager,
             reconnect_delay: Duration::from_secs(1),
+            current_date: date,
         })
     }
 
@@ -394,6 +396,11 @@ impl ConnectionHandler {
                     }
                 }
                 _ = flush_interval.tick() => {
+                    // Check if we need to rotate files at midnight
+                    if let Err(e) = self.check_and_rotate_files().await {
+                        eprintln!("Connection {}: Error during file rotation: {}", self.connection_id, e);
+                    }
+                    
                     self.flush_buffer().await?;
                     
                     // Generate and log analytics reports
@@ -906,6 +913,7 @@ impl ConnectionHandler {
         self.file_handles = new_file_handles;
         self.trade_file_handles = new_trade_file_handles;
         self.market_trade_file_handles = new_market_trade_file_handles;
+        self.current_date = date;
         Ok(())
     }
 
@@ -915,5 +923,86 @@ impl ConnectionHandler {
 
     pub fn reset_reconnect_delay(&mut self) {
         self.reconnect_delay = Duration::from_secs(1);
+    }
+
+    pub async fn check_and_rotate_files(&mut self) -> Result<()> {
+        let current_date = Local::now().format("%d.%m.%y").to_string();
+        
+        // Check if date has changed (midnight has passed)
+        if current_date != self.current_date {
+            println!(
+                "Connection {}: Date changed from {} to {}, rotating files...",
+                self.connection_id, self.current_date, current_date
+            );
+            
+            // First flush any remaining data
+            if let Err(e) = self.flush_buffer().await {
+                eprintln!(
+                    "Connection {}: Error flushing buffer before rotation: {}",
+                    self.connection_id, e
+                );
+            }
+            
+            // Close all existing file handles
+            let symbols: Vec<String> = self.file_handles.keys().cloned().collect();
+            for symbol in symbols {
+                if let Some(handles) = self.file_handles.remove(&symbol) {
+                    if let Err(e) = handles.close().await {
+                        eprintln!(
+                            "Connection {}: Error closing file handles for {} during rotation: {}",
+                            self.connection_id, symbol, e
+                        );
+                    }
+                }
+            }
+            
+            let trade_symbols: Vec<String> = self.trade_file_handles.keys().cloned().collect();
+            for symbol in trade_symbols {
+                if let Some(handles) = self.trade_file_handles.remove(&symbol) {
+                    if let Err(e) = handles.close().await {
+                        eprintln!(
+                            "Connection {}: Error closing trade file handles for {} during rotation: {}",
+                            self.connection_id, symbol, e
+                        );
+                    }
+                }
+            }
+            
+            let market_trade_symbols: Vec<String> = self.market_trade_file_handles.keys().cloned().collect();
+            for symbol in market_trade_symbols {
+                if let Some(handles) = self.market_trade_file_handles.remove(&symbol) {
+                    if let Err(e) = handles.close().await {
+                        eprintln!(
+                            "Connection {}: Error closing market trade file handles for {} during rotation: {}",
+                            self.connection_id, symbol, e
+                        );
+                    }
+                }
+            }
+            
+            // Clear the handle maps
+            self.file_handles.clear();
+            self.trade_file_handles.clear();
+            self.market_trade_file_handles.clear();
+            
+            // Create new file handles with the new date
+            match self.recreate_file_handles().await {
+                Ok(()) => {
+                    println!(
+                        "Connection {}: Successfully rotated files for new date {}",
+                        self.connection_id, current_date
+                    );
+                }
+                Err(e) => {
+                    eprintln!(
+                        "Connection {}: Failed to create new file handles after rotation: {}",
+                        self.connection_id, e
+                    );
+                    return Err(e);
+                }
+            }
+        }
+        
+        Ok(())
     }
 }

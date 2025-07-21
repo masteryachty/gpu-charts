@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use crate::data_types::MarketTradeData;
 use crate::Result;

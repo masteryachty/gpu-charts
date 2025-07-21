@@ -1,5 +1,19 @@
 # Phase 3 Simplified: Trade Analytics Without File Complexity
 
+## UPDATE: Automatic File Rotation Now Implemented
+
+As of the latest update, the coinbase-logger includes **automatic internal file rotation at midnight**. This eliminates the need for external restart mechanisms:
+
+- **Automatic Detection**: Every 5 seconds, checks if date has changed
+- **Seamless Rotation**: Flushes data, closes old files, creates new files with new date
+- **Zero Downtime**: WebSocket connections maintained throughout rotation
+- **No Dependencies**: No cron jobs, systemd timers, or Docker restarts needed
+- **Reliable**: Works in all deployment scenarios automatically
+
+---
+
+## Original Phase 3 Documentation
+
 Given the already complex file handling system, we'll implement Phase 3 analytics as in-memory processing that outputs periodic summaries rather than creating dozens of new binary files.
 
 ## Simplified Approach
