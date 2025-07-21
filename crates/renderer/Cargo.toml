@@ -1,0 +1,30 @@
+[package]
+name = "gpu-charts-renderer"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+# Workspace dependencies
+gpu-charts-shared = { path = "../shared-types" }
+wasm-bindgen = { workspace = true }
+wgpu = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+bytemuck = { workspace = true }
+nalgebra-glm = { workspace = true }
+log = { workspace = true }
+
+# Text rendering
+wgpu_text = "0.9"
+
+[dev-dependencies]
+criterion = { workspace = true }
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bench]]
+name = "render_performance"
+harness = false

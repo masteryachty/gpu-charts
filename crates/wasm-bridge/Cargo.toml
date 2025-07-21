@@ -1,0 +1,30 @@
+[package]
+name = "gpu-charts-wasm"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+# Internal crates
+gpu-charts-shared = { path = "../shared-types", features = ["typescript"] }
+gpu-charts-data = { path = "../data-manager" }
+gpu-charts-renderer = { path = "../renderer" }
+
+# WASM dependencies
+wasm-bindgen = { workspace = true }
+wasm-bindgen-futures = { workspace = true }
+web-sys = { workspace = true }
+js-sys = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde-wasm-bindgen = { workspace = true }
+console_error_panic_hook = { workspace = true }
+console_log = { workspace = true }
+log = { workspace = true }
+
+[lib]
+crate-type = ["cdylib"]
+
+[package.metadata.wasm-pack]
+"wasm-pack" = "0.12"

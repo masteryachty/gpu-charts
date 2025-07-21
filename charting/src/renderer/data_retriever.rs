@@ -157,13 +157,25 @@ pub async fn fetch_data(
     let topic = data_store.borrow().topic.clone().unwrap();
 
     // Build columns string - always include time, plus selected metrics
-    let columns = if let Some(ref metrics) = selected_metrics {
-        let mut cols = vec!["time".to_string()];
-        cols.extend(metrics.clone());
-        cols.join(",")
-    } else {
-        // Default fallback
-        "time,best_bid,best_ask".to_string()
+    // For candlestick charts, we need price data specifically
+    let chart_type = data_store.borrow().chart_type;
+    let columns = match chart_type {
+        crate::renderer::data_store::ChartType::Candlestick => {
+            // Candlestick charts require price data for OHLC aggregation
+            log::info!("Fetching price data for candlestick chart");
+            "time,price".to_string()
+        }
+        _ => {
+            // Line charts use the selected metrics
+            if let Some(ref metrics) = selected_metrics {
+                let mut cols = vec!["time".to_string()];
+                cols.extend(metrics.clone());
+                cols.join(",")
+            } else {
+                // Default fallback
+                "time,best_bid,best_ask".to_string()
+            }
+        }
     };
 
     let url = format!(
@@ -222,50 +234,81 @@ pub async fn fetch_data(
         .add_data_group((x_buffer, x_gpu_buffers), true);
     let data_group_index = 0; // We just added the first group
 
-    // Add metrics dynamically based on selected_metrics
-    if let Some(ref metrics) = selected_metrics {
-        for (i, metric) in metrics.iter().enumerate() {
-            if let Some((y_buffer, y_gpu_buffers)) = column_buffers.remove(metric) {
-                // Assign different colors for each metric
-                let color = match metric.as_str() {
-                    "best_bid" => [0.0, 0.5, 1.0], // Blue
-                    "best_ask" => [1.0, 0.2, 0.2], // Red
-                    "price" => [0.0, 1.0, 0.0],    // Green
-                    "volume" => [1.0, 1.0, 0.0],   // Yellow
-                    _ => {
-                        // Generate a color based on index for unknown metrics
-                        let hue = (i as f32 * 137.5) % 360.0; // Golden angle for good distribution
-                        let (r, g, b) = hsv_to_rgb(hue, 0.8, 0.9);
-                        [r, g, b]
-                    }
-                };
-
+    // Add metrics dynamically based on chart type and selected_metrics
+    let chart_type = data_store.borrow().chart_type;
+    
+    match chart_type {
+        crate::renderer::data_store::ChartType::Candlestick => {
+            // For candlestick charts, we specifically need the price column
+            if let Some((y_buffer, y_gpu_buffers)) = column_buffers.remove("price") {
+                log::info!("Adding price data for candlestick chart");
                 data_store.borrow_mut().add_metric_to_group(
                     data_group_index,
                     (y_buffer, y_gpu_buffers),
-                    color,
-                    metric.clone(),
+                    [0.0, 1.0, 0.0], // Green color for price
+                    "price".to_string(),
                 );
+            } else {
+                log::error!("Candlestick chart requires 'price' data column, but it was not found in response");
+                // Fallback: try to use best_bid as a proxy for price
+                if let Some((y_buffer, y_gpu_buffers)) = column_buffers.remove("best_bid") {
+                    log::warn!("Using best_bid as fallback for missing price data in candlestick chart");
+                    data_store.borrow_mut().add_metric_to_group(
+                        data_group_index,
+                        (y_buffer, y_gpu_buffers),
+                        [0.0, 0.5, 1.0], // Blue color
+                        "best_bid".to_string(),
+                    );
+                }
             }
         }
-    } else {
-        // Fallback for when no metrics specified - add both bid and ask
-        if let Some((y_buffer, y_gpu_buffers)) = column_buffers.remove("best_bid") {
-            data_store.borrow_mut().add_metric_to_group(
-                data_group_index,
-                (y_buffer, y_gpu_buffers),
-                [0.0, 0.5, 1.0], // Blue color for best_bid
-                "best_bid".to_string(),
-            );
-        }
+        _ => {
+            // Line charts use the selected metrics or default fallback
+            if let Some(ref metrics) = selected_metrics {
+                for (i, metric) in metrics.iter().enumerate() {
+                    if let Some((y_buffer, y_gpu_buffers)) = column_buffers.remove(metric) {
+                        // Assign different colors for each metric
+                        let color = match metric.as_str() {
+                            "best_bid" => [0.0, 0.5, 1.0], // Blue
+                            "best_ask" => [1.0, 0.2, 0.2], // Red
+                            "price" => [0.0, 1.0, 0.0],    // Green
+                            "volume" => [1.0, 1.0, 0.0],   // Yellow
+                            _ => {
+                                // Generate a color based on index for unknown metrics
+                                let hue = (i as f32 * 137.5) % 360.0; // Golden angle for good distribution
+                                let (r, g, b) = hsv_to_rgb(hue, 0.8, 0.9);
+                                [r, g, b]
+                            }
+                        };
 
-        if let Some((y_buffer, y_gpu_buffers)) = column_buffers.remove("best_ask") {
-            data_store.borrow_mut().add_metric_to_group(
-                data_group_index,
-                (y_buffer, y_gpu_buffers),
-                [1.0, 0.2, 0.2], // Red color for best_ask
-                "best_ask".to_string(),
-            );
+                        data_store.borrow_mut().add_metric_to_group(
+                            data_group_index,
+                            (y_buffer, y_gpu_buffers),
+                            color,
+                            metric.clone(),
+                        );
+                    }
+                }
+            } else {
+                // Fallback for when no metrics specified - add both bid and ask
+                if let Some((y_buffer, y_gpu_buffers)) = column_buffers.remove("best_bid") {
+                    data_store.borrow_mut().add_metric_to_group(
+                        data_group_index,
+                        (y_buffer, y_gpu_buffers),
+                        [0.0, 0.5, 1.0], // Blue color for best_bid
+                        "best_bid".to_string(),
+                    );
+                }
+
+                if let Some((y_buffer, y_gpu_buffers)) = column_buffers.remove("best_ask") {
+                    data_store.borrow_mut().add_metric_to_group(
+                        data_group_index,
+                        (y_buffer, y_gpu_buffers),
+                        [1.0, 0.2, 0.2], // Red color for best_ask
+                        "best_ask".to_string(),
+                    );
+                }
+            }
         }
     }
 }

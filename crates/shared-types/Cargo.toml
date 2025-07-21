@@ -1,0 +1,31 @@
+[package]
+name = "gpu-charts-shared"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+bincode = { workspace = true }
+uuid = { workspace = true }
+wgpu = { workspace = true }
+bytemuck = { workspace = true }
+
+# TypeScript type generation
+[dependencies.tsify]
+version = "0.4"
+features = ["js"]
+optional = true
+
+[dependencies.wasm-bindgen]
+workspace = true
+optional = true
+
+[features]
+default = []
+typescript = ["tsify", "wasm-bindgen"]
+
+[lib]
+name = "gpu_charts_shared"
+path = "src/lib.rs"

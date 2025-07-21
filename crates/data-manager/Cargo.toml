@@ -1,0 +1,47 @@
+[package]
+name = "gpu-charts-data"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+# Workspace dependencies
+gpu-charts-shared = { path = "../shared-types" }
+wasm-bindgen = { workspace = true }
+wasm-bindgen-futures = { workspace = true }
+web-sys = { workspace = true, features = [
+    "Window",
+    "Request",
+    "RequestInit", 
+    "Response",
+    "ReadableStream",
+    "console"
+] }
+js-sys = { workspace = true }
+wgpu = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+bincode = { workspace = true }
+bytemuck = { workspace = true }
+uuid = { workspace = true }
+log = { workspace = true }
+futures = { workspace = true }
+
+# Performance optimizations
+lru = "0.12"
+parking_lot = "0.12"
+
+[dev-dependencies]
+criterion = { workspace = true }
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bench]]
+name = "data_parsing"
+harness = false
+
+[[bench]]
+name = "buffer_management"
+harness = false
