@@ -7,7 +7,7 @@ use tokio::io::{AsyncWriteExt, BufWriter};
 use tokio::time::{interval, sleep};
 use tokio_tungstenite::{connect_async_with_config, tungstenite::Message};
 
-use crate::data_types::{MarketTradeData, TickerData, TickerTradeData, uuid_to_bytes};
+use crate::data_types::{uuid_to_bytes, MarketTradeData, TickerData, TickerTradeData};
 use crate::file_handlers::{
     open_file, FileHandles, MarketTradeFileHandles, TradeFileHandles, FILE_BUFFER_SIZE,
 };
@@ -135,7 +135,7 @@ impl ConnectionHandler {
         base_path: &str,
         date: &str,
     ) -> Result<FileHandles> {
-        let md_path = format!("{}/MD", base_path);
+        let md_path = format!("{base_path}/MD");
         tokio::fs::create_dir_all(&md_path).await?;
 
         let handles = FileHandles {
@@ -176,7 +176,7 @@ impl ConnectionHandler {
         base_path: &str,
         date: &str,
     ) -> Result<TradeFileHandles> {
-        let trade_path = format!("{}/TICKER_TRADES", base_path);
+        let trade_path = format!("{base_path}/TICKER_TRADES");
         tokio::fs::create_dir_all(&trade_path).await?;
 
         let handles = TradeFileHandles {
@@ -213,7 +213,7 @@ impl ConnectionHandler {
         base_path: &str,
         date: &str,
     ) -> Result<MarketTradeFileHandles> {
-        let trade_path = format!("{}/TRADES", base_path);
+        let trade_path = format!("{base_path}/TRADES");
         tokio::fs::create_dir_all(&trade_path).await?;
 
         let handles = MarketTradeFileHandles {
@@ -262,9 +262,7 @@ impl ConnectionHandler {
     ) {
         for (sym, handles) in file_handles {
             if let Err(e) = handles.close().await {
-                eprintln!(
-                    "Connection {connection_id}: Error closing file handles for {sym}: {e}"
-                );
+                eprintln!("Connection {connection_id}: Error closing file handles for {sym}: {e}");
             }
         }
         for (sym, handles) in trade_file_handles {
@@ -400,14 +398,14 @@ impl ConnectionHandler {
                     if let Err(e) = self.check_and_rotate_files().await {
                         eprintln!("Connection {}: Error during file rotation: {}", self.connection_id, e);
                     }
-                    
+
                     self.flush_buffer().await?;
-                    
+
                     // Generate and log analytics reports
                     let reports = self.analytics_manager.generate_reports();
                     for report in reports {
-                        println!("Connection {}: Analytics - {}", 
-                            self.connection_id, 
+                        println!("Connection {}: Analytics - {}",
+                            self.connection_id,
                             report.to_log_string()
                         );
                     }
@@ -585,23 +583,17 @@ impl ConnectionHandler {
             };
 
             // Handle optional order IDs
-            let maker_order_id = match v
+            let maker_order_id = v
                 .get("maker_order_id")
                 .and_then(|v| v.as_str())
                 .and_then(|s| uuid_to_bytes(s).ok())
-            {
-                Some(bytes) => bytes,
-                None => [0u8; 16], // Default if not provided
-            };
+                .unwrap_or_default();
 
-            let taker_order_id = match v
+            let taker_order_id = v
                 .get("taker_order_id")
                 .and_then(|v| v.as_str())
                 .and_then(|s| uuid_to_bytes(s).ok())
-            {
-                Some(bytes) => bytes,
-                None => [0u8; 16], // Default if not provided
-            };
+                .unwrap_or_default();
 
             let market_trade = MarketTradeData {
                 trade_id,
@@ -621,7 +613,8 @@ impl ConnectionHandler {
                 );
 
                 // Process trade for analytics
-                self.analytics_manager.process_trade(product_id, &market_trade);
+                self.analytics_manager
+                    .process_trade(product_id, &market_trade);
 
                 self.market_trades_buffer.insert(key, market_trade);
 
@@ -636,7 +629,10 @@ impl ConnectionHandler {
     }
 
     pub async fn flush_buffer(&mut self) -> Result<()> {
-        if self.buffer.is_empty() && self.trade_buffer.is_empty() && self.market_trades_buffer.is_empty() {
+        if self.buffer.is_empty()
+            && self.trade_buffer.is_empty()
+            && self.market_trades_buffer.is_empty()
+        {
             return Ok(());
         }
 
@@ -733,8 +729,12 @@ impl ConnectionHandler {
                     handles.trade_price_file.write_all(&price_bytes),
                     handles.trade_size_file.write_all(&size_bytes),
                     handles.trade_side_file.write_all(&side_bytes),
-                    handles.maker_order_id_file.write_all(&market_trade.maker_order_id),
-                    handles.taker_order_id_file.write_all(&market_trade.taker_order_id),
+                    handles
+                        .maker_order_id_file
+                        .write_all(&market_trade.maker_order_id),
+                    handles
+                        .taker_order_id_file
+                        .write_all(&market_trade.taker_order_id),
                 ];
 
                 try_join_all(write_futures).await?;
@@ -800,7 +800,8 @@ impl ConnectionHandler {
         }
 
         // Close market trade file handles
-        let market_trade_symbols: Vec<String> = self.market_trade_file_handles.keys().cloned().collect();
+        let market_trade_symbols: Vec<String> =
+            self.market_trade_file_handles.keys().cloned().collect();
         for symbol in market_trade_symbols {
             if let Some(handles) = self.market_trade_file_handles.remove(&symbol) {
                 if let Err(e) = handles.close().await {
@@ -927,14 +928,14 @@ impl ConnectionHandler {
 
     pub async fn check_and_rotate_files(&mut self) -> Result<()> {
         let current_date = Local::now().format("%d.%m.%y").to_string();
-        
+
         // Check if date has changed (midnight has passed)
         if current_date != self.current_date {
             println!(
                 "Connection {}: Date changed from {} to {}, rotating files...",
                 self.connection_id, self.current_date, current_date
             );
-            
+
             // First flush any remaining data
             if let Err(e) = self.flush_buffer().await {
                 eprintln!(
@@ -942,7 +943,7 @@ impl ConnectionHandler {
                     self.connection_id, e
                 );
             }
-            
+
             // Close all existing file handles
             let symbols: Vec<String> = self.file_handles.keys().cloned().collect();
             for symbol in symbols {
@@ -955,7 +956,7 @@ impl ConnectionHandler {
                     }
                 }
             }
-            
+
             let trade_symbols: Vec<String> = self.trade_file_handles.keys().cloned().collect();
             for symbol in trade_symbols {
                 if let Some(handles) = self.trade_file_handles.remove(&symbol) {
@@ -967,8 +968,9 @@ impl ConnectionHandler {
                     }
                 }
             }
-            
-            let market_trade_symbols: Vec<String> = self.market_trade_file_handles.keys().cloned().collect();
+
+            let market_trade_symbols: Vec<String> =
+                self.market_trade_file_handles.keys().cloned().collect();
             for symbol in market_trade_symbols {
                 if let Some(handles) = self.market_trade_file_handles.remove(&symbol) {
                     if let Err(e) = handles.close().await {
@@ -979,12 +981,12 @@ impl ConnectionHandler {
                     }
                 }
             }
-            
+
             // Clear the handle maps
             self.file_handles.clear();
             self.trade_file_handles.clear();
             self.market_trade_file_handles.clear();
-            
+
             // Create new file handles with the new date
             match self.recreate_file_handles().await {
                 Ok(()) => {
@@ -1002,7 +1004,7 @@ impl ConnectionHandler {
                 }
             }
         }
-        
+
         Ok(())
     }
 }

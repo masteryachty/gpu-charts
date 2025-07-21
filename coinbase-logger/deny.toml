@@ -1,0 +1,75 @@
+# cargo-deny configuration for coinbase-logger
+# This configuration defines security and licensing policies
+
+[graph]
+targets = [
+    # Linux targets
+    { triple = "x86_64-unknown-linux-gnu" },
+]
+
+[advisories]
+# Security advisories database configuration
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+version = 2
+yanked = "deny"
+
+# Ignore advisories for specific crates if needed
+ignore = [
+    # Add specific advisory IDs here if needed to ignore known issues
+    # "RUSTSEC-2023-0001", 
+]
+
+[licenses]
+# License policy - allow common open source licenses
+version = 2
+confidence-threshold = 0.9
+allow = [
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "MIT",
+    "MPL-2.0",
+    "Unicode-3.0",
+]
+
+# Skip license check for development dependencies
+[licenses.private]
+ignore = true
+
+[bans]
+# Ban specific crates or versions
+multiple-versions = "warn"  # Warn about multiple versions of same crate
+wildcards = "allow"         # Allow wildcard dependencies
+highlight = "all"
+
+# Deny specific crates if needed
+deny = [
+    # Add problematic crates here
+]
+
+# Skip certain crates from checks
+skip = [
+    # Add crates to skip if needed
+]
+
+# Allow specific duplicates that are hard to avoid
+skip-tree = [
+    # Add dependency trees to skip if needed
+]
+
+[sources]
+# Source code repositories policy
+unknown-registry = "warn"
+unknown-git = "warn"
+
+# Allow these git sources
+allow-git = [
+    # Add specific git repositories if needed
+]
+
+# Allow these registries
+allow-registry = [
+    "https://github.com/rust-lang/crates.io-index",
+]

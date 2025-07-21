@@ -98,15 +98,10 @@ mod exponential_backoff_tests {
             if attempt <= MAX_RETRIES {
                 assert!(
                     attempt <= MAX_RETRIES,
-                    "Attempt {} should be allowed",
-                    attempt
+                    "Attempt {attempt} should be allowed"
                 );
             } else {
-                assert!(
-                    attempt > MAX_RETRIES,
-                    "Attempt {} should exceed max",
-                    attempt
-                );
+                assert!(attempt > MAX_RETRIES, "Attempt {attempt} should exceed max");
             }
         }
     }
@@ -125,7 +120,7 @@ mod exponential_backoff_tests {
     #[test]
     fn test_concurrent_connection_backoff_independence() {
         // Test that each connection has independent backoff state
-        let connection_delays = vec![
+        let connection_delays = [
             Duration::from_secs(1),  // Connection 0: just started
             Duration::from_secs(4),  // Connection 1: failed twice
             Duration::from_secs(16), // Connection 2: failed 4 times
@@ -134,8 +129,8 @@ mod exponential_backoff_tests {
 
         // Each connection should maintain its own delay
         for (i, &delay) in connection_delays.iter().enumerate() {
-            assert!(delay.as_secs() >= 1, "Connection {} delay too small", i);
-            assert!(delay.as_secs() <= 60, "Connection {} delay too large", i);
+            assert!(delay.as_secs() >= 1, "Connection {i} delay too small");
+            assert!(delay.as_secs() <= 60, "Connection {i} delay too large");
         }
     }
 

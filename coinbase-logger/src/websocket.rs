@@ -208,13 +208,13 @@ async fn get_products_from_websocket() -> Result<Vec<String>> {
 
 pub fn create_websocket_config() -> WebSocketConfig {
     WebSocketConfig {
-        max_message_size: Some(128 << 20),    // 128 MB for trades
-        max_frame_size: Some(32 << 20),       // 32 MB frames
-        write_buffer_size: 512 * 1024,        // 512KB buffer
-        max_write_buffer_size: 1024 * 1024,   // 1MB max
-        max_send_queue: Some(1000),           // Larger queue for trades
+        max_message_size: Some(128 << 20),  // 128 MB for trades
+        max_frame_size: Some(32 << 20),     // 32 MB frames
+        write_buffer_size: 512 * 1024,      // 512KB buffer
+        max_write_buffer_size: 1024 * 1024, // 1MB max
+        #[allow(deprecated)]
+        max_send_queue: Some(1000), // Larger queue for trades
         accept_unmasked_frames: false,
-        ..Default::default()
     }
 }
 // Force rebuild Thu Jul 17 10:25:43 BST 2025

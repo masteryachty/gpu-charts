@@ -134,7 +134,8 @@ impl SimpleAnalytics {
             close_price: self.last_price,
             vwap: vwap as f32,
             large_trade_count: self.large_trades.len() as u32,
-            largest_trade: self.large_trades
+            largest_trade: self
+                .large_trades
                 .iter()
                 .max_by(|a, b| a.size.partial_cmp(&b.size).unwrap())
                 .cloned(),
@@ -211,22 +212,23 @@ impl AnalyticsManager {
     }
 
     pub fn process_trade(&mut self, symbol: &str, trade: &MarketTradeData) {
-        let analytics = self.analytics
+        let analytics = self
+            .analytics
             .entry(symbol.to_string())
             .or_insert_with(|| SimpleAnalytics::new(symbol.to_string()));
-        
+
         analytics.process_trade(trade, self.large_trade_threshold);
     }
 
     pub fn generate_reports(&mut self) -> Vec<AnalyticsReport> {
         let mut reports = Vec::new();
-        
+
         for analytics in self.analytics.values_mut() {
             if analytics.should_report(self.report_interval) {
                 reports.push(analytics.generate_report());
             }
         }
-        
+
         reports
     }
 }

@@ -57,7 +57,8 @@ impl CandleData {
         }
 
         // Update VWAP
-        self.vwap = (self.vwap * self.volume + trade.price * trade.size) / (self.volume + trade.size);
+        self.vwap =
+            (self.vwap * self.volume + trade.price * trade.size) / (self.volume + trade.size);
 
         self.trade_count += 1;
     }
@@ -94,11 +95,11 @@ pub struct SignificantTrade {
 /// Configuration for trade aggregation
 #[derive(Clone, Debug)]
 pub struct AggregationConfig {
-    pub candle_periods: Vec<u32>,        // [60, 300, 900] seconds
-    pub large_trade_threshold: f32,      // e.g., 1.0 BTC
-    pub significance_window: u32,        // seconds for comparison
-    pub metrics_interval: u32,           // seconds between calculations
-    pub momentum_window: usize,          // number of candles for momentum
+    pub candle_periods: Vec<u32>,   // [60, 300, 900] seconds
+    pub large_trade_threshold: f32, // e.g., 1.0 BTC
+    pub significance_window: u32,   // seconds for comparison
+    pub metrics_interval: u32,      // seconds between calculations
+    pub momentum_window: usize,     // number of candles for momentum
 }
 
 impl Default for AggregationConfig {
@@ -153,14 +154,14 @@ impl TradeAggregator {
         // Update candles for each period
         for &period in &self.config.candle_periods {
             let candle = self.current_candles.get_mut(&period).unwrap();
-            
+
             // Check if we need to start a new candle
             if candle.timestamp == 0 {
                 candle.timestamp = (trade.timestamp_secs / period) * period;
             } else if trade.timestamp_secs >= candle.timestamp + period {
                 // Complete current candle and start new one
                 let completed = candle.clone();
-                
+
                 // Store in history
                 let history = self.recent_candles.get_mut(&period).unwrap();
                 history.push_back(completed);
@@ -238,7 +239,7 @@ impl TradeAggregator {
 
     fn clean_old_trades(&mut self, current_time: u32) {
         let cutoff_time = current_time.saturating_sub(self.config.significance_window);
-        
+
         while let Some(front) = self.trades_buffer.front() {
             if front.timestamp_secs < cutoff_time {
                 self.trades_buffer.pop_front();
@@ -282,7 +283,8 @@ impl TradeAggregator {
             .count() as u32;
 
         // Calculate momentum from 1-minute candles
-        let (price_momentum, volume_momentum) = if let Some(history) = self.recent_candles.get(&60) {
+        let (price_momentum, volume_momentum) = if let Some(history) = self.recent_candles.get(&60)
+        {
             self.calculate_momentum(history)
         } else {
             (0.0, 0.0)
@@ -307,7 +309,7 @@ impl TradeAggregator {
         // Simple rate of change for price
         let oldest = candles.front().unwrap();
         let newest = candles.back().unwrap();
-        
+
         let price_momentum = if oldest.close > 0.0 {
             ((newest.close - oldest.close) / oldest.close) * 100.0
         } else {

@@ -79,10 +79,10 @@ mod integration_tests {
 
         let config = create_websocket_config();
 
-        assert_eq!(config.max_message_size, Some(64 << 20)); // 64MB
-        assert_eq!(config.max_frame_size, Some(16 << 20)); // 16MB
-        assert_eq!(config.write_buffer_size, 256 * 1024); // 256KB
-        assert_eq!(config.max_write_buffer_size, 512 * 1024); // 512KB
+        assert_eq!(config.max_message_size, Some(128 << 20)); // 128MB
+        assert_eq!(config.max_frame_size, Some(32 << 20)); // 32MB
+        assert_eq!(config.write_buffer_size, 512 * 1024); // 512KB
+        assert_eq!(config.max_write_buffer_size, 1024 * 1024); // 1MB
         assert!(!config.accept_unmasked_frames);
     }
 
@@ -92,9 +92,9 @@ mod integration_tests {
         const CONNECTIONS: usize = 10;
 
         // Simulate 197 symbols (prime number for uneven distribution)
-        let symbols: Vec<String> = (0..197).map(|i| format!("SYMBOL-{}-USD", i)).collect();
+        let symbols: Vec<String> = (0..197).map(|i| format!("SYMBOL-{i}-USD")).collect();
 
-        let symbols_per_connection = (symbols.len() + CONNECTIONS - 1) / CONNECTIONS;
+        let symbols_per_connection = symbols.len().div_ceil(CONNECTIONS);
 
         let mut total_assigned = 0;
         for i in 0..CONNECTIONS {
@@ -130,7 +130,7 @@ mod integration_tests {
 
         // Test file paths that would be created
         let date = "07.01.25";
-        let expected_files = vec![
+        let expected_files = [
             format!("{}/time.{}.bin", base_path.display(), date),
             format!("{}/nanos.{}.bin", base_path.display(), date),
             format!("{}/price.{}.bin", base_path.display(), date),
@@ -181,20 +181,30 @@ mod integration_tests {
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)]
     fn test_performance_metrics() {
         // Verify performance improvement claims
 
-        // Connection reduction: 200+ -> 10
-        assert!(10_f32 / 200.0 == 0.05); // 20x reduction
+        // Performance improvements achieved
+        const OLD_CONNECTIONS: f32 = 200.0;
+        const NEW_CONNECTIONS: f32 = 10.0;
+        const CONNECTION_REDUCTION: f32 = OLD_CONNECTIONS / NEW_CONNECTIONS;
+        assert!(CONNECTION_REDUCTION >= 20.0); // 20x reduction
 
-        // Startup time: 386s -> ~1s
-        assert!(1.0 / 386.0 < 0.01); // 386x faster
+        const OLD_STARTUP_TIME: f32 = 386.0;
+        const NEW_STARTUP_TIME: f32 = 1.0;
+        const STARTUP_IMPROVEMENT: f32 = OLD_STARTUP_TIME / NEW_STARTUP_TIME;
+        assert!(STARTUP_IMPROVEMENT >= 386.0); // 386x faster
 
-        // Buffer size increase: 8KB -> 256KB
-        assert!(256.0 / 8.0 == 32.0); // 32x larger
+        const OLD_BUFFER_SIZE: f32 = 8.0;
+        const NEW_BUFFER_SIZE: f32 = 256.0;
+        const BUFFER_INCREASE: f32 = NEW_BUFFER_SIZE / OLD_BUFFER_SIZE;
+        assert!(BUFFER_INCREASE >= 32.0); // 32x larger
 
-        // Flush interval: 1s -> 5s
-        assert!(5.0 / 1.0 == 5.0); // 5x reduction in flushes
+        const OLD_FLUSH_INTERVAL: f32 = 1.0;
+        const NEW_FLUSH_INTERVAL: f32 = 5.0;
+        const FLUSH_REDUCTION: f32 = NEW_FLUSH_INTERVAL / OLD_FLUSH_INTERVAL;
+        assert!(FLUSH_REDUCTION >= 5.0); // 5x reduction in flushes
     }
 
     #[test]

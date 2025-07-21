@@ -38,8 +38,8 @@ pub struct TickerTradeData {
     pub timestamp_nanos: u32,
     pub trade_price: f32,
     pub trade_volume: f32,
-    pub trade_side: u8,  // 1 = buy, 0 = sell
-    pub spread: f32,     // best_ask - best_bid at time of trade
+    pub trade_side: u8, // 1 = buy, 0 = sell
+    pub spread: f32,    // best_ask - best_bid at time of trade
 }
 
 impl TickerTradeData {
@@ -57,8 +57,8 @@ impl TickerTradeData {
 
     /// Validate trade data
     pub fn is_valid(&self) -> bool {
-        self.trade_price > 0.0 
-            && self.trade_volume > 0.0 
+        self.trade_price > 0.0
+            && self.trade_volume > 0.0
             && (self.trade_side == 0 || self.trade_side == 1)
             && self.spread >= 0.0
     }
@@ -72,9 +72,9 @@ pub struct MarketTradeData {
     pub timestamp_nanos: u32,
     pub price: f32,
     pub size: f32,
-    pub side: u8,  // 1 = buy, 0 = sell
-    pub maker_order_id: [u8; 16],  // UUID as bytes
-    pub taker_order_id: [u8; 16],  // UUID as bytes
+    pub side: u8,                 // 1 = buy, 0 = sell
+    pub maker_order_id: [u8; 16], // UUID as bytes
+    pub taker_order_id: [u8; 16], // UUID as bytes
 }
 
 impl MarketTradeData {
@@ -94,12 +94,12 @@ pub fn uuid_to_bytes(uuid_str: &str) -> Result<[u8; 16], Box<dyn std::error::Err
     if clean.len() != 32 {
         return Err("Invalid UUID length".into());
     }
-    
+
     let mut bytes = [0u8; 16];
     for i in 0..16 {
         let byte_str = &clean[i * 2..i * 2 + 2];
         bytes[i] = u8::from_str_radix(byte_str, 16)?;
     }
-    
+
     Ok(bytes)
 }
