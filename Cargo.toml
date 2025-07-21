@@ -10,10 +10,14 @@ members = [
     # Existing crates
     "server", 
     "coinbase-logger",
-    "file_server"
+    "file_server",
+    
+    # Benchmarking
+    "benchmarks"
 ]
 exclude = [
-    "charting"  # Will be migrated to crates/renderer gradually
+    "charting",  # Will be migrated to crates/renderer gradually
+    "benchmarks_simple"  # Simple benchmarks without dependencies
 ]
 
 # Note: charting will be gradually migrated to the new crate structure
@@ -45,11 +49,15 @@ uuid = { version = "1.10", features = ["v4", "js", "serde"] }
 log = "0.4"
 console_log = "1.0"
 console_error_panic_hook = "0.1"
+once_cell = "1.19"
 
 # Async runtime
 futures = "0.3"
 tokio = { version = "1", features = ["full"] }
 chrono = "0.4"
+
+# Memory mapping
+memmap2 = "0.9"
 
 # Math and graphics
 nalgebra-glm = "0.19"

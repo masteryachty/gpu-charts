@@ -12,7 +12,9 @@ pub struct DataFetcher {
 
 impl DataFetcher {
     pub fn new(base_url: String) -> Self {
-        Self { _base_url: base_url }
+        Self {
+            _base_url: base_url,
+        }
     }
 
     /// Fetch data with HTTP/2 streaming

@@ -119,7 +119,11 @@ impl DataCache {
     }
 
     /// Check if a time range can be served from cache
-    pub fn can_serve_range(&self, _symbol: &str, _requested: TimeRange) -> Option<Vec<&DataHandle>> {
+    pub fn can_serve_range(
+        &self,
+        _symbol: &str,
+        _requested: TimeRange,
+    ) -> Option<Vec<&DataHandle>> {
         // TODO: Implement intelligent range checking
         // This would check if we have overlapping cached ranges that
         // can serve the requested range without fetching

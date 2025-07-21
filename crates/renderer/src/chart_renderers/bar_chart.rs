@@ -32,7 +32,7 @@ impl BarChartRenderer {
             label: Some("Bar Chart Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shaders/bar_chart.wgsl").into()),
         });
-        
+
         // Create uniform buffer
         let uniforms = BarUniforms {
             transform: [
@@ -47,48 +47,44 @@ impl BarChartRenderer {
             viewport_width: 1920.0,
             viewport_height: 1080.0,
         };
-        
+
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Bar Chart Uniforms"),
             contents: bytemuck::cast_slice(&[uniforms]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
-        
+
         // Create bind group layout
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Bar Chart Bind Group Layout"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
                 },
-            ],
+                count: None,
+            }],
         });
-        
+
         let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Bar Chart Bind Group"),
             layout: &bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: uniform_buffer.as_entire_binding(),
-                },
-            ],
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: uniform_buffer.as_entire_binding(),
+            }],
         });
-        
+
         // Create pipeline layout
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Bar Chart Pipeline Layout"),
             bind_group_layouts: &[&bind_group_layout],
             push_constant_ranges: &[],
         });
-        
+
         // Create render pipeline
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Bar Chart Pipeline"),
@@ -146,7 +142,7 @@ impl BarChartRenderer {
             },
             multiview: None,
         });
-        
+
         Ok(Self {
             pipeline,
             uniform_buffer,
@@ -167,13 +163,13 @@ impl super::ChartRenderer for BarChartRenderer {
         if buffer_sets.is_empty() {
             return;
         }
-        
+
         // Update uniforms
         let scale_x = 2.0 / context.viewport.width;
         let scale_y = 2.0 / context.viewport.height;
         let translate_x = -1.0 - context.viewport.x * scale_x;
         let translate_y = -1.0 - context.viewport.y * scale_y;
-        
+
         let uniforms = BarUniforms {
             transform: [
                 [scale_x, 0.0, 0.0, 0.0],
@@ -187,29 +183,31 @@ impl super::ChartRenderer for BarChartRenderer {
             viewport_width: self.viewport_size.0 as f32,
             viewport_height: self.viewport_size.1 as f32,
         };
-        
-        context.queue.write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
-        
+
+        context
+            .queue
+            .write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
+
         // Set pipeline and bind groups
         pass.set_pipeline(&self.pipeline);
         pass.set_bind_group(0, &self.uniform_bind_group, &[]);
-        
+
         // TODO: Render bar geometry from data buffers
         // This would use instanced rendering for efficient bar drawing
     }
-    
+
     fn update_visual_config(&mut self, config: &VisualConfig) {
         self.visual_config = config.clone();
     }
-    
+
     fn on_resize(&mut self, width: u32, height: u32) {
         self.viewport_size = (width, height);
     }
-    
+
     fn on_viewport_change(&mut self, _viewport: &Viewport) {
         // Viewport changes are handled during render
     }
-    
+
     fn get_draw_call_count(&self) -> u32 {
         1 // One instanced draw call for all bars
     }

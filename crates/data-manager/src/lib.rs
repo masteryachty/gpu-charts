@@ -3,18 +3,19 @@
 //! This crate handles all data fetching, parsing, and GPU buffer management
 //! with zero JavaScript boundary crossings for maximum performance.
 
-use gpu_charts_shared::{DataHandle, DataMetadata, DataRequest, Error, Result};
+use gpu_charts_shared::{DataHandle, DataMetadata, DataRequest, Error, Result, TimeRange};
 use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
 
+pub mod aggregation;
 pub mod buffer_pool;
 pub mod cache;
+pub mod direct_gpu_parser;
 pub mod fetcher;
 pub mod parser;
 pub mod wasm_api;
-pub mod aggregation;
 
 use buffer_pool::BufferPool;
 use cache::{CacheKey, DataCache};
@@ -34,12 +35,15 @@ pub struct DataManager {
     base_url: String,
 }
 
-
 impl DataManager {
     /// Create a new data manager instance with shared device/queue
-    pub fn new_with_device(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>, base_url: String) -> Self {
+    pub fn new_with_device(
+        device: Arc<wgpu::Device>,
+        queue: Arc<wgpu::Queue>,
+        base_url: String,
+    ) -> Self {
         let fetcher = DataFetcher::new(base_url.clone());
-        
+
         Self {
             device,
             queue,
@@ -111,7 +115,7 @@ impl DataManager {
 impl DataManager {
     async fn fetch_and_parse(&self, request: &DataRequest) -> Result<GpuBufferSet> {
         let start_time = js_sys::Date::now();
-        
+
         // Build URL with query parameters
         let url = format!(
             "{}/api/data?symbol={}&start={}&end={}&columns={}",
@@ -124,7 +128,10 @@ impl DataManager {
 
         // Add aggregation parameters if requested
         let url = if let Some(agg) = &request.aggregation {
-            format!("{}&aggregation={:?}&timeframe={}", url, agg.aggregation_type, agg.timeframe)
+            format!(
+                "{}&aggregation={:?}&timeframe={}",
+                url, agg.aggregation_type, agg.timeframe
+            )
         } else {
             url
         };
@@ -133,13 +140,13 @@ impl DataManager {
 
         // Fetch binary data
         let binary_data = self.fetcher.fetch_binary(&url).await?;
-        
+
         let fetch_time = js_sys::Date::now() - start_time;
         log::info!("Fetched {} bytes in {}ms", binary_data.len(), fetch_time);
 
         // Parse header
         let (header, header_size) = BinaryParser::parse_header(&binary_data)?;
-        
+
         // Validate data
         BinaryParser::validate_data(&binary_data, &header, header_size)?;
 
@@ -153,7 +160,7 @@ impl DataManager {
             header_size,
             &mut self.buffer_pool.write(),
         )?;
-        
+
         let parse_time = js_sys::Date::now() - parse_start;
         log::info!("Parsed to GPU buffers in {}ms", parse_time);
 
@@ -167,15 +174,12 @@ impl DataManager {
             creation_time: js_sys::Date::now() as u64,
         };
 
-        Ok(GpuBufferSet {
-            buffers,
-            metadata,
-        })
+        Ok(GpuBufferSet { buffers, metadata })
     }
 
     fn return_buffers_to_pool(&self, buffer_set: GpuBufferSet) {
         let mut pool = self.buffer_pool.write();
-        
+
         // Return all buffers to the pool
         for (_, column_buffers) in buffer_set.buffers {
             for buffer in column_buffers {

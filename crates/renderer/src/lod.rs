@@ -39,14 +39,14 @@ impl LODSystem {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     /// Select appropriate LOD level based on zoom and point count
     pub fn select_lod(&self, zoom_level: f32, point_count: u32) -> LODLevel {
         // If few enough points, always show full detail
         if point_count <= self.max_full_detail_points {
             return LODLevel::Full;
         }
-        
+
         // Select based on zoom level
         if zoom_level < self.aggressive_zoom_threshold {
             LODLevel::Aggregated
@@ -58,7 +58,7 @@ impl LODSystem {
             LODLevel::Full
         }
     }
-    
+
     /// Calculate decimation factor for a LOD level
     pub fn get_decimation_factor(&self, lod: LODLevel, point_count: u32) -> u32 {
         match lod {
@@ -77,11 +77,11 @@ impl LODSystem {
             }
         }
     }
-    
+
     /// Apply LOD decimation to indices
     pub fn decimate_indices(&self, total_points: u32, lod: LODLevel) -> Vec<u32> {
         let factor = self.get_decimation_factor(lod, total_points);
-        
+
         if factor == 1 {
             // Full detail - return all indices
             (0..total_points).collect()
@@ -104,7 +104,7 @@ impl GpuLODSelector {
             label: Some("LOD Selection Shader"),
             source: wgpu::ShaderSource::Wgsl(LOD_COMPUTE_SHADER.into()),
         });
-        
+
         let select_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("LOD Selection Pipeline"),
             layout: None,
@@ -112,13 +112,13 @@ impl GpuLODSelector {
             entry_point: "main",
             compilation_options: Default::default(),
         });
-        
+
         Ok(Self {
             device,
             select_pipeline,
         })
     }
-    
+
     /// Select LOD indices on GPU based on importance metric
     pub async fn select_lod_gpu(
         &self,
@@ -130,7 +130,7 @@ impl GpuLODSelector {
     ) -> Result<wgpu::Buffer> {
         // TODO: Implement GPU LOD selection based on importance sampling
         // This would use the compute pipeline to select the most important points
-        
+
         // For now, create a dummy output buffer
         let output_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("LOD Indices"),
@@ -138,7 +138,7 @@ impl GpuLODSelector {
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
-        
+
         Ok(output_buffer)
     }
 }

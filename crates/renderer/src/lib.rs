@@ -7,13 +7,16 @@ use gpu_charts_shared::{ChartConfiguration, ChartType, DataHandle, Result, Visua
 use std::collections::HashMap;
 use std::sync::Arc;
 
+pub mod buffer_pool;
 pub mod chart_renderers;
+pub mod config;
+pub mod culling;
 pub mod engine;
+pub mod gpu_context;
+pub mod gpu_timing;
+pub mod lod;
 pub mod overlays;
 pub mod pipeline;
-pub mod culling;
-pub mod lod;
-pub mod config;
 
 use chart_renderers::ChartRenderer;
 use engine::RenderEngine;
@@ -77,7 +80,7 @@ impl Renderer {
         height: u32,
     ) -> Result<Self> {
         let engine = RenderEngine::new_with_device(device, queue, surface, width, height)?;
-        
+
         Ok(Self {
             engine,
             active_renderer: None,
@@ -110,7 +113,7 @@ impl Renderer {
 
         // Update overlays
         self.update_overlays(&config)?;
-        
+
         // Update visual config on existing renderer
         if let Some(renderer) = &mut self.active_renderer {
             renderer.update_visual_config(&config.visual_config);
@@ -126,7 +129,7 @@ impl Renderer {
     pub fn register_buffer_set(&mut self, handle: DataHandle, buffers: Arc<GpuBufferSet>) {
         self.buffer_handles.insert(handle.id, buffers);
     }
-    
+
     /// Remove buffer set when data handle is released
     pub fn unregister_buffer_set(&mut self, handle_id: &uuid::Uuid) {
         self.buffer_handles.remove(handle_id);
@@ -135,10 +138,10 @@ impl Renderer {
     /// Render a frame
     pub fn render(&mut self) -> Result<()> {
         let start_time = std::time::Instant::now();
-        
+
         // Get active buffer sets for current config
         let buffer_sets = self.get_active_buffer_sets();
-        
+
         if let Some(renderer) = &mut self.active_renderer {
             self.engine.render(
                 renderer.as_mut(),
@@ -149,7 +152,7 @@ impl Renderer {
                 &mut self.performance_metrics,
             )?;
         }
-        
+
         self.performance_metrics.frame_time_ms = start_time.elapsed().as_secs_f32() * 1000.0;
         Ok(())
     }
@@ -168,11 +171,11 @@ impl Renderer {
             overlay.as_mut().on_resize(width, height);
         }
     }
-    
+
     /// Update viewport (pan/zoom)
     pub fn update_viewport(&mut self, viewport: Viewport) {
         self.viewport = viewport;
-        
+
         // Notify renderers of viewport change
         if let Some(renderer) = &mut self.active_renderer {
             renderer.on_viewport_change(&viewport);
@@ -183,7 +186,7 @@ impl Renderer {
     pub fn get_performance_metrics(&self) -> &PerformanceMetrics {
         &self.performance_metrics
     }
-    
+
     /// Get detailed stats as JSON
     pub fn get_stats(&self) -> serde_json::Value {
         serde_json::json!({
@@ -211,7 +214,7 @@ impl Renderer {
 impl Renderer {
     fn create_chart_renderer(&mut self, config: &ChartConfiguration) -> Result<()> {
         use chart_renderers::*;
-        
+
         let renderer: Box<dyn ChartRenderer> = match config.chart_type {
             ChartType::Line => Box::new(LineChartRenderer::new(
                 self.engine.device(),
@@ -237,7 +240,7 @@ impl Renderer {
 
     fn update_overlays(&mut self, config: &ChartConfiguration) -> Result<()> {
         use overlays::*;
-        
+
         self.overlay_renderers.clear();
 
         for overlay_config in &config.overlays {
@@ -253,17 +256,19 @@ impl Renderer {
                 )?),
                 _ => continue, // Skip unknown overlay types
             };
-            
+
             self.overlay_renderers.push(overlay);
         }
 
         Ok(())
     }
-    
+
     fn get_active_buffer_sets(&self) -> Vec<Arc<GpuBufferSet>> {
         // Get buffer sets for active data handles
         if let Some(config) = &self.current_config {
-            config.data_handles.iter()
+            config
+                .data_handles
+                .iter()
                 .filter_map(|handle| self.buffer_handles.get(&handle.id))
                 .cloned()
                 .collect()
@@ -276,8 +281,8 @@ impl Renderer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use gpu_charts_shared::{TimeRange, DataMetadata};
-    
+    use gpu_charts_shared::{DataMetadata, TimeRange};
+
     #[test]
     fn test_viewport_creation() {
         let viewport = Viewport {
@@ -288,7 +293,7 @@ mod tests {
             zoom_level: 1.5,
             time_range: TimeRange::new(1000, 2000),
         };
-        
+
         assert_eq!(viewport.x, 10.0);
         assert_eq!(viewport.y, 20.0);
         assert_eq!(viewport.width, 800.0);
@@ -297,12 +302,12 @@ mod tests {
         assert_eq!(viewport.time_range.start, 1000);
         assert_eq!(viewport.time_range.end, 2000);
     }
-    
+
     #[test]
     fn test_gpu_buffer_set() {
         let mut buffers = HashMap::new();
         buffers.insert("test".to_string(), vec![]);
-        
+
         let buffer_set = GpuBufferSet {
             buffers,
             metadata: DataMetadata {
@@ -314,23 +319,23 @@ mod tests {
                 creation_time: 1234567890,
             },
         };
-        
+
         assert_eq!(buffer_set.metadata.symbol, "TEST");
         assert_eq!(buffer_set.metadata.row_count, 100);
         assert!(buffer_set.buffers.contains_key("test"));
     }
-    
+
     #[test]
     fn test_performance_metrics() {
         let mut metrics = PerformanceMetrics::default();
-        
+
         assert_eq!(metrics.frame_time_ms, 0.0);
         assert_eq!(metrics.draw_calls, 0);
-        
+
         metrics.frame_time_ms = 16.67;
         metrics.draw_calls = 5;
         metrics.vertices_rendered = 10000;
-        
+
         assert!(metrics.frame_time_ms > 16.0);
         assert_eq!(metrics.draw_calls, 5);
         assert_eq!(metrics.vertices_rendered, 10000);

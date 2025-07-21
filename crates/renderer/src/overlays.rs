@@ -8,13 +8,13 @@ use wgpu::util::DeviceExt;
 pub trait OverlayRenderer {
     /// Render the overlay
     fn render<'a>(&'a mut self, pass: &mut wgpu::RenderPass<'a>, context: &RenderContext);
-    
+
     /// Get the render location (main chart or sub-chart)
     fn render_location(&self) -> RenderLocation;
-    
+
     /// Handle resize events
     fn on_resize(&mut self, width: u32, height: u32);
-    
+
     /// Get the number of draw calls this overlay will make
     fn get_draw_call_count(&self) -> u32;
 }
@@ -44,7 +44,7 @@ impl VolumeOverlay {
             label: Some("Volume Overlay Shader"),
             source: wgpu::ShaderSource::Wgsl(VOLUME_SHADER.into()),
         });
-        
+
         // Create uniforms
         let uniforms = VolumeUniforms {
             transform: [
@@ -57,48 +57,44 @@ impl VolumeOverlay {
             max_volume: 1000000.0,
             _padding: [0.0; 3],
         };
-        
+
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Volume Uniforms"),
             contents: bytemuck::cast_slice(&[uniforms]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
-        
+
         // Create bind group
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Volume Bind Group Layout"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
                 },
-            ],
+                count: None,
+            }],
         });
-        
+
         let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Volume Bind Group"),
             layout: &bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: uniform_buffer.as_entire_binding(),
-                },
-            ],
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: uniform_buffer.as_entire_binding(),
+            }],
         });
-        
+
         // Create pipeline
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Volume Pipeline Layout"),
             bind_group_layouts: &[&bind_group_layout],
             push_constant_ranges: &[],
         });
-        
+
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Volume Pipeline"),
             layout: Some(&pipeline_layout),
@@ -135,7 +131,7 @@ impl VolumeOverlay {
             },
             multiview: None,
         });
-        
+
         Ok(Self {
             pipeline,
             uniform_buffer,
@@ -160,7 +156,7 @@ impl OverlayRenderer for VolumeOverlay {
     fn on_resize(&mut self, _width: u32, _height: u32) {
         // Handle resize if needed
     }
-    
+
     fn get_draw_call_count(&self) -> u32 {
         1
     }
@@ -183,17 +179,18 @@ impl MovingAverageOverlay {
         parameters: serde_json::Value,
     ) -> Result<Self> {
         // Parse parameters
-        let period = parameters.get("period")
+        let period = parameters
+            .get("period")
             .and_then(|v| v.as_u64())
             .unwrap_or(20) as u32;
-            
+
         // Similar pipeline setup as VolumeOverlay
         // For brevity, using simplified version
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("MA Overlay Shader"),
             source: wgpu::ShaderSource::Wgsl(MA_SHADER.into()),
         });
-        
+
         // Create dummy pipeline components
         let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("MA Uniforms"),
@@ -201,24 +198,24 @@ impl MovingAverageOverlay {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        
+
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("MA Bind Group Layout"),
             entries: &[],
         });
-        
+
         let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("MA Bind Group"),
             layout: &bind_group_layout,
             entries: &[],
         });
-        
+
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("MA Pipeline Layout"),
             bind_group_layouts: &[&bind_group_layout],
             push_constant_ranges: &[],
         });
-        
+
         // Simplified pipeline (in real implementation would be complete)
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("MA Pipeline"),
@@ -244,7 +241,7 @@ impl MovingAverageOverlay {
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
         });
-        
+
         Ok(Self {
             pipeline,
             uniform_buffer,
@@ -270,7 +267,7 @@ impl OverlayRenderer for MovingAverageOverlay {
     fn on_resize(&mut self, _width: u32, _height: u32) {
         // Handle resize if needed
     }
-    
+
     fn get_draw_call_count(&self) -> u32 {
         1
     }

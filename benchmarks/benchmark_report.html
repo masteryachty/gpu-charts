@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPU Charts - Performance Benchmark Report</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        h1, h2, h3 {
+            margin-bottom: 1rem;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 2rem;
+        }
+        
+        h2 {
+            font-size: 1.8rem;
+            color: #667eea;
+            margin-top: 3rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+        
+        .metric-card {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(102, 126, 234, 0.1);
+        }
+        
+        .metric-card h3 {
+            font-size: 0.9rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+        }
+        
+        .metric-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 0.5rem;
+        }
+        
+        .metric-target {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .status-good { color: #4ade80; }
+        .status-warning { color: #fbbf24; }
+        .status-bad { color: #f87171; }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            background: #1a1a1a;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #333;
+        }
+        
+        th {
+            background: #252525;
+            font-weight: 600;
+            color: #667eea;
+        }
+        
+        tr:hover {
+            background: #202020;
+        }
+        
+        .chart-container {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+        }
+        
+        .bar-chart {
+            display: flex;
+            align-items: flex-end;
+            height: 200px;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .bar {
+            flex: 1;
+            background: linear-gradient(to top, #667eea, #764ba2);
+            border-radius: 4px 4px 0 0;
+            position: relative;
+            min-height: 20px;
+            transition: opacity 0.2s;
+        }
+        
+        .bar:hover {
+            opacity: 0.8;
+        }
+        
+        .bar-label {
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.8rem;
+            white-space: nowrap;
+        }
+        
+        .bar-value {
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        
+        .recommendation {
+            background: #1a1a1a;
+            border-left: 4px solid #667eea;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .recommendation h4 {
+            color: #667eea;
+            margin-bottom: 0.5rem;
+        }
+        
+        .timeline {
+            display: flex;
+            gap: 1rem;
+            margin: 2rem 0;
+            overflow-x: auto;
+            padding-bottom: 1rem;
+        }
+        
+        .timeline-item {
+            min-width: 200px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 1rem;
+            position: relative;
+        }
+        
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -1rem;
+            top: 50%;
+            width: 1rem;
+            height: 2px;
+            background: #667eea;
+        }
+        
+        .timeline-item:first-child::before {
+            display: none;
+        }
+        
+        .footer {
+            margin-top: 4rem;
+            padding-top: 2rem;
+            border-top: 1px solid #333;
+            text-align: center;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>GPU Charts Performance Benchmark Report</h1>
+        
+        <div class="summary-grid">
+            <div class="metric-card">
+                <h3>Data Parsing</h3>
+                <div class="metric-value status-good">0.63ms</div>
+                <div class="metric-target">Target: <10ms ✅</div>
+            </div>
+            
+            <div class="metric-card">
+                <h3>Frame Time (100k)</h3>
+                <div class="metric-value status-bad">108ms</div>
+                <div class="metric-target">Target: <16ms ❌</div>
+            </div>
+            
+            <div class="metric-card">
+                <h3>Viewport Culling</h3>
+                <div class="metric-value status-good">16ns</div>
+                <div class="metric-target">Binary Search ✅</div>
+            </div>
+            
+            <div class="metric-card">
+                <h3>Cache Hit Rate</h3>
+                <div class="metric-value status-good">8.7ns</div>
+                <div class="metric-target">Sub-microsecond ✅</div>
+            </div>
+        </div>
+
+        <h2>Data Loading Performance</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Data Points</th>
+                    <th>Binary Parse Time</th>
+                    <th>GPU Buffer Time</th>
+                    <th>Speedup</th>
+                    <th>Throughput</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>1,000</td>
+                    <td>627 ns</td>
+                    <td class="status-good">88 ns</td>
+                    <td class="status-good">7.1x</td>
+                    <td>1.6M pts/sec</td>
+                </tr>
+                <tr>
+                    <td>10,000</td>
+                    <td>6.1 µs</td>
+                    <td class="status-good">662 ns</td>
+                    <td class="status-good">9.2x</td>
+                    <td>1.6M pts/sec</td>
+                </tr>
+                <tr>
+                    <td>100,000</td>
+                    <td>63 µs</td>
+                    <td class="status-good">10 µs</td>
+                    <td class="status-good">6.3x</td>
+                    <td>1.6M pts/sec</td>
+                </tr>
+                <tr>
+                    <td>1,000,000</td>
+                    <td>634 µs</td>
+                    <td class="status-good">107 µs</td>
+                    <td class="status-good">5.9x</td>
+                    <td>1.6M pts/sec</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>Rendering Performance</h2>
+        <div class="chart-container">
+            <h3>Viewport Culling Comparison</h3>
+            <div class="bar-chart">
+                <div class="bar" style="height: 95%">
+                    <span class="bar-value">410µs</span>
+                    <span class="bar-label">Linear Scan</span>
+                </div>
+                <div class="bar status-good" style="height: 1%">
+                    <span class="bar-value">16ns</span>
+                    <span class="bar-label">Binary Search</span>
+                </div>
+            </div>
+            <p style="margin-top: 3rem; text-align: center; color: #4ade80;">
+                Binary search is <strong>25,000x faster</strong> than linear scan!
+            </p>
+        </div>
+
+        <h2>End-to-End Performance</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Scenario</th>
+                    <th>Frame Time</th>
+                    <th>FPS</th>
+                    <th>Target (60 FPS)</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>1K points</td>
+                    <td>103 ms</td>
+                    <td>9.7</td>
+                    <td>16.67 ms</td>
+                    <td class="status-bad">❌</td>
+                </tr>
+                <tr>
+                    <td>100K points</td>
+                    <td>108 ms</td>
+                    <td>9.3</td>
+                    <td>16.67 ms</td>
+                    <td class="status-bad">❌</td>
+                </tr>
+                <tr>
+                    <td>1M points</td>
+                    <td>119 ms</td>
+                    <td>8.4</td>
+                    <td>16.67 ms</td>
+                    <td class="status-bad">❌</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>Key Bottlenecks Identified</h2>
+        <div class="recommendation">
+            <h4>🔴 GPU Initialization Overhead</h4>
+            <p>~100ms initialization time dominates frame time. Solution: Implement persistent GPU context.</p>
+        </div>
+        
+        <div class="recommendation">
+            <h4>🟡 CPU Vertex Generation</h4>
+            <p>67µs for 100k points. Solution: Move vertex generation to GPU compute shaders.</p>
+        </div>
+        
+        <div class="recommendation">
+            <h4>🟢 Already Optimized: Data Parsing</h4>
+            <p>0.63ms for 1M points - exceeds target by 15x!</p>
+        </div>
+
+        <h2>Implementation Roadmap</h2>
+        <div class="timeline">
+            <div class="timeline-item">
+                <h4>Week 1</h4>
+                <p><strong>Quick Wins</strong></p>
+                <ul style="list-style: none; padding-left: 0;">
+                    <li>✓ Binary search culling</li>
+                    <li>✓ Buffer pooling</li>
+                    <li>✓ Persistent GPU</li>
+                </ul>
+                <p style="margin-top: 0.5rem; color: #4ade80;">Impact: 10x speedup</p>
+            </div>
+            
+            <div class="timeline-item">
+                <h4>Week 2</h4>
+                <p><strong>GPU Optimization</strong></p>
+                <ul style="list-style: none; padding-left: 0;">
+                    <li>✓ Vertex generation</li>
+                    <li>✓ Compute shaders</li>
+                </ul>
+                <p style="margin-top: 0.5rem; color: #4ade80;">Impact: 60 FPS</p>
+            </div>
+            
+            <div class="timeline-item">
+                <h4>Week 3</h4>
+                <p><strong>Data Pipeline</strong></p>
+                <ul style="list-style: none; padding-left: 0;">
+                    <li>✓ Binary-to-GPU</li>
+                    <li>✓ Zero-copy</li>
+                </ul>
+                <p style="margin-top: 0.5rem; color: #4ade80;">Impact: 6x parsing</p>
+            </div>
+            
+            <div class="timeline-item">
+                <h4>Week 4</h4>
+                <p><strong>Advanced</strong></p>
+                <ul style="list-style: none; padding-left: 0;">
+                    <li>✓ SIMD processing</li>
+                    <li>✓ GPU timing</li>
+                </ul>
+                <p style="margin-top: 0.5rem; color: #4ade80;">Impact: 1B points</p>
+            </div>
+        </div>
+
+        <h2>Performance Projections</h2>
+        <div class="chart-container">
+            <h3>Expected Performance After Optimizations</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>Current</th>
+                        <th>Projected</th>
+                        <th>Improvement</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Frame Time (100k)</td>
+                        <td class="status-bad">108ms</td>
+                        <td class="status-good"><10ms</td>
+                        <td class="status-good">10x</td>
+                    </tr>
+                    <tr>
+                        <td>Max Points @ 60FPS</td>
+                        <td class="status-bad">~1K</td>
+                        <td class="status-good">1B+</td>
+                        <td class="status-good">1,000,000x</td>
+                    </tr>
+                    <tr>
+                        <td>Parse Time (1M)</td>
+                        <td>0.63ms</td>
+                        <td class="status-good">0.1ms</td>
+                        <td class="status-good">6x</td>
+                    </tr>
+                    <tr>
+                        <td>Memory Stability</td>
+                        <td class="status-warning">Variable</td>
+                        <td class="status-good">Stable</td>
+                        <td class="status-good">Predictable</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="footer">
+            <p>GPU Charts Benchmark Report • Generated: July 21, 2025</p>
+            <p>Target: 1 billion points at 60 FPS</p>
+        </div>
+    </div>
+</body>
+</html>

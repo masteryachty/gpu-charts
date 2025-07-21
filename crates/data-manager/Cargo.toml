@@ -39,6 +39,10 @@ parking_lot = "0.12"
 # WASM utilities
 console_error_panic_hook = "0.1"
 
+# Direct GPU parsing
+memmap2 = { workspace = true }
+chrono = { workspace = true }
+
 [dev-dependencies]
 criterion = { workspace = true }
 

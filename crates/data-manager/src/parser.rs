@@ -1,8 +1,8 @@
 //! Zero-copy binary parser for direct GPU buffer creation
 
+use crate::buffer_pool::BufferPool;
 use gpu_charts_shared::{DataMetadata, Error, Result};
 use std::collections::HashMap;
-use crate::buffer_pool::BufferPool;
 
 /// Header structure for binary data format
 #[derive(Debug, Clone)]
@@ -51,39 +51,39 @@ impl BinaryParser {
         // [8..12] row count (u32)
         // [12..16] column count (u32)
         // Then column definitions...
-        
+
         let magic = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
         if magic != 0x47504348 {
             return Err(Error::ParseError("Invalid magic number".to_string()));
         }
-        
+
         let header_size = u32::from_le_bytes([data[4], data[5], data[6], data[7]]) as usize;
         let row_count = u32::from_le_bytes([data[8], data[9], data[10], data[11]]);
         let column_count = u32::from_le_bytes([data[12], data[13], data[14], data[15]]) as usize;
-        
+
         // Parse column definitions
         let mut offset = 16;
         let mut columns = Vec::with_capacity(column_count);
         let mut column_types = Vec::with_capacity(column_count);
-        
+
         for _ in 0..column_count {
             if offset + 5 > data.len() {
                 return Err(Error::ParseError("Invalid column definition".to_string()));
             }
-            
+
             // Read column name length
             let name_len = data[offset] as usize;
             offset += 1;
-            
+
             if offset + name_len + 1 > data.len() {
                 return Err(Error::ParseError("Invalid column name".to_string()));
             }
-            
+
             // Read column name
             let name = String::from_utf8(data[offset..offset + name_len].to_vec())
                 .map_err(|_| Error::ParseError("Invalid column name encoding".to_string()))?;
             offset += name_len;
-            
+
             // Read column type
             let col_type = match data[offset] {
                 0 => ColumnType::U32,
@@ -93,17 +93,17 @@ impl BinaryParser {
                 _ => return Err(Error::ParseError("Invalid column type".to_string())),
             };
             offset += 1;
-            
+
             columns.push(name);
             column_types.push(col_type);
         }
-        
+
         let header = BinaryHeader {
             columns,
             row_count,
             column_types,
         };
-        
+
         Ok((header, header_size))
     }
 
@@ -138,7 +138,7 @@ impl BinaryParser {
 
                 // Get buffer from pool or create new one
                 let buffer = buffer_pool.acquire(device, chunk_size as u64);
-                
+
                 // Write data to buffer
                 queue.write_buffer(&buffer, 0, &data[data_offset..data_offset + chunk_size]);
 

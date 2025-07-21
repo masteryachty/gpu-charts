@@ -34,7 +34,7 @@ impl CandlestickRenderer {
             label: Some("Candlestick Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shaders/candlestick.wgsl").into()),
         });
-        
+
         // Create uniform buffer
         let uniforms = CandlestickUniforms {
             transform: [
@@ -50,48 +50,44 @@ impl CandlestickRenderer {
             viewport_height: 1080.0,
             _padding: 0.0,
         };
-        
+
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Candlestick Uniforms"),
             contents: bytemuck::cast_slice(&[uniforms]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
-        
+
         // Create bind group layout
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Candlestick Bind Group Layout"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
                 },
-            ],
+                count: None,
+            }],
         });
-        
+
         let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Candlestick Bind Group"),
             layout: &bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: uniform_buffer.as_entire_binding(),
-                },
-            ],
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: uniform_buffer.as_entire_binding(),
+            }],
         });
-        
+
         // Create pipeline layout
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Candlestick Pipeline Layout"),
             bind_group_layouts: &[&bind_group_layout],
             push_constant_ranges: &[],
         });
-        
+
         // Create body pipeline (for candle bodies)
         let body_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Candlestick Body Pipeline"),
@@ -144,7 +140,7 @@ impl CandlestickRenderer {
             },
             multiview: None,
         });
-        
+
         // Create wick pipeline (for candle wicks)
         let wick_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Candlestick Wick Pipeline"),
@@ -197,7 +193,7 @@ impl CandlestickRenderer {
             },
             multiview: None,
         });
-        
+
         Ok(Self {
             body_pipeline,
             wick_pipeline,
@@ -219,13 +215,13 @@ impl super::ChartRenderer for CandlestickRenderer {
         if buffer_sets.is_empty() {
             return;
         }
-        
+
         // Update uniforms
         let scale_x = 2.0 / context.viewport.width;
         let scale_y = 2.0 / context.viewport.height;
         let translate_x = -1.0 - context.viewport.x * scale_x;
         let translate_y = -1.0 - context.viewport.y * scale_y;
-        
+
         let uniforms = CandlestickUniforms {
             transform: [
                 [scale_x, 0.0, 0.0, 0.0],
@@ -240,35 +236,37 @@ impl super::ChartRenderer for CandlestickRenderer {
             viewport_height: self.viewport_size.1 as f32,
             _padding: 0.0,
         };
-        
-        context.queue.write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
-        
+
+        context
+            .queue
+            .write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
+
         // Render bodies
         pass.set_pipeline(&self.body_pipeline);
         pass.set_bind_group(0, &self.uniform_bind_group, &[]);
-        
+
         // TODO: Render actual OHLC data from buffers
         // This would involve creating vertex buffers from OHLC data
-        
+
         // Render wicks
         pass.set_pipeline(&self.wick_pipeline);
         pass.set_bind_group(0, &self.uniform_bind_group, &[]);
-        
+
         // TODO: Render wick geometry
     }
-    
+
     fn update_visual_config(&mut self, config: &VisualConfig) {
         self.visual_config = config.clone();
     }
-    
+
     fn on_resize(&mut self, width: u32, height: u32) {
         self.viewport_size = (width, height);
     }
-    
+
     fn on_viewport_change(&mut self, _viewport: &Viewport) {
         // Viewport changes are handled during render
     }
-    
+
     fn get_draw_call_count(&self) -> u32 {
         2 // One for bodies, one for wicks
     }
