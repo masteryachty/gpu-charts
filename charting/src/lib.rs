@@ -22,13 +22,23 @@ mod renderer;
 pub mod store_state;
 mod wrappers;
 
-// React integration module
+// New modular renderer bridge (simplified version)
+#[cfg(target_arch = "wasm32")]
+mod renderer_bridge_simple;
+
+// React integration modules
 #[cfg(target_arch = "wasm32")]
 mod lib_react;
 
-// Re-export the Chart class for React integration
+#[cfg(target_arch = "wasm32")]
+mod lib_react_modular;
+
+// Re-export the Chart classes for React integration
 #[cfg(target_arch = "wasm32")]
 pub use lib_react::Chart;
+
+#[cfg(target_arch = "wasm32")]
+pub use lib_react_modular::{create_modular_chart, ModularChart};
 
 // Also export manual_run for backward compatibility if needed
 #[cfg(target_arch = "wasm32")]
