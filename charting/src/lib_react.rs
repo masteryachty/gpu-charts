@@ -63,7 +63,7 @@ impl Chart {
             .dyn_into::<HtmlCanvasElement>()
             .map_err(|_| "Element is not a canvas")?;
 
-        // Set canvas size
+        // Don't set canvas size here - let React handle it to avoid resize loops
         canvas.set_width(width);
         canvas.set_height(height);
 

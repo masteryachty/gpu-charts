@@ -106,15 +106,18 @@ fn main(
         }
     }
     
+    // Reserve output slot conditionally
+    var local_output_idx = 0u;
+    if (should_generate) {
+        local_output_idx = atomicAdd(&output_counter, 1u);
+    }
+    
+    // Sync before accessing workgroup counter - must be in uniform control flow
+    workgroupBarrier();
+    
     if (!should_generate) {
         return;
     }
-    
-    // Reserve output slot
-    let local_output_idx = atomicAdd(&output_counter, 1u);
-    
-    // Sync before accessing workgroup counter
-    workgroupBarrier();
     
     // Calculate global output index
     let workgroup_offset = workgroup_id.x * 256u;
