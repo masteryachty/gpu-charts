@@ -47,7 +47,7 @@ const DEFAULT_CONFIG: ChartConfig = {
   startTime: Math.floor(Date.now() / 1000) - 24 * 60 * 60, // 24 hours ago
   endTime: Math.floor(Date.now() / 1000), // Now
   indicators: [],
-  selectedMetrics: ['best_bid', 'best_ask'], // Default to both bid and ask
+  selectedMetrics: ['best_bid'], // For candlestick, we need a single price metric
   chartType: 'candlestick',
   candleTimeframe: 60, // Default 1 minute candles
 };
@@ -203,9 +203,28 @@ export const useAppStore = create<AppStore>((set, get) => ({
     // Chart type actions
     setChartType: (chartType) => {
       const oldState = get();
-      set((state) => ({
-        chartConfig: { ...state.chartConfig, chartType },
-      }));
+      set((state) => {
+        const newConfig = { ...state.chartConfig, chartType };
+        
+        // For candlestick charts, we need a single price metric for OHLC aggregation
+        if (chartType === 'candlestick') {
+          // If current metrics include multiple values, use only the first one
+          // Prefer 'price' if available, otherwise use 'best_bid'
+          const currentMetrics = state.chartConfig.selectedMetrics;
+          if (!currentMetrics.includes('price') && !currentMetrics.includes('best_bid')) {
+            newConfig.selectedMetrics = ['best_bid'];
+          } else if (currentMetrics.includes('price')) {
+            newConfig.selectedMetrics = ['price'];
+          } else if (currentMetrics.includes('best_bid')) {
+            newConfig.selectedMetrics = ['best_bid'];
+          } else {
+            // Keep only the first metric for candlestick aggregation
+            newConfig.selectedMetrics = [currentMetrics[0]];
+          }
+        }
+        
+        return { chartConfig: newConfig };
+      });
       const newState = get();
       newState._triggerSubscriptions(newState, oldState);
     },

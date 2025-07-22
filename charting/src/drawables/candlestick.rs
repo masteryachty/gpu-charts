@@ -168,8 +168,12 @@ impl RenderListener for CandlestickRenderer {
 
         // Only render if we have GPU candles
         if self.gpu_candles_buffer.is_none() || self.num_candles == 0 {
+            log::warn!("CandlestickRenderer: No GPU candles to render. gpu_candles_buffer: {}, num_candles: {}", 
+                      self.gpu_candles_buffer.is_some(), self.num_candles);
             return;
         }
+        
+        log::info!("CandlestickRenderer: Rendering {} candles", self.num_candles);
 
         // Begin render pass
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -197,13 +201,17 @@ impl RenderListener for CandlestickRenderer {
         render_pass.set_pipeline(&self.body_pipeline);
         render_pass.set_bind_group(0, &bind_group, &[]);
         // Draw 6 vertices per candle (2 triangles)
-        render_pass.draw(0..self.num_candles * 6, 0..1);
+        let body_vertex_count = self.num_candles * 6;
+        log::info!("CandlestickRenderer: Drawing {} body vertices for {} candles", body_vertex_count, self.num_candles);
+        render_pass.draw(0..body_vertex_count, 0..1);
 
         // Render wicks
         render_pass.set_pipeline(&self.wick_pipeline);
         render_pass.set_bind_group(0, &bind_group, &[]);
         // Draw 4 vertices per candle (2 lines)
-        render_pass.draw(0..self.num_candles * 4, 0..1);
+        let wick_vertex_count = self.num_candles * 4;
+        log::info!("CandlestickRenderer: Drawing {} wick vertices", wick_vertex_count);
+        render_pass.draw(0..wick_vertex_count, 0..1);
     }
 }
 
@@ -400,21 +408,30 @@ impl CandlestickRenderer {
         let extended_time_range = last_candle_end - first_candle_start;
         let num_candles = (extended_time_range / self.candle_timeframe) as u32;
         self.num_candles = num_candles;
+        
+        log::info!("CandlestickRenderer: Aggregating OHLC data. Time range: {} to {}, candle_timeframe: {}, num_candles: {}", 
+                  ds.start_x, ds.end_x, self.candle_timeframe, num_candles);
 
         // Get the active data groups
         let active_groups = ds.get_active_data_groups();
         if active_groups.is_empty() {
+            log::warn!("CandlestickRenderer: No active data groups available");
             return;
         }
 
         // Use the first data group and first metric (price data)
         let data_series = &active_groups[0];
         if data_series.metrics.is_empty() {
+            log::warn!("CandlestickRenderer: No metrics available in data series");
             return;
         }
+        
+        log::info!("CandlestickRenderer: Using metric '{}' for OHLC aggregation", data_series.metrics[0].name);
 
         // Check if we have GPU buffers
         if data_series.x_buffers.is_empty() || data_series.metrics[0].y_buffers.is_empty() {
+            log::warn!("CandlestickRenderer: No GPU buffers available. x_buffers: {}, y_buffers: {}", 
+                     data_series.x_buffers.len(), data_series.metrics[0].y_buffers.len());
             return;
         }
 
@@ -520,6 +537,10 @@ impl CandlestickRenderer {
 
         // Submit GPU work
         queue.submit(Some(encoder.finish()));
+        
+        log::info!("CandlestickRenderer: GPU aggregation complete. Buffer size: {} bytes for {} candles", 
+                  self.num_candles as usize * std::mem::size_of::<crate::calcables::candle_aggregator::GpuOhlcCandle>(),
+                  self.num_candles);
     }
 
     fn create_bind_group(
@@ -531,10 +552,13 @@ impl CandlestickRenderer {
         let candles_buffer = self.gpu_candles_buffer.as_ref()?;
 
         // Create uniform buffers using buffer pool
-        let x_min_max = glm::vec2(data_store.start_x, data_store.end_x);
-        let x_buffer = self
-            .uniform_buffer_pool
-            .get_or_create_x_range_buffer(device, &[x_min_max.x as f32, x_min_max.y as f32]);
+        // Note: The shader expects MinMaxU32 struct with u32 values
+        let x_range_data = [data_store.start_x, data_store.end_x];
+        let x_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Candlestick X Range Buffer"),
+            contents: bytemuck::cast_slice(&x_range_data),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
 
         let y_min_max = glm::vec2(
             data_store.min_y.unwrap_or(0.0),
