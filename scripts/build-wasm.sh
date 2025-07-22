@@ -27,10 +27,10 @@ build_wasm_crate() {
     
     if [ "$BUILD_MODE" = "release" ]; then
         wasm-pack build --target web --out-dir "$WEB_PKG_DIR" \
-            --out-name "$output_name" --release
+            --out-name "$output_name" --release --features phase2-optimizations
     else
         wasm-pack build --target web --out-dir "$WEB_PKG_DIR" \
-            --out-name "$output_name" --dev
+            --out-name "$output_name" --dev --features phase2-optimizations
     fi
     
     echo -e "${GREEN}✓ $crate_name built successfully${NC}"

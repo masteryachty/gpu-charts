@@ -6,11 +6,14 @@ import {
   Bell,
   ChevronLeft,
   ChevronRight,
-  Plus
+  Plus,
+  Zap
 } from 'lucide-react';
+import { OptimizationSettings } from '../OptimizationSettings';
 
 const sidebarItems = [
   { icon: Settings, label: 'Settings', id: 'settings' },
+  { icon: Zap, label: 'Performance', id: 'performance' },
   { icon: BarChart3, label: 'Indicators', id: 'indicators' },
   { icon: TrendingUp, label: 'Drawing Tools', id: 'drawing' },
   { icon: Bell, label: 'Alerts', id: 'alerts' },
@@ -140,6 +143,13 @@ export default function Sidebar() {
                   </select>
                 </div>
               </div>
+            </div>
+          )}
+
+          {activePanel === 'performance' && (
+            <div>
+              <h3 className="text-text-primary font-medium mb-4">Performance</h3>
+              <OptimizationSettings />
             </div>
           )}
         </div>

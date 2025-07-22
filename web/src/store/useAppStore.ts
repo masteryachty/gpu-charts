@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { AppState, ChartConfig, MarketData, StoreSubscriptionCallbacks } from '../types';
+import { AppState, ChartConfig, MarketData, StoreSubscriptionCallbacks, OptimizationSettings } from '../types';
 
 interface AppStore extends AppState {
   // Store subscription management
@@ -28,6 +28,10 @@ interface AppStore extends AppState {
   setChartType: (chartType: 'line' | 'candlestick') => void;
   setCandleTimeframe: (timeframe: number) => void;
   
+  // Optimization settings actions
+  setOptimizationSettings: (settings: OptimizationSettings) => void;
+  updateOptimizationSetting: (key: keyof OptimizationSettings, value: boolean) => void;
+  
   // Batch operations
   updateChartState: (updates: Partial<ChartConfig>) => void;
   resetToDefaults: () => void;
@@ -52,6 +56,14 @@ const DEFAULT_CONFIG: ChartConfig = {
   candleTimeframe: 60, // Default 1 minute candles
 };
 
+// Default optimization settings (all enabled by default)
+const DEFAULT_OPTIMIZATIONS: OptimizationSettings = {
+  binarySearchCulling: true,
+  vertexCompression: true,
+  gpuVertexGeneration: true,
+  renderBundles: true,
+};
+
 export const useAppStore = create<AppStore>((set, get) => ({
     // Initial state
     currentSymbol: DEFAULT_CONFIG.symbol,
@@ -59,6 +71,18 @@ export const useAppStore = create<AppStore>((set, get) => ({
     marketData: {},
     isConnected: false,
     user: undefined,
+    optimizationSettings: (() => {
+      // Load from localStorage if available
+      const saved = localStorage.getItem('gpu-charts-optimizations');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          console.error('Failed to parse saved optimizations:', e);
+        }
+      }
+      return DEFAULT_OPTIMIZATIONS;
+    })(),
     
     // Subscription management
     _subscriptions: new Map(),
@@ -225,6 +249,26 @@ export const useAppStore = create<AppStore>((set, get) => ({
       set((state) => ({
         chartConfig: { ...state.chartConfig, ...updates },
       }));
+      const newState = get();
+      newState._triggerSubscriptions(newState, oldState);
+    },
+    
+    // Optimization settings actions
+    setOptimizationSettings: (settings) => {
+      const oldState = get();
+      set({ optimizationSettings: settings });
+      // Save to localStorage for persistence
+      localStorage.setItem('gpu-charts-optimizations', JSON.stringify(settings));
+      const newState = get();
+      newState._triggerSubscriptions(newState, oldState);
+    },
+    
+    updateOptimizationSetting: (key, value) => {
+      const oldState = get();
+      const newSettings = { ...oldState.optimizationSettings, [key]: value };
+      set({ optimizationSettings: newSettings });
+      // Save to localStorage for persistence
+      localStorage.setItem('gpu-charts-optimizations', JSON.stringify(newSettings));
       const newState = get();
       newState._triggerSubscriptions(newState, oldState);
     },

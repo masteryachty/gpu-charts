@@ -20,6 +20,14 @@ export interface ChartConfig {
   candleTimeframe: number; // in seconds (60, 300, 900, 3600, etc.)
 }
 
+// Performance optimization settings
+export interface OptimizationSettings {
+  binarySearchCulling: boolean;
+  vertexCompression: boolean;
+  gpuVertexGeneration: boolean;
+  renderBundles: boolean;
+}
+
 // WASM integration types
 export interface WasmModule {
   memory: WebAssembly.Memory;
@@ -45,6 +53,7 @@ export interface StoreState {
   marketData: Record<string, MarketData>;
   isConnected: boolean;
   user?: User;
+  optimizationSettings: OptimizationSettings;
   // Subscription management for testing
   _subscriptions?: Map<string, StoreSubscriptionCallbacks>;
   _lastState?: StoreState | null;

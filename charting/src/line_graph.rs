@@ -119,25 +119,31 @@ impl LineGraph {
             let culling = CullingSystem::new(device.clone(), queue.clone());
             line_graph.culling_system = Some(Rc::new(RefCell::new(culling)));
             
-            // Initialize vertex compression if enabled
-            if std::env::var("ENABLE_VERTEX_COMPRESSION").unwrap_or_default() == "1" {
+            // Initialize vertex compression (enabled by default)
+            let enable_compression = std::env::var("ENABLE_VERTEX_COMPRESSION")
+                .unwrap_or_else(|_| "1".to_string()) == "1";
+            if enable_compression {
                 let compression = ChartVertexCompression::new(device.clone(), queue.clone());
                 line_graph.vertex_compression = Some(Rc::new(RefCell::new(compression)));
-                log::info!("Vertex compression enabled");
+                log::info!("Vertex compression enabled by default");
             }
             
-            // Initialize GPU vertex generation if enabled
-            if std::env::var("ENABLE_GPU_VERTEX_GEN").unwrap_or_default() == "1" {
+            // Initialize GPU vertex generation (enabled by default)
+            let enable_gpu_gen = std::env::var("ENABLE_GPU_VERTEX_GEN")
+                .unwrap_or_else(|_| "1".to_string()) == "1";
+            if enable_gpu_gen {
                 let gpu_gen = ChartGpuVertexGen::new(device.clone(), queue.clone());
                 line_graph.gpu_vertex_gen = Some(Rc::new(RefCell::new(gpu_gen)));
-                log::info!("GPU vertex generation enabled");
+                log::info!("GPU vertex generation enabled by default");
             }
             
-            // Initialize render bundles if enabled
-            if std::env::var("ENABLE_RENDER_BUNDLES").unwrap_or_default() == "1" {
+            // Initialize render bundles (enabled by default)
+            let enable_bundles = std::env::var("ENABLE_RENDER_BUNDLES")
+                .unwrap_or_else(|_| "1".to_string()) == "1";
+            if enable_bundles {
                 let render_bundles = ChartRenderBundles::new(device.clone());
                 line_graph.render_bundles = Some(Rc::new(RefCell::new(render_bundles)));
-                log::info!("Render bundles enabled");
+                log::info!("Render bundles enabled by default");
             }
             
             // Try to initialize GPU culling if feature is enabled
