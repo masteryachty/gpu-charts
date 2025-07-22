@@ -8,12 +8,15 @@ import WasmCanvas from '../components/chart/WasmCanvas';
 import ChartControls from '../components/chart/ChartControls';
 import { SimpleChartControls } from '../components/chart/SimpleChartControls';
 import { Phase3ConfigDemo } from '../components/Phase3ConfigDemo';
+import ConfigurationPanel from '../components/ConfigurationPanel';
+import PerformanceDashboard from '../components/PerformanceDashboard';
 // import DataFetchingMonitor from '../components/monitoring/DataFetchingMonitor'; // Disabled temporarily
 
 function ChartView() {
   const [showDebugMode, setShowDebugMode] = useState(false);
   const [showSubscriptionInfo, setShowSubscriptionInfo] = useState(false);
   const [enableChangeTracking, setEnableChangeTracking] = useState(false);
+  const [chart, setChart] = useState<any>(null);
 
   // Get store actions
   const { setCurrentSymbol, setTimeRange } = useAppStore();
@@ -122,13 +125,21 @@ function ChartView() {
                 
                 {/* Phase 3 Configuration Demo */}
                 <Phase3ConfigDemo />
+                
+                {/* Configuration Panel for runtime settings */}
+                <ConfigurationPanel chart={chart} />
+                
+                {/* Performance Dashboard */}
+                <PerformanceDashboard chart={chart} />
               </div>
               
               {/* Main Chart Area */}
               <div className="flex-1 flex flex-col">
                 {/* Simple Chart Controls */}
-                <div className="mb-4">
+                <div className="mb-4 space-y-2">
                   <SimpleChartControls />
+                  {/* Compact Performance Monitor */}
+                  <PerformanceDashboard chart={chart} compact={true} />
                 </div>
                 
                 <WasmCanvas 
@@ -136,6 +147,7 @@ function ChartView() {
                   debounceMs={100}
                   showPerformanceOverlay={true}
                   debugMode={debugMode}
+                  onChartReady={setChart}
                 />
               </div>
             </div>

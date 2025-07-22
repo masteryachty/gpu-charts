@@ -14,6 +14,7 @@ extern crate nalgebra_glm as glm;
 
 // Core modules
 mod calcables;
+mod config;
 mod controls;
 mod drawables;
 mod events;
@@ -21,6 +22,14 @@ mod line_graph;
 mod renderer;
 pub mod store_state;
 mod wrappers;
+
+// Benchmark module
+#[cfg(target_arch = "wasm32")]
+mod fetch_benchmark;
+
+// Export the FetchBenchmark for use in web
+#[cfg(target_arch = "wasm32")]
+pub use fetch_benchmark::FetchBenchmark;
 
 // New modular renderer bridge (simplified version)
 #[cfg(target_arch = "wasm32")]

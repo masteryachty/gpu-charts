@@ -6,6 +6,7 @@ import CullingTestDemo from './components/CullingTestDemo';
 import CullingPerformanceDemo from './components/CullingPerformanceDemo';
 import GpuVertexGenDemo from './components/GpuVertexGenDemo';
 import RenderBundlesDemo from './components/RenderBundlesDemo';
+import FetchBenchmark from './components/FetchBenchmark';
 import { ErrorBoundary } from './index';
 import { useAppStore } from './store/useAppStore';
 
@@ -39,6 +40,7 @@ function App() {
           <Route path="/culling-performance" element={<CullingPerformanceDemo />} />
           <Route path="/gpu-vertex-gen" element={<GpuVertexGenDemo />} />
           <Route path="/render-bundles" element={<RenderBundlesDemo />} />
+          <Route path="/fetch-benchmark" element={<FetchBenchmark />} />
           <Route path="/pricing" element={<div>Pricing Page</div>} />
           <Route path="/about" element={<div>About Page</div>} />
           <Route path="/docs" element={<div>Documentation</div>} />

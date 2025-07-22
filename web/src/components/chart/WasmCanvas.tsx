@@ -16,6 +16,9 @@ interface WasmCanvasProps {
 
   /** Enable debug information (default: false) */
   debugMode?: boolean;
+  
+  /** Callback when chart is initialized */
+  onChartReady?: (chart: any) => void;
 }
 
 export default function WasmCanvas({
@@ -24,7 +27,8 @@ export default function WasmCanvas({
   enableAutoSync = true,
   debounceMs = 100,
   showPerformanceOverlay = true,
-  debugMode = false
+  debugMode = false,
+  onChartReady
 }: WasmCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -58,6 +62,13 @@ export default function WasmCanvas({
       canvasSize: `${canvas.width}x${canvas.height}`
     });
   }, []);
+
+  // Call onChartReady when chart is initialized
+  useEffect(() => {
+    if (chartState.isInitialized && chartState.chart && onChartReady) {
+      onChartReady(chartState.chart);
+    }
+  }, [chartState.isInitialized, chartState.chart, onChartReady]);
 
   // Initialize chart when canvas is ready with improved timing
   useEffect(() => {

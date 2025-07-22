@@ -31,7 +31,7 @@ crossbeam-channel = "0.5.15"
 js-sys = "0.3.77"
 getrandom = { version = "0.2", features = ["js"] }
 # For network requests in the browser
-reqwasm = "0.5"
+wasm-fetch = { path = "../crates/wasm-fetch" }
 futures = "0.3"
 futures-intrusive = "0.5.0"
 serde_json = "1.0.138"
@@ -43,6 +43,9 @@ chrono = "0.4.39"
 
 # Add Phase 2 optimizations - commented out due to version conflicts
 # gpu-charts-unified = { path = "../crates/gpu-charts-unified", optional = true }
+
+# Configuration system integration
+wasm-storage = { path = "../crates/wasm-storage" }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"

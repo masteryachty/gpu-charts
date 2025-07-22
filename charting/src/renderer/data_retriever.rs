@@ -1,7 +1,7 @@
 use super::data_store::DataStore;
 use bytemuck::{cast_slice, Pod};
 use js_sys::{ArrayBuffer, Uint8Array};
-use reqwasm::http::Request;
+use wasm_fetch::FetchClient;
 use std::{cell::RefCell, rc::Rc};
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;
@@ -88,14 +88,16 @@ pub fn create_chunked_gpu_buffer_from_arraybuffer(
 /// The response is assumed to have a header JSON (terminated by a newline, ASCII 10)
 /// followed immediately by binary data.
 pub async fn fetch_api_response(url: &str) -> Result<(ApiHeader, ArrayBuffer), js_sys::Error> {
-    let resp = Request::get(url)
-        .send()
+    // Use our WASM fetch client
+    let client = FetchClient::new();
+    let binary_data = client.fetch_binary(url)
         .await
-        .map_err(|e| js_sys::Error::new(&format!("Fetch failed: {e:?}")))?;
-    let array_buffer: ArrayBuffer = JsFuture::from(resp.as_raw().array_buffer()?)
-        .await
-        .map(|v| v.unchecked_into::<ArrayBuffer>())
-        .map_err(|e| js_sys::Error::new(&format!("ArrayBuffer conversion failed: {e:?}")))?;
+        .map_err(|e| js_sys::Error::new(&format!("Fetch failed: {:?}", e)))?;
+    
+    // Convert Vec<u8> to ArrayBuffer
+    let uint8_array = Uint8Array::new_with_length(binary_data.len() as u32);
+    uint8_array.copy_from(&binary_data);
+    let array_buffer = uint8_array.buffer();
 
     // Create a Uint8Array view of the full ArrayBuffer.
     let uint8 = Uint8Array::new(&array_buffer);

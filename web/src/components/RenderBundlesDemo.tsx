@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useAppStore } from '../store/useAppStore';
 
 const RenderBundlesDemo: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -8,8 +7,6 @@ const RenderBundlesDemo: React.FC = () => {
   const [error, setError] = useState<Error | null>(null);
   const [bundlesEnabled, setBundlesEnabled] = useState(false);
   const [stats, setStats] = useState<any>({});
-
-  const { currentSymbol, timeRange } = useAppStore();
 
   useEffect(() => {
     const initializeChart = async () => {

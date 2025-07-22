@@ -1,3 +1,4 @@
+use crate::config::{ConfigManager, ChartConfig};
 use crate::drawables::candlestick::CandlestickRenderer;
 use crate::drawables::plot::{PlotRenderer, RenderListener};
 use crate::drawables::x_axis::XAxisRenderer;
@@ -32,6 +33,7 @@ pub struct LineGraph {
     pub vertex_compression: Option<Rc<RefCell<ChartVertexCompression>>>,
     pub gpu_vertex_gen: Option<Rc<RefCell<ChartGpuVertexGen>>>,
     pub render_bundles: Option<Rc<RefCell<ChartRenderBundles>>>,
+    pub config_manager: ConfigManager,
     // web_socket: WebSocketConnnection,
 }
 
@@ -100,6 +102,10 @@ impl LineGraph {
             );
         }
 
+        // Initialize configuration manager
+        let config_manager = ConfigManager::new();
+        let config = config_manager.get();
+        
         // Create the LineGraph instance
         let mut line_graph = Self { 
             engine: engine.clone(), 
@@ -108,6 +114,7 @@ impl LineGraph {
             vertex_compression: None,
             gpu_vertex_gen: None,
             render_bundles: None,
+            config_manager,
         };
 
         // Initialize culling system with Phase 2 optimizations if available
@@ -119,28 +126,22 @@ impl LineGraph {
             let culling = CullingSystem::new(device.clone(), queue.clone());
             line_graph.culling_system = Some(Rc::new(RefCell::new(culling)));
             
-            // Initialize vertex compression (enabled by default)
-            let enable_compression = std::env::var("ENABLE_VERTEX_COMPRESSION")
-                .unwrap_or_else(|_| "1".to_string()) == "1";
-            if enable_compression {
+            // Initialize vertex compression based on config
+            if config.features.vertex_compression {
                 let compression = ChartVertexCompression::new(device.clone(), queue.clone());
                 line_graph.vertex_compression = Some(Rc::new(RefCell::new(compression)));
                 log::info!("Vertex compression enabled by default");
             }
             
-            // Initialize GPU vertex generation (enabled by default)
-            let enable_gpu_gen = std::env::var("ENABLE_GPU_VERTEX_GEN")
-                .unwrap_or_else(|_| "1".to_string()) == "1";
-            if enable_gpu_gen {
+            // Initialize GPU vertex generation based on config
+            if config.features.gpu_vertex_generation {
                 let gpu_gen = ChartGpuVertexGen::new(device.clone(), queue.clone());
                 line_graph.gpu_vertex_gen = Some(Rc::new(RefCell::new(gpu_gen)));
                 log::info!("GPU vertex generation enabled by default");
             }
             
-            // Initialize render bundles (enabled by default)
-            let enable_bundles = std::env::var("ENABLE_RENDER_BUNDLES")
-                .unwrap_or_else(|_| "1".to_string()) == "1";
-            if enable_bundles {
+            // Initialize render bundles based on config
+            if config.features.render_bundles {
                 let render_bundles = ChartRenderBundles::new(device.clone());
                 line_graph.render_bundles = Some(Rc::new(RefCell::new(render_bundles)));
                 log::info!("Render bundles enabled by default");
@@ -270,6 +271,77 @@ impl LineGraph {
             .borrow_mut()
             .set_candle_timeframe(timeframe_seconds);
         // Note: The candlestick renderer will read this value from data_store
+    }
+    
+    // Apply configuration changes
+    pub fn apply_config(&mut self, config: &ChartConfig) {
+        log::info!("Applying configuration changes");
+        
+        // Update performance settings
+        // Target FPS is handled by render loop
+        
+        // Update feature flags - recreate systems as needed
+        let engine_b = self.engine.borrow();
+        let device = Arc::new(engine_b.device.clone());
+        let queue = Arc::new(engine_b.queue.clone());
+        drop(engine_b); // Drop borrow before we might mutate
+        
+        // Vertex compression
+        if config.features.vertex_compression && self.vertex_compression.is_none() {
+            let compression = ChartVertexCompression::new(device.clone(), queue.clone());
+            self.vertex_compression = Some(Rc::new(RefCell::new(compression)));
+            log::info!("Enabled vertex compression");
+        } else if !config.features.vertex_compression && self.vertex_compression.is_some() {
+            self.vertex_compression = None;
+            log::info!("Disabled vertex compression");
+        }
+        
+        // GPU vertex generation
+        if config.features.gpu_vertex_generation && self.gpu_vertex_gen.is_none() {
+            let gpu_gen = ChartGpuVertexGen::new(device.clone(), queue.clone());
+            self.gpu_vertex_gen = Some(Rc::new(RefCell::new(gpu_gen)));
+            log::info!("Enabled GPU vertex generation");
+        } else if !config.features.gpu_vertex_generation && self.gpu_vertex_gen.is_some() {
+            self.gpu_vertex_gen = None;
+            log::info!("Disabled GPU vertex generation");
+        }
+        
+        // Render bundles
+        if config.features.render_bundles && self.render_bundles.is_none() {
+            let render_bundles = ChartRenderBundles::new(device.clone());
+            self.render_bundles = Some(Rc::new(RefCell::new(render_bundles)));
+            log::info!("Enabled render bundles");
+        } else if !config.features.render_bundles && self.render_bundles.is_some() {
+            self.render_bundles = None;
+            log::info!("Disabled render bundles");
+        }
+        
+        // Reapply renderers to pick up new settings
+        self.setup_renderers();
+    }
+    
+    // Update configuration
+    pub fn update_config<F>(&mut self, updater: F) -> Result<(), wasm_bindgen::JsValue>
+    where
+        F: FnOnce(&mut ChartConfig),
+    {
+        self.config_manager.update(updater)?;
+        let config = self.config_manager.get();
+        self.apply_config(&config);
+        Ok(())
+    }
+    
+    // Get current configuration
+    pub fn get_config(&self) -> ChartConfig {
+        self.config_manager.get()
+    }
+    
+    // Load a configuration preset
+    pub fn load_preset(&mut self, preset: crate::config::ConfigPreset) -> Result<(), wasm_bindgen::JsValue> {
+        self.config_manager.load_preset(preset)?;
+        let config = self.config_manager.get();
+        self.apply_config(&config);
+        Ok(())
     }
 }
 

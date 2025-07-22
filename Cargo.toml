@@ -9,6 +9,9 @@ members = [
     "crates/wasm-bridge-minimal",
     "crates/config-system",
     "crates/system-integration",
+    "crates/wasm-fetch",
+    "crates/wasm-websocket",
+    "crates/wasm-storage",
     
     # Existing crates
     "server", 
@@ -16,8 +19,9 @@ members = [
     "file_server",
     
     # Benchmarking
-    "benchmarks"
-, "crates/gpu-charts-unified"]
+    "benchmarks",
+    "crates/gpu-charts-unified"
+]
 exclude = [
     "charting",  # Will be migrated to crates/renderer gradually
     "benchmarks_simple"  # Simple benchmarks without dependencies

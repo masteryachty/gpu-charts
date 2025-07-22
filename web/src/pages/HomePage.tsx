@@ -25,6 +25,9 @@ export default function HomePage() {
           <Link to="/culling-test" className="text-text-secondary hover:text-text-primary transition-colors">
             Culling Test
           </Link>
+          <Link to="/fetch-benchmark" className="text-text-secondary hover:text-text-primary transition-colors">
+            Fetch Benchmark
+          </Link>
           <Link to="/app" className="btn-primary">
             Start Trading
           </Link>

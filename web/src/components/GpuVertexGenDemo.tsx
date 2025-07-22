@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useAppStore } from '../store/useAppStore';
 
 const GpuVertexGenDemo: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -8,8 +7,6 @@ const GpuVertexGenDemo: React.FC = () => {
   const [error, setError] = useState<Error | null>(null);
   const [vertexGenEnabled, setVertexGenEnabled] = useState(false);
   const [stats, setStats] = useState<any>({});
-
-  const { currentSymbol, timeRange } = useAppStore();
 
   useEffect(() => {
     const initializeChart = async () => {

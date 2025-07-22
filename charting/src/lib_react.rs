@@ -606,6 +606,78 @@ impl Chart {
             }
         }
     }
+    
+    /// Get current chart configuration
+    #[wasm_bindgen]
+    pub fn get_config(&self) -> Result<String, JsValue> {
+        unsafe {
+            if let Some(ref instance) = CHART_INSTANCE {
+                let config = instance.line_graph.borrow().get_config();
+                serde_json::to_string(&config)
+                    .map_err(|e| JsValue::from_str(&format!("Failed to serialize config: {}", e)))
+            } else {
+                Err(JsValue::from_str("Chart not initialized"))
+            }
+        }
+    }
+    
+    /// Update chart configuration
+    #[wasm_bindgen]
+    pub fn update_config(&self, config_json: &str) -> Result<(), JsValue> {
+        unsafe {
+            if let Some(ref mut instance) = CHART_INSTANCE {
+                let config: crate::config::ChartConfig = serde_json::from_str(config_json)
+                    .map_err(|e| JsValue::from_str(&format!("Failed to parse config: {}", e)))?;
+                
+                instance.line_graph.borrow_mut().apply_config(&config);
+                Ok(())
+            } else {
+                Err(JsValue::from_str("Chart not initialized"))
+            }
+        }
+    }
+    
+    /// Load a configuration preset
+    #[wasm_bindgen]
+    pub fn load_config_preset(&self, preset: &str) -> Result<(), JsValue> {
+        unsafe {
+            if let Some(ref mut instance) = CHART_INSTANCE {
+                let preset = match preset {
+                    "performance" => crate::config::ConfigPreset::Performance,
+                    "quality" => crate::config::ConfigPreset::Quality,
+                    "balanced" => crate::config::ConfigPreset::Balanced,
+                    "low_power" => crate::config::ConfigPreset::LowPower,
+                    _ => return Err(JsValue::from_str("Invalid preset name")),
+                };
+                
+                instance.line_graph.borrow_mut().load_preset(preset)?;
+                Ok(())
+            } else {
+                Err(JsValue::from_str("Chart not initialized"))
+            }
+        }
+    }
+    
+    /// Toggle a specific feature
+    #[wasm_bindgen]
+    pub fn toggle_feature(&self, feature: &str, enabled: bool) -> Result<(), JsValue> {
+        unsafe {
+            if let Some(ref mut instance) = CHART_INSTANCE {
+                instance.line_graph.borrow_mut().update_config(|config| {
+                    match feature {
+                        "binary_culling" => config.features.binary_culling = enabled,
+                        "vertex_compression" => config.features.vertex_compression = enabled,
+                        "gpu_vertex_generation" => config.features.gpu_vertex_generation = enabled,
+                        "render_bundles" => config.features.render_bundles = enabled,
+                        _ => log::warn!("Unknown feature: {}", feature),
+                    }
+                })?;
+                Ok(())
+            } else {
+                Err(JsValue::from_str("Chart not initialized"))
+            }
+        }
+    }
 }
 
 // Private implementation methods for Chart

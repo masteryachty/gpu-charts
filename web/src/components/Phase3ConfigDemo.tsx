@@ -288,11 +288,11 @@ export const Phase3ConfigDemo: React.FC = () => {
           </div>
           <div>
             <span className="text-gray-500">GPU Time:</span>
-            <span className="ml-2 font-mono">{(config.performanceMetrics.gpuTimeMs || config.performanceMetrics.gpu_time_ms || 0).toFixed(1)} ms</span>
+            <span className="ml-2 font-mono">{(config.performanceMetrics.gpuTimeMs || 0).toFixed(1)} ms</span>
           </div>
           <div>
             <span className="text-gray-500">CPU Time:</span>
-            <span className="ml-2 font-mono">{(config.performanceMetrics.cpuTimeMs || config.performanceMetrics.cpu_time_ms || 0).toFixed(1)} ms</span>
+            <span className="ml-2 font-mono">{(config.performanceMetrics.cpuTimeMs || 0).toFixed(1)} ms</span>
           </div>
         </div>
       </div>
