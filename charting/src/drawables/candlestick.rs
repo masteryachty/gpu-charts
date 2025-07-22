@@ -172,8 +172,11 @@ impl RenderListener for CandlestickRenderer {
                       self.gpu_candles_buffer.is_some(), self.num_candles);
             return;
         }
-        
-        log::info!("CandlestickRenderer: Rendering {} candles", self.num_candles);
+
+        log::info!(
+            "CandlestickRenderer: Rendering {} candles",
+            self.num_candles
+        );
 
         // Begin render pass
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -202,7 +205,11 @@ impl RenderListener for CandlestickRenderer {
         render_pass.set_bind_group(0, &bind_group, &[]);
         // Draw 6 vertices per candle (2 triangles)
         let body_vertex_count = self.num_candles * 6;
-        log::info!("CandlestickRenderer: Drawing {} body vertices for {} candles", body_vertex_count, self.num_candles);
+        log::info!(
+            "CandlestickRenderer: Drawing {} body vertices for {} candles",
+            body_vertex_count,
+            self.num_candles
+        );
         render_pass.draw(0..body_vertex_count, 0..1);
 
         // Render wicks
@@ -210,7 +217,10 @@ impl RenderListener for CandlestickRenderer {
         render_pass.set_bind_group(0, &bind_group, &[]);
         // Draw 4 vertices per candle (2 lines)
         let wick_vertex_count = self.num_candles * 4;
-        log::info!("CandlestickRenderer: Drawing {} wick vertices", wick_vertex_count);
+        log::info!(
+            "CandlestickRenderer: Drawing {} wick vertices",
+            wick_vertex_count
+        );
         render_pass.draw(0..wick_vertex_count, 0..1);
     }
 }
@@ -408,7 +418,7 @@ impl CandlestickRenderer {
         let extended_time_range = last_candle_end - first_candle_start;
         let num_candles = (extended_time_range / self.candle_timeframe) as u32;
         self.num_candles = num_candles;
-        
+
         log::info!("CandlestickRenderer: Aggregating OHLC data. Time range: {} to {}, candle_timeframe: {}, num_candles: {}", 
                   ds.start_x, ds.end_x, self.candle_timeframe, num_candles);
 
@@ -425,13 +435,19 @@ impl CandlestickRenderer {
             log::warn!("CandlestickRenderer: No metrics available in data series");
             return;
         }
-        
-        log::info!("CandlestickRenderer: Using metric '{}' for OHLC aggregation", data_series.metrics[0].name);
+
+        log::info!(
+            "CandlestickRenderer: Using metric '{}' for OHLC aggregation",
+            data_series.metrics[0].name
+        );
 
         // Check if we have GPU buffers
         if data_series.x_buffers.is_empty() || data_series.metrics[0].y_buffers.is_empty() {
-            log::warn!("CandlestickRenderer: No GPU buffers available. x_buffers: {}, y_buffers: {}", 
-                     data_series.x_buffers.len(), data_series.metrics[0].y_buffers.len());
+            log::warn!(
+                "CandlestickRenderer: No GPU buffers available. x_buffers: {}, y_buffers: {}",
+                data_series.x_buffers.len(),
+                data_series.metrics[0].y_buffers.len()
+            );
             return;
         }
 
@@ -537,10 +553,13 @@ impl CandlestickRenderer {
 
         // Submit GPU work
         queue.submit(Some(encoder.finish()));
-        
-        log::info!("CandlestickRenderer: GPU aggregation complete. Buffer size: {} bytes for {} candles", 
-                  self.num_candles as usize * std::mem::size_of::<crate::calcables::candle_aggregator::GpuOhlcCandle>(),
-                  self.num_candles);
+
+        log::info!(
+            "CandlestickRenderer: GPU aggregation complete. Buffer size: {} bytes for {} candles",
+            self.num_candles as usize
+                * std::mem::size_of::<crate::calcables::candle_aggregator::GpuOhlcCandle>(),
+            self.num_candles
+        );
     }
 
     fn create_bind_group(
