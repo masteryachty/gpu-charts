@@ -48,6 +48,18 @@ harness = false
 name = "stress_test"
 harness = false
 
+[[bench]]
+name = "phase2_real"
+harness = false
+
+[[bench]]
+name = "phase2_comparison"
+harness = false
+
+[[bench]]
+name = "simple_phase2"
+harness = false
+
 [[bin]]
 name = "compare_benchmarks"
 path = "src/bin/compare_benchmarks.rs"

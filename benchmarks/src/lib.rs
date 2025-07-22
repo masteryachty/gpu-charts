@@ -9,6 +9,7 @@ use wgpu::util::DeviceExt;
 pub mod data_generator;
 pub mod metrics;
 pub mod optimized_benchmark;
+// pub mod phase2_benchmark; // Temporarily disabled due to compilation errors
 pub mod scenarios;
 
 /// Performance measurement result

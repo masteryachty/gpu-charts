@@ -1,7 +1,6 @@
 //! Benchmark scenarios based on real-world usage
 
 use crate::data_generator::DataGenerator;
-use crate::metrics::PerformanceMetrics;
 use std::time::{Duration, Instant};
 
 /// Common benchmark scenarios

@@ -1,7 +1,7 @@
 //! Stress tests for extreme scenarios
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use gpu_charts_benchmarks::*;
+use gpu_charts_benchmarks::{data_generator, scenarios};
 use std::time::Duration;
 
 fn stress_test_billion_points(c: &mut Criterion) {
@@ -42,7 +42,7 @@ fn stress_test_memory_limits(c: &mut Criterion) {
 
     group.bench_function("gpu_memory_exhaustion", |b| {
         b.iter(|| {
-            let max_gpu_memory = 2 * 1024 * 1024 * 1024; // 2GB
+            let max_gpu_memory = 2u64 * 1024 * 1024 * 1024; // 2GB
             let buffer_size = 100 * 1024 * 1024; // 100MB buffers
             let mut allocated = 0;
             let mut buffer_count = 0;
@@ -197,7 +197,7 @@ fn stress_test_sustained_load(c: &mut Criterion) {
                 let frame_start = std::time::Instant::now();
 
                 // Simulate frame rendering
-                let data_points = 1_000_000;
+                let _data_points = 1_000_000;
                 let mut sum = 0.0f32;
                 for i in 0..1000 {
                     sum += (i as f32).sin();

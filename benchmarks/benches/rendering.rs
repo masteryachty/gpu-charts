@@ -1,8 +1,7 @@
 //! Rendering performance benchmarks
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use gpu_charts_benchmarks::*;
-use std::sync::Arc;
+use gpu_charts_benchmarks::{data_generator, BenchmarkGpu};
 
 async fn setup_gpu() -> BenchmarkGpu {
     BenchmarkGpu::new().await

@@ -38,7 +38,7 @@ impl PipelineBuilder {
         _format: wgpu::TextureFormat,
     ) -> wgpu::RenderPipeline {
         // TODO: Implement pipeline creation
-        unsafe { std::mem::zeroed() } // Placeholder
+        unimplemented!("Pipeline creation not yet implemented")
     }
 
     pub fn create_candlestick_pipeline(
@@ -46,6 +46,6 @@ impl PipelineBuilder {
         _format: wgpu::TextureFormat,
     ) -> (wgpu::RenderPipeline, wgpu::RenderPipeline) {
         // TODO: Implement pipeline creation
-        (unsafe { std::mem::zeroed() }, unsafe { std::mem::zeroed() }) // Placeholder
+        unimplemented!("Pipeline creation not yet implemented")
     }
 }

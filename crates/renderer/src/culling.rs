@@ -6,6 +6,34 @@
 use crate::Viewport;
 use gpu_charts_shared::{Result, TimeRange};
 
+/// Simple compute shader for GPU culling (placeholder)
+const CULL_COMPUTE_SHADER: &str = r#"
+@group(0) @binding(0) var<storage, read> timestamps: array<u32>;
+@group(0) @binding(1) var<storage, read_write> output_indices: array<u32>;
+@group(0) @binding(2) var<uniform> params: CullParams;
+
+struct CullParams {
+    viewport_start: u32,
+    viewport_end: u32,
+    total_count: u32,
+}
+
+@compute @workgroup_size(256)
+fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+    let index = global_id.x;
+    if (index >= params.total_count) {
+        return;
+    }
+    
+    let timestamp = timestamps[index];
+    if (timestamp >= params.viewport_start && timestamp <= params.viewport_end) {
+        output_indices[index] = 1u;
+    } else {
+        output_indices[index] = 0u;
+    }
+}
+"#;
+
 /// Data range in both time and value dimensions
 #[derive(Debug, Clone, Copy)]
 pub struct DataRange {
@@ -188,38 +216,6 @@ impl CullingSystem {
         })
     }
 }
-
-/// Compute shader for GPU culling
-const CULL_COMPUTE_SHADER: &str = r#"
-struct CullParams {
-    viewport_start: u32,
-    viewport_end: u32,
-    data_count: u32,
-    _padding: u32,
-}
-
-@group(0) @binding(0) var<uniform> params: CullParams;
-@group(0) @binding(1) var<storage, read> timestamps: array<u32>;
-@group(0) @binding(2) var<storage, read_write> output: array<u32>;
-
-@compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    let idx = global_id.x;
-    if (idx >= params.data_count) {
-        return;
-    }
-    
-    let timestamp = timestamps[idx];
-    
-    // Simple culling: check if timestamp is in viewport range
-    if (timestamp >= params.viewport_start && timestamp <= params.viewport_end) {
-        // Mark as visible (simplified - real implementation would be more complex)
-        output[idx] = 1u;
-    } else {
-        output[idx] = 0u;
-    }
-}
-"#;
 
 #[cfg(test)]
 mod tests {

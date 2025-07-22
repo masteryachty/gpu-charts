@@ -1,7 +1,7 @@
 //! Memory usage and allocation benchmarks
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use gpu_charts_benchmarks::*;
+use gpu_charts_benchmarks::BenchmarkGpu;
 use std::collections::VecDeque;
 
 fn benchmark_buffer_pool(c: &mut Criterion) {
@@ -81,7 +81,7 @@ fn benchmark_memory_fragmentation(c: &mut Criterion) {
             let mut large_buffers = Vec::new();
 
             // Interleave small and large allocations
-            for i in 0..50 {
+            for _i in 0..50 {
                 small_buffers.push(vec![0u8; 1024]);
                 large_buffers.push(vec![0u8; 1024 * 1024]);
             }
@@ -178,9 +178,9 @@ fn benchmark_memory_pressure(c: &mut Criterion) {
     });
 
     group.bench_function("memory_churn", |b| {
-        let mut buffers: Vec<Vec<u8>> = Vec::new();
-
         b.iter(|| {
+            let mut buffers: Vec<Vec<u8>> = Vec::new();
+
             // Simulate memory churn
             for i in 0..100 {
                 if i % 2 == 0 {
@@ -190,7 +190,7 @@ fn benchmark_memory_pressure(c: &mut Criterion) {
                 }
             }
 
-            black_box(&buffers)
+            black_box(buffers)
         });
     });
 

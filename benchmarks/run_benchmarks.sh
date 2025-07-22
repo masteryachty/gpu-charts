@@ -83,6 +83,8 @@ run_benchmark "Rendering Benchmarks" "rendering" || FAILED=$((FAILED + 1))
 run_benchmark "Memory Usage Benchmarks" "memory_usage" || FAILED=$((FAILED + 1))
 run_benchmark "End-to-End Benchmarks" "end_to_end" || FAILED=$((FAILED + 1))
 run_benchmark "Stress Tests" "stress_test" || FAILED=$((FAILED + 1))
+run_benchmark "Phase 2 Real Benchmarks" "phase2_real" || FAILED=$((FAILED + 1))
+run_benchmark "Phase 2 Comparison" "phase2_comparison" || FAILED=$((FAILED + 1))
 
 # Generate summary report
 echo -e "${YELLOW}Generating summary report...${NC}"
@@ -95,7 +97,7 @@ cat > "${REPORT_DIR}/summary.md" << EOF
 
 ## Summary
 
-Total benchmarks run: 5
+Total benchmarks run: 7
 Failed benchmarks: ${FAILED}
 
 ## Results

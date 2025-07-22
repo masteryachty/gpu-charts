@@ -14,9 +14,15 @@ pub mod culling;
 pub mod engine;
 pub mod gpu_context;
 pub mod gpu_timing;
+pub mod gpu_vertex_gen;
+pub mod indirect_draw;
 pub mod lod;
+pub mod multi_resolution;
 pub mod overlays;
+pub mod phase2_integration;
 pub mod pipeline;
+pub mod render_bundles;
+pub mod vertex_compression;
 
 use chart_renderers::ChartRenderer;
 use engine::RenderEngine;
@@ -60,7 +66,7 @@ pub struct Renderer {
 }
 
 /// Performance metrics for monitoring
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct PerformanceMetrics {
     pub frame_time_ms: f32,
     pub gpu_time_ms: f32,
@@ -68,6 +74,54 @@ pub struct PerformanceMetrics {
     pub draw_calls: u32,
     pub vertices_rendered: u64,
     pub triangles_rendered: u64,
+    // Additional fields used by benchmarks
+    pub data_fetch_time: std::time::Duration,
+    pub parse_time: std::time::Duration,
+}
+
+impl Default for PerformanceMetrics {
+    fn default() -> Self {
+        Self {
+            frame_time_ms: 0.0,
+            gpu_time_ms: 0.0,
+            cpu_time_ms: 0.0,
+            draw_calls: 0,
+            vertices_rendered: 0,
+            triangles_rendered: 0,
+            data_fetch_time: std::time::Duration::ZERO,
+            parse_time: std::time::Duration::ZERO,
+        }
+    }
+}
+
+impl PerformanceMetrics {
+    /// Get average from a list of metrics
+    pub fn average(metrics_list: &[Self]) -> Self {
+        if metrics_list.is_empty() {
+            return Self::default();
+        }
+
+        let count = metrics_list.len() as f32;
+        let mut avg = Self::default();
+
+        for metrics in metrics_list {
+            avg.frame_time_ms += metrics.frame_time_ms;
+            avg.gpu_time_ms += metrics.gpu_time_ms;
+            avg.cpu_time_ms += metrics.cpu_time_ms;
+            avg.draw_calls += metrics.draw_calls;
+            avg.vertices_rendered += metrics.vertices_rendered;
+            avg.triangles_rendered += metrics.triangles_rendered;
+        }
+
+        avg.frame_time_ms /= count;
+        avg.gpu_time_ms /= count;
+        avg.cpu_time_ms /= count;
+        avg.draw_calls = (avg.draw_calls as f32 / count) as u32;
+        avg.vertices_rendered = (avg.vertices_rendered as f64 / count as f64) as u64;
+        avg.triangles_rendered = (avg.triangles_rendered as f64 / count as f64) as u64;
+
+        avg
+    }
 }
 
 impl Renderer {

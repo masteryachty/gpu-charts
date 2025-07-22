@@ -8,6 +8,7 @@ license.workspace = true
 [dependencies]
 # Workspace dependencies
 gpu-charts-shared = { path = "../shared-types" }
+gpu-charts-renderer = { path = "../renderer" }
 wasm-bindgen = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
 web-sys = { workspace = true, features = [
@@ -31,10 +32,26 @@ bytemuck = { workspace = true }
 uuid = { workspace = true }
 log = { workspace = true }
 futures = { workspace = true }
+tokio = { workspace = true, features = ["rt", "macros", "fs", "io-util"] }
+reqwest = { workspace = true }
 
 # Performance optimizations
 lru = "0.12"
 parking_lot = "0.12"
+
+# HTTP/2 client
+hyper = { version = "0.14", features = ["client", "http2"] }
+hyper-tls = "0.5"
+futures-util = "0.3"
+bytes = "1.5"
+
+# Compression
+flate2 = "1.0"
+brotli = "3.4"
+zstd = "0.13"
+
+# WebSocket
+tokio-tungstenite = "0.20"
 
 # WASM utilities
 console_error_panic_hook = "0.1"

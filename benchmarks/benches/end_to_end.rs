@@ -1,11 +1,12 @@
 //! End-to-end performance benchmarks
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use gpu_charts_benchmarks::*;
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use gpu_charts_benchmarks::{data_generator, metrics, scenarios, BenchmarkGpu, GpuTimer};
+use gpu_charts_renderer::PerformanceMetrics;
 use std::time::{Duration, Instant};
 
-async fn benchmark_full_pipeline(points: usize) -> metrics::PerformanceMetrics {
-    let mut metrics = metrics::PerformanceMetrics::default();
+async fn benchmark_full_pipeline(points: usize) -> PerformanceMetrics {
+    let mut metrics = PerformanceMetrics::default();
     let start = Instant::now();
 
     // Setup GPU
