@@ -6,6 +6,9 @@ members = [
     "crates/data-manager", 
     "crates/renderer",
     "crates/wasm-bridge",
+    "crates/wasm-bridge-minimal",
+    "crates/config-system",
+    "crates/system-integration",
     
     # Existing crates
     "server", 
@@ -14,7 +17,7 @@ members = [
     
     # Benchmarking
     "benchmarks"
-]
+, "crates/gpu-charts-unified"]
 exclude = [
     "charting",  # Will be migrated to crates/renderer gradually
     "benchmarks_simple"  # Simple benchmarks without dependencies
@@ -48,12 +51,15 @@ bytemuck = { version = "1.18", features = ["derive"] }
 uuid = { version = "1.10", features = ["v4", "js", "serde"] }
 log = "0.4"
 console_log = "1.0"
+
+# Error handling
+thiserror = "1.0"
 console_error_panic_hook = "0.1"
 once_cell = "1.19"
 
 # Async runtime
 futures = "0.3"
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", default-features = false }
 chrono = "0.4"
 
 # Memory mapping

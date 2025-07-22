@@ -5,8 +5,10 @@ authors = ["Xander  Barnes"]
 edition = "2018"
 
 [features]
+default = []
 GpuAddressMode = []
 react-mode = []
+phase2-optimizations = ["gpu-charts-unified"]
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -38,6 +40,9 @@ serde-wasm-bindgen = "0.6"
 
 wgpu_text = "=0.9.2"
 chrono = "0.4.39"
+
+# Add Phase 2 optimizations
+gpu-charts-unified = { path = "../crates/gpu-charts-unified", optional = true }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"

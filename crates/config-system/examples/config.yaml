@@ -1,0 +1,98 @@
+# GPU Charts Configuration Example
+version: "1.0.0"
+
+# Rendering settings
+rendering:
+  target_fps: 60
+  resolution_scale: 1.0
+  antialiasing: true
+  vsync: true
+  max_render_passes: 4
+  gpu_memory_limit: 8589934592  # 8GB
+  
+  chart_settings:
+    line:
+      line_width: 2.0
+      point_size: null
+      smooth_lines: false
+      area_fill: false
+    
+    scatter:
+      point_size: 4.0
+      point_shape: Circle
+      enable_clustering: true
+      cluster_threshold: 10.0
+    
+    heatmap:
+      interpolation: Linear
+      color_scheme: viridis
+      show_contours: false
+      contour_levels: 10
+    
+    three_d:
+      enable_shadows: true
+      camera_type: Orbit
+      lighting_quality: Medium
+      depth_test: true
+
+# Data management
+data:
+  cache_size: 104857600  # 100MB
+  prefetch_enabled: true
+  prefetch_distance: 2.0
+  
+  compression:
+    enabled: true
+    algorithm: Lz4
+    level: 3
+  
+  streaming:
+    chunk_size: 65536
+    buffer_size: 1048576
+    enable_backpressure: true
+
+# Performance settings
+performance:
+  gpu_culling: true
+  lod_enabled: true
+  lod_bias: 1.0
+  vertex_compression: true
+  indirect_drawing: true
+  draw_call_batch_size: 100
+  
+  auto_tuning:
+    enabled: true
+    profile_duration_ms: 5000
+    adjustment_threshold: 0.1
+    max_quality_preset: Ultra
+    min_quality_preset: Low
+
+# Feature flags
+features:
+  scatter_plots: true
+  heatmaps: true
+  three_d_charts: true
+  technical_indicators: true
+  annotations: true
+  custom_shaders: false
+  experimental_features: false
+
+# Telemetry
+telemetry:
+  enabled: true
+  performance_tracking: true
+  error_reporting: true
+  usage_analytics: false
+  custom_events: true
+  sampling_rate: 0.1
+
+# Custom presets can extend built-in ones
+presets:
+  - name: my_custom_preset
+    description: Custom preset for specific use case
+    extends: balanced
+    overrides:
+      rendering:
+        target_fps: 144
+      performance:
+        lod_bias: 0.5

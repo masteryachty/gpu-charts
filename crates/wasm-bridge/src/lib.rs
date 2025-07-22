@@ -3,9 +3,20 @@
 //! This crate provides the main entry point for the web application,
 //! orchestrating the data manager and renderer modules.
 
+// Use simplified version for initial integration
+#[path = "lib_simple.rs"]
+mod lib_simple;
+pub use lib_simple::*;
+
+// Full version commented out until dependency issues are resolved
+/*
+
 use gpu_charts_shared::{ChartConfiguration, DataHandle, DataRequest, Error, Result};
+use gpu_charts_config::{GpuChartsConfig, HotReloadManager};
+use gpu_charts_integration::{SystemIntegration, UnifiedApi};
 use wasm_bindgen::prelude::*;
 use web_sys::console;
+use std::sync::Arc;
 
 /// Log a message to the browser console
 macro_rules! log {
@@ -20,6 +31,9 @@ pub struct ChartSystem {
     data_manager: gpu_charts_data::DataManager,
     renderer: Option<gpu_charts_renderer::Renderer>,
     canvas_id: String,
+    config_manager: Arc<HotReloadManager>,
+    system_integration: Arc<SystemIntegration>,
+    unified_api: Arc<UnifiedApi>,
 }
 
 #[wasm_bindgen]
@@ -46,10 +60,23 @@ impl ChartSystem {
         // Create data manager
         let data_manager = gpu_charts_data::DataManager::new(&device, &queue, base_url);
 
+        // Initialize configuration system
+        let default_config = GpuChartsConfig::default();
+        let config_manager = Arc::new(HotReloadManager::new(default_config, |_| Ok(())));
+
+        // Initialize system integration
+        let system_integration = Arc::new(SystemIntegration::new(config_manager.clone())?);
+
+        // Create unified API
+        let unified_api = Arc::new(UnifiedApi::new(system_integration.clone()));
+
         Ok(Self {
             data_manager,
             renderer: Some(renderer),
             canvas_id,
+            config_manager,
+            system_integration,
+            unified_api,
         })
     }
 
@@ -130,6 +157,37 @@ impl ChartSystem {
         format!(r#"{{"data": {}, "render": {}}}"#, data_stats, render_stats)
     }
 
+    /// Update configuration from JSON
+    #[wasm_bindgen]
+    pub fn update_config(&self, config_json: &str) -> Result<()> {
+        let new_config: GpuChartsConfig = serde_json::from_str(config_json)
+            .map_err(|e| Error::InvalidConfiguration(e.to_string()))?;
+
+        self.config_manager.update_config(new_config);
+        Ok(())
+    }
+
+    /// Get current configuration as JSON
+    #[wasm_bindgen]
+    pub fn get_config(&self) -> String {
+        let config = self.config_manager.get_current();
+        serde_json::to_string(&*config).unwrap_or_else(|_| "{}".to_string())
+    }
+
+    /// Enable hot-reload for configuration file
+    #[wasm_bindgen]
+    pub async fn enable_config_hot_reload(&self, _file_path: &str) -> Result<()> {
+        // File watching not supported in WASM
+        // Configuration updates must be done through update_config()
+        Ok(())
+    }
+
+    /// Get system performance metrics
+    #[wasm_bindgen]
+    pub fn get_performance_metrics(&self) -> String {
+        self.unified_api.get_performance_metrics()
+    }
+
     /// Clean up resources
     #[wasm_bindgen]
     pub fn destroy(&mut self) {
@@ -184,3 +242,4 @@ const TS_APPEND_CONTENT: &'static str = r#"
 // Re-export shared types
 export * from './gpu_charts_shared';
 "#;
+*/

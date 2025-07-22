@@ -60,7 +60,7 @@ impl DataStore {
             range_bind_group: None,
             screen_size: ScreenDimensions { width, height },
             topic: None,
-            chart_type: ChartType::Candlestick,
+            chart_type: ChartType::Line,
             candle_timeframe: 60, // Default 1 minute
             dirty: true,          // Start dirty to ensure initial render
         }

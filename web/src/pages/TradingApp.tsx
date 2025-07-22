@@ -7,6 +7,7 @@ import StatusBar from '../components/layout/StatusBar';
 import WasmCanvas from '../components/chart/WasmCanvas';
 import ChartControls from '../components/chart/ChartControls';
 import { SimpleChartControls } from '../components/chart/SimpleChartControls';
+import { Phase3ConfigDemo } from '../components/Phase3ConfigDemo';
 // import DataFetchingMonitor from '../components/monitoring/DataFetchingMonitor'; // Disabled temporarily
 
 function ChartView() {
@@ -118,6 +119,9 @@ function ChartView() {
                   showActivity={debugMode}
                   compactMode={!debugMode}
                 />*/}
+                
+                {/* Phase 3 Configuration Demo */}
+                <Phase3ConfigDemo />
               </div>
               
               {/* Main Chart Area */}

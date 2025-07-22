@@ -1,0 +1,636 @@
+warning: output filename collision.
+The lib target `gpu_charts_renderer` in package `gpu-charts-renderer v0.1.0 (/home/xander/projects/gpu-charts/crates/renderer)` has the same output filename as the lib target `gpu_charts_renderer` in package `gpu-charts-renderer v0.1.0 (/home/xander/projects/gpu-charts/crates/renderer)`.
+Colliding filename is: /home/xander/projects/gpu-charts/target/release/deps/libgpu_charts_renderer.so
+The targets should have unique names.
+Consider changing their names to be unique or compiling them separately.
+This may become a hard error in the future; see <https://github.com/rust-lang/cargo/issues/6313>.
+warning: output filename collision.
+The lib target `gpu_charts_renderer` in package `gpu-charts-renderer v0.1.0 (/home/xander/projects/gpu-charts/crates/renderer)` has the same output filename as the lib target `gpu_charts_renderer` in package `gpu-charts-renderer v0.1.0 (/home/xander/projects/gpu-charts/crates/renderer)`.
+Colliding filename is: /home/xander/projects/gpu-charts/target/release/deps/libgpu_charts_renderer.so.dwp
+The targets should have unique names.
+Consider changing their names to be unique or compiling them separately.
+This may become a hard error in the future; see <https://github.com/rust-lang/cargo/issues/6313>.
+warning: output filename collision.
+The lib target `gpu_charts_renderer` in package `gpu-charts-renderer v0.1.0 (/home/xander/projects/gpu-charts/crates/renderer)` has the same output filename as the lib target `gpu_charts_renderer` in package `gpu-charts-renderer v0.1.0 (/home/xander/projects/gpu-charts/crates/renderer)`.
+Colliding filename is: /home/xander/projects/gpu-charts/target/release/deps/libgpu_charts_renderer.rlib
+The targets should have unique names.
+Consider changing their names to be unique or compiling them separately.
+This may become a hard error in the future; see <https://github.com/rust-lang/cargo/issues/6313>.
+   Compiling gpu-charts-renderer v0.1.0 (/home/xander/projects/gpu-charts/crates/renderer)
+warning: type `RenderTarget` is more private than the item `MultiResolutionSystem::get_render_target`
+   --> crates/renderer/src/multi_resolution.rs:177:5
+    |
+177 |     pub fn get_render_target(&self) -> &RenderTarget {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `MultiResolutionSystem::get_render_target` is reachable at visibility `pub`
+    |
+note: but type `RenderTarget` is only usable at visibility `pub(self)`
+   --> crates/renderer/src/multi_resolution.rs:285:1
+    |
+285 | struct RenderTarget {
+    | ^^^^^^^^^^^^^^^^^^^
+    = note: `#[warn(private_interfaces)]` on by default
+
+warning: field `vertex_count` is never read
+  --> crates/renderer/src/chart_renderers/line_chart.rs:15:5
+   |
+9  | pub struct LineChartRenderer {
+   |            ----------------- field in this struct
+...
+15 |     vertex_count: u32,
+   |     ^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: fields `device` and `cull_pipeline` are never read
+  --> crates/renderer/src/culling.rs:63:5
+   |
+62 | pub struct CullingSystem {
+   |            ------------- fields in this struct
+63 |     device: std::sync::Arc<wgpu::Device>,
+   |     ^^^^^^
+64 |     cull_pipeline: wgpu::ComputePipeline,
+   |     ^^^^^^^^^^^^^
+
+warning: field `surface_texture` is never read
+  --> crates/renderer/src/engine.rs:12:5
+   |
+7  | pub struct RenderEngine {
+   |            ------------ field in this struct
+...
+12 |     surface_texture: Option<wgpu::SurfaceTexture>,
+   |     ^^^^^^^^^^^^^^^
+
+warning: field `queue` is never read
+  --> crates/renderer/src/gpu_timing.rs:13:5
+   |
+11 | pub struct GpuTimingSystem {
+   |            --------------- field in this struct
+12 |     device: Arc<wgpu::Device>,
+13 |     queue: Arc<wgpu::Queue>,
+   |     ^^^^^
+
+warning: field `total_vertices_processed` is never read
+   --> crates/renderer/src/indirect_draw.rs:477:5
+    |
+474 | struct BatchStatistics {
+    |        --------------- field in this struct
+...
+477 |     total_vertices_processed: u64,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `BatchStatistics` has derived impls for the traits `Default`, `Clone`, and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: field `device` is never read
+   --> crates/renderer/src/indirect_draw.rs:483:5
+    |
+481 | pub struct ConditionalRenderingExt {
+    |            ----------------------- field in this struct
+482 |     predicate_buffer: wgpu::Buffer,
+483 |     device: Arc<wgpu::Device>,
+    |     ^^^^^^
+
+warning: field `select_pipeline` is never read
+  --> crates/renderer/src/lod.rs:98:5
+   |
+96 | pub struct GpuLODSelector {
+   |            -------------- field in this struct
+97 |     device: std::sync::Arc<wgpu::Device>,
+98 |     select_pipeline: wgpu::ComputePipeline,
+   |     ^^^^^^^^^^^^^^^
+
+warning: fields `queue` and `upsampling_pipeline` are never read
+  --> crates/renderer/src/multi_resolution.rs:63:5
+   |
+61 | pub struct MultiResolutionSystem {
+   |            --------------------- fields in this struct
+62 |     device: Arc<wgpu::Device>,
+63 |     queue: Arc<wgpu::Queue>,
+   |     ^^^^^
+...
+82 |     upsampling_pipeline: Option<wgpu::RenderPipeline>,
+   |     ^^^^^^^^^^^^^^^^^^^
+
+warning: fields `color_texture` and `depth_texture` are never read
+   --> crates/renderer/src/multi_resolution.rs:288:5
+    |
+285 | struct RenderTarget {
+    |        ------------ fields in this struct
+...
+288 |     color_texture: wgpu::Texture,
+    |     ^^^^^^^^^^^^^
+289 |     color_view: wgpu::TextureView,
+290 |     depth_texture: Option<wgpu::Texture>,
+    |     ^^^^^^^^^^^^^
+    |
+    = note: `RenderTarget` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: fields `history_texture`, `history_view`, `motion_vectors`, and `frame_index` are never read
+   --> crates/renderer/src/multi_resolution.rs:372:5
+    |
+371 | struct TemporalUpsamplingState {
+    |        ----------------------- fields in this struct
+372 |     history_texture: wgpu::Texture,
+    |     ^^^^^^^^^^^^^^^
+373 |     history_view: wgpu::TextureView,
+    |     ^^^^^^^^^^^^
+374 |     motion_vectors: wgpu::Buffer,
+    |     ^^^^^^^^^^^^^^
+375 |     frame_index: u32,
+    |     ^^^^^^^^^^^
+
+warning: fields `uniform_buffer` and `visual_config` are never read
+  --> crates/renderer/src/overlays.rs:25:5
+   |
+23 | pub struct VolumeOverlay {
+   |            ------------- fields in this struct
+24 |     pipeline: wgpu::RenderPipeline,
+25 |     uniform_buffer: wgpu::Buffer,
+   |     ^^^^^^^^^^^^^^
+26 |     uniform_bind_group: wgpu::BindGroup,
+27 |     visual_config: VisualConfig,
+   |     ^^^^^^^^^^^^^
+
+warning: fields `uniform_buffer`, `period`, and `visual_config` are never read
+   --> crates/renderer/src/overlays.rs:168:5
+    |
+166 | pub struct MovingAverageOverlay {
+    |            -------------------- fields in this struct
+167 |     pipeline: wgpu::RenderPipeline,
+168 |     uniform_buffer: wgpu::Buffer,
+    |     ^^^^^^^^^^^^^^
+169 |     uniform_bind_group: wgpu::BindGroup,
+170 |     period: u32,
+    |     ^^^^^^
+171 |     visual_config: VisualConfig,
+    |     ^^^^^^^^^^^^^
+
+warning: fields `device`, `queue`, and `indirect_draw` are never read
+  --> crates/renderer/src/phase2_integration.rs:19:5
+   |
+18 | pub struct Phase2Renderer {
+   |            -------------- fields in this struct
+19 |     device: Arc<wgpu::Device>,
+   |     ^^^^^^
+20 |     queue: Arc<wgpu::Queue>,
+   |     ^^^^^
+...
+24 |     indirect_draw: IndirectDrawSystem,
+   |     ^^^^^^^^^^^^^
+
+warning: field `queue` is never read
+  --> crates/renderer/src/vertex_compression.rs:79:5
+   |
+77 | pub struct VertexCompressionSystem {
+   |            ----------------------- field in this struct
+78 |     device: Arc<wgpu::Device>,
+79 |     queue: Arc<wgpu::Queue>,
+   |     ^^^^^
+
+warning: fields `base` and `delta_pipeline` are never read
+   --> crates/renderer/src/vertex_compression.rs:272:5
+    |
+271 | pub struct DeltaCompressionSystem {
+    |            ---------------------- fields in this struct
+272 |     base: VertexCompressionSystem,
+    |     ^^^^
+273 |     delta_pipeline: wgpu::ComputePipeline,
+    |     ^^^^^^^^^^^^^^
+
+warning: `gpu-charts-renderer` (lib) generated 16 warnings
+   Compiling gpu-charts-benchmarks v0.1.0 (/home/xander/projects/gpu-charts/benchmarks)
+    Finished `bench` profile [optimized] target(s) in 19.53s
+     Running benches/phase2_real.rs (/home/xander/projects/gpu-charts/target/release/deps/phase2_real-528a800f5a7b7f4e)
+Gnuplot not found, using plotters backend
+Benchmarking culling_algorithms/linear_scan/1000
+Benchmarking culling_algorithms/linear_scan/1000: Warming up for 3.0000 s
+Benchmarking culling_algorithms/linear_scan/1000: Collecting 100 samples in estimated 10.001 s (34M iterations)
+Benchmarking culling_algorithms/linear_scan/1000: Analyzing
+culling_algorithms/linear_scan/1000
+                        time:   [285.38 ns 288.19 ns 291.72 ns]
+                        thrpt:  [3.4279 Gelem/s 3.4700 Gelem/s 3.5041 Gelem/s]
+Found 9 outliers among 100 measurements (9.00%)
+  5 (5.00%) high mild
+  4 (4.00%) high severe
+Benchmarking culling_algorithms/binary_search/1000
+Benchmarking culling_algorithms/binary_search/1000: Warming up for 3.0000 s
+Benchmarking culling_algorithms/binary_search/1000: Collecting 100 samples in estimated 10.000 s (959M iterations)
+Benchmarking culling_algorithms/binary_search/1000: Analyzing
+culling_algorithms/binary_search/1000
+                        time:   [10.263 ns 10.341 ns 10.430 ns]
+                        thrpt:  [95.882 Gelem/s 96.701 Gelem/s 97.434 Gelem/s]
+Found 8 outliers among 100 measurements (8.00%)
+  6 (6.00%) high mild
+  2 (2.00%) high severe
+Benchmarking culling_algorithms/linear_scan/10000
+Benchmarking culling_algorithms/linear_scan/10000: Warming up for 3.0000 s
+Benchmarking culling_algorithms/linear_scan/10000: Collecting 100 samples in estimated 10.011 s (3.6M iterations)
+Benchmarking culling_algorithms/linear_scan/10000: Analyzing
+culling_algorithms/linear_scan/10000
+                        time:   [2.7031 µs 2.7217 µs 2.7482 µs]
+                        thrpt:  [3.6387 Gelem/s 3.6742 Gelem/s 3.6994 Gelem/s]
+Found 9 outliers among 100 measurements (9.00%)
+  6 (6.00%) high mild
+  3 (3.00%) high severe
+Benchmarking culling_algorithms/binary_search/10000
+Benchmarking culling_algorithms/binary_search/10000: Warming up for 3.0000 s
+Benchmarking culling_algorithms/binary_search/10000: Collecting 100 samples in estimated 10.000 s (604M iterations)
+Benchmarking culling_algorithms/binary_search/10000: Analyzing
+culling_algorithms/binary_search/10000
+                        time:   [16.371 ns 16.493 ns 16.643 ns]
+                        thrpt:  [600.84 Gelem/s 606.31 Gelem/s 610.82 Gelem/s]
+Found 6 outliers among 100 measurements (6.00%)
+  5 (5.00%) high mild
+  1 (1.00%) high severe
+Benchmarking culling_algorithms/linear_scan/100000
+Benchmarking culling_algorithms/linear_scan/100000: Warming up for 3.0000 s
+Benchmarking culling_algorithms/linear_scan/100000: Collecting 100 samples in estimated 10.001 s (374k iterations)
+Benchmarking culling_algorithms/linear_scan/100000: Analyzing
+culling_algorithms/linear_scan/100000
+                        time:   [26.752 µs 26.890 µs 27.057 µs]
+                        thrpt:  [3.6958 Gelem/s 3.7189 Gelem/s 3.7381 Gelem/s]
+Found 6 outliers among 100 measurements (6.00%)
+  3 (3.00%) high mild
+  3 (3.00%) high severe
+Benchmarking culling_algorithms/binary_search/100000
+Benchmarking culling_algorithms/binary_search/100000: Warming up for 3.0000 s
+Benchmarking culling_algorithms/binary_search/100000: Collecting 100 samples in estimated 10.000 s (461M iterations)
+Benchmarking culling_algorithms/binary_search/100000: Analyzing
+culling_algorithms/binary_search/100000
+                        time:   [21.409 ns 21.609 ns 21.858 ns]
+                        thrpt:  [4574.9 Gelem/s 4627.7 Gelem/s 4670.9 Gelem/s]
+Found 6 outliers among 100 measurements (6.00%)
+  2 (2.00%) high mild
+  4 (4.00%) high severe
+Benchmarking culling_algorithms/linear_scan/1000000
+Benchmarking culling_algorithms/linear_scan/1000000: Warming up for 3.0000 s
+Benchmarking culling_algorithms/linear_scan/1000000: Collecting 100 samples in estimated 11.343 s (40k iterations)
+Benchmarking culling_algorithms/linear_scan/1000000: Analyzing
+culling_algorithms/linear_scan/1000000
+                        time:   [278.25 µs 280.54 µs 283.03 µs]
+                        thrpt:  [3.5332 Gelem/s 3.5646 Gelem/s 3.5939 Gelem/s]
+Found 7 outliers among 100 measurements (7.00%)
+  4 (4.00%) high mild
+  3 (3.00%) high severe
+Benchmarking culling_algorithms/binary_search/1000000
+Benchmarking culling_algorithms/binary_search/1000000: Warming up for 3.0000 s
+Benchmarking culling_algorithms/binary_search/1000000: Collecting 100 samples in estimated 10.000 s (361M iterations)
+Benchmarking culling_algorithms/binary_search/1000000: Analyzing
+culling_algorithms/binary_search/1000000
+                        time:   [27.347 ns 27.460 ns 27.581 ns]
+                        thrpt:  [ 36257 Gelem/s  36416 Gelem/s  36568 Gelem/s]
+Found 8 outliers among 100 measurements (8.00%)
+  6 (6.00%) high mild
+  2 (2.00%) high severe
+Benchmarking culling_algorithms/linear_scan/10000000
+Benchmarking culling_algorithms/linear_scan/10000000: Warming up for 3.0000 s
+
+Warning: Unable to complete 100 samples in 10.0s. You may wish to increase target time to 13.8s, enable flat sampling, or reduce sample count to 60.
+Benchmarking culling_algorithms/linear_scan/10000000: Collecting 100 samples in estimated 13.779 s (5050 iterations)
+Benchmarking culling_algorithms/linear_scan/10000000: Analyzing
+culling_algorithms/linear_scan/10000000
+                        time:   [2.7196 ms 2.7397 ms 2.7624 ms]
+                        thrpt:  [3.6200 Gelem/s 3.6500 Gelem/s 3.6770 Gelem/s]
+Found 10 outliers among 100 measurements (10.00%)
+  4 (4.00%) high mild
+  6 (6.00%) high severe
+Benchmarking culling_algorithms/binary_search/10000000
+Benchmarking culling_algorithms/binary_search/10000000: Warming up for 3.0000 s
+Benchmarking culling_algorithms/binary_search/10000000: Collecting 100 samples in estimated 10.000 s (271M iterations)
+Benchmarking culling_algorithms/binary_search/10000000: Analyzing
+culling_algorithms/binary_search/10000000
+                        time:   [35.869 ns 36.150 ns 36.471 ns]
+                        thrpt:  [274192 Gelem/s 276628 Gelem/s 278795 Gelem/s]
+Found 12 outliers among 100 measurements (12.00%)
+  7 (7.00%) high mild
+  5 (5.00%) high severe
+
+Benchmarking data_transformation/scalar/1000
+Benchmarking data_transformation/scalar/1000: Warming up for 3.0000 s
+Benchmarking data_transformation/scalar/1000: Collecting 100 samples in estimated 5.0009 s (11M iterations)
+Benchmarking data_transformation/scalar/1000: Analyzing
+data_transformation/scalar/1000
+                        time:   [444.36 ns 450.98 ns 461.09 ns]
+                        thrpt:  [2.1688 Gelem/s 2.2174 Gelem/s 2.2504 Gelem/s]
+Found 8 outliers among 100 measurements (8.00%)
+  6 (6.00%) high mild
+  2 (2.00%) high severe
+Benchmarking data_transformation/simd_style/1000
+Benchmarking data_transformation/simd_style/1000: Warming up for 3.0000 s
+Benchmarking data_transformation/simd_style/1000: Collecting 100 samples in estimated 5.0004 s (19M iterations)
+Benchmarking data_transformation/simd_style/1000: Analyzing
+data_transformation/simd_style/1000
+                        time:   [265.44 ns 267.08 ns 268.79 ns]
+                        thrpt:  [3.7203 Gelem/s 3.7442 Gelem/s 3.7674 Gelem/s]
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+Benchmarking data_transformation/scalar/10000
+Benchmarking data_transformation/scalar/10000: Warming up for 3.0000 s
+Benchmarking data_transformation/scalar/10000: Collecting 100 samples in estimated 5.0078 s (1.2M iterations)
+Benchmarking data_transformation/scalar/10000: Analyzing
+data_transformation/scalar/10000
+                        time:   [4.1872 µs 4.2103 µs 4.2347 µs]
+                        thrpt:  [2.3615 Gelem/s 2.3751 Gelem/s 2.3882 Gelem/s]
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+Benchmarking data_transformation/simd_style/10000
+Benchmarking data_transformation/simd_style/10000: Warming up for 3.0000 s
+Benchmarking data_transformation/simd_style/10000: Collecting 100 samples in estimated 5.0003 s (2.1M iterations)
+Benchmarking data_transformation/simd_style/10000: Analyzing
+data_transformation/simd_style/10000
+                        time:   [2.4245 µs 2.4569 µs 2.4986 µs]
+                        thrpt:  [4.0022 Gelem/s 4.0701 Gelem/s 4.1246 Gelem/s]
+Found 12 outliers among 100 measurements (12.00%)
+  4 (4.00%) high mild
+  8 (8.00%) high severe
+Benchmarking data_transformation/scalar/100000
+Benchmarking data_transformation/scalar/100000: Warming up for 3.0000 s
+Benchmarking data_transformation/scalar/100000: Collecting 100 samples in estimated 5.0013 s (116k iterations)
+Benchmarking data_transformation/scalar/100000: Analyzing
+data_transformation/scalar/100000
+                        time:   [42.206 µs 42.747 µs 43.452 µs]
+                        thrpt:  [2.3014 Gelem/s 2.3394 Gelem/s 2.3693 Gelem/s]
+Found 9 outliers among 100 measurements (9.00%)
+  2 (2.00%) high mild
+  7 (7.00%) high severe
+Benchmarking data_transformation/simd_style/100000
+Benchmarking data_transformation/simd_style/100000: Warming up for 3.0000 s
+Benchmarking data_transformation/simd_style/100000: Collecting 100 samples in estimated 5.0935 s (212k iterations)
+Benchmarking data_transformation/simd_style/100000: Analyzing
+data_transformation/simd_style/100000
+                        time:   [23.872 µs 24.024 µs 24.216 µs]
+                        thrpt:  [4.1295 Gelem/s 4.1625 Gelem/s 4.1890 Gelem/s]
+Found 5 outliers among 100 measurements (5.00%)
+  5 (5.00%) high severe
+Benchmarking data_transformation/scalar/1000000
+Benchmarking data_transformation/scalar/1000000: Warming up for 3.0000 s
+Benchmarking data_transformation/scalar/1000000: Collecting 100 samples in estimated 6.4102 s (15k iterations)
+Benchmarking data_transformation/scalar/1000000: Analyzing
+data_transformation/scalar/1000000
+                        time:   [421.24 µs 423.56 µs 426.19 µs]
+                        thrpt:  [2.3464 Gelem/s 2.3609 Gelem/s 2.3740 Gelem/s]
+Found 8 outliers among 100 measurements (8.00%)
+  5 (5.00%) high mild
+  3 (3.00%) high severe
+Benchmarking data_transformation/simd_style/1000000
+Benchmarking data_transformation/simd_style/1000000: Warming up for 3.0000 s
+Benchmarking data_transformation/simd_style/1000000: Collecting 100 samples in estimated 6.1154 s (25k iterations)
+Benchmarking data_transformation/simd_style/1000000: Analyzing
+data_transformation/simd_style/1000000
+                        time:   [245.53 µs 246.51 µs 247.51 µs]
+                        thrpt:  [4.0403 Gelem/s 4.0567 Gelem/s 4.0728 Gelem/s]
+
+Benchmarking vertex_compression/uncompressed/1000
+Benchmarking vertex_compression/uncompressed/1000: Warming up for 3.0000 s
+Benchmarking vertex_compression/uncompressed/1000: Collecting 100 samples in estimated 5.0000 s (28B iterations)
+Benchmarking vertex_compression/uncompressed/1000: Analyzing
+vertex_compression/uncompressed/1000
+                        time:   [179.52 ps 181.80 ps 185.55 ps]
+                        thrpt:  [ 80308 GiB/s  81964 GiB/s  83006 GiB/s]
+Found 7 outliers among 100 measurements (7.00%)
+  3 (3.00%) high mild
+  4 (4.00%) high severe
+Benchmarking vertex_compression/compressed_8byte/1000
+Benchmarking vertex_compression/compressed_8byte/1000: Warming up for 3.0000 s
+Benchmarking vertex_compression/compressed_8byte/1000: Collecting 100 samples in estimated 5.0021 s (5.9M iterations)
+Benchmarking vertex_compression/compressed_8byte/1000: Analyzing
+vertex_compression/compressed_8byte/1000
+                        time:   [842.16 ns 845.59 ns 849.34 ns]
+                        thrpt:  [8.7722 GiB/s 8.8111 GiB/s 8.8470 GiB/s]
+Found 4 outliers among 100 measurements (4.00%)
+  4 (4.00%) high mild
+Benchmarking vertex_compression/compressed_4byte/1000
+Benchmarking vertex_compression/compressed_4byte/1000: Warming up for 3.0000 s
+Benchmarking vertex_compression/compressed_4byte/1000: Collecting 100 samples in estimated 5.0006 s (4.6M iterations)
+Benchmarking vertex_compression/compressed_4byte/1000: Analyzing
+vertex_compression/compressed_4byte/1000
+                        time:   [1.0456 µs 1.0618 µs 1.0907 µs]
+                        thrpt:  [3.4155 GiB/s 3.5085 GiB/s 3.5629 GiB/s]
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+Benchmarking vertex_compression/uncompressed/10000
+Benchmarking vertex_compression/uncompressed/10000: Warming up for 3.0000 s
+Benchmarking vertex_compression/uncompressed/10000: Collecting 100 samples in estimated 5.0000 s (29B iterations)
+Benchmarking vertex_compression/uncompressed/10000: Analyzing
+vertex_compression/uncompressed/10000
+                        time:   [173.51 ps 174.54 ps 175.79 ps]
+                        thrpt:  [847667 GiB/s 853744 GiB/s 858831 GiB/s]
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) high mild
+  3 (3.00%) high severe
+Benchmarking vertex_compression/compressed_8byte/10000
+Benchmarking vertex_compression/compressed_8byte/10000: Warming up for 3.0000 s
+Benchmarking vertex_compression/compressed_8byte/10000: Collecting 100 samples in estimated 5.0275 s (616k iterations)
+Benchmarking vertex_compression/compressed_8byte/10000: Analyzing
+vertex_compression/compressed_8byte/10000
+                        time:   [8.1228 µs 8.2044 µs 8.3328 µs]
+                        thrpt:  [8.9413 GiB/s 9.0812 GiB/s 9.1724 GiB/s]
+Found 5 outliers among 100 measurements (5.00%)
+  3 (3.00%) high mild
+  2 (2.00%) high severe
+Benchmarking vertex_compression/compressed_4byte/10000
+Benchmarking vertex_compression/compressed_4byte/10000: Warming up for 3.0000 s
+Benchmarking vertex_compression/compressed_4byte/10000: Collecting 100 samples in estimated 5.0415 s (475k iterations)
+Benchmarking vertex_compression/compressed_4byte/10000: Analyzing
+vertex_compression/compressed_4byte/10000
+                        time:   [10.778 µs 10.847 µs 10.920 µs]
+                        thrpt:  [3.4114 GiB/s 3.4343 GiB/s 3.4563 GiB/s]
+Found 5 outliers among 100 measurements (5.00%)
+  3 (3.00%) high mild
+  2 (2.00%) high severe
+Benchmarking vertex_compression/uncompressed/100000
+Benchmarking vertex_compression/uncompressed/100000: Warming up for 3.0000 s
+Benchmarking vertex_compression/uncompressed/100000: Collecting 100 samples in estimated 5.0000 s (28B iterations)
+Benchmarking vertex_compression/uncompressed/100000: Analyzing
+vertex_compression/uncompressed/100000
+                        time:   [177.16 ps 180.26 ps 184.09 ps]
+                        thrpt:  [8094405 GiB/s 8266425 GiB/s 8411141 GiB/s]
+Found 8 outliers among 100 measurements (8.00%)
+  4 (4.00%) high mild
+  4 (4.00%) high severe
+Benchmarking vertex_compression/compressed_8byte/100000
+Benchmarking vertex_compression/compressed_8byte/100000: Warming up for 3.0000 s
+Benchmarking vertex_compression/compressed_8byte/100000: Collecting 100 samples in estimated 5.3162 s (66k iterations)
+Benchmarking vertex_compression/compressed_8byte/100000: Analyzing
+vertex_compression/compressed_8byte/100000
+                        time:   [79.679 µs 80.222 µs 80.727 µs]
+                        thrpt:  [9.2294 GiB/s 9.2874 GiB/s 9.3507 GiB/s]
+Found 3 outliers among 100 measurements (3.00%)
+  1 (1.00%) high mild
+  2 (2.00%) high severe
+Benchmarking vertex_compression/compressed_4byte/100000
+Benchmarking vertex_compression/compressed_4byte/100000: Warming up for 3.0000 s
+Benchmarking vertex_compression/compressed_4byte/100000: Collecting 100 samples in estimated 5.4203 s (50k iterations)
+Benchmarking vertex_compression/compressed_4byte/100000: Analyzing
+vertex_compression/compressed_4byte/100000
+                        time:   [107.18 µs 108.53 µs 110.46 µs]
+                        thrpt:  [3.3725 GiB/s 3.4326 GiB/s 3.4756 GiB/s]
+Found 4 outliers among 100 measurements (4.00%)
+  2 (2.00%) high mild
+  2 (2.00%) high severe
+
+Benchmarking draw_batching/individual_draws/10
+Benchmarking draw_batching/individual_draws/10: Warming up for 3.0000 s
+Benchmarking draw_batching/individual_draws/10: Collecting 100 samples in estimated 5.0000 s (28B iterations)
+Benchmarking draw_batching/individual_draws/10: Analyzing
+draw_batching/individual_draws/10
+                        time:   [177.39 ps 182.96 ps 193.26 ps]
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking draw_batching/batched_draws/10
+Benchmarking draw_batching/batched_draws/10: Warming up for 3.0000 s
+Benchmarking draw_batching/batched_draws/10: Collecting 100 samples in estimated 5.0000 s (28B iterations)
+Benchmarking draw_batching/batched_draws/10: Analyzing
+draw_batching/batched_draws/10
+                        time:   [173.22 ps 174.32 ps 175.58 ps]
+Found 5 outliers among 100 measurements (5.00%)
+  4 (4.00%) high mild
+  1 (1.00%) high severe
+Benchmarking draw_batching/indirect_draws/10
+Benchmarking draw_batching/indirect_draws/10: Warming up for 3.0000 s
+Benchmarking draw_batching/indirect_draws/10: Collecting 100 samples in estimated 5.0000 s (28B iterations)
+Benchmarking draw_batching/indirect_draws/10: Analyzing
+draw_batching/indirect_draws/10
+                        time:   [178.32 ps 179.69 ps 181.19 ps]
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+Benchmarking draw_batching/individual_draws/50
+Benchmarking draw_batching/individual_draws/50: Warming up for 3.0000 s
+Benchmarking draw_batching/individual_draws/50: Collecting 100 samples in estimated 5.0000 s (28B iterations)
+Benchmarking draw_batching/individual_draws/50: Analyzing
+draw_batching/individual_draws/50
+                        time:   [180.37 ps 182.00 ps 184.06 ps]
+Found 7 outliers among 100 measurements (7.00%)
+  2 (2.00%) high mild
+  5 (5.00%) high severe
+Benchmarking draw_batching/batched_draws/50
+Benchmarking draw_batching/batched_draws/50: Warming up for 3.0000 s
+Benchmarking draw_batching/batched_draws/50: Collecting 100 samples in estimated 5.0000 s (28B iterations)
+Benchmarking draw_batching/batched_draws/50: Analyzing
+draw_batching/batched_draws/50
+                        time:   [180.24 ps 186.17 ps 193.44 ps]
+Found 13 outliers among 100 measurements (13.00%)
+  3 (3.00%) high mild
+  10 (10.00%) high severe
+Benchmarking draw_batching/indirect_draws/50
+Benchmarking draw_batching/indirect_draws/50: Warming up for 3.0000 s
+Benchmarking draw_batching/indirect_draws/50: Collecting 100 samples in estimated 5.0000 s (29B iterations)
+Benchmarking draw_batching/indirect_draws/50: Analyzing
+draw_batching/indirect_draws/50
+                        time:   [174.00 ps 175.93 ps 178.13 ps]
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking draw_batching/individual_draws/100
+Benchmarking draw_batching/individual_draws/100: Warming up for 3.0000 s
+Benchmarking draw_batching/individual_draws/100: Collecting 100 samples in estimated 5.0000 s (28B iterations)
+Benchmarking draw_batching/individual_draws/100: Analyzing
+draw_batching/individual_draws/100
+                        time:   [182.58 ps 183.84 ps 184.93 ps]
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+Benchmarking draw_batching/batched_draws/100
+Benchmarking draw_batching/batched_draws/100: Warming up for 3.0000 s
+Benchmarking draw_batching/batched_draws/100: Collecting 100 samples in estimated 5.0000 s (27B iterations)
+Benchmarking draw_batching/batched_draws/100: Analyzing
+draw_batching/batched_draws/100
+                        time:   [175.87 ps 176.97 ps 178.35 ps]
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+Benchmarking draw_batching/indirect_draws/100
+Benchmarking draw_batching/indirect_draws/100: Warming up for 3.0000 s
+Benchmarking draw_batching/indirect_draws/100: Collecting 100 samples in estimated 5.0000 s (28B iterations)
+Benchmarking draw_batching/indirect_draws/100: Analyzing
+draw_batching/indirect_draws/100
+                        time:   [170.78 ps 172.08 ps 173.86 ps]
+Found 8 outliers among 100 measurements (8.00%)
+  4 (4.00%) high mild
+  4 (4.00%) high severe
+Benchmarking draw_batching/individual_draws/500
+Benchmarking draw_batching/individual_draws/500: Warming up for 3.0000 s
+Benchmarking draw_batching/individual_draws/500: Collecting 100 samples in estimated 5.0000 s (28B iterations)
+Benchmarking draw_batching/individual_draws/500: Analyzing
+draw_batching/individual_draws/500
+                        time:   [177.71 ps 178.76 ps 180.09 ps]
+Found 5 outliers among 100 measurements (5.00%)
+  3 (3.00%) high mild
+  2 (2.00%) high severe
+Benchmarking draw_batching/batched_draws/500
+Benchmarking draw_batching/batched_draws/500: Warming up for 3.0000 s
+Benchmarking draw_batching/batched_draws/500: Collecting 100 samples in estimated 5.0000 s (27B iterations)
+Benchmarking draw_batching/batched_draws/500: Analyzing
+draw_batching/batched_draws/500
+                        time:   [182.07 ps 184.06 ps 186.41 ps]
+Found 10 outliers among 100 measurements (10.00%)
+  3 (3.00%) low mild
+  4 (4.00%) high mild
+  3 (3.00%) high severe
+Benchmarking draw_batching/indirect_draws/500
+Benchmarking draw_batching/indirect_draws/500: Warming up for 3.0000 s
+Benchmarking draw_batching/indirect_draws/500: Collecting 100 samples in estimated 5.0000 s (28B iterations)
+Benchmarking draw_batching/indirect_draws/500: Analyzing
+draw_batching/indirect_draws/500
+                        time:   [176.79 ps 178.86 ps 181.96 ps]
+Found 7 outliers among 100 measurements (7.00%)
+  5 (5.00%) high mild
+  2 (2.00%) high severe
+
+Benchmarking memory_patterns/frequent_alloc/1000
+Benchmarking memory_patterns/frequent_alloc/1000: Warming up for 3.0000 s
+Benchmarking memory_patterns/frequent_alloc/1000: Collecting 100 samples in estimated 5.0079 s (2.7M iterations)
+Benchmarking memory_patterns/frequent_alloc/1000: Analyzing
+memory_patterns/frequent_alloc/1000
+                        time:   [1.8593 µs 1.8780 µs 1.9003 µs]
+Found 7 outliers among 100 measurements (7.00%)
+  3 (3.00%) high mild
+  4 (4.00%) high severe
+Benchmarking memory_patterns/buffer_pool/1000
+Benchmarking memory_patterns/buffer_pool/1000: Warming up for 3.0000 s
+Benchmarking memory_patterns/buffer_pool/1000: Collecting 100 samples in estimated 5.0004 s (27M iterations)
+Benchmarking memory_patterns/buffer_pool/1000: Analyzing
+memory_patterns/buffer_pool/1000
+                        time:   [190.00 ns 191.90 ns 193.53 ns]
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+Benchmarking memory_patterns/frequent_alloc/10000
+Benchmarking memory_patterns/frequent_alloc/10000: Warming up for 3.0000 s
+Benchmarking memory_patterns/frequent_alloc/10000: Collecting 100 samples in estimated 5.0089 s (1.7M iterations)
+Benchmarking memory_patterns/frequent_alloc/10000: Analyzing
+memory_patterns/frequent_alloc/10000
+                        time:   [2.6012 µs 2.6319 µs 2.6666 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+Benchmarking memory_patterns/buffer_pool/10000
+Benchmarking memory_patterns/buffer_pool/10000: Warming up for 3.0000 s
+Benchmarking memory_patterns/buffer_pool/10000: Collecting 100 samples in estimated 5.0043 s (2.9M iterations)
+Benchmarking memory_patterns/buffer_pool/10000: Analyzing
+memory_patterns/buffer_pool/10000
+                        time:   [1.7134 µs 1.7341 µs 1.7712 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  3 (3.00%) high mild
+  3 (3.00%) high severe
+Benchmarking memory_patterns/frequent_alloc/100000
+Benchmarking memory_patterns/frequent_alloc/100000: Warming up for 3.0000 s
+Benchmarking memory_patterns/frequent_alloc/100000: Collecting 100 samples in estimated 5.0168 s (1.1M iterations)
+Benchmarking memory_patterns/frequent_alloc/100000: Analyzing
+memory_patterns/frequent_alloc/100000
+                        time:   [4.7113 µs 4.7263 µs 4.7417 µs]
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking memory_patterns/buffer_pool/100000
+Benchmarking memory_patterns/buffer_pool/100000: Warming up for 3.0000 s
+Benchmarking memory_patterns/buffer_pool/100000: Collecting 100 samples in estimated 5.0240 s (268k iterations)
+Benchmarking memory_patterns/buffer_pool/100000: Analyzing
+memory_patterns/buffer_pool/100000
+                        time:   [18.045 µs 18.315 µs 18.703 µs]
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+

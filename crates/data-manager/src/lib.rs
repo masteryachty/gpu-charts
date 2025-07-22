@@ -17,6 +17,7 @@ pub mod compression;
 pub mod direct_gpu_parser;
 pub mod fetcher;
 pub mod handle;
+#[cfg(feature = "native")]
 pub mod http2_client;
 pub mod manager;
 pub mod parser;
@@ -24,6 +25,7 @@ pub mod progressive_streaming;
 pub mod request_batching;
 pub mod simd;
 pub mod wasm_api;
+#[cfg(feature = "native")]
 pub mod websocket_client;
 
 use buffer_pool::BufferPool;

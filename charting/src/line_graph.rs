@@ -5,6 +5,10 @@ use crate::drawables::y_axis::YAxisRenderer;
 use crate::renderer::data_store::ChartType;
 use crate::renderer::data_store::DataStore;
 use crate::renderer::render_engine::RenderEngine;
+use crate::renderer::culling::CullingSystem;
+use crate::renderer::vertex_compression::ChartVertexCompression;
+use crate::renderer::gpu_vertex_gen::ChartGpuVertexGen;
+use crate::renderer::render_bundles::ChartRenderBundles;
 use chrono::DateTime;
 
 #[cfg(target_arch = "wasm32")]
@@ -15,6 +19,7 @@ use crate::wrappers::js::get_query_params;
 use js_sys::Error;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Arc;
 
 #[cfg(target_arch = "wasm32")]
 use web_sys::HtmlCanvasElement;
@@ -23,6 +28,10 @@ pub struct LineGraph {
     pub data_store: Rc<RefCell<DataStore>>,
     // pub line_width: f32,
     pub engine: Rc<RefCell<RenderEngine>>,
+    pub culling_system: Option<Rc<RefCell<CullingSystem>>>,
+    pub vertex_compression: Option<Rc<RefCell<ChartVertexCompression>>>,
+    pub gpu_vertex_gen: Option<Rc<RefCell<ChartGpuVertexGen>>>,
+    pub render_bundles: Option<Rc<RefCell<ChartRenderBundles>>>,
     // web_socket: WebSocketConnnection,
 }
 
@@ -73,8 +82,13 @@ impl LineGraph {
             data_store.borrow_mut().topic = Some(topic.clone());
 
             // Try to fetch initial data, but don't fail if server is unavailable
-            log::info!("Attempting initial data fetch...");
-            fetch_data(&device, start as u32, end as u32, data_store.clone(), None).await;
+            // Only fetch if we have a topic (from URL params)
+            if !topic.is_empty() && topic != "default_topic" {
+                log::info!("Attempting initial data fetch...");
+                fetch_data(&device, start as u32, end as u32, data_store.clone(), None).await;
+            } else {
+                log::info!("Skipping initial data fetch - no topic specified");
+            }
 
             // Set the time range regardless of whether data fetch succeeded
             data_store
@@ -87,7 +101,57 @@ impl LineGraph {
         }
 
         // Create the LineGraph instance
-        let mut line_graph = Self { engine, data_store };
+        let mut line_graph = Self { 
+            engine: engine.clone(), 
+            data_store,
+            culling_system: None,
+            vertex_compression: None,
+            gpu_vertex_gen: None,
+            render_bundles: None,
+        };
+
+        // Initialize culling system with Phase 2 optimizations if available
+        {
+            let engine_b = engine.borrow();
+            let device = Arc::new(engine_b.device.clone());
+            let queue = Arc::new(engine_b.queue.clone());
+            
+            let culling = CullingSystem::new(device.clone(), queue.clone());
+            line_graph.culling_system = Some(Rc::new(RefCell::new(culling)));
+            
+            // Initialize vertex compression if enabled
+            if std::env::var("ENABLE_VERTEX_COMPRESSION").unwrap_or_default() == "1" {
+                let compression = ChartVertexCompression::new(device.clone(), queue.clone());
+                line_graph.vertex_compression = Some(Rc::new(RefCell::new(compression)));
+                log::info!("Vertex compression enabled");
+            }
+            
+            // Initialize GPU vertex generation if enabled
+            if std::env::var("ENABLE_GPU_VERTEX_GEN").unwrap_or_default() == "1" {
+                let gpu_gen = ChartGpuVertexGen::new(device.clone(), queue.clone());
+                line_graph.gpu_vertex_gen = Some(Rc::new(RefCell::new(gpu_gen)));
+                log::info!("GPU vertex generation enabled");
+            }
+            
+            // Initialize render bundles if enabled
+            if std::env::var("ENABLE_RENDER_BUNDLES").unwrap_or_default() == "1" {
+                let render_bundles = ChartRenderBundles::new(device.clone());
+                line_graph.render_bundles = Some(Rc::new(RefCell::new(render_bundles)));
+                log::info!("Render bundles enabled");
+            }
+            
+            // Try to initialize GPU culling if feature is enabled
+            #[cfg(feature = "phase2-optimizations")]
+            {
+                if let Some(culling_ref) = &line_graph.culling_system {
+                    let canvas_id = "gpu-chart"; // You might want to get this from the canvas element
+                    match culling_ref.borrow_mut().init_gpu_culling(canvas_id).await {
+                        Ok(_) => log::info!("GPU binary search culling initialized successfully!"),
+                        Err(e) => log::warn!("Failed to initialize GPU culling: {}", e),
+                    }
+                }
+            }
+        }
 
         // Set up initial renderers
         line_graph.setup_renderers();
@@ -132,11 +196,21 @@ impl LineGraph {
 
         // Create all renderers before mutably borrowing engine
         let plot_renderer: Box<dyn RenderListener> = match chart_type {
-            ChartType::Line => Box::new(PlotRenderer::new(
-                self.engine.clone(),
-                format,
-                self.data_store.clone(),
-            )),
+            ChartType::Line => {
+                let mut plot = PlotRenderer::new(
+                    self.engine.clone(),
+                    format,
+                    self.data_store.clone(),
+                    self.culling_system.clone(),
+                );
+                // Set vertex compression if available
+                plot.set_vertex_compression(self.vertex_compression.clone());
+                // Set GPU vertex generation if available
+                plot.set_gpu_vertex_gen(self.gpu_vertex_gen.clone());
+                // Set render bundles if available
+                plot.set_render_bundles(self.render_bundles.clone());
+                Box::new(plot)
+            },
             ChartType::Candlestick => Box::new(CandlestickRenderer::new(
                 self.engine.clone(),
                 format,

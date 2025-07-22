@@ -1,0 +1,11 @@
+error: failed to load manifest for workspace member `/home/xander/projects/gpu-charts/crates/config-system`
+referenced by workspace at `/home/xander/projects/gpu-charts/Cargo.toml`
+
+Caused by:
+  failed to parse manifest at `/home/xander/projects/gpu-charts/crates/config-system/Cargo.toml`
+
+Caused by:
+  error inheriting `thiserror` from workspace root manifest's `workspace.dependencies.thiserror`
+
+Caused by:
+  `dependency.thiserror` was not found in `workspace.dependencies`

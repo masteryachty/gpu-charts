@@ -15,6 +15,7 @@ gpu-charts-shared = { path = "../crates/shared-types" }
 # WebGPU
 wgpu = { workspace = true }
 bytemuck = { workspace = true }
+js-sys = { workspace = true }
 
 # Utilities
 rand = "0.8"
@@ -58,6 +59,30 @@ harness = false
 
 [[bench]]
 name = "simple_phase2"
+harness = false
+
+[[bench]]
+name = "phase3_config"
+harness = false
+
+[[bench]]
+name = "phase3_charts"
+harness = false
+
+[[bench]]
+name = "phase3_overlays"
+harness = false
+
+[[bench]]
+name = "phase3_production"
+harness = false
+
+[[bench]]
+name = "culling_benchmark"
+harness = false
+
+[[bench]]
+name = "vertex_compression_benchmark"
 harness = false
 
 [[bin]]

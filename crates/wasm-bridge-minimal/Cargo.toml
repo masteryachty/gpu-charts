@@ -1,0 +1,17 @@
+[package]
+name = "gpu-charts-wasm-minimal"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+wasm-bindgen = "0.2"
+web-sys = { version = "0.3", features = ["console"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+console_error_panic_hook = "0.1"
+
+[lib]
+crate-type = ["cdylib"]
+
+[package.metadata.wasm-pack]
+wasm-opt = false

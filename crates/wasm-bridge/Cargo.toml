@@ -6,10 +6,14 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
+# Fix getrandom for WASM
+getrandom = { version = "0.2", features = ["js"] }
 # Internal crates
 gpu-charts-shared = { path = "../shared-types", features = ["typescript"] }
-gpu-charts-data = { path = "../data-manager" }
+gpu-charts-data = { path = "../data-manager", features = ["wasm"] }
 gpu-charts-renderer = { path = "../renderer" }
+gpu-charts-config = { path = "../config-system", default-features = false, features = ["wasm"] }
+gpu-charts-integration = { path = "../system-integration" }
 
 # WASM dependencies
 wasm-bindgen = { workspace = true }

@@ -1,6 +1,11 @@
 import { Routes, Route } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import TradingApp from './pages/TradingApp';
+import Phase3Demo from './pages/Phase3Demo';
+import CullingTestDemo from './components/CullingTestDemo';
+import CullingPerformanceDemo from './components/CullingPerformanceDemo';
+import GpuVertexGenDemo from './components/GpuVertexGenDemo';
+import RenderBundlesDemo from './components/RenderBundlesDemo';
 import { ErrorBoundary } from './index';
 import { useAppStore } from './store/useAppStore';
 
@@ -29,6 +34,11 @@ function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/app/*" element={<TradingApp />} />
+          <Route path="/phase3" element={<Phase3Demo />} />
+          <Route path="/culling-test" element={<CullingTestDemo />} />
+          <Route path="/culling-performance" element={<CullingPerformanceDemo />} />
+          <Route path="/gpu-vertex-gen" element={<GpuVertexGenDemo />} />
+          <Route path="/render-bundles" element={<RenderBundlesDemo />} />
           <Route path="/pricing" element={<div>Pricing Page</div>} />
           <Route path="/about" element={<div>About Page</div>} />
           <Route path="/docs" element={<div>Documentation</div>} />

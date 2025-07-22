@@ -19,6 +19,12 @@ export default function HomePage() {
           <Link to="/app" className="text-text-secondary hover:text-text-primary transition-colors">
             Login
           </Link>
+          <Link to="/phase3" className="text-text-secondary hover:text-text-primary transition-colors">
+            Phase 3 Demo
+          </Link>
+          <Link to="/culling-test" className="text-text-secondary hover:text-text-primary transition-colors">
+            Culling Test
+          </Link>
           <Link to="/app" className="btn-primary">
             Start Trading
           </Link>

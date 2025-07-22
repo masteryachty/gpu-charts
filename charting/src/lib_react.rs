@@ -44,8 +44,11 @@ impl Chart {
     pub async fn init(&self, canvas_id: &str, width: u32, height: u32) -> Result<(), JsValue> {
         cfg_if::cfg_if! {
             if #[cfg(target_arch = "wasm32")] {
-                std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-                console_log::init_with_level(log::Level::Debug).expect("Couldn't initialize logger");
+                static LOGGER_INIT: std::sync::Once = std::sync::Once::new();
+                LOGGER_INIT.call_once(|| {
+                    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+                    let _ = console_log::init_with_level(log::Level::Debug);
+                });
             }
         }
 

@@ -1,0 +1,61 @@
+[package]
+name = "gpu-charts-config"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = ["native"]
+native = ["notify", "sysinfo", "tokio/full"]
+wasm = []
+
+[dependencies]
+# Core dependencies
+gpu-charts-shared = { path = "../shared-types" }
+gpu-charts-renderer = { path = "../renderer" }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = "0.9"
+toml = "0.8"
+
+# File watching
+notify = { version = "6.1", optional = true }
+
+# Async runtime
+tokio = { version = "1.0", default-features = false, features = ["rt", "sync"] }
+
+# Performance
+parking_lot = "0.12"
+dashmap = "6.1"
+
+# System info
+sysinfo = { version = "0.30", optional = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = "1.0"
+
+# Logging
+log = { workspace = true }
+
+# Hot-reload
+arc-swap = "1.7"
+
+# Schema validation
+jsonschema = "0.26"
+
+# Pattern matching
+regex = "1.11"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+tempfile = "3.14"
+env_logger = "0.11"
+
+[[example]]
+name = "demo"
+path = "examples/demo.rs"

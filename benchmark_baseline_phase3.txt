@@ -1,0 +1,429 @@
+warning: output filename collision.
+The lib target `gpu_charts_renderer` in package `gpu-charts-renderer v0.1.0 (/home/xander/projects/gpu-charts/crates/renderer)` has the same output filename as the lib target `gpu_charts_renderer` in package `gpu-charts-renderer v0.1.0 (/home/xander/projects/gpu-charts/crates/renderer)`.
+Colliding filename is: /home/xander/projects/gpu-charts/target/release/deps/libgpu_charts_renderer.so
+The targets should have unique names.
+Consider changing their names to be unique or compiling them separately.
+This may become a hard error in the future; see <https://github.com/rust-lang/cargo/issues/6313>.
+warning: output filename collision.
+The lib target `gpu_charts_renderer` in package `gpu-charts-renderer v0.1.0 (/home/xander/projects/gpu-charts/crates/renderer)` has the same output filename as the lib target `gpu_charts_renderer` in package `gpu-charts-renderer v0.1.0 (/home/xander/projects/gpu-charts/crates/renderer)`.
+Colliding filename is: /home/xander/projects/gpu-charts/target/release/deps/libgpu_charts_renderer.so.dwp
+The targets should have unique names.
+Consider changing their names to be unique or compiling them separately.
+This may become a hard error in the future; see <https://github.com/rust-lang/cargo/issues/6313>.
+warning: output filename collision.
+The lib target `gpu_charts_renderer` in package `gpu-charts-renderer v0.1.0 (/home/xander/projects/gpu-charts/crates/renderer)` has the same output filename as the lib target `gpu_charts_renderer` in package `gpu-charts-renderer v0.1.0 (/home/xander/projects/gpu-charts/crates/renderer)`.
+Colliding filename is: /home/xander/projects/gpu-charts/target/release/deps/libgpu_charts_renderer.rlib
+The targets should have unique names.
+Consider changing their names to be unique or compiling them separately.
+This may become a hard error in the future; see <https://github.com/rust-lang/cargo/issues/6313>.
+   Compiling proc-macro2 v1.0.95
+   Compiling unicode-ident v1.0.18
+   Compiling autocfg v1.5.0
+   Compiling libc v0.2.174
+   Compiling libm v0.2.15
+   Compiling serde v1.0.219
+   Compiling cfg-if v1.0.1
+   Compiling parking_lot_core v0.9.11
+   Compiling crossbeam-utils v0.8.21
+   Compiling khronos-egl v6.0.0
+   Compiling cfg_aliases v0.2.1
+   Compiling num-traits v0.2.19
+   Compiling lock_api v0.4.13
+   Compiling getrandom v0.3.3
+   Compiling zerocopy v0.8.26
+   Compiling quote v1.0.40
+   Compiling rustversion v1.0.21
+   Compiling syn v2.0.104
+   Compiling thiserror v2.0.12
+   Compiling rayon-core v1.12.1
+   Compiling heck v0.5.0
+   Compiling cfg_aliases v0.1.1
+   Compiling naga v25.0.1
+   Compiling thiserror v1.0.69
+   Compiling ash v0.38.0+1.3.281
+   Compiling litrs v0.4.1
+   Compiling log v0.4.27
+   Compiling foldhash v0.1.5
+   Compiling wgpu-hal v25.0.2
+   Compiling termcolor v1.4.1
+   Compiling scopeguard v1.2.0
+   Compiling hashbrown v0.15.4
+   Compiling once_cell v1.21.3
+   Compiling ash v0.37.3+1.3.251
+   Compiling smallvec v1.15.1
+   Compiling document-features v0.2.11
+   Compiling memchr v2.7.5
+   Compiling equivalent v1.0.2
+   Compiling parking_lot v0.12.4
+   Compiling indexmap v2.10.0
+   Compiling wgpu-hal v0.21.1
+   Compiling libloading v0.8.8
+   Compiling rustc-hash v1.1.0
+   Compiling serde_json v1.0.140
+   Compiling hexf-parse v0.2.1
+   Compiling arrayvec v0.7.6
+   Compiling paste v1.0.15
+   Compiling half v2.6.0
+   Compiling wgpu-core v0.21.1
+   Compiling wgpu-core v25.0.2
+   Compiling matrixmultiply v0.3.10
+   Compiling wasm-bindgen-shared v0.2.100
+   Compiling typenum v1.18.0
+   Compiling raw-window-handle v0.6.2
+   Compiling renderdoc-sys v1.1.0
+   Compiling profiling v1.0.17
+   Compiling crossbeam-epoch v0.9.18
+   Compiling either v1.15.0
+   Compiling crossbeam-deque v0.8.6
+   Compiling wgpu v0.20.1
+   Compiling wgpu v25.0.2
+   Compiling unicode-width v0.2.1
+   Compiling bumpalo v3.19.0
+   Compiling bit-vec v0.8.0
+   Compiling serde_derive v1.0.219
+   Compiling bytemuck_derive v1.10.0
+   Compiling thiserror-impl v2.0.12
+   Compiling strum_macros v0.26.4
+   Compiling thiserror-impl v1.0.69
+   Compiling futures-macro v0.3.31
+   Compiling ppv-lite86 v0.2.21
+   Compiling wasm-bindgen-backend v0.2.100
+   Compiling bit-set v0.8.0
+   Compiling codespan-reporting v0.12.0
+   Compiling bytemuck v1.23.1
+   Compiling approx v0.5.1
+   Compiling unicode-width v0.1.14
+   Compiling strum v0.26.3
+   Compiling ttf-parser v0.25.1
+   Compiling bit-vec v0.6.3
+   Compiling bit-set v0.5.3
+   Compiling rayon v1.10.0
+   Compiling codespan-reporting v0.11.1
+   Compiling wasm-bindgen-macro-support v0.2.100
+   Compiling rand_core v0.9.3
+   Compiling ordered-float v4.6.0
+   Compiling owned_ttf_parser v0.25.0
+   Compiling libloading v0.7.4
+   Compiling wasm-bindgen v0.2.100
+   Compiling glow v0.16.0
+   Compiling unicode-xid v0.2.6
+   Compiling pin-project-lite v0.2.16
+   Compiling ab_glyph_rasterizer v0.1.9
+   Compiling futures-sink v0.3.31
+   Compiling futures-core v0.3.31
+   Compiling futures-channel v0.3.31
+   Compiling ab_glyph v0.2.31
+   Compiling bitflags v2.9.1
+   Compiling spirv v0.3.0+sdk-1.3.268.0
+   Compiling gpu-alloc-types v0.3.0
+   Compiling gpu-descriptor-types v0.2.0
+   Compiling gpu-descriptor v0.3.2
+   Compiling gpu-alloc v0.6.0
+   Compiling wgpu-types v25.0.0
+   Compiling naga v0.20.0
+   Compiling wgpu-types v0.20.0
+   Compiling wasm-bindgen-macro v0.2.100
+   Compiling rand_chacha v0.9.0
+   Compiling safe_arch v0.7.4
+   Compiling tokio-macros v2.5.0
+   Compiling aho-corasick v1.1.3
+   Compiling pin-utils v0.1.0
+   Compiling static_assertions v1.1.0
+   Compiling glow v0.13.1
+   Compiling slab v0.4.10
+   Compiling ryu v1.0.20
+   Compiling anstyle v1.0.11
+   Compiling futures-task v0.3.31
+   Compiling futures-io v0.3.31
+   Compiling regex-syntax v0.8.5
+   Compiling itoa v1.0.15
+   Compiling regex-automata v0.4.9
+   Compiling futures-util v0.3.31
+   Compiling wgpu-core-deps-windows-linux-android v25.0.0
+   Compiling wide v0.7.33
+   Compiling rand v0.9.1
+   Compiling crossbeam-channel v0.5.15
+   Compiling num-integer v0.1.46
+   Compiling num-complex v0.4.6
+   Compiling xi-unicode v0.3.0
+   Compiling rawpointer v0.2.1
+   Compiling linked-hash-map v0.5.6
+   Compiling rustc-hash v2.1.1
+   Compiling glyph_brush_draw_cache v0.1.6
+   Compiling glyph_brush_layout v0.2.4
+   Compiling simba v0.9.0
+   Compiling num-rational v0.4.2
+   Compiling twox-hash v2.1.1
+   Compiling futures-executor v0.3.31
+   Compiling regex v1.11.1
+   Compiling ordered-float v5.0.0
+   Compiling getrandom v0.2.16
+   Compiling utf8parse v0.2.2
+   Compiling clap_lex v0.7.5
+   Compiling plotters-backend v0.3.7
+   Compiling ciborium-io v0.2.2
+   Compiling plotters-svg v0.3.7
+   Compiling ciborium-ll v0.2.2
+   Compiling clap_builder v4.5.41
+   Compiling anstyle-parse v0.2.7
+   Compiling rand_core v0.6.4
+   Compiling glyph_brush v0.7.12
+   Compiling nalgebra v0.33.2
+   Compiling futures v0.3.31
+   Compiling bincode v1.3.3
+   Compiling uuid v1.17.0
+   Compiling itertools v0.10.5
+   Compiling socket2 v0.5.10
+   Compiling mio v1.0.4
+   Compiling signal-hook-registry v1.4.5
+   Compiling same-file v1.0.6
+   Compiling bytes v1.10.1
+   Compiling anstyle-query v1.1.3
+   Compiling is_terminal_polyfill v1.70.1
+   Compiling cast v0.3.0
+   Compiling colorchoice v1.0.4
+   Compiling anstream v0.6.19
+   Compiling criterion-plot v0.5.0
+   Compiling tokio v1.46.1
+   Compiling walkdir v2.5.0
+   Compiling nalgebra-glm v0.19.0
+   Compiling gpu-charts-shared v0.1.0 (/home/xander/projects/gpu-charts/crates/shared-types)
+   Compiling wgpu_text v0.9.3
+   Compiling rand_chacha v0.3.1
+   Compiling clap v4.5.41
+   Compiling ciborium v0.2.2
+   Compiling plotters v0.3.7
+   Compiling env_filter v0.1.3
+   Compiling tinytemplate v1.2.1
+   Compiling is-terminal v0.4.16
+   Compiling anes v0.1.6
+   Compiling jiff v0.2.15
+   Compiling oorandom v11.1.5
+   Compiling criterion v0.5.1
+   Compiling rand v0.8.5
+   Compiling env_logger v0.11.8
+   Compiling gpu-charts-renderer v0.1.0 (/home/xander/projects/gpu-charts/crates/renderer)
+   Compiling sysinfo v0.30.13
+warning: type `RenderTarget` is more private than the item `MultiResolutionSystem::get_render_target`
+   --> crates/renderer/src/multi_resolution.rs:177:5
+    |
+177 |     pub fn get_render_target(&self) -> &RenderTarget {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `MultiResolutionSystem::get_render_target` is reachable at visibility `pub`
+    |
+note: but type `RenderTarget` is only usable at visibility `pub(self)`
+   --> crates/renderer/src/multi_resolution.rs:285:1
+    |
+285 | struct RenderTarget {
+    | ^^^^^^^^^^^^^^^^^^^
+    = note: `#[warn(private_interfaces)]` on by default
+
+warning: field `vertex_count` is never read
+  --> crates/renderer/src/chart_renderers/line_chart.rs:15:5
+   |
+9  | pub struct LineChartRenderer {
+   |            ----------------- field in this struct
+...
+15 |     vertex_count: u32,
+   |     ^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: fields `device` and `cull_pipeline` are never read
+  --> crates/renderer/src/culling.rs:63:5
+   |
+62 | pub struct CullingSystem {
+   |            ------------- fields in this struct
+63 |     device: std::sync::Arc<wgpu::Device>,
+   |     ^^^^^^
+64 |     cull_pipeline: wgpu::ComputePipeline,
+   |     ^^^^^^^^^^^^^
+
+warning: field `surface_texture` is never read
+  --> crates/renderer/src/engine.rs:12:5
+   |
+7  | pub struct RenderEngine {
+   |            ------------ field in this struct
+...
+12 |     surface_texture: Option<wgpu::SurfaceTexture>,
+   |     ^^^^^^^^^^^^^^^
+
+warning: field `queue` is never read
+  --> crates/renderer/src/gpu_timing.rs:13:5
+   |
+11 | pub struct GpuTimingSystem {
+   |            --------------- field in this struct
+12 |     device: Arc<wgpu::Device>,
+13 |     queue: Arc<wgpu::Queue>,
+   |     ^^^^^
+
+warning: field `total_vertices_processed` is never read
+   --> crates/renderer/src/indirect_draw.rs:477:5
+    |
+474 | struct BatchStatistics {
+    |        --------------- field in this struct
+...
+477 |     total_vertices_processed: u64,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `BatchStatistics` has derived impls for the traits `Default`, `Clone`, and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: field `device` is never read
+   --> crates/renderer/src/indirect_draw.rs:483:5
+    |
+481 | pub struct ConditionalRenderingExt {
+    |            ----------------------- field in this struct
+482 |     predicate_buffer: wgpu::Buffer,
+483 |     device: Arc<wgpu::Device>,
+    |     ^^^^^^
+
+warning: field `select_pipeline` is never read
+  --> crates/renderer/src/lod.rs:98:5
+   |
+96 | pub struct GpuLODSelector {
+   |            -------------- field in this struct
+97 |     device: std::sync::Arc<wgpu::Device>,
+98 |     select_pipeline: wgpu::ComputePipeline,
+   |     ^^^^^^^^^^^^^^^
+
+warning: fields `queue` and `upsampling_pipeline` are never read
+  --> crates/renderer/src/multi_resolution.rs:63:5
+   |
+61 | pub struct MultiResolutionSystem {
+   |            --------------------- fields in this struct
+62 |     device: Arc<wgpu::Device>,
+63 |     queue: Arc<wgpu::Queue>,
+   |     ^^^^^
+...
+82 |     upsampling_pipeline: Option<wgpu::RenderPipeline>,
+   |     ^^^^^^^^^^^^^^^^^^^
+
+warning: fields `color_texture` and `depth_texture` are never read
+   --> crates/renderer/src/multi_resolution.rs:288:5
+    |
+285 | struct RenderTarget {
+    |        ------------ fields in this struct
+...
+288 |     color_texture: wgpu::Texture,
+    |     ^^^^^^^^^^^^^
+289 |     color_view: wgpu::TextureView,
+290 |     depth_texture: Option<wgpu::Texture>,
+    |     ^^^^^^^^^^^^^
+    |
+    = note: `RenderTarget` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: fields `history_texture`, `history_view`, `motion_vectors`, and `frame_index` are never read
+   --> crates/renderer/src/multi_resolution.rs:372:5
+    |
+371 | struct TemporalUpsamplingState {
+    |        ----------------------- fields in this struct
+372 |     history_texture: wgpu::Texture,
+    |     ^^^^^^^^^^^^^^^
+373 |     history_view: wgpu::TextureView,
+    |     ^^^^^^^^^^^^
+374 |     motion_vectors: wgpu::Buffer,
+    |     ^^^^^^^^^^^^^^
+375 |     frame_index: u32,
+    |     ^^^^^^^^^^^
+
+warning: fields `uniform_buffer` and `visual_config` are never read
+  --> crates/renderer/src/overlays.rs:25:5
+   |
+23 | pub struct VolumeOverlay {
+   |            ------------- fields in this struct
+24 |     pipeline: wgpu::RenderPipeline,
+25 |     uniform_buffer: wgpu::Buffer,
+   |     ^^^^^^^^^^^^^^
+26 |     uniform_bind_group: wgpu::BindGroup,
+27 |     visual_config: VisualConfig,
+   |     ^^^^^^^^^^^^^
+
+warning: fields `uniform_buffer`, `period`, and `visual_config` are never read
+   --> crates/renderer/src/overlays.rs:168:5
+    |
+166 | pub struct MovingAverageOverlay {
+    |            -------------------- fields in this struct
+167 |     pipeline: wgpu::RenderPipeline,
+168 |     uniform_buffer: wgpu::Buffer,
+    |     ^^^^^^^^^^^^^^
+169 |     uniform_bind_group: wgpu::BindGroup,
+170 |     period: u32,
+    |     ^^^^^^
+171 |     visual_config: VisualConfig,
+    |     ^^^^^^^^^^^^^
+
+warning: fields `device`, `queue`, and `indirect_draw` are never read
+  --> crates/renderer/src/phase2_integration.rs:19:5
+   |
+18 | pub struct Phase2Renderer {
+   |            -------------- fields in this struct
+19 |     device: Arc<wgpu::Device>,
+   |     ^^^^^^
+20 |     queue: Arc<wgpu::Queue>,
+   |     ^^^^^
+...
+24 |     indirect_draw: IndirectDrawSystem,
+   |     ^^^^^^^^^^^^^
+
+warning: field `queue` is never read
+  --> crates/renderer/src/vertex_compression.rs:79:5
+   |
+77 | pub struct VertexCompressionSystem {
+   |            ----------------------- field in this struct
+78 |     device: Arc<wgpu::Device>,
+79 |     queue: Arc<wgpu::Queue>,
+   |     ^^^^^
+
+warning: fields `base` and `delta_pipeline` are never read
+   --> crates/renderer/src/vertex_compression.rs:272:5
+    |
+271 | pub struct DeltaCompressionSystem {
+    |            ---------------------- fields in this struct
+272 |     base: VertexCompressionSystem,
+    |     ^^^^
+273 |     delta_pipeline: wgpu::ComputePipeline,
+    |     ^^^^^^^^^^^^^^
+
+warning: `gpu-charts-renderer` (lib) generated 16 warnings
+   Compiling gpu-charts-benchmarks v0.1.0 (/home/xander/projects/gpu-charts/benchmarks)
+warning: `gpu-charts-renderer` (lib) generated 16 warnings (16 duplicates)
+    Finished `bench` profile [optimized] target(s) in 1m 11s
+     Running benches/simple_phase2.rs (/home/xander/projects/gpu-charts/target/release/deps/simple_phase2-0ebaddf44e700921)
+Gnuplot not found, using plotters backend
+Benchmarking simple_culling/linear_search
+Benchmarking simple_culling/linear_search: Warming up for 3.0000 s
+Benchmarking simple_culling/linear_search: Collecting 100 samples in estimated 5.5154 s (45k iterations)
+Benchmarking simple_culling/linear_search: Analyzing
+simple_culling/linear_search
+                        time:   [98.506 µs 100.14 µs 102.25 µs]
+Found 16 outliers among 100 measurements (16.00%)
+  7 (7.00%) high mild
+  9 (9.00%) high severe
+Benchmarking simple_culling/binary_search
+Benchmarking simple_culling/binary_search: Warming up for 3.0000 s
+Benchmarking simple_culling/binary_search: Collecting 100 samples in estimated 5.0000 s (322M iterations)
+Benchmarking simple_culling/binary_search: Analyzing
+simple_culling/binary_search
+                        time:   [15.478 ns 15.594 ns 15.718 ns]
+Found 3 outliers among 100 measurements (3.00%)
+  1 (1.00%) high mild
+  2 (2.00%) high severe
+
+Benchmarking simple_compression/uncompressed_16byte
+Benchmarking simple_compression/uncompressed_16byte: Warming up for 3.0000 s
+Benchmarking simple_compression/uncompressed_16byte: Collecting 100 samples in estimated 5.0000 s (27B iterations)
+Benchmarking simple_compression/uncompressed_16byte: Analyzing
+simple_compression/uncompressed_16byte
+                        time:   [177.97 ps 180.53 ps 183.75 ps]
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) high mild
+  3 (3.00%) high severe
+Benchmarking simple_compression/compressed_4byte
+Benchmarking simple_compression/compressed_4byte: Warming up for 3.0000 s
+Benchmarking simple_compression/compressed_4byte: Collecting 100 samples in estimated 5.0000 s (28B iterations)
+Benchmarking simple_compression/compressed_4byte: Analyzing
+simple_compression/compressed_4byte
+                        time:   [178.72 ps 180.31 ps 182.37 ps]
+Found 8 outliers among 100 measurements (8.00%)
+  4 (4.00%) high mild
+  4 (4.00%) high severe
+
