@@ -3,13 +3,14 @@ resolver = "2"
 members = [
     "server", 
     "coinbase-logger",
-    "file_server"
+    "file_server",
+    "crates/shared-types",
+    "crates/config-system",
+    "crates/data-manager",
+    "crates/renderer",
+    "crates/wasm-bridge"
 ]
-exclude = [
-    "charting"
-]
-
-# Note: charting is WASM-only and built via wasm-pack, excluded from workspace
+# All crates are now part of the workspace
 
 [workspace.dependencies]
 # Common dependencies across workspace members
@@ -20,3 +21,7 @@ chrono = "0.4"
 futures = "0.3"
 url = "2"
 bytes = "1.0"
+
+[profile.release]
+lto = true
+opt-level = "z"

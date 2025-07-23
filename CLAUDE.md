@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a WebAssembly-based real-time data visualization application built in Rust that renders interactive line graphs using WebGPU for high-performance GPU-accelerated rendering. The application has both a standalone WASM module and a React web frontend for development.
+This is a WebAssembly-based real-time data visualization application built in Rust that renders interactive charts using WebGPU for high-performance GPU-accelerated rendering. The application uses a modular architecture with separate crates for different concerns and includes a React web frontend.
 
 ## Development Commands
 
@@ -210,26 +210,25 @@ npm run test:server:api      # Live API tests (requires running server)
 
 ## Architecture Overview
 
-### Core Components (Charting Library)
-- **LineGraph** (`charting/src/line_graph.rs`): Main orchestrator that manages data fetching, rendering, and user interactions
-- **RenderEngine** (`charting/src/renderer/render_engine.rs`): WebGPU rendering system with surface management
-- **DataStore** (`charting/src/renderer/data_store.rs`): Manages time-series data buffers and screen transformations
-- **DataRetriever** (`charting/src/renderer/data_retriever.rs`): HTTP-based data fetching from external APIs
+### Modular Architecture
 
-### Rendering Pipeline
-The application uses separate render passes for different components:
-- **PlotRenderer** (`charting/src/drawables/plot.rs`): Main data line visualization
-- **XAxisRenderer** (`charting/src/drawables/x_axis.rs`): Time-based X-axis with labels
-- **YAxisRenderer** (`charting/src/drawables/y_axis.rs`): Value-based Y-axis with labels
+The project uses a multi-crate architecture for better separation of concerns:
 
-Each renderer has corresponding WGSL compute/vertex/fragment shaders.
+#### Core Crates
+- **wasm-bridge** (`crates/wasm-bridge/`): Central orchestration layer that bridges JavaScript and Rust/WebGPU worlds
+- **data-manager** (`crates/data-manager/`): Handles all data operations with focus on performance and GPU optimization
+- **renderer** (`crates/renderer/`): Pure GPU rendering engine implementing Phase 3 optimizations
+- **config-system** (`crates/config-system/`): Configuration and preset management
+- **shared-types** (`crates/shared-types/`): Common data structures used across all crates
 
-### GPU Compute
-- **MinMax** (`charting/src/calcables/min_max.rs`): Uses compute shaders to efficiently calculate dataset bounds on GPU
-- All shaders located in respective component directories as `.wgsl` files
+#### Key Components
+- **LineGraph** (in wasm-bridge): Main orchestrator that manages data fetching, rendering, and user interactions
+- **RenderEngine** (in renderer): WebGPU rendering system with surface management
+- **DataStore** (in data-manager): Manages time-series data buffers and screen transformations
+- **PlotRenderer/CandlestickRenderer** (in renderer): Chart visualization components
+- **XAxisRenderer/YAxisRenderer** (in renderer): Axis rendering with labels
 
-### User Interaction
-- **CanvasController** (`charting/src/controls/canvas_controller.rs`): Handles mouse wheel zoom, cursor panning, and triggers data refetching for new time ranges
+Each renderer has corresponding WGSL compute/vertex/fragment shaders co-located with the Rust code.
 
 ## Key Technical Considerations
 
@@ -255,16 +254,16 @@ Each renderer has corresponding WGSL compute/vertex/fragment shaders.
 
 This project consists of four main components working together:
 
-### 1. Charting Library (`/charting`)
-- **Core Engine**: WebAssembly-based charting library built in Rust
+### 1. WASM Bridge and Core Libraries (`/crates/`)
+- **Core Engine**: Modular WebAssembly-based charting system built in Rust
 - **Technology**: WebGPU for GPU-accelerated rendering, WASM for web integration
-- **Output**: Built to `web/pkg/` for React consumption
+- **Output**: Built from `crates/wasm-bridge` to `web/pkg/` for React consumption
 - **Features**: Real-time data visualization, interactive controls, high-performance rendering
-- **Development**: Hot reloading via `scripts/dev-build.sh` watching Rust changes
+- **Development**: Hot reloading via `scripts/dev-build.sh` watching all crate changes
 
 ### 2. React Frontend (`/web`)
 - **Frontend**: Modern React app with TypeScript, Tailwind CSS, and Vite
-- **Integration**: Consumes WASM charting library from `web/pkg/`
+- **Integration**: Consumes WASM module from `web/pkg/`
 - **State Management**: Zustand store in `web/src/store/`
 - **Components**: React components in `web/src/components/` with chart integration
 - **Data Source**: Connects to local data server via HTTPS API
@@ -289,12 +288,14 @@ This project consists of four main components working together:
 - **Legacy Support**: Maintains original URL parameter-based interface
 
 ## File Structure Notes
-- `charting/`: Core WebAssembly charting library (moved from root `src/`)
-  - WGSL shaders co-located with respective Rust components
-  - Font files in `charting/src/drawables/` for text rendering
-  - React bridge code in `charting/src/lib_react.rs` and `charting/src/react_bridge.rs`
+- `crates/`: Modular Rust crates for the charting system
+  - `wasm-bridge/`: Central orchestration and JavaScript bridge
+  - `data-manager/`: Data operations and GPU buffer management
+  - `renderer/`: Pure GPU rendering with WGSL shaders
+  - `config-system/`: Configuration and quality presets
+  - `shared-types/`: Common types and interfaces
 - `web/`: React frontend application
-  - `web/pkg/`: Generated WASM modules from charting library
+  - `web/pkg/`: Generated WASM modules from wasm-bridge crate
 - `server/`: High-performance data server with SSL certificates
 - `coinbase-logger/`: Real-time market data collection service
 - `file_server/`: Simple Actix-web development server (legacy mode)

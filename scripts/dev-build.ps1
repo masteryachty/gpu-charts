@@ -6,8 +6,8 @@ Write-Host "Starting development build pipeline..." -ForegroundColor Green
 function Build-Wasm {
     Write-Host "Building WASM package..." -ForegroundColor Yellow
     
-    Push-Location charting
-    $result = wasm-pack build --target web --out-dir ../web/pkg --dev
+    Push-Location crates\wasm-bridge
+    $result = wasm-pack build --target web --out-dir ..\..\web\pkg --dev
     $success = $LASTEXITCODE -eq 0
     Pop-Location
     
@@ -37,7 +37,7 @@ Write-Host "Press Ctrl+C to stop" -ForegroundColor Yellow
 
 # Get initial state of files
 $watcher = New-Object System.IO.FileSystemWatcher
-$watcher.Path = Join-Path $PSScriptRoot "..\charting"
+$watcher.Path = Join-Path $PSScriptRoot "..\crates"
 $watcher.Filter = "*.*"
 $watcher.IncludeSubdirectories = $true
 $watcher.EnableRaisingEvents = $true
