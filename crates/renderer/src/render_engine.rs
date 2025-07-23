@@ -12,7 +12,7 @@ use web_sys::HtmlCanvasElement;
 
 pub struct RenderEngine {
     // instance: wgpu::Instance,
-    surface: wgpu::Surface<'static>,
+    pub surface: wgpu::Surface<'static>,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub config: wgpu::SurfaceConfiguration,

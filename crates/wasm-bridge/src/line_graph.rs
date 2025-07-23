@@ -1,13 +1,9 @@
-use renderer::drawables::candlestick::CandlestickRenderer;
-use renderer::drawables::plot::{PlotRenderer, RenderListener};
-use renderer::drawables::x_axis::XAxisRenderer;
-use renderer::drawables::y_axis::YAxisRenderer;
-use data_manager::{ChartType, DataStore};
-use renderer::RenderEngine;
+use data_manager::{ChartType, DataStore, DataManager};
+use renderer::{RenderEngine, Renderer};
+use config_system::GpuChartsConfig;
 use chrono::DateTime;
+use std::sync::Arc;
 
-#[cfg(target_arch = "wasm32")]
-use data_manager::data_retriever::fetch_data;
 #[cfg(target_arch = "wasm32")]
 use crate::wrappers::js::get_query_params;
 #[cfg(target_arch = "wasm32")]
@@ -20,9 +16,8 @@ use web_sys::HtmlCanvasElement;
 
 pub struct LineGraph {
     pub data_store: Rc<RefCell<DataStore>>,
-    // pub line_width: f32,
-    pub engine: Rc<RefCell<RenderEngine>>,
-    // web_socket: WebSocketConnnection,
+    pub renderer: Renderer,
+    pub data_manager: DataManager,
 }
 
 impl LineGraph {
@@ -54,122 +49,78 @@ impl LineGraph {
                 chrono::Utc::now().timestamp()
             });
 
+        // Create DataStore
         let ds = DataStore::new(width, height);
-
-        // log::info!("0");
         let data_store = Rc::new(RefCell::new(ds));
+        data_store.borrow_mut().topic = Some(topic.clone());
 
-        let engine: Rc<RefCell<RenderEngine>>;
-        {
-            // let performance = web_sys::window().unwrap().performance().unwrap();
-            let engine_promise = RenderEngine::new(canvas, data_store.clone()).await;
+        // Create RenderEngine
+        let engine_result = RenderEngine::new(canvas, data_store.clone()).await;
+        let engine = Rc::new(RefCell::new(engine_result.unwrap()));
 
-            engine = Rc::new(RefCell::new(engine_promise.unwrap()));
-            let device = {
-                let engine_b = engine.borrow();
-                engine_b.device.clone()
-            };
-            data_store.borrow_mut().topic = Some(topic.clone());
+        // Get device and queue for DataManager
+        let (device, queue) = {
+            let engine_b = engine.borrow();
+            (Arc::new(engine_b.device.clone()), Arc::new(engine_b.queue.clone()))
+        };
 
-            // Try to fetch initial data, but don't fail if server is unavailable
-            log::info!("Attempting initial data fetch...");
-            fetch_data(&device, start as u32, end as u32, data_store.clone(), None).await;
+        // Create DataManager with modular approach
+        let mut data_manager = DataManager::new(
+            device.clone(),
+            queue.clone(),
+            "https://api.rednax.io".to_string(),
+        );
 
-            // Set the time range regardless of whether data fetch succeeded
-            data_store
-                .borrow_mut()
-                .set_x_range(start as u32, end as u32);
+        // Create config
+        let config = GpuChartsConfig::default();
 
-            log::info!(
-                "LineGraph initialization completed (data fetch may have failed gracefully)"
-            );
-        }
+        // Create Renderer with modular approach
+        let renderer = Renderer::new(
+            engine.clone(),
+            config,
+            data_store.clone(),
+        ).await.unwrap();
+
+        // Try to fetch initial data using DataManager
+        log::info!("Attempting initial data fetch...");
+        let selected_metrics = vec!["best_bid", "best_ask"];
+        let _ = data_manager.fetch_data(
+            &topic,
+            start as u64,
+            end as u64,
+            &selected_metrics,
+        ).await;
+
+        // Set the time range
+        data_store
+            .borrow_mut()
+            .set_x_range(start as u32, end as u32);
+
+        log::info!(
+            "LineGraph initialization completed (data fetch may have failed gracefully)"
+        );
 
         // Create the LineGraph instance
-        let mut line_graph = Self { engine, data_store };
-
-        // Set up initial renderers
-        line_graph.setup_renderers();
-
-        Ok(line_graph)
+        Ok(Self {
+            data_store,
+            renderer,
+            data_manager,
+        })
     }
 
-    #[allow(clippy::await_holding_refcell_ref)]
-    pub async fn render(&self) -> Result<(), wgpu::SurfaceError> {
-        // Check if rendering is needed
-        if !self.data_store.borrow().is_dirty() {
-            return Ok(());
-        }
-
-        // We need to be careful with RefCell borrows across await points
-        // Check if we can borrow first, then clone the future
-        match self.engine.try_borrow_mut() {
-            Ok(mut engine) => {
-                let result = engine.render().await;
-                if result.is_ok() {
-                    // Mark as clean after successful render
-                    self.data_store.borrow_mut().mark_clean();
-                }
-                result
-            }
-            Err(_) => Ok(()),
-        }
+    pub async fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
+        // Use the new Renderer
+        self.renderer.render().await.map_err(|e| match e {
+            shared_types::GpuChartsError::Surface { .. } => wgpu::SurfaceError::Outdated,
+            _ => wgpu::SurfaceError::Outdated,
+        })
     }
 
     pub fn resized(&mut self, width: u32, height: u32) {
         self.data_store.borrow_mut().resized(width, height);
-        self.engine.borrow_mut().resized(width, height);
+        self.renderer.resize(width, height);
     }
 
-    // Set up renderers based on current chart type
-    fn setup_renderers(&mut self) {
-        // Get all the values we need before mutably borrowing
-        let format = self.engine.borrow().config.format;
-        let chart_type = self.data_store.borrow().chart_type;
-
-        log::info!("Setting up renderers for chart type: {chart_type:?}");
-
-        // Create all renderers before mutably borrowing engine
-        let plot_renderer: Box<dyn RenderListener> = match chart_type {
-            ChartType::Line => Box::new(PlotRenderer::new(
-                self.engine.clone(),
-                format,
-                self.data_store.clone(),
-            )),
-            ChartType::Candlestick => Box::new(CandlestickRenderer::new(
-                self.engine.clone(),
-                format,
-                self.data_store.clone(),
-            )),
-        };
-
-        let x_axis_renderer = Box::new(XAxisRenderer::new(
-            self.engine.clone(),
-            format,
-            self.data_store.clone(),
-        ));
-
-        let y_axis_renderer = Box::new(YAxisRenderer::new(
-            self.engine.clone(),
-            format,
-            self.data_store.clone(),
-        ));
-
-        // Now do all the mutations in one go
-        {
-            match self.engine.try_borrow_mut() {
-                Ok(mut engine_mut) => {
-                    engine_mut.clear_render_listeners();
-                    engine_mut.add_render_listener(plot_renderer);
-                    engine_mut.add_render_listener(x_axis_renderer);
-                    engine_mut.add_render_listener(y_axis_renderer);
-                }
-                Err(e) => {
-                    log::error!("Failed to borrow engine mutably: {e:?}");
-                }
-            }
-        }
-    }
 
     // Switch chart type
     pub fn set_chart_type(&mut self, chart_type: &str) {
@@ -180,7 +131,8 @@ impl LineGraph {
 
         log::info!("Setting chart type to {new_type:?}");
         self.data_store.borrow_mut().set_chart_type(new_type);
-        self.setup_renderers();
+        // Renderer will automatically update based on chart type in data_store
+        self.renderer.set_chart_type(new_type);
     }
 
     // Set candle timeframe (in seconds)

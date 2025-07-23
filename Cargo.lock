@@ -516,6 +516,7 @@ dependencies = [
  "iana-time-zone",
  "js-sys",
  "num-traits",
+ "serde",
  "wasm-bindgen",
  "windows-link",
 ]
@@ -2790,8 +2791,11 @@ dependencies = [
 name = "shared-types"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "js-sys",
  "serde",
+ "serde_json",
+ "thiserror 1.0.69",
  "uuid",
  "wasm-bindgen",
  "web-sys",
@@ -3691,6 +3695,7 @@ dependencies = [
  "serde_json",
  "shared-types",
  "thiserror 2.0.12",
+ "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-bindgen-test",

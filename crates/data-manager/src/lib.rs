@@ -10,27 +10,11 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use wgpu::{Device, Queue};
 use wgpu::util::DeviceExt;
-use shared_types::{DataHandle, DataMetadata, GpuBufferSet, ParsedData};
+use shared_types::{DataHandle, DataMetadata, GpuBufferSet, ParsedData, GpuChartsError, GpuChartsResult};
 use uuid::Uuid;
-use thiserror::Error;
 
-pub use data_retriever::{fetch_data, ApiHeader, ColumnMeta, create_gpu_buffer_from_vec};
+pub use data_retriever::{ApiHeader, ColumnMeta, create_gpu_buffer_from_vec, fetch_api_response, create_chunked_gpu_buffer_from_arraybuffer};
 pub use data_store::{DataStore, DataSeries, MetricSeries, ScreenDimensions, ChartType, Vertex};
-
-#[derive(Error, Debug)]
-pub enum DataManagerError {
-    #[error("Failed to fetch data: {0}")]
-    FetchError(String),
-    
-    #[error("Failed to parse data: {0}")]
-    ParseError(String),
-    
-    #[error("GPU buffer creation failed: {0}")]
-    GpuError(String),
-    
-    #[error("Data not found: {0}")]
-    NotFound(String),
-}
 
 /// Main data manager that coordinates all data operations
 pub struct DataManager {
@@ -60,31 +44,70 @@ impl DataManager {
         start_time: u64,
         end_time: u64,
         columns: &[&str],
-    ) -> Result<DataHandle, DataManagerError> {
+    ) -> GpuChartsResult<DataHandle> {
         // Check cache first
         let cache_key = format!("{}-{}-{}-{:?}", symbol, start_time, end_time, columns);
         if let Some(handle) = self.cache.get(&cache_key) {
             return Ok(handle);
         }
 
-        // Fetch from server - TODO: implement using the fetch_data function
-        return Err(DataManagerError::FetchError("Not implemented yet".to_string()));
+        // Build the API URL
+        let columns_str = columns.join(",");
+        let url = format!(
+            "{}/api/data?symbol={}&type=MD&start={}&end={}&columns={}",
+            self.base_url, symbol, start_time, end_time, columns_str
+        );
 
-        // // Create GPU buffers
-        // let gpu_buffers = self.create_gpu_buffers(&parsed_data)?;
-        // 
-        // // Create handle
-        // let handle = DataHandle {
-        //     id: Uuid::new_v4(),
-        //     metadata: parsed_data.metadata.clone(),
-        // };
+        // Fetch from server
+        let (api_header, binary_buffer) = fetch_api_response(&url).await
+            .map_err(|e| GpuChartsError::DataFetch { 
+                message: format!("{:?} (URL: {})", e, url)
+            })?;
 
-        // // Store in cache and active handles
-        // self.cache.insert(cache_key, handle.clone());
-        // self.active_handles.insert(handle.id, gpu_buffers);
+        // Parse the binary data into columnar format
+        let mut column_buffers = HashMap::new();
+        let mut offset = 0u32;
 
-        // Ok(handle)
+        for column in &api_header.columns {
+            let data_length = column.data_length as u32;
+            let start = offset;
+            let end = offset + data_length;
+            offset = end;
+
+            let col_buffer = binary_buffer.slice_with_end(start, end);
+            let gpu_buffers = create_chunked_gpu_buffer_from_arraybuffer(
+                &self.device,
+                &col_buffer,
+                &column.name,
+            );
+            column_buffers.insert(column.name.clone(), gpu_buffers);
+        }
+
+        // Create GPU buffer set
+        let gpu_buffers = GpuBufferSet {
+            buffers: column_buffers,
+            metadata: DataMetadata {
+                symbol: symbol.to_string(),
+                start_time,
+                end_time,
+                columns: api_header.columns.iter().map(|c| c.name.clone()).collect(),
+                row_count: api_header.columns.iter().map(|c| c.data_length / 4).max().unwrap_or(0),
+            },
+        };
+
+        // Create handle
+        let handle = DataHandle {
+            id: Uuid::new_v4(),
+            metadata: gpu_buffers.metadata.clone(),
+        };
+
+        // Store in cache and active handles
+        self.cache.insert(cache_key, handle.clone());
+        self.active_handles.insert(handle.id, gpu_buffers);
+
+        Ok(handle)
     }
+
 
     /// Get GPU buffers for a data handle
     pub fn get_buffers(&self, handle: &DataHandle) -> Option<&GpuBufferSet> {
@@ -92,7 +115,7 @@ impl DataManager {
     }
 
     /// Create GPU buffers from parsed data
-    fn create_gpu_buffers(&self, data: &ParsedData) -> Result<GpuBufferSet, DataManagerError> {
+    fn create_gpu_buffers(&self, data: &ParsedData) -> GpuChartsResult<GpuBufferSet> {
         let mut buffers = HashMap::new();
 
         // Create time buffer

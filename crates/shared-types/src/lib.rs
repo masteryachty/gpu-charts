@@ -4,11 +4,13 @@ pub mod events;
 pub mod store_state;
 pub mod data_types;
 pub mod chart_config;
+pub mod errors;
 
 pub use events::*;
 pub use store_state::*;
 pub use data_types::*;
 pub use chart_config::*;
+pub use errors::*;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

@@ -2,8 +2,8 @@ use std::{cell::RefCell, rc::Rc};
 
 use shared_types::events::{ElementState, MouseScrollDelta, WindowEvent};
 use crate::line_graph::unix_timestamp_to_string;
-use data_manager::{data_retriever::fetch_data, DataStore};
-use renderer::RenderEngine;
+use data_manager::{DataStore, DataManager};
+use renderer::Renderer;
 
 use wasm_bindgen_futures::spawn_local;
 
@@ -16,16 +16,14 @@ pub struct CanvasController {
     position: Position,
     start_drag_pos: Option<Position>,
     data_store: Rc<RefCell<DataStore>>,
-    engine: Rc<RefCell<RenderEngine>>,
 }
 
 impl CanvasController {
-    pub fn new(data_store: Rc<RefCell<DataStore>>, engine: Rc<RefCell<RenderEngine>>) -> Self {
+    pub fn new(data_store: Rc<RefCell<DataStore>>) -> Self {
         CanvasController {
             position: Position { x: -1., y: -1. },
             start_drag_pos: None,
             data_store,
-            engine,
         }
     }
 
@@ -100,30 +98,10 @@ impl CanvasController {
             unix_timestamp_to_string(new_end as i64)
         );
 
-        // Fetch data for the new range and update
-        let data_store = self.data_store.clone();
-        let engine = self.engine.clone();
-
-        spawn_local(async move {
-            let device = {
-                let engine_borrow = engine.try_borrow();
-                if let Ok(engine_ref) = engine_borrow {
-                    engine_ref.device.clone()
-                } else {
-                    log::warn!("Engine is borrowed, skipping data fetch");
-                    return;
-                }
-            };
-
-            fetch_data(&device, new_start, new_end, data_store.clone(), None).await;
-
-            // Use try_borrow_mut to prevent panic
-            if let Ok(mut data_store_mut) = data_store.try_borrow_mut() {
-                data_store_mut.set_x_range(new_start, new_end);
-            }
-
-            log::info!("Drag zoom completed: {new_start} to {new_end}");
-        });
+        // Update the data store range
+        // Note: Data fetching should be handled by the parent component using DataManager
+        self.data_store.borrow_mut().set_x_range(new_start, new_end);
+        log::info!("Drag zoom completed: {new_start} to {new_end}");
     }
 
     fn handle_cursor_wheel(
@@ -134,59 +112,42 @@ impl CanvasController {
         log::info!("handle_cursor_wheel type: {delta:?} {phase:?}");
 
         let MouseScrollDelta::PixelDelta(position) = delta;
-        let data_store = self.data_store.clone();
-        let engine = self.engine.clone();
+        
+        let start_x = self.data_store.borrow().start_x;
+        let end_x = self.data_store.borrow().end_x;
+        let range = end_x - start_x;
 
-        spawn_local(async move {
-            let start_x = data_store.borrow().start_x;
-            let end_x = data_store.borrow().end_x;
-            let range = end_x - start_x;
-
-            let (new_start, new_end) = if position.y < 0. {
-                // Scrolling up = zoom in (shrink range)
-                let new_start = start_x + (range / 4);
-                let new_end = end_x - (range / 4);
-                // Ensure we don't zoom in too much
-                if new_end > new_start {
-                    (new_start, new_end)
-                } else {
-                    (start_x, end_x) // Keep current range if too zoomed in
-                }
-            } else if position.y > 0. {
-                // Scrolling down = zoom out (expand range)
-                let new_start = start_x - (range / 2);
-                let new_end = end_x + (range / 2);
+        let (new_start, new_end) = if position.y < 0. {
+            // Scrolling up = zoom in (shrink range)
+            let new_start = start_x + (range / 4);
+            let new_end = end_x - (range / 4);
+            // Ensure we don't zoom in too much
+            if new_end > new_start {
                 (new_start, new_end)
             } else {
-                (start_x, end_x) // No change
-            };
-
-            // Only update if range actually changed
-            if new_start != start_x || new_end != end_x {
-                let device = {
-                    let engine_borrow = engine.try_borrow();
-                    if let Ok(engine_ref) = engine_borrow {
-                        engine_ref.device.clone()
-                    } else {
-                        log::warn!("Engine is borrowed, skipping data fetch");
-                        return;
-                    }
-                };
-
-                fetch_data(&device, new_start, new_end, data_store.clone(), None).await;
-
-                // Use try_borrow_mut to prevent panic
-                if let Ok(mut data_store_mut) = data_store.try_borrow_mut() {
-                    data_store_mut.set_x_range(new_start, new_end);
-                }
-
-                log::info!(
-                    "Zoom: new_start = {}, new_end = {} (delta_y = {})",
-                    new_start,
-                    new_end,
-                    position.y
-                );
+                (start_x, end_x) // Keep current range if too zoomed in
             }
-        });
+        } else if position.y > 0. {
+            // Scrolling down = zoom out (expand range)
+            let new_start = start_x - (range / 2);
+            let new_end = end_x + (range / 2);
+            (new_start, new_end)
+        } else {
+            (start_x, end_x) // No change
+        };
+
+        // Only update if range actually changed
+        if new_start != start_x || new_end != end_x {
+            // Update the data store range
+            // Note: Data fetching should be handled by the parent component using DataManager
+            self.data_store.borrow_mut().set_x_range(new_start, new_end);
+
+            log::info!(
+                "Zoom: new_start = {}, new_end = {} (delta_y = {})",
+                new_start,
+                new_end,
+                position.y
+            );
+        }
     }
 }
