@@ -156,13 +156,13 @@ impl AutoTuner {
         #[cfg(target_arch = "wasm32")]
         {
             use web_sys::window;
-            
+
             let window = window().unwrap();
             let navigator = window.navigator();
-            
+
             // Get CPU cores from navigator.hardwareConcurrency
             let cpu_cores = navigator.hardware_concurrency() as usize;
-            
+
             // Memory detection via navigator.deviceMemory (if available)
             // This is an approximation in GB
             let device_memory_gb = js_sys::Reflect::get(&navigator, &"deviceMemory".into())
@@ -170,15 +170,19 @@ impl AutoTuner {
                 .and_then(|v| v.as_f64())
                 .unwrap_or(8.0);
             let system_memory = (device_memory_gb * 1024.0 * 1024.0 * 1024.0) as u64;
-            
+
             // Get display dimensions
-            let display_width = window.inner_width().ok()
+            let display_width = window
+                .inner_width()
+                .ok()
                 .and_then(|v| v.as_f64())
                 .unwrap_or(1920.0) as u32;
-            let display_height = window.inner_height().ok()
+            let display_height = window
+                .inner_height()
+                .ok()
                 .and_then(|v| v.as_f64())
                 .unwrap_or(1080.0) as u32;
-            
+
             // Browser detection
             let user_agent = navigator.user_agent().unwrap_or_default();
             let browser = if user_agent.contains("Chrome") {
@@ -190,13 +194,13 @@ impl AutoTuner {
             } else {
                 Some("Unknown".to_string())
             };
-            
+
             HardwareCapabilities {
                 gpu_memory: 8_000_000_000, // Will be detected from WebGPU limits
-                gpu_compute_units: 32,      // Default, actual detection requires WebGPU
-                gpu_clock_mhz: 1500,        // Default
+                gpu_compute_units: 32,     // Default, actual detection requires WebGPU
+                gpu_clock_mhz: 1500,       // Default
                 cpu_cores,
-                cpu_freq_mhz: 2000,         // Default estimate
+                cpu_freq_mhz: 2000, // Default estimate
                 system_memory,
                 available_memory: system_memory, // Assume all available in browser
                 display_width,
@@ -216,7 +220,7 @@ impl AutoTuner {
                 },
             }
         }
-        
+
         #[cfg(not(target_arch = "wasm32"))]
         {
             // For non-WASM builds, use defaults

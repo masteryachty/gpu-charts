@@ -25,7 +25,7 @@ impl Timer {
                 .unwrap_or(0.0);
             Self { start }
         }
-        
+
         #[cfg(not(target_arch = "wasm32"))]
         {
             Self {
@@ -33,7 +33,7 @@ impl Timer {
             }
         }
     }
-    
+
     /// Get elapsed time in seconds
     pub fn elapsed_secs(&self) -> f64 {
         #[cfg(target_arch = "wasm32")]
@@ -44,13 +44,13 @@ impl Timer {
                 .unwrap_or(0.0);
             (now - self.start) / 1000.0 // Convert ms to seconds
         }
-        
+
         #[cfg(not(target_arch = "wasm32"))]
         {
             self.start.elapsed().as_secs_f64()
         }
     }
-    
+
     /// Get elapsed time in milliseconds
     pub fn elapsed_millis(&self) -> f64 {
         #[cfg(target_arch = "wasm32")]
@@ -61,13 +61,13 @@ impl Timer {
                 .unwrap_or(0.0);
             now - self.start
         }
-        
+
         #[cfg(not(target_arch = "wasm32"))]
         {
             self.start.elapsed().as_secs_f64() * 1000.0
         }
     }
-    
+
     /// Get elapsed time as std::time::Duration (native only)
     #[cfg(not(target_arch = "wasm32"))]
     pub fn elapsed(&self) -> std::time::Duration {
@@ -81,7 +81,7 @@ pub fn timestamp_millis() -> u64 {
     {
         js_sys::Date::now() as u64
     }
-    
+
     #[cfg(not(target_arch = "wasm32"))]
     {
         std::time::SystemTime::now()

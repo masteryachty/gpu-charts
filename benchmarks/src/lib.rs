@@ -50,16 +50,14 @@ impl BenchmarkGpu {
         let adapter_info = adapter.get_info();
 
         let (device, queue) = adapter
-            .request_device(
-                &wgpu::DeviceDescriptor {
-                    label: Some("Benchmark Device"),
-                    required_features: wgpu::Features::TIMESTAMP_QUERY
-                        | wgpu::Features::TIMESTAMP_QUERY_INSIDE_PASSES,
-                    required_limits: wgpu::Limits::downlevel_webgl2_defaults(),
-                    memory_hints: Default::default(),
-                    trace: Default::default(),
-                },
-            )
+            .request_device(&wgpu::DeviceDescriptor {
+                label: Some("Benchmark Device"),
+                required_features: wgpu::Features::TIMESTAMP_QUERY
+                    | wgpu::Features::TIMESTAMP_QUERY_INSIDE_PASSES,
+                required_limits: wgpu::Limits::downlevel_webgl2_defaults(),
+                memory_hints: Default::default(),
+                trace: Default::default(),
+            })
             .await
             .expect("Failed to create device");
 

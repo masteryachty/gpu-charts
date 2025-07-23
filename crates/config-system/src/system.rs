@@ -19,7 +19,6 @@ pub struct ConfigurationSystem {
     /// Current configuration manager with hot-reload
     hot_reload: Arc<HotReloadManager>,
 
-
     /// Auto-tuner
     auto_tuner: Arc<AutoTuner>,
 
@@ -195,7 +194,6 @@ impl ConfigurationSystem {
         Ok(())
     }
 
-
     /// Get configuration history
     pub fn get_history(&self) -> Vec<(std::time::Instant, Arc<GpuChartsConfig>)> {
         self.hot_reload.get_history()
@@ -262,7 +260,6 @@ impl ConfigSystemBuilder {
         self.enable_auto_tuning = enabled;
         self
     }
-
 
     pub async fn build(
         self,

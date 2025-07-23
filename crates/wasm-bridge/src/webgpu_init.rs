@@ -5,7 +5,7 @@
 
 use wasm_bindgen::prelude::*;
 use web_sys::HtmlCanvasElement;
-use wgpu::{Device, Queue, Surface, SurfaceConfiguration, TextureUsages, PresentMode};
+use wgpu::{Device, PresentMode, Queue, Surface, SurfaceConfiguration, TextureUsages};
 
 /// Initialize WebGPU with a canvas element
 pub async fn initialize_webgpu(
@@ -16,27 +16,28 @@ pub async fn initialize_webgpu(
         .ok_or("No window found")?
         .document()
         .ok_or("No document found")?;
-    
+
     let canvas = document
         .get_element_by_id(canvas_id)
         .ok_or("Canvas not found")?
         .dyn_into::<HtmlCanvasElement>()?;
-    
+
     // Get canvas dimensions
     let width = canvas.client_width() as u32;
     let height = canvas.client_height() as u32;
-    
+
     // Create WGPU instance
     let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
         backends: wgpu::Backends::BROWSER_WEBGPU,
         flags: wgpu::InstanceFlags::default(),
         backend_options: Default::default(),
     });
-    
+
     // Create surface from canvas
-    let surface = instance.create_surface(wgpu::SurfaceTarget::Canvas(canvas.clone()))
+    let surface = instance
+        .create_surface(wgpu::SurfaceTarget::Canvas(canvas.clone()))
         .map_err(|e| JsValue::from_str(&format!("Failed to create surface: {:?}", e)))?;
-    
+
     // Request adapter
     web_sys::console::log_1(&"[WebGPU Init] Requesting adapter...".into());
     let adapter = instance
@@ -47,36 +48,46 @@ pub async fn initialize_webgpu(
         })
         .await
         .map_err(|e| JsValue::from_str(&format!("Failed to find adapter: {:?}", e)))?;
-    
+
     // Log adapter info
     let adapter_info = adapter.get_info();
-    web_sys::console::log_1(&format!("[WebGPU Init] Adapter found: {:?}", adapter_info.name).into());
-    web_sys::console::log_1(&format!("[WebGPU Init] Adapter backend: {:?}", adapter_info.backend).into());
-    
+    web_sys::console::log_1(
+        &format!("[WebGPU Init] Adapter found: {:?}", adapter_info.name).into(),
+    );
+    web_sys::console::log_1(
+        &format!("[WebGPU Init] Adapter backend: {:?}", adapter_info.backend).into(),
+    );
+
     // Use browser-compatible limits to avoid errors
     let limits = wgpu::Limits::downlevel_webgl2_defaults();
-    web_sys::console::log_1(&format!("[WebGPU Init] Using browser-compatible limits (downlevel_webgl2_defaults): {:?}", limits).into());
-    
+    web_sys::console::log_1(
+        &format!(
+            "[WebGPU Init] Using browser-compatible limits (downlevel_webgl2_defaults): {:?}",
+            limits
+        )
+        .into(),
+    );
+
     // Request device and queue
     web_sys::console::log_1(&"[WebGPU Init] Requesting device with default limits...".into());
     let (device, queue) = adapter
-        .request_device(
-            &wgpu::DeviceDescriptor {
-                label: Some("GPU Charts Device"),
-                required_features: wgpu::Features::empty(),
-                required_limits: limits,
-                memory_hints: Default::default(),
-                trace: Default::default(),
-            },
-        )
+        .request_device(&wgpu::DeviceDescriptor {
+            label: Some("GPU Charts Device"),
+            required_features: wgpu::Features::empty(),
+            required_limits: limits,
+            memory_hints: Default::default(),
+            trace: Default::default(),
+        })
         .await
         .map_err(|e| {
-            web_sys::console::error_1(&format!("[WebGPU Init] Device request failed: {:?}", e).into());
+            web_sys::console::error_1(
+                &format!("[WebGPU Init] Device request failed: {:?}", e).into(),
+            );
             JsValue::from_str(&format!("Failed to create device: {:?}", e))
         })?;
-    
+
     web_sys::console::log_1(&"[WebGPU Init] Device created successfully!".into());
-    
+
     // Configure the surface
     let surface_caps = surface.get_capabilities(&adapter);
     let surface_format = surface_caps
@@ -85,7 +96,7 @@ pub async fn initialize_webgpu(
         .copied()
         .find(|f| f.is_srgb())
         .unwrap_or(surface_caps.formats[0]);
-    
+
     let config = SurfaceConfiguration {
         usage: TextureUsages::RENDER_ATTACHMENT,
         format: surface_format,
@@ -96,9 +107,9 @@ pub async fn initialize_webgpu(
         view_formats: vec![],
         desired_maximum_frame_latency: 2,
     };
-    
+
     surface.configure(&device, &config);
-    
+
     Ok((device, queue, surface))
 }
 

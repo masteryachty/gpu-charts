@@ -7,10 +7,10 @@
 //! - Providing handle-based access to buffers
 
 use crate::cache::CacheKey;
-use lru::LruCache;
 use crate::direct_gpu_parser::DirectGpuParser;
 use crate::handle::{BufferData, BufferHandle, BufferMetadata, HandleManager};
 use gpu_charts_shared::{Error, Result};
+use lru::LruCache;
 use parking_lot::RwLock;
 use std::sync::Arc;
 use wgpu::BufferUsages;
@@ -36,7 +36,10 @@ impl std::fmt::Debug for DataManagerConfig {
             .field("max_memory_bytes", &self.max_memory_bytes)
             .field("cache_ttl_seconds", &self.cache_ttl_seconds)
             .field("enable_prefetching", &self.enable_prefetching)
-            .field("enable_speculative_caching", &self.enable_speculative_caching)
+            .field(
+                "enable_speculative_caching",
+                &self.enable_speculative_caching,
+            )
             .field("buffer_pool", &self.buffer_pool.is_some())
             .finish()
     }
@@ -122,7 +125,9 @@ impl DataManager {
                 }
                 #[cfg(not(feature = "native"))]
                 {
-                    return Err(Error::GpuError("File access not available in WASM".to_string()));
+                    return Err(Error::GpuError(
+                        "File access not available in WASM".to_string(),
+                    ));
                 }
             }
             DataSource::Url(url) => self.load_from_url(url, metadata.clone()).await?,
@@ -158,11 +163,15 @@ impl DataManager {
             #[cfg(feature = "native")]
             {
                 // TODO: Fix buffer pool integration
-                return Err(Error::GpuError("File parsing with buffer pool not yet implemented".to_string()));
+                return Err(Error::GpuError(
+                    "File parsing with buffer pool not yet implemented".to_string(),
+                ));
             }
             #[cfg(not(feature = "native"))]
             {
-                return Err(Error::GpuError("File access not available in WASM".to_string()));
+                return Err(Error::GpuError(
+                    "File access not available in WASM".to_string(),
+                ));
             }
         } else {
             // Fallback to creating new buffer
@@ -270,7 +279,7 @@ impl DataManager {
         // LruCache v0.12 doesn't expose total_memory - estimate based on entry count
         let cache_len = self.cache.read().len() as u64;
         let estimated_cache_memory = cache_len * 1024 * 1024; // Rough estimate: 1MB per entry
-        
+
         MemoryUsage {
             handle_memory,
             cache_memory: estimated_cache_memory,

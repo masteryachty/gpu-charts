@@ -49,7 +49,7 @@ impl DirectGpuParser {
 
         self.parse_mmap_to_gpu(&mmap[..], buffer_pool)
     }
-    
+
     /// Parse binary data directly to GPU buffers (WASM version)
     #[cfg(target_arch = "wasm32")]
     pub fn parse_data_to_gpu(

@@ -3,11 +3,11 @@
 //! This is a simplified version that orchestrates data-manager and renderer
 //! without the complex system-integration layer.
 
-use gpu_charts_shared::{DataHandle, DataRequest, Error, Result};
 use gpu_charts_config::GpuChartsConfig;
+use gpu_charts_shared::{DataHandle, DataRequest, Error, Result};
+use std::sync::Arc;
 use wasm_bindgen::prelude::*;
 use web_sys::console;
-use std::sync::Arc;
 
 /// Log a message to the browser console
 macro_rules! log {
@@ -41,7 +41,10 @@ pub struct ChartSystem {
 impl ChartSystem {
     /// Initialize the chart system
     #[wasm_bindgen(constructor)]
-    pub async fn new(canvas_id: String, base_url: String) -> std::result::Result<ChartSystem, JsValue> {
+    pub async fn new(
+        canvas_id: String,
+        base_url: String,
+    ) -> std::result::Result<ChartSystem, JsValue> {
         // Set up panic hook for better error messages
         console_error_panic_hook::set_once();
 
@@ -56,11 +59,8 @@ impl ChartSystem {
         let (width, height) = to_js_result(Self::get_canvas_size(&canvas_id))?;
 
         // Create data manager
-        let data_manager = gpu_charts_data::DataManager::new_with_device(
-            device.clone(),
-            queue.clone(),
-            base_url,
-        );
+        let data_manager =
+            gpu_charts_data::DataManager::new_with_device(device.clone(), queue.clone(), base_url);
 
         // Create renderer with surface
         let renderer = to_js_result(gpu_charts_renderer::Renderer::new_with_device(
@@ -86,32 +86,36 @@ impl ChartSystem {
     }
 
     /// Initialize WebGPU device and queue
-    async fn init_webgpu(canvas_id: &str) -> Result<(wgpu::Device, wgpu::Queue, wgpu::Surface<'static>)> {
+    async fn init_webgpu(
+        canvas_id: &str,
+    ) -> Result<(wgpu::Device, wgpu::Queue, wgpu::Surface<'static>)> {
         // Use the webgpu_init module that's already in the crate
         let (device, queue, surface) = crate::webgpu_init::initialize_webgpu(canvas_id)
             .await
             .map_err(|e| Error::GpuError(format!("WebGPU init failed: {:?}", e)))?;
-            
+
         Ok((device, queue, surface))
     }
-    
+
     /// Get canvas dimensions
     fn get_canvas_size(canvas_id: &str) -> Result<(u32, u32)> {
         use web_sys::window;
-        
+
         let window = window().ok_or_else(|| Error::GpuError("No window".to_string()))?;
-        let document = window.document().ok_or_else(|| Error::GpuError("No document".to_string()))?;
+        let document = window
+            .document()
+            .ok_or_else(|| Error::GpuError("No document".to_string()))?;
         let canvas = document
             .get_element_by_id(canvas_id)
             .ok_or_else(|| Error::GpuError(format!("Canvas {} not found", canvas_id)))?;
-            
+
         let canvas: web_sys::HtmlCanvasElement = canvas
             .dyn_into()
             .map_err(|_| Error::GpuError("Not a canvas element".to_string()))?;
-            
+
         let width = canvas.client_width() as u32;
         let height = canvas.client_height() as u32;
-        
+
         Ok((width, height))
     }
 
@@ -143,9 +147,7 @@ impl ChartSystem {
 
         // Fetch data
         let request_json = serde_json::to_string(&data_request).unwrap();
-        let handle_json = to_js_result(
-            self.data_manager.fetch_data(&request_json).await
-        )?;
+        let handle_json = to_js_result(self.data_manager.fetch_data(&request_json).await)?;
         let handle: DataHandle = serde_json::from_str(&handle_json).unwrap();
 
         log!("Data fetched, handle: {:?}", handle.id);
@@ -180,25 +182,36 @@ impl ChartSystem {
                     },
                     overlays: vec![],
                 },
-                _ => return Err(JsValue::from_str(&format!("Unknown chart type: {}", chart_type))),
+                _ => {
+                    return Err(JsValue::from_str(&format!(
+                        "Unknown chart type: {}",
+                        chart_type
+                    )))
+                }
             };
-            
+
             // Update renderer configuration
             to_js_result(renderer.update_config(chart_config))?;
-            
+
             // Get GPU buffers from data manager and register with renderer
             if let Some(gpu_buffer_set) = self.data_manager.get_buffer_set(&handle.id) {
                 let renderer_buffer_set = gpu_charts_renderer::GpuBufferSet {
                     buffers: gpu_buffer_set.buffers,
                     metadata: handle.metadata.clone(),
                 };
-                
+
                 renderer.register_buffer_set(handle.clone(), Arc::new(renderer_buffer_set));
-                log!("Registered GPU buffers with renderer for handle: {:?}", handle.id);
+                log!(
+                    "Registered GPU buffers with renderer for handle: {:?}",
+                    handle.id
+                );
             } else {
-                log!("Warning: Could not get GPU buffers for handle: {:?}", handle.id);
+                log!(
+                    "Warning: Could not get GPU buffers for handle: {:?}",
+                    handle.id
+                );
             }
-            
+
             log!("Chart configuration updated successfully");
         }
 
@@ -224,14 +237,14 @@ impl ChartSystem {
     pub fn update_config(&mut self, config_json: &str) -> std::result::Result<(), JsValue> {
         let new_config: GpuChartsConfig = serde_json::from_str(config_json)
             .map_err(|e| JsValue::from_str(&format!("Invalid config: {}", e)))?;
-        
+
         self.config = new_config;
-        
+
         // TODO: Apply config to renderer
         // if let Some(renderer) = &mut self.renderer {
         //     renderer.update_config(&self.config)?;
         // }
-        
+
         Ok(())
     }
 
@@ -254,15 +267,17 @@ impl ChartSystem {
     #[wasm_bindgen]
     pub fn get_stats(&self) -> String {
         let data_stats = self.data_manager.get_stats();
-        let renderer_stats = self.renderer.as_ref()
+        let renderer_stats = self
+            .renderer
+            .as_ref()
             .map(|r| r.get_stats())
             .unwrap_or_else(|| serde_json::json!({}));
-        
+
         let stats = serde_json::json!({
             "data_manager": serde_json::from_str::<serde_json::Value>(&data_stats).unwrap_or(serde_json::json!({})),
             "renderer": renderer_stats,
         });
-        
+
         stats.to_string()
     }
 
@@ -277,7 +292,7 @@ impl ChartSystem {
     #[wasm_bindgen]
     pub fn handle_mouse_wheel(&mut self, delta_y: f32, x: f32, y: f32) {
         log!("Mouse wheel: delta_y={}, x={}, y={}", delta_y, x, y);
-        
+
         // TODO: Implement zoom logic
         // For now, just update viewport scale
         if let Some(_renderer) = &mut self.renderer {

@@ -46,7 +46,7 @@ impl ServerParser {
         // Parse JSON header
         let header_str = std::str::from_utf8(&data[..newline_pos])
             .map_err(|e| Error::ParseError(format!("Invalid UTF-8 in header: {}", e)))?;
-        
+
         let header: ServerHeader = serde_json::from_str(header_str)
             .map_err(|e| Error::ParseError(format!("Failed to parse JSON header: {}", e)))?;
 
@@ -97,7 +97,11 @@ impl ServerParser {
                 let buffer = buffer_pool.acquire(device, chunk_size as u64);
 
                 // Write data to buffer
-                queue.write_buffer(&buffer, 0, &binary_data[data_offset..data_offset + chunk_size]);
+                queue.write_buffer(
+                    &buffer,
+                    0,
+                    &binary_data[data_offset..data_offset + chunk_size],
+                );
 
                 column_buffers.push(Arc::new(buffer));
 
@@ -115,7 +119,8 @@ impl ServerParser {
     /// Convert server header to our internal format
     pub fn get_row_count(header: &ServerHeader) -> u32 {
         // All columns should have the same number of records
-        header.columns
+        header
+            .columns
             .first()
             .map(|col| col.num_records as u32)
             .unwrap_or(0)
@@ -128,7 +133,11 @@ impl ServerParser {
 
     /// Calculate total data size
     pub fn get_total_size(header: &ServerHeader) -> u64 {
-        header.columns.iter().map(|col| col.data_length as u64).sum()
+        header
+            .columns
+            .iter()
+            .map(|col| col.data_length as u64)
+            .sum()
     }
 }
 
@@ -141,8 +150,9 @@ mod tests {
         let test_data = br#"{"columns":[{"name":"time","record_size":4,"num_records":10,"data_length":40},{"name":"price","record_size":4,"num_records":10,"data_length":40}]}
 BINARY_DATA_HERE"#;
 
-        let (header, header_size, binary_data) = ServerParser::parse_server_response(test_data).unwrap();
-        
+        let (header, header_size, binary_data) =
+            ServerParser::parse_server_response(test_data).unwrap();
+
         assert_eq!(header.columns.len(), 2);
         assert_eq!(header.columns[0].name, "time");
         assert_eq!(header.columns[0].num_records, 10);
@@ -154,14 +164,12 @@ BINARY_DATA_HERE"#;
     #[test]
     fn test_get_row_count() {
         let header = ServerHeader {
-            columns: vec![
-                ServerColumnMeta {
-                    name: "time".to_string(),
-                    record_size: 4,
-                    num_records: 100,
-                    data_length: 400,
-                },
-            ],
+            columns: vec![ServerColumnMeta {
+                name: "time".to_string(),
+                record_size: 4,
+                num_records: 100,
+                data_length: 400,
+            }],
         };
 
         assert_eq!(ServerParser::get_row_count(&header), 100);

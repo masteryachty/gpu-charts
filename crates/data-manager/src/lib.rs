@@ -47,7 +47,7 @@ use server_parser::ServerParser;
 pub use wasm_api::WasmDataManager;
 
 // Re-export commonly used types from handle module
-pub use handle::{BufferHandle, BufferData, BufferMetadata};
+pub use handle::{BufferData, BufferHandle, BufferMetadata};
 // Re-export from manager module - note: DataManager is already defined in this file
 pub use manager::{DataManagerConfig, DataSource};
 
@@ -124,7 +124,7 @@ impl DataManager {
             }
         }
     }
-    
+
     /// Get GPU buffer set for a handle
     pub fn get_buffer_set(&self, handle_id: &Uuid) -> Option<GpuBufferSet> {
         self.active_handles.read().get(handle_id).cloned()
@@ -177,7 +177,8 @@ impl DataManager {
         log::info!("Fetched {} bytes in {}ms", binary_data.len(), fetch_time);
 
         // Parse server response (JSON header + binary data)
-        let (header, _header_size, binary_body) = ServerParser::parse_server_response(&binary_data)?;
+        let (header, _header_size, binary_body) =
+            ServerParser::parse_server_response(&binary_data)?;
 
         // Parse directly to GPU buffers
         let parse_start = js_sys::Date::now();

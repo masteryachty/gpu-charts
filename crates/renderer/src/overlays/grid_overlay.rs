@@ -43,11 +43,13 @@ struct GridUniforms {
 impl GridOverlay {
     pub fn new(device: &wgpu::Device, visual_config: &VisualConfig) -> Result<Self> {
         console_log!("[GridOverlay] Creating grid overlay renderer");
-        
+
         // Create shader module
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Grid Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("../chart_renderers/shaders/grid.wgsl").into()),
+            source: wgpu::ShaderSource::Wgsl(
+                include_str!("../chart_renderers/shaders/grid.wgsl").into(),
+            ),
         });
 
         // Create uniform buffer
@@ -173,7 +175,7 @@ impl super::OverlayRenderer for GridOverlay {
         }
 
         console_log!("[GridOverlay] Rendering grid");
-        
+
         // Update uniforms
         self.update_uniforms(context.queue, &context.viewport);
 

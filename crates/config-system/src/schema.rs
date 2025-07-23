@@ -16,42 +16,54 @@ impl SchemaValidator {
     /// Validate a configuration
     pub fn validate(&self, config: &GpuChartsConfig) -> Result<()> {
         // Perform manual validation for WASM compatibility
-        
+
         // Validate version format
         if config.version.is_empty() {
             return Err(ConfigError::Schema("Version cannot be empty".to_string()));
         }
-        
+
         // Validate rendering config
         if config.rendering.target_fps == 0 || config.rendering.target_fps > 240 {
-            return Err(ConfigError::Schema("Target FPS must be between 1 and 240".to_string()));
+            return Err(ConfigError::Schema(
+                "Target FPS must be between 1 and 240".to_string(),
+            ));
         }
-        
+
         if config.rendering.resolution_scale <= 0.0 || config.rendering.resolution_scale > 4.0 {
-            return Err(ConfigError::Schema("Resolution scale must be between 0.1 and 4.0".to_string()));
+            return Err(ConfigError::Schema(
+                "Resolution scale must be between 0.1 and 4.0".to_string(),
+            ));
         }
-        
+
         // Validate data config
         if config.data.cache_size == 0 {
-            return Err(ConfigError::Schema("Cache size must be greater than 0".to_string()));
+            return Err(ConfigError::Schema(
+                "Cache size must be greater than 0".to_string(),
+            ));
         }
-        
+
         if config.data.prefetch_distance < 0.0 {
-            return Err(ConfigError::Schema("Prefetch distance cannot be negative".to_string()));
+            return Err(ConfigError::Schema(
+                "Prefetch distance cannot be negative".to_string(),
+            ));
         }
-        
+
         // Validate performance config
         if config.performance.lod_bias < 0.0 || config.performance.lod_bias > 10.0 {
-            return Err(ConfigError::Schema("LOD bias must be between 0.0 and 10.0".to_string()));
+            return Err(ConfigError::Schema(
+                "LOD bias must be between 0.0 and 10.0".to_string(),
+            ));
         }
-        
+
         if config.performance.draw_call_batch_size == 0 {
-            return Err(ConfigError::Schema("Draw call batch size must be greater than 0".to_string()));
+            return Err(ConfigError::Schema(
+                "Draw call batch size must be greater than 0".to_string(),
+            ));
         }
-        
+
         // Additional custom validation
         self.validate_custom_rules(config)?;
-        
+
         Ok(())
     }
 

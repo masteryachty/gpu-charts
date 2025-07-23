@@ -99,13 +99,16 @@ impl RenderEngine {
         visual_config: &VisualConfig,
         metrics: &mut PerformanceMetrics,
     ) -> Result<()> {
-        console_log!("[RenderEngine] render() called with {} buffer sets", buffer_sets.len());
+        console_log!(
+            "[RenderEngine] render() called with {} buffer sets",
+            buffer_sets.len()
+        );
         #[cfg(target_arch = "wasm32")]
         let frame_start = web_sys::window()
             .and_then(|w| w.performance())
             .map(|p| p.now())
             .unwrap_or(0.0);
-        
+
         #[cfg(not(target_arch = "wasm32"))]
         let frame_start = std::time::Instant::now();
 
@@ -157,10 +160,10 @@ impl RenderEngine {
             // Create render context
             #[cfg(target_arch = "wasm32")]
             let frame_time = 0.016; // Default to 60fps for WASM
-            
+
             #[cfg(not(target_arch = "wasm32"))]
             let frame_time = frame_start.elapsed().as_secs_f32();
-            
+
             let context = crate::RenderContext {
                 device: &self.device,
                 queue: &self.queue,
@@ -210,12 +213,12 @@ impl RenderEngine {
                 .and_then(|w| w.performance())
                 .map(|p| p.now() - frame_start)
                 .unwrap_or(0.0) as f64;
-            
+
             self.frame_count += 1;
             self.total_frame_time += frame_time_ms;
             metrics.frame_time_ms = frame_time_ms as f32;
         }
-        
+
         #[cfg(not(target_arch = "wasm32"))]
         {
             let frame_time = frame_start.elapsed();
@@ -267,4 +270,3 @@ impl RenderEngine {
         stats
     }
 }
-

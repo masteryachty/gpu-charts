@@ -299,7 +299,10 @@ impl StreamCompressor {
                 {
                     // Zstd not available in WASM, use gzip instead
                     use flate2::write::GzEncoder;
-                    Box::new(GzEncoder::new(writer, flate2::Compression::new(self.level as u32)))
+                    Box::new(GzEncoder::new(
+                        writer,
+                        flate2::Compression::new(self.level as u32),
+                    ))
                 }
             }
         }

@@ -236,7 +236,10 @@ impl Renderer {
         }
 
         self.performance_metrics.frame_time_ms = start_time.elapsed_millis() as f32;
-        console_log!("[Renderer] Frame rendered in {}ms", self.performance_metrics.frame_time_ms);
+        console_log!(
+            "[Renderer] Frame rendered in {}ms",
+            self.performance_metrics.frame_time_ms
+        );
         Ok(())
     }
 
@@ -358,27 +361,39 @@ impl Renderer {
     fn get_active_buffer_sets(&self) -> Vec<Arc<GpuBufferSet>> {
         // Get buffer sets for active data handles
         console_log!("[Renderer] Getting active buffer sets...");
-        console_log!("[Renderer] Current config exists: {}", self.current_config.is_some());
-        console_log!("[Renderer] Buffer handles registered: {}", self.buffer_handles.len());
-        
+        console_log!(
+            "[Renderer] Current config exists: {}",
+            self.current_config.is_some()
+        );
+        console_log!(
+            "[Renderer] Buffer handles registered: {}",
+            self.buffer_handles.len()
+        );
+
         if let Some(config) = &self.current_config {
-            console_log!("[Renderer] Config has {} data handles", config.data_handles.len());
+            console_log!(
+                "[Renderer] Config has {} data handles",
+                config.data_handles.len()
+            );
             for handle in &config.data_handles {
                 console_log!("[Renderer] Looking for handle: {:?}", handle.id);
                 if let Some(buffer_set) = self.buffer_handles.get(&handle.id) {
                     console_log!("[Renderer] Found buffer set for handle: {:?}", handle.id);
                 } else {
-                    console_log!("[Renderer] WARNING: No buffer set found for handle: {:?}", handle.id);
+                    console_log!(
+                        "[Renderer] WARNING: No buffer set found for handle: {:?}",
+                        handle.id
+                    );
                 }
             }
-            
+
             let result: Vec<Arc<GpuBufferSet>> = config
                 .data_handles
                 .iter()
                 .filter_map(|handle| self.buffer_handles.get(&handle.id))
                 .cloned()
                 .collect();
-            
+
             console_log!("[Renderer] Returning {} buffer sets", result.len());
             result
         } else {

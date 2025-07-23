@@ -3,9 +3,9 @@
 //! This module provides a persistent GPU context that can be reused across frames,
 //! eliminating the ~100ms GPU initialization overhead observed in benchmarks.
 
+use crate::timing::Timer;
 use gpu_charts_shared::{Error, Result};
 use std::sync::Arc;
-use crate::timing::Timer;
 
 /// Persistent GPU context that maintains device/queue across frames
 pub struct PersistentGpuContext {
@@ -37,7 +37,7 @@ impl PersistentGpuContext {
         } else {
             wgpu::Backends::all()
         };
-        
+
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             backends,
             ..Default::default()
@@ -51,7 +51,9 @@ impl PersistentGpuContext {
                 force_fallback_adapter: false,
             })
             .await
-            .map_err(|e| Error::GpuError(format!("Failed to find suitable GPU adapter: {:?}", e)))?;
+            .map_err(|e| {
+                Error::GpuError(format!("Failed to find suitable GPU adapter: {:?}", e))
+            })?;
 
         let adapter = Arc::new(adapter);
 
@@ -83,28 +85,26 @@ impl PersistentGpuContext {
         // downlevel_webgl2_defaults() provides limits that work in all browsers
         let limits = wgpu::Limits::downlevel_webgl2_defaults();
         log::info!("Using browser-compatible WebGPU limits (downlevel_webgl2_defaults)");
-        
+
         // Log what we're about to request
         log::info!("Requesting device with limits: {:?}", limits);
         log::info!("Requesting device with features: {:?}", features);
 
         // Create device and queue
         let (device, queue) = adapter
-            .request_device(
-                &wgpu::DeviceDescriptor {
-                    label: Some("GPU Charts Persistent Device"),
-                    required_features: features,
-                    required_limits: limits.clone(),
-                    memory_hints: Default::default(),
-                    trace: Default::default(),
-                },
-            )
+            .request_device(&wgpu::DeviceDescriptor {
+                label: Some("GPU Charts Persistent Device"),
+                required_features: features,
+                required_limits: limits.clone(),
+                memory_hints: Default::default(),
+                trace: Default::default(),
+            })
             .await
             .map_err(|e| {
                 log::error!("Device request failed with error: {:?}", e);
                 Error::GpuError(format!("Failed to create GPU device: {:?}", e))
             })?;
-        
+
         log::info!("Device created successfully!");
 
         let device = Arc::new(device);
