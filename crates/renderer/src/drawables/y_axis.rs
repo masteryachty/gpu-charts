@@ -34,8 +34,9 @@ impl RenderListener for YAxisRenderer {
         data_store: Rc<RefCell<DataStore>>,
     ) {
         let ds = data_store.borrow();
-        let min = ds.min_y.unwrap();
-        let max = ds.max_y.unwrap();
+        // Use default values if min/max Y are not set yet
+        let min = ds.min_y.unwrap_or(0.0);
+        let max = ds.max_y.unwrap_or(100.0);
         // let range = max - min;
         let height = data_store.borrow().screen_size.height as i32;
 
@@ -153,12 +154,13 @@ impl RenderListener for YAxisRenderer {
 
         // Draw vertical lines
         if let Some(buffer) = &self.vertex_buffer {
-            let bind_group = ds.range_bind_group.as_ref().unwrap();
-
-            render_pass.set_pipeline(&self.pipeline);
-            render_pass.set_bind_group(0, bind_group, &[]);
-            render_pass.set_vertex_buffer(0, buffer.slice(..));
-            render_pass.draw(0..self.vertex_count, 0..1);
+            // Only draw if we have a bind group (which requires data to be loaded)
+            if let Some(bind_group) = ds.range_bind_group.as_ref() {
+                render_pass.set_pipeline(&self.pipeline);
+                render_pass.set_bind_group(0, bind_group, &[]);
+                render_pass.set_vertex_buffer(0, buffer.slice(..));
+                render_pass.draw(0..self.vertex_count, 0..1);
+            }
         }
 
         // Draw text labels

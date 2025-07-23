@@ -53,9 +53,9 @@ impl DataStore {
     pub fn new(width: u32, height: u32) -> DataStore {
         DataStore {
             start_x: 0,
-            end_x: 0,
-            min_y: None,
-            max_y: None,
+            end_x: 100,  // Default to a reasonable range
+            min_y: Some(0.0),    // Default min Y value
+            max_y: Some(100.0),  // Default max Y value
             data_groups: Vec::new(),
             active_data_group_indices: Vec::new(),
             range_bind_group: None,
@@ -194,13 +194,16 @@ impl DataStore {
     // }
 
     pub fn world_to_screen_with_margin(&self, x: f32, y: f32) -> (f32, f32) {
-        // let data_group = self.get_active_data_group();
-
+        // Use default values if min/max Y are not set yet
+        let min_y = self.min_y.unwrap_or(0.0);
+        let max_y = self.max_y.unwrap_or(100.0);
+        let y_range = max_y - min_y;
+        
         let projection = glm::ortho_rh_zo(
             self.start_x as f32,
             self.end_x as f32,
-            self.max_y.unwrap() + ((self.max_y.unwrap() - self.min_y.unwrap()) * 0.1),
-            self.min_y.unwrap() - ((self.max_y.unwrap() - self.min_y.unwrap()) * 0.1),
+            max_y + (y_range * 0.1),
+            min_y - (y_range * 0.1),
             -1.0,
             1.0,
         );
@@ -222,8 +225,8 @@ impl DataStore {
 
         let min_x = self.start_x as f32;
         let max_x = self.end_x as f32;
-        let max_y = self.max_y.unwrap();
-        let min_y = self.min_y.unwrap();
+        let min_y = self.min_y.unwrap_or(0.0);
+        let max_y = self.max_y.unwrap_or(100.0);
 
         let y_margin = (max_y - min_y) * 0.1;
 

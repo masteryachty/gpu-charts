@@ -201,12 +201,13 @@ impl RenderListener for XAxisRenderer {
 
         // Draw vertical lines
         if let Some(buffer) = &self.vertex_buffer {
-            let bind_group = ds.range_bind_group.as_ref().unwrap();
-
-            render_pass.set_pipeline(&self.pipeline);
-            render_pass.set_bind_group(0, bind_group, &[]);
-            render_pass.set_vertex_buffer(0, buffer.slice(..));
-            render_pass.draw(0..self.vertex_count, 0..1);
+            // Only draw if we have a bind group (which requires data to be loaded)
+            if let Some(bind_group) = ds.range_bind_group.as_ref() {
+                render_pass.set_pipeline(&self.pipeline);
+                render_pass.set_bind_group(0, bind_group, &[]);
+                render_pass.set_vertex_buffer(0, buffer.slice(..));
+                render_pass.draw(0..self.vertex_count, 0..1);
+            }
         }
 
         // Draw text labels
