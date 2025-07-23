@@ -50,9 +50,7 @@ jobs:
           cache-dependency-path: 'package-lock.json'
       
       - name: Install dependencies
-        run: |
-          cd web
-          npm ci
+        run: npm ci
       
       - name: Run npm audit
         run: |

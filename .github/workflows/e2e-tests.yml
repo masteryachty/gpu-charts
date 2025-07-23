@@ -27,9 +27,7 @@ jobs:
           targets: wasm32-unknown-unknown
       
       - name: Install dependencies
-        run: |
-          cd web
-          npm ci
+        run: npm ci
       
       - name: Run TypeScript/React linting
         run: |
