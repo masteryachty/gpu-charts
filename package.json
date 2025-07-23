@@ -12,7 +12,7 @@
     "dev:suite": "concurrently \"npm run dev:watch\" \"npm run dev:server\" \"npm run dev\"",
     "dev:suite:full": "concurrently \"npm run dev:watch\" \"npm run dev:server\" \"npm run dev:logger\" \"npm run dev\"",
     "dev:wasm": "cd charting && wasm-pack build --target web --out-dir ../web/pkg --dev",
-    "dev:watch": "./scripts/dev-build.sh",
+    "dev:watch": "node -e \"process.platform==='win32'?require('child_process').spawn('cmd',['/c','scripts\\\\dev-build.cmd'],{stdio:'inherit',shell:true}):require('child_process').spawn('./scripts/dev-build.sh',{stdio:'inherit',shell:true})\"",
     "dev:server": "cd server && cargo run",
     "dev:server:build": "cd server && cargo build",
     "dev:logger": "cd coinbase-logger && cargo run",
