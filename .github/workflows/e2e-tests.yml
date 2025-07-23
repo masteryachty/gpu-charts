@@ -27,7 +27,9 @@ jobs:
           targets: wasm32-unknown-unknown
       
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci
+          rm -rf web/node_modules || true
       
       - name: Run TypeScript/React linting
         run: |
@@ -181,8 +183,8 @@ jobs:
     
     - name: Install dependencies
       run: |
-        cd web
         npm ci
+        rm -rf web/node_modules || true
     
     - name: Build WASM module
       run: npm run build:wasm
@@ -253,8 +255,8 @@ jobs:
     
     - name: Install dependencies
       run: |
-        cd web
         npm ci
+        rm -rf web/node_modules || true
     
     - name: Build all components
       run: |
