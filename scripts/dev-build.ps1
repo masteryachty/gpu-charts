@@ -1,10 +1,10 @@
 # Development build script for WASM + React hot reloading (Windows)
 
-Write-Host "🚀 Starting development build pipeline..." -ForegroundColor Green
+Write-Host "Starting development build pipeline..." -ForegroundColor Green
 
 # Function to build WASM
 function Build-Wasm {
-    Write-Host "🦀 Building WASM package..." -ForegroundColor Yellow
+    Write-Host "Building WASM package..." -ForegroundColor Yellow
     
     Push-Location charting
     $result = wasm-pack build --target web --out-dir ../web/pkg --dev
@@ -12,17 +12,17 @@ function Build-Wasm {
     Pop-Location
     
     if ($success) {
-        Write-Host "✅ WASM build successful" -ForegroundColor Green
-        Write-Host "📦 WASM files output to web/pkg/" -ForegroundColor Blue
+        Write-Host "WASM build successful" -ForegroundColor Green
+        Write-Host "WASM files output to web/pkg/" -ForegroundColor Blue
         
         # Trigger Vite reload by touching a watched file
         if (-not (Test-Path "web\src\wasm-trigger.ts")) {
             New-Item -Path "web\src\wasm-trigger.ts" -ItemType File -Force | Out-Null
         }
         (Get-Item "web\src\wasm-trigger.ts").LastWriteTime = Get-Date
-        Write-Host "🔄 Triggered React hot reload" -ForegroundColor Cyan
+        Write-Host "Triggered React hot reload" -ForegroundColor Cyan
     } else {
-        Write-Host "❌ WASM build failed" -ForegroundColor Red
+        Write-Host "WASM build failed" -ForegroundColor Red
         return $false
     }
     return $true
@@ -32,7 +32,7 @@ function Build-Wasm {
 Build-Wasm
 
 # Watch for Rust file changes
-Write-Host "👀 Watching for Rust file changes..." -ForegroundColor Cyan
+Write-Host "Watching for Rust file changes..." -ForegroundColor Cyan
 Write-Host "Press Ctrl+C to stop" -ForegroundColor Yellow
 
 # Get initial state of files
@@ -49,8 +49,8 @@ $action = {
     
     # Filter for Rust files and Cargo files
     if ($path -match '\.(rs|toml|lock)$') {
-        Write-Host "📝 File changed: $path" -ForegroundColor Yellow
-        Write-Host "📝 Rust files changed, rebuilding..." -ForegroundColor Yellow
+        Write-Host "File changed: $path" -ForegroundColor Yellow
+        Write-Host "Rust files changed, rebuilding..." -ForegroundColor Yellow
         
         # Use a small delay to batch multiple file changes
         Start-Sleep -Milliseconds 500
@@ -61,7 +61,8 @@ $action = {
         Build-Wasm
         Pop-Location
         
-        Write-Host "⏰ $(Get-Date -Format 'HH:mm:ss'): Ready for changes..." -ForegroundColor Green
+        $time = Get-Date -Format 'HH:mm:ss'
+        Write-Host "$time : Ready for changes..." -ForegroundColor Green
     }
 }
 
@@ -73,7 +74,8 @@ $handlers += Register-ObjectEvent -InputObject $watcher -EventName "Deleted" -Ac
 $handlers += Register-ObjectEvent -InputObject $watcher -EventName "Renamed" -Action $action -MessageData @{ScriptPath = $PSScriptRoot}
 
 try {
-    Write-Host "⏰ $(Get-Date -Format 'HH:mm:ss'): Ready for changes..." -ForegroundColor Green
+    $time = Get-Date -Format 'HH:mm:ss'
+    Write-Host "$time : Ready for changes..." -ForegroundColor Green
     
     # Keep the script running
     while ($true) {
