@@ -41,6 +41,7 @@
     "clean": "rm -rf web/pkg && cd charting && cargo clean && cd ../server && cargo clean && cd ../coinbase-logger && cargo clean && cd ../file_server && cargo clean"
   },
   "devDependencies": {
+    "@eslint/plugin-kit": "^0.3.4",
     "concurrently": "^9.1.2"
   },
   "engines": {
