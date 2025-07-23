@@ -109,8 +109,9 @@ impl GpuLODSelector {
             label: Some("LOD Selection Pipeline"),
             layout: None,
             module: &shader,
-            entry_point: "main",
+            entry_point: Some("main"),
             compilation_options: Default::default(),
+            cache: None,
         });
 
         Ok(Self {

@@ -4,12 +4,29 @@ use crate::{gpu_timing::GpuTimingSystem, GpuBufferSet, PerformanceMetrics, Viewp
 use gpu_charts_shared::{Error, Result, VisualConfig};
 use std::sync::Arc;
 
+#[cfg(target_arch = "wasm32")]
+use web_sys::console;
+
+/// Console log macro for WASM
+#[cfg(target_arch = "wasm32")]
+macro_rules! console_log {
+    ($($t:tt)*) => {
+        console::log_1(&format!($($t)*).into());
+    };
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+macro_rules! console_log {
+    ($($t:tt)*) => {
+        log::info!($($t)*);
+    };
+}
+
 pub struct RenderEngine {
     device: Arc<wgpu::Device>,
     queue: Arc<wgpu::Queue>,
     surface: wgpu::Surface<'static>,
     config: wgpu::SurfaceConfiguration,
-    surface_texture: Option<wgpu::SurfaceTexture>,
     // Performance tracking
     frame_count: u64,
     total_frame_time: f64,
@@ -26,11 +43,18 @@ impl RenderEngine {
         width: u32,
         height: u32,
     ) -> Result<Self> {
-        let config = surface
-            .get_default_config(&device.adapter(), width, height)
-            .ok_or_else(|| {
-                Error::GpuError("No suitable surface configuration found".to_string())
-            })?;
+        // Create a basic surface configuration
+        // Use Bgra8Unorm which is guaranteed to be supported in WebGPU
+        let config = wgpu::SurfaceConfiguration {
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            format: wgpu::TextureFormat::Bgra8Unorm,
+            width,
+            height,
+            present_mode: wgpu::PresentMode::AutoVsync,
+            desired_maximum_frame_latency: 2,
+            alpha_mode: wgpu::CompositeAlphaMode::Auto,
+            view_formats: vec![],
+        };
 
         surface.configure(&device, &config);
 
@@ -49,7 +73,6 @@ impl RenderEngine {
             queue,
             surface,
             config,
-            surface_texture: None,
             frame_count: 0,
             total_frame_time: 0.0,
             gpu_timing,
@@ -76,6 +99,14 @@ impl RenderEngine {
         visual_config: &VisualConfig,
         metrics: &mut PerformanceMetrics,
     ) -> Result<()> {
+        console_log!("[RenderEngine] render() called with {} buffer sets", buffer_sets.len());
+        #[cfg(target_arch = "wasm32")]
+        let frame_start = web_sys::window()
+            .and_then(|w| w.performance())
+            .map(|p| p.now())
+            .unwrap_or(0.0);
+        
+        #[cfg(not(target_arch = "wasm32"))]
         let frame_start = std::time::Instant::now();
 
         // Get the next frame
@@ -110,10 +141,10 @@ impl RenderEngine {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: visual_config.background_color[0] as f64,
-                            g: visual_config.background_color[1] as f64,
-                            b: visual_config.background_color[2] as f64,
-                            a: visual_config.background_color[3] as f64,
+                            r: 0.1, // Dark blue background for testing
+                            g: 0.2,
+                            b: 0.3,
+                            a: 1.0,
                         }),
                         store: wgpu::StoreOp::Store,
                     },
@@ -124,16 +155,24 @@ impl RenderEngine {
             });
 
             // Create render context
+            #[cfg(target_arch = "wasm32")]
+            let frame_time = 0.016; // Default to 60fps for WASM
+            
+            #[cfg(not(target_arch = "wasm32"))]
+            let frame_time = frame_start.elapsed().as_secs_f32();
+            
             let context = crate::RenderContext {
                 device: &self.device,
                 queue: &self.queue,
                 viewport: *viewport,
                 visual_config,
-                frame_time: frame_start.elapsed().as_secs_f32(),
+                frame_time,
             };
 
             // Render main chart
+            console_log!("[RenderEngine] Calling chart_renderer.render()");
             chart_renderer.render(&mut render_pass, buffer_sets, &context);
+            console_log!("[RenderEngine] chart_renderer.render() completed");
 
             // Render overlays
             for overlay in &mut *overlay_renderers {
@@ -165,10 +204,25 @@ impl RenderEngine {
         surface_texture.present();
 
         // Update metrics
-        let frame_time = frame_start.elapsed();
-        self.frame_count += 1;
-        self.total_frame_time += frame_time.as_secs_f64() * 1000.0;
-        metrics.frame_time_ms = frame_time.as_secs_f32() * 1000.0;
+        #[cfg(target_arch = "wasm32")]
+        {
+            let frame_time_ms = web_sys::window()
+                .and_then(|w| w.performance())
+                .map(|p| p.now() - frame_start)
+                .unwrap_or(0.0) as f64;
+            
+            self.frame_count += 1;
+            self.total_frame_time += frame_time_ms;
+            metrics.frame_time_ms = frame_time_ms as f32;
+        }
+        
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let frame_time = frame_start.elapsed();
+            self.frame_count += 1;
+            self.total_frame_time += frame_time.as_secs_f64() * 1000.0;
+            metrics.frame_time_ms = frame_time.as_secs_f32() * 1000.0;
+        }
 
         // Read GPU timing results if available
         if let Some(timing) = &mut self.gpu_timing {
@@ -202,7 +256,7 @@ impl RenderEngine {
             "frame_count": self.frame_count,
             "avg_frame_time_ms": avg_frame_time,
             "fps": if avg_frame_time > 0.0 { 1000.0 / avg_frame_time } else { 0.0 },
-            "backend": format!("{:?}", self.device.backend()),
+            "backend": "WebGPU",
         });
 
         // Add GPU timing stats if available
@@ -214,21 +268,3 @@ impl RenderEngine {
     }
 }
 
-// Helper extension trait to get adapter info
-trait DeviceExt {
-    fn adapter(&self) -> Arc<wgpu::Adapter>;
-    fn backend(&self) -> wgpu::Backend;
-}
-
-impl DeviceExt for wgpu::Device {
-    fn adapter(&self) -> Arc<wgpu::Adapter> {
-        // In a real implementation, we'd store the adapter
-        // For now, return a dummy
-        unimplemented!("Adapter storage not implemented")
-    }
-
-    fn backend(&self) -> wgpu::Backend {
-        // Would be determined from adapter
-        wgpu::Backend::BrowserWebGpu
-    }
-}

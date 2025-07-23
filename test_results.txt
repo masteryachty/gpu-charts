@@ -1,0 +1,30 @@
+   Compiling num-bigint v0.4.6
+   Compiling naga v0.20.0
+   Compiling naga v24.0.0
+   Compiling criterion v0.5.1
+   Compiling predicates v2.1.5
+   Compiling coinbase-logger v0.1.0 (/home/xander/projects/gpu-charts/coinbase-logger)
+   Compiling num-iter v0.1.45
+   Compiling fancy-regex v0.14.0
+   Compiling ultra_low_latency_server_chunked_parallel v0.1.0 (/home/xander/projects/gpu-charts/server)
+   Compiling mockall v0.11.4
+   Compiling num-rational v0.4.2
+   Compiling wasm-storage v0.1.0 (/home/xander/projects/gpu-charts/crates/wasm-storage)
+   Compiling nalgebra v0.33.2
+   Compiling num v0.4.3
+   Compiling fraction v0.15.3
+   Compiling nalgebra v0.32.6
+   Compiling wasm-fetch v0.1.0 (/home/xander/projects/gpu-charts/crates/wasm-fetch)
+   Compiling futures-intrusive v0.5.0
+   Compiling jsonschema v0.26.2
+   Compiling actix-http v3.11.0
+   Compiling wasm-websocket v0.1.0 (/home/xander/projects/gpu-charts/crates/wasm-websocket)
+   Compiling console_log v1.0.0
+   Compiling actix-web v4.11.0
+   Compiling wgpu-hal v24.0.4
+   Compiling wgpu-hal v0.21.1
+   Compiling nalgebra-glm v0.19.0
+   Compiling nalgebra-glm v0.18.0
+   Compiling actix-files v0.6.6
+   Compiling wgpu-core v0.21.1
+   Compiling wgpu-core v24.0.5

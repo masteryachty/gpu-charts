@@ -128,8 +128,9 @@ impl IndirectDrawSystem {
             label: Some("Indirect Draw Generation Pipeline"),
             layout: Some(&pipeline_layout),
             module: &shader,
-            entry_point: "generate_draw_calls",
+            entry_point: Some("generate_draw_calls"),
             compilation_options: Default::default(),
+            cache: None,
         });
 
         // Create buffers

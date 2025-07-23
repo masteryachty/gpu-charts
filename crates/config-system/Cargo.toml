@@ -7,8 +7,7 @@ license.workspace = true
 repository.workspace = true
 
 [features]
-default = ["native"]
-native = ["notify", "sysinfo", "tokio/full"]
+default = []
 wasm = []
 
 [dependencies]
@@ -22,18 +21,11 @@ serde_json = { workspace = true }
 serde_yaml = "0.9"
 toml = "0.8"
 
-# File watching
-notify = { version = "6.1", optional = true }
-
-# Async runtime
-tokio = { version = "1.0", default-features = false, features = ["rt", "sync"] }
 
 # Performance
 parking_lot = "0.12"
 dashmap = "6.1"
 
-# System info
-sysinfo = { version = "0.30", optional = true }
 
 # Error handling
 thiserror = { workspace = true }
@@ -45,11 +37,18 @@ log = { workspace = true }
 # Hot-reload
 arc-swap = "1.7"
 
-# Schema validation
-jsonschema = "0.26"
-
 # Pattern matching
 regex = "1.11"
+
+# Platform-specific dependencies
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio = { workspace = true, features = ["rt", "sync", "fs"] }
+jsonschema = "0.26"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+tokio = { workspace = true, default-features = false, features = ["rt", "sync"] }
+web-sys = { workspace = true, features = ["Window", "Navigator", "Performance"] }
+js-sys = { workspace = true }
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }

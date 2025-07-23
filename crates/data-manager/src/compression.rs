@@ -167,11 +167,11 @@ impl CompressionHandler {
         let mut encoder = GzEncoder::new(Vec::new(), level);
         encoder
             .write_all(data)
-            .map_err(|e| Error::Custom(format!("Gzip compression failed: {}", e)))?;
+            .map_err(|e| Error::ParseError(format!("Gzip compression failed: {}", e)))?;
 
         encoder
             .finish()
-            .map_err(|e| Error::Custom(format!("Gzip compression failed: {}", e)))
+            .map_err(|e| Error::ParseError(format!("Gzip compression failed: {}", e)))
     }
 
     /// Decompress Gzip data
@@ -183,7 +183,7 @@ impl CompressionHandler {
 
         decoder
             .read_to_end(&mut output)
-            .map_err(|e| Error::Custom(format!("Gzip decompression failed: {}", e)))?;
+            .map_err(|e| Error::ParseError(format!("Gzip decompression failed: {}", e)))?;
 
         Ok(output)
     }
@@ -200,7 +200,7 @@ impl CompressionHandler {
 
         compressor
             .write_all(data)
-            .map_err(|e| Error::Custom(format!("Brotli compression failed: {}", e)))?;
+            .map_err(|e| Error::ParseError(format!("Brotli compression failed: {}", e)))?;
 
         drop(compressor);
         Ok(output)
@@ -213,21 +213,37 @@ impl CompressionHandler {
 
         decoder
             .read_to_end(&mut output)
-            .map_err(|e| Error::Custom(format!("Brotli decompression failed: {}", e)))?;
+            .map_err(|e| Error::ParseError(format!("Brotli decompression failed: {}", e)))?;
 
         Ok(output)
     }
 
     /// Compress using Zstandard
     fn compress_zstd(&self, data: &[u8]) -> Result<Vec<u8>> {
-        zstd::encode_all(data, self.config.level as i32)
-            .map_err(|e| Error::Custom(format!("Zstd compression failed: {}", e)))
+        #[cfg(feature = "native")]
+        {
+            zstd::encode_all(data, self.config.level as i32)
+                .map_err(|e| Error::ParseError(format!("Zstd compression failed: {}", e)))
+        }
+        #[cfg(not(feature = "native"))]
+        {
+            // Zstd not available in WASM, fall back to gzip
+            self.compress_gzip(data)
+        }
     }
 
     /// Decompress Zstandard data
     fn decompress_zstd(&self, data: &[u8]) -> Result<Vec<u8>> {
-        zstd::decode_all(data)
-            .map_err(|e| Error::Custom(format!("Zstd decompression failed: {}", e)))
+        #[cfg(feature = "native")]
+        {
+            zstd::decode_all(data)
+                .map_err(|e| Error::ParseError(format!("Zstd decompression failed: {}", e)))
+        }
+        #[cfg(not(feature = "native"))]
+        {
+            // Zstd not available in WASM, fall back to gzip
+            self.decompress_gzip(data)
+        }
     }
 
     /// Get compression statistics
@@ -255,7 +271,7 @@ impl StreamCompressor {
     }
 
     /// Create a compressing writer
-    pub fn create_writer<W: Write>(&self, writer: W) -> Box<dyn Write> {
+    pub fn create_writer<W: Write + 'static>(&self, writer: W) -> Box<dyn Write> {
         match self.compression_type {
             CompressionType::None => Box::new(writer),
             CompressionType::Gzip => {
@@ -275,7 +291,16 @@ impl StreamCompressor {
                 Box::new(brotli::CompressorWriter::new(writer, 4096, self.level, 22))
             }
             CompressionType::Zstd => {
-                Box::new(zstd::Encoder::new(writer, self.level as i32).unwrap())
+                #[cfg(feature = "native")]
+                {
+                    Box::new(zstd::Encoder::new(writer, self.level as i32).unwrap())
+                }
+                #[cfg(not(feature = "native"))]
+                {
+                    // Zstd not available in WASM, use gzip instead
+                    use flate2::write::GzEncoder;
+                    Box::new(GzEncoder::new(writer, flate2::Compression::new(self.level as u32)))
+                }
             }
         }
     }
@@ -289,7 +314,18 @@ impl StreamCompressor {
                 Box::new(GzDecoder::new(reader))
             }
             CompressionType::Brotli => Box::new(brotli::Decompressor::new(reader, 4096)),
-            CompressionType::Zstd => Box::new(zstd::Decoder::new(reader).unwrap()),
+            CompressionType::Zstd => {
+                #[cfg(feature = "native")]
+                {
+                    Box::new(zstd::Decoder::new(reader).unwrap())
+                }
+                #[cfg(not(feature = "native"))]
+                {
+                    // Zstd not available in WASM, use gzip instead
+                    use flate2::read::GzDecoder;
+                    Box::new(GzDecoder::new(reader))
+                }
+            }
         }
     }
 }

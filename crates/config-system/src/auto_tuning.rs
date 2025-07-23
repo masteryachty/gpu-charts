@@ -6,7 +6,6 @@ use crate::{
 use parking_lot::RwLock;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use sysinfo::{CpuExt, System, SystemExt};
 
 /// Hardware capabilities detection
 #[derive(Debug, Clone)]
@@ -153,45 +152,98 @@ impl AutoTuner {
 
     /// Detect hardware capabilities
     fn detect_hardware() -> HardwareCapabilities {
-        let mut sys = System::new_all();
-        sys.refresh_all();
-
-        // Get system info
-        let cpu_cores = sys.cpus().len();
-        let cpu_freq_mhz = sys
-            .cpus()
-            .first()
-            .map(|cpu| cpu.frequency())
-            .unwrap_or(2000);
-
-        let system_memory = sys.total_memory();
-        let available_memory = sys.available_memory();
-
-        // GPU detection would require platform-specific code
-        // For now, use reasonable defaults
-        HardwareCapabilities {
-            gpu_memory: 8_000_000_000, // 8GB default
-            gpu_compute_units: 32,
-            gpu_clock_mhz: 1500,
-            cpu_cores,
-            cpu_freq_mhz,
-            system_memory,
-            available_memory,
-            display_width: 1920,
-            display_height: 1080,
-            platform: PlatformInfo {
-                os: sys.name().unwrap_or_else(|| "Unknown".to_string()),
-                browser: None, // Would detect in WASM environment
-                webgpu_limits: WebGPULimits {
-                    max_texture_dimension_2d: 16384,
-                    max_texture_dimension_3d: 2048,
-                    max_buffer_size: 256 * 1024 * 1024,
-                    max_vertex_buffers: 8,
-                    max_bind_groups: 4,
-                    max_compute_workgroup_size_x: 256,
-                    max_compute_workgroups_per_dimension: 65535,
+        // In WASM, we use browser APIs to detect capabilities
+        #[cfg(target_arch = "wasm32")]
+        {
+            use web_sys::window;
+            
+            let window = window().unwrap();
+            let navigator = window.navigator();
+            
+            // Get CPU cores from navigator.hardwareConcurrency
+            let cpu_cores = navigator.hardware_concurrency() as usize;
+            
+            // Memory detection via navigator.deviceMemory (if available)
+            // This is an approximation in GB
+            let device_memory_gb = js_sys::Reflect::get(&navigator, &"deviceMemory".into())
+                .ok()
+                .and_then(|v| v.as_f64())
+                .unwrap_or(8.0);
+            let system_memory = (device_memory_gb * 1024.0 * 1024.0 * 1024.0) as u64;
+            
+            // Get display dimensions
+            let display_width = window.inner_width().ok()
+                .and_then(|v| v.as_f64())
+                .unwrap_or(1920.0) as u32;
+            let display_height = window.inner_height().ok()
+                .and_then(|v| v.as_f64())
+                .unwrap_or(1080.0) as u32;
+            
+            // Browser detection
+            let user_agent = navigator.user_agent().unwrap_or_default();
+            let browser = if user_agent.contains("Chrome") {
+                Some("Chrome".to_string())
+            } else if user_agent.contains("Firefox") {
+                Some("Firefox".to_string())
+            } else if user_agent.contains("Safari") {
+                Some("Safari".to_string())
+            } else {
+                Some("Unknown".to_string())
+            };
+            
+            HardwareCapabilities {
+                gpu_memory: 8_000_000_000, // Will be detected from WebGPU limits
+                gpu_compute_units: 32,      // Default, actual detection requires WebGPU
+                gpu_clock_mhz: 1500,        // Default
+                cpu_cores,
+                cpu_freq_mhz: 2000,         // Default estimate
+                system_memory,
+                available_memory: system_memory, // Assume all available in browser
+                display_width,
+                display_height,
+                platform: PlatformInfo {
+                    os: "Web".to_string(),
+                    browser,
+                    webgpu_limits: WebGPULimits {
+                        max_texture_dimension_2d: 16384,
+                        max_texture_dimension_3d: 2048,
+                        max_buffer_size: 256 * 1024 * 1024,
+                        max_vertex_buffers: 8,
+                        max_bind_groups: 4,
+                        max_compute_workgroup_size_x: 256,
+                        max_compute_workgroups_per_dimension: 65535,
+                    },
                 },
-            },
+            }
+        }
+        
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            // For non-WASM builds, use defaults
+            HardwareCapabilities {
+                gpu_memory: 8_000_000_000,
+                gpu_compute_units: 32,
+                gpu_clock_mhz: 1500,
+                cpu_cores: 4,
+                cpu_freq_mhz: 2000,
+                system_memory: 16_000_000_000,
+                available_memory: 16_000_000_000,
+                display_width: 1920,
+                display_height: 1080,
+                platform: PlatformInfo {
+                    os: "Native".to_string(),
+                    browser: None,
+                    webgpu_limits: WebGPULimits {
+                        max_texture_dimension_2d: 16384,
+                        max_texture_dimension_3d: 2048,
+                        max_buffer_size: 256 * 1024 * 1024,
+                        max_vertex_buffers: 8,
+                        max_bind_groups: 4,
+                        max_compute_workgroup_size_x: 256,
+                        max_compute_workgroups_per_dimension: 65535,
+                    },
+                },
+            }
         }
     }
 
@@ -319,7 +371,7 @@ impl AutoTuner {
             // Minor adjustments
             config.performance.lod_bias = (config.performance.lod_bias * 1.1).min(2.0);
             config.performance.draw_call_batch_size =
-                (config.performance.draw_call_batch_size * 1.5).min(1000);
+                ((config.performance.draw_call_batch_size as f32 * 1.5) as u32).min(1000);
         }
     }
 
@@ -360,7 +412,7 @@ impl AutoTuner {
         // Adjust batch sizes based on draw call performance
         if metrics.avg_draw_calls > 100.0 {
             config.performance.draw_call_batch_size =
-                (config.performance.draw_call_batch_size * 1.2).min(500);
+                ((config.performance.draw_call_batch_size as f32 * 1.2) as u32).min(500);
         }
 
         // Optimize cache size based on memory usage

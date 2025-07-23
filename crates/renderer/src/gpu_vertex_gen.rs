@@ -122,8 +122,9 @@ impl GpuVertexGenerator {
             label: Some("Vertex Generation Pipeline"),
             layout: Some(&pipeline_layout),
             module: &shader,
-            entry_point: "main",
+            entry_point: Some("main"),
             compilation_options: Default::default(),
+            cache: None,
         });
 
         // Create output buffers

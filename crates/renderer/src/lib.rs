@@ -7,6 +7,24 @@ use gpu_charts_shared::{ChartConfiguration, ChartType, DataHandle, Result, Visua
 use std::collections::HashMap;
 use std::sync::Arc;
 
+#[cfg(target_arch = "wasm32")]
+use web_sys::console;
+
+/// Console log macro for WASM
+#[cfg(target_arch = "wasm32")]
+macro_rules! console_log {
+    ($($t:tt)*) => {
+        console::log_1(&format!($($t)*).into());
+    };
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+macro_rules! console_log {
+    ($($t:tt)*) => {
+        log::info!($($t)*);
+    };
+}
+
 pub mod buffer_pool;
 pub mod chart_renderers;
 pub mod config;
@@ -22,15 +40,19 @@ pub mod overlays;
 pub mod phase2_integration;
 pub mod pipeline;
 pub mod render_bundles;
+pub mod timing;
 pub mod vertex_compression;
 
 use chart_renderers::ChartRenderer;
 use engine::RenderEngine;
 use overlays::OverlayRenderer;
 
+// Re-export Phase2 types for system-integration
+pub use phase2_integration::{Phase2Config, Phase2Renderer};
+
 /// GPU buffer set passed from data manager
 pub struct GpuBufferSet {
-    pub buffers: HashMap<String, Vec<wgpu::Buffer>>,
+    pub buffers: HashMap<String, Vec<Arc<wgpu::Buffer>>>,
     pub metadata: gpu_charts_shared::DataMetadata,
 }
 
@@ -191,12 +213,15 @@ impl Renderer {
 
     /// Render a frame
     pub fn render(&mut self) -> Result<()> {
-        let start_time = std::time::Instant::now();
+        console_log!("[Renderer] render() called");
+        let start_time = timing::Timer::now();
 
         // Get active buffer sets for current config
         let buffer_sets = self.get_active_buffer_sets();
+        console_log!("[Renderer] Active buffer sets: {}", buffer_sets.len());
 
         if let Some(renderer) = &mut self.active_renderer {
+            console_log!("[Renderer] Active renderer found, calling engine.render()");
             self.engine.render(
                 renderer.as_mut(),
                 &mut self.overlay_renderers,
@@ -205,9 +230,13 @@ impl Renderer {
                 &self.current_config.as_ref().unwrap().visual_config,
                 &mut self.performance_metrics,
             )?;
+            console_log!("[Renderer] engine.render() completed");
+        } else {
+            console_log!("[Renderer] WARNING: No active renderer configured");
         }
 
-        self.performance_metrics.frame_time_ms = start_time.elapsed().as_secs_f32() * 1000.0;
+        self.performance_metrics.frame_time_ms = start_time.elapsed_millis() as f32;
+        console_log!("[Renderer] Frame rendered in {}ms", self.performance_metrics.frame_time_ms);
         Ok(())
     }
 
@@ -297,6 +326,15 @@ impl Renderer {
 
         self.overlay_renderers.clear();
 
+        // Always add grid overlay if enabled
+        if config.visual_config.show_grid {
+            let grid_overlay = Box::new(GridOverlay::new(
+                self.engine.device(),
+                &config.visual_config,
+            )?);
+            self.overlay_renderers.push(grid_overlay);
+        }
+
         for overlay_config in &config.overlays {
             let overlay: Box<dyn OverlayRenderer> = match overlay_config.overlay_type.as_str() {
                 "volume" => Box::new(VolumeOverlay::new(
@@ -319,14 +357,32 @@ impl Renderer {
 
     fn get_active_buffer_sets(&self) -> Vec<Arc<GpuBufferSet>> {
         // Get buffer sets for active data handles
+        console_log!("[Renderer] Getting active buffer sets...");
+        console_log!("[Renderer] Current config exists: {}", self.current_config.is_some());
+        console_log!("[Renderer] Buffer handles registered: {}", self.buffer_handles.len());
+        
         if let Some(config) = &self.current_config {
-            config
+            console_log!("[Renderer] Config has {} data handles", config.data_handles.len());
+            for handle in &config.data_handles {
+                console_log!("[Renderer] Looking for handle: {:?}", handle.id);
+                if let Some(buffer_set) = self.buffer_handles.get(&handle.id) {
+                    console_log!("[Renderer] Found buffer set for handle: {:?}", handle.id);
+                } else {
+                    console_log!("[Renderer] WARNING: No buffer set found for handle: {:?}", handle.id);
+                }
+            }
+            
+            let result: Vec<Arc<GpuBufferSet>> = config
                 .data_handles
                 .iter()
                 .filter_map(|handle| self.buffer_handles.get(&handle.id))
                 .cloned()
-                .collect()
+                .collect();
+            
+            console_log!("[Renderer] Returning {} buffer sets", result.len());
+            result
         } else {
+            console_log!("[Renderer] WARNING: No current config set");
             Vec::new()
         }
     }

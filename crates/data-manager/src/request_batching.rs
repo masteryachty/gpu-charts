@@ -20,7 +20,7 @@ pub enum Priority {
 }
 
 /// Batched request
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct BatchedRequest {
     pub id: uuid::Uuid,
     pub url: String,
@@ -338,7 +338,7 @@ impl TimeSeriesCoalescer {
     ) -> Result<Vec<u8>> {
         // Build URL
         let url = format!(
-            "/api/data?symbol={}&start={}&end={}&columns={}",
+            "/api/data?symbol={}&type=MD&start={}&end={}&columns={}",
             symbol,
             time_range.start,
             time_range.end,

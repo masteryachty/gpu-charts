@@ -5,6 +5,10 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 
+[features]
+default = []
+timestamps = []
+
 [dependencies]
 # Workspace dependencies
 gpu-charts-shared = { path = "../shared-types" }
@@ -18,9 +22,14 @@ log = { workspace = true }
 uuid = { workspace = true }
 once_cell = { workspace = true }
 futures = { workspace = true }
+js-sys = { workspace = true }
 
 # Text rendering
 wgpu_text = "0.9"
+
+# WASM-specific dependencies
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+web-sys = { workspace = true, features = ["Window", "Performance"] }
 
 [dev-dependencies]
 criterion = { workspace = true }

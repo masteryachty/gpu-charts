@@ -4,8 +4,7 @@
 //! between the DataManager and Renderer components.
 
 use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::JsFuture;
-use web_sys::{HtmlCanvasElement, GpuCanvasContext};
+use web_sys::HtmlCanvasElement;
 use wgpu::{Device, Queue, Surface, SurfaceConfiguration, TextureUsages, PresentMode};
 
 /// Initialize WebGPU with a canvas element
@@ -28,11 +27,10 @@ pub async fn initialize_webgpu(
     let height = canvas.client_height() as u32;
     
     // Create WGPU instance
-    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+    let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
         backends: wgpu::Backends::BROWSER_WEBGPU,
-        dx12_shader_compiler: Default::default(),
         flags: wgpu::InstanceFlags::default(),
-        gles_minor_version: wgpu::Gles3MinorVersion::default(),
+        backend_options: Default::default(),
     });
     
     // Create surface from canvas
@@ -40,6 +38,7 @@ pub async fn initialize_webgpu(
         .map_err(|e| JsValue::from_str(&format!("Failed to create surface: {:?}", e)))?;
     
     // Request adapter
+    web_sys::console::log_1(&"[WebGPU Init] Requesting adapter...".into());
     let adapter = instance
         .request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::HighPerformance,
@@ -47,21 +46,36 @@ pub async fn initialize_webgpu(
             compatible_surface: Some(&surface),
         })
         .await
-        .ok_or("Failed to find adapter")?;
+        .map_err(|e| JsValue::from_str(&format!("Failed to find adapter: {:?}", e)))?;
+    
+    // Log adapter info
+    let adapter_info = adapter.get_info();
+    web_sys::console::log_1(&format!("[WebGPU Init] Adapter found: {:?}", adapter_info.name).into());
+    web_sys::console::log_1(&format!("[WebGPU Init] Adapter backend: {:?}", adapter_info.backend).into());
+    
+    // Use browser-compatible limits to avoid errors
+    let limits = wgpu::Limits::downlevel_webgl2_defaults();
+    web_sys::console::log_1(&format!("[WebGPU Init] Using browser-compatible limits (downlevel_webgl2_defaults): {:?}", limits).into());
     
     // Request device and queue
+    web_sys::console::log_1(&"[WebGPU Init] Requesting device with default limits...".into());
     let (device, queue) = adapter
         .request_device(
             &wgpu::DeviceDescriptor {
                 label: Some("GPU Charts Device"),
                 required_features: wgpu::Features::empty(),
-                required_limits: wgpu::Limits::default(),
+                required_limits: limits,
                 memory_hints: Default::default(),
+                trace: Default::default(),
             },
-            None,
         )
         .await
-        .map_err(|e| JsValue::from_str(&format!("Failed to create device: {:?}", e)))?;
+        .map_err(|e| {
+            web_sys::console::error_1(&format!("[WebGPU Init] Device request failed: {:?}", e).into());
+            JsValue::from_str(&format!("Failed to create device: {:?}", e))
+        })?;
+    
+    web_sys::console::log_1(&"[WebGPU Init] Device created successfully!".into());
     
     // Configure the surface
     let surface_caps = surface.get_capabilities(&adapter);
@@ -88,32 +102,4 @@ pub async fn initialize_webgpu(
     Ok((device, queue, surface))
 }
 
-/// Reconfigure surface for new dimensions
-pub fn reconfigure_surface(
-    surface: &Surface,
-    device: &Device,
-    width: u32,
-    height: u32,
-) -> Result<(), JsValue> {
-    let surface_caps = surface.get_capabilities(&device.adapter());
-    let surface_format = surface_caps
-        .formats
-        .iter()
-        .copied()
-        .find(|f| f.is_srgb())
-        .unwrap_or(surface_caps.formats[0]);
-    
-    let config = SurfaceConfiguration {
-        usage: TextureUsages::RENDER_ATTACHMENT,
-        format: surface_format,
-        width,
-        height,
-        present_mode: PresentMode::AutoVsync,
-        alpha_mode: surface_caps.alpha_modes[0],
-        view_formats: vec![],
-        desired_maximum_frame_latency: 2,
-    };
-    
-    surface.configure(&device, &config);
-    Ok(())
-}
+// Reconfigure surface is not needed - the renderer handles this internally

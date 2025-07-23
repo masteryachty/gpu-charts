@@ -1,33 +1,27 @@
 [workspace]
 resolver = "2"
 members = [
-    # Core WASM crates
+    # Core WASM crates (following NEW_ARCHITECTURE.md)
     "crates/shared-types",
-    "crates/data-manager", 
+    "crates/data-manager",
     "crates/renderer",
     "crates/wasm-bridge",
-    "crates/wasm-bridge-minimal",
-    "crates/config-system",
-    "crates/system-integration",
-    "crates/wasm-fetch",
-    "crates/wasm-websocket",
-    "crates/wasm-storage",
     
-    # Existing crates
+    # Additional useful crates
+    "crates/config-system",
+    
+    # Other modules
     "server", 
     "coinbase-logger",
     "file_server",
     
     # Benchmarking
-    "benchmarks",
-    "crates/gpu-charts-unified"
+    "benchmarks"
 ]
 exclude = [
-    "charting",  # Will be migrated to crates/renderer gradually
     "benchmarks_simple"  # Simple benchmarks without dependencies
 ]
 
-# Note: charting will be gradually migrated to the new crate structure
 
 [workspace.package]
 version = "0.1.0"
@@ -40,9 +34,9 @@ repository = "https://github.com/masteryachty/gpu-charts"
 # Core dependencies
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
-web-sys = "0.3"
+web-sys = { version = "0.3", features = ["Window", "Performance"] }
 js-sys = "0.3"
-wgpu = { version = "0.20", features = ["webgpu"] }
+wgpu = { version = "25.0", features = ["webgpu"] }
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }

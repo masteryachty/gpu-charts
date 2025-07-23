@@ -7,7 +7,7 @@ echo "🚀 Starting development build pipeline..."
 # Function to build WASM
 build_wasm() {
     echo "🦀 Building WASM package..."
-    cd charting && wasm-pack build --target web --out-dir ../web/pkg --dev --no-opt && cd ..
+    cd crates/wasm-bridge && wasm-pack build --target web --out-dir ../../web/pkg --dev --no-opt && cd ../..
     
     if [ $? -eq 0 ]; then
         echo "✅ WASM build successful"
@@ -32,7 +32,7 @@ echo "Press Ctrl+C to stop"
 # Use inotifywait if available, otherwise use a simple loop
 if command -v inotifywait &> /dev/null; then
     # Use inotify for efficient file watching
-    while inotifywait -r -e modify,create,delete charting/src/ charting/Cargo.toml crates/*/src/ crates/*/Cargo.toml 2>/dev/null; do
+    while inotifywait -r -e modify,create,delete crates/*/src/ crates/*/Cargo.toml 2>/dev/null; do
         echo "📝 Rust files changed, rebuilding..."
         build_wasm
         echo "⏰ $(date): Ready for changes..."
@@ -42,11 +42,11 @@ else
     echo "⚠️  inotifywait not found, using polling method"
     echo "💡 Install inotify-tools for better performance: sudo apt install inotify-tools"
     
-    last_modified=$(find charting/src/ charting/Cargo.toml crates/*/src/ crates/*/Cargo.toml -type f -exec stat -c %Y {} + 2>/dev/null | sort -n | tail -1)
+    last_modified=$(find crates/*/src/ crates/*/Cargo.toml -type f -exec stat -c %Y {} + 2>/dev/null | sort -n | tail -1)
     
     while true; do
         sleep 2
-        current_modified=$(find charting/src/ charting/Cargo.toml crates/*/src/ crates/*/Cargo.toml -type f -exec stat -c %Y {} + 2>/dev/null | sort -n | tail -1)
+        current_modified=$(find crates/*/src/ crates/*/Cargo.toml -type f -exec stat -c %Y {} + 2>/dev/null | sort -n | tail -1)
         
         if [ "$current_modified" != "$last_modified" ]; then
             echo "📝 Rust files changed, rebuilding..."

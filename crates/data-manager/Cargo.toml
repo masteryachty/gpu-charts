@@ -6,9 +6,9 @@ authors.workspace = true
 license.workspace = true
 
 [features]
-default = []
+default = ["wasm"]
 native = ["hyper", "hyper-tls", "tokio/full", "tokio-tungstenite", "memmap2", "zstd"]
-wasm = ["wasm-bindgen", "wasm-bindgen-futures", "getrandom/js"]
+wasm = ["wasm-bindgen", "wasm-bindgen-futures", "getrandom/js", "tokio/sync", "tokio/time"]
 
 [dependencies]
 # Workspace dependencies
@@ -26,7 +26,14 @@ web-sys = { workspace = true, features = [
     "Response",
     "Headers",
     "ReadableStream",
-    "console"
+    "console",
+    "WebSocket",
+    "BinaryType",
+    "CloseEvent",
+    "ErrorEvent",
+    "MessageEvent",
+    "AbortController",
+    "AbortSignal"
 ] }
 js-sys = { workspace = true }
 wgpu = { workspace = true }
@@ -37,7 +44,6 @@ bytemuck = { workspace = true }
 uuid = { workspace = true }
 log = { workspace = true }
 futures = { workspace = true }
-tokio = { workspace = true, default-features = false, features = ["rt", "macros"] }
 reqwest = { workspace = true }
 
 # Performance optimizations
@@ -66,7 +72,14 @@ memmap2 = { workspace = true, optional = true }
 chrono = { workspace = true }
 
 # WASM-specific
-getrandom = { version = "0.2", optional = true }
+getrandom = { version = "0.2", features = ["js"], optional = true }
+
+# Platform-specific dependencies
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio = { workspace = true, features = ["rt", "macros", "net", "fs"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+tokio = { workspace = true, default-features = false, features = ["rt", "macros"] }
 
 [dev-dependencies]
 criterion = { workspace = true }

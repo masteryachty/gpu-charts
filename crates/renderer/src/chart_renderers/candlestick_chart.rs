@@ -94,7 +94,7 @@ impl CandlestickRenderer {
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
-                entry_point: "vs_body",
+                entry_point: Some("vs_body"),
                 buffers: &[wgpu::VertexBufferLayout {
                     array_stride: 20, // time: f32, open: f32, high: f32, low: f32, close: f32
                     step_mode: wgpu::VertexStepMode::Vertex,
@@ -115,9 +115,9 @@ impl CandlestickRenderer {
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
-                entry_point: "fs_main",
+                entry_point: Some("fs_main"),
                 targets: &[Some(wgpu::ColorTargetState {
-                    format: wgpu::TextureFormat::Bgra8UnormSrgb,
+                    format: wgpu::TextureFormat::Bgra8Unorm,
                     blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
@@ -139,6 +139,7 @@ impl CandlestickRenderer {
                 alpha_to_coverage_enabled: false,
             },
             multiview: None,
+            cache: None,
         });
 
         // Create wick pipeline (for candle wicks)
@@ -147,7 +148,7 @@ impl CandlestickRenderer {
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
-                entry_point: "vs_wick",
+                entry_point: Some("vs_wick"),
                 buffers: &[wgpu::VertexBufferLayout {
                     array_stride: 20,
                     step_mode: wgpu::VertexStepMode::Vertex,
@@ -168,9 +169,9 @@ impl CandlestickRenderer {
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
-                entry_point: "fs_main",
+                entry_point: Some("fs_main"),
                 targets: &[Some(wgpu::ColorTargetState {
-                    format: wgpu::TextureFormat::Bgra8UnormSrgb,
+                    format: wgpu::TextureFormat::Bgra8Unorm,
                     blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
@@ -192,6 +193,7 @@ impl CandlestickRenderer {
                 alpha_to_coverage_enabled: false,
             },
             multiview: None,
+            cache: None,
         });
 
         Ok(Self {

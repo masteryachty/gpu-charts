@@ -12,6 +12,7 @@ use uuid::Uuid;
 pub mod aggregation;
 pub mod buffer_pool;
 pub mod cache;
+#[cfg(feature = "native")]
 pub mod chunked;
 pub mod compression;
 pub mod direct_gpu_parser;
@@ -21,19 +22,34 @@ pub mod handle;
 pub mod http2_client;
 pub mod manager;
 pub mod parser;
+#[cfg(feature = "native")]
 pub mod progressive_streaming;
+#[cfg(feature = "native")]
 pub mod request_batching;
+pub mod server_parser;
 pub mod simd;
 pub mod wasm_api;
 #[cfg(feature = "native")]
 pub mod websocket_client;
 
+// WASM-specific modules for HTTP and WebSocket
+#[cfg(feature = "wasm")]
+pub mod wasm_fetch;
+#[cfg(feature = "wasm")]
+pub mod wasm_websocket;
+
 use buffer_pool::BufferPool;
 use cache::{CacheKey, DataCache};
 use fetcher::DataFetcher;
-use parser::{BinaryParser, GpuBufferSet};
+use parser::GpuBufferSet;
+use server_parser::ServerParser;
 
 pub use wasm_api::WasmDataManager;
+
+// Re-export commonly used types from handle module
+pub use handle::{BufferHandle, BufferData, BufferMetadata};
+// Re-export from manager module - note: DataManager is already defined in this file
+pub use manager::{DataManagerConfig, DataSource};
 
 /// Main data manager that handles all data operations
 pub struct DataManager {
@@ -108,6 +124,11 @@ impl DataManager {
             }
         }
     }
+    
+    /// Get GPU buffer set for a handle
+    pub fn get_buffer_set(&self, handle_id: &Uuid) -> Option<GpuBufferSet> {
+        self.active_handles.read().get(handle_id).cloned()
+    }
 
     /// Get statistics about cache and memory usage
     pub fn get_stats(&self) -> String {
@@ -129,7 +150,7 @@ impl DataManager {
 
         // Build URL with query parameters
         let url = format!(
-            "{}/api/data?symbol={}&start={}&end={}&columns={}",
+            "{}/api/data?symbol={}&type=MD&start={}&end={}&columns={}",
             self.base_url,
             request.symbol,
             request.time_range.start,
@@ -155,20 +176,16 @@ impl DataManager {
         let fetch_time = js_sys::Date::now() - start_time;
         log::info!("Fetched {} bytes in {}ms", binary_data.len(), fetch_time);
 
-        // Parse header
-        let (header, header_size) = BinaryParser::parse_header(&binary_data)?;
-
-        // Validate data
-        BinaryParser::validate_data(&binary_data, &header, header_size)?;
+        // Parse server response (JSON header + binary data)
+        let (header, _header_size, binary_body) = ServerParser::parse_server_response(&binary_data)?;
 
         // Parse directly to GPU buffers
         let parse_start = js_sys::Date::now();
-        let buffers = BinaryParser::parse_to_gpu_buffers(
+        let buffers = ServerParser::parse_to_gpu_buffers(
             &self.device,
             &self.queue,
-            &binary_data,
             &header,
-            header_size,
+            &binary_body,
             &mut self.buffer_pool.write(),
         )?;
 
@@ -179,8 +196,8 @@ impl DataManager {
         let metadata = DataMetadata {
             symbol: request.symbol.clone(),
             time_range: request.time_range,
-            columns: header.columns.clone(),
-            row_count: header.row_count,
+            columns: ServerParser::get_column_names(&header),
+            row_count: ServerParser::get_row_count(&header),
             byte_size: binary_data.len() as u64,
             creation_time: js_sys::Date::now() as u64,
         };
@@ -194,7 +211,11 @@ impl DataManager {
         // Return all buffers to the pool
         for (_, column_buffers) in buffer_set.buffers {
             for buffer in column_buffers {
-                pool.release(buffer);
+                // Try to get the buffer out of the Arc if we're the only reference
+                if let Ok(buffer) = Arc::try_unwrap(buffer) {
+                    pool.release(buffer);
+                }
+                // If there are other references, we can't return it to the pool yet
             }
         }
     }

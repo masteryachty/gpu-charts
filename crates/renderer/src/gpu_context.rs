@@ -5,6 +5,7 @@
 
 use gpu_charts_shared::{Error, Result};
 use std::sync::Arc;
+use crate::timing::Timer;
 
 /// Persistent GPU context that maintains device/queue across frames
 pub struct PersistentGpuContext {
@@ -21,18 +22,24 @@ pub struct PersistentGpuContext {
     /// Device limits
     pub limits: wgpu::Limits,
     /// Creation timestamp for performance tracking
-    pub creation_time: std::time::Instant,
+    pub creation_time: Timer,
 }
 
 impl PersistentGpuContext {
     /// Create a new persistent GPU context
     /// This should be called once at application startup and the result stored
     pub async fn new() -> Result<Arc<Self>> {
-        let start_time = std::time::Instant::now();
+        let start_time = Timer::now();
 
-        // Create instance with all backends
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::all(),
+        // Create instance with appropriate backends
+        let backends = if cfg!(target_arch = "wasm32") {
+            wgpu::Backends::BROWSER_WEBGPU
+        } else {
+            wgpu::Backends::all()
+        };
+        
+        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
+            backends,
             ..Default::default()
         });
 
@@ -44,7 +51,7 @@ impl PersistentGpuContext {
                 force_fallback_adapter: false,
             })
             .await
-            .ok_or_else(|| Error::GpuError("Failed to find suitable GPU adapter".to_string()))?;
+            .map_err(|e| Error::GpuError(format!("Failed to find suitable GPU adapter: {:?}", e)))?;
 
         let adapter = Arc::new(adapter);
 
@@ -72,8 +79,14 @@ impl PersistentGpuContext {
             features |= wgpu::Features::PIPELINE_STATISTICS_QUERY;
         }
 
-        // Get adapter limits
-        let limits = adapter.limits();
+        // Use browser-compatible limits for WebGPU
+        // downlevel_webgl2_defaults() provides limits that work in all browsers
+        let limits = wgpu::Limits::downlevel_webgl2_defaults();
+        log::info!("Using browser-compatible WebGPU limits (downlevel_webgl2_defaults)");
+        
+        // Log what we're about to request
+        log::info!("Requesting device with limits: {:?}", limits);
+        log::info!("Requesting device with features: {:?}", features);
 
         // Create device and queue
         let (device, queue) = adapter
@@ -82,18 +95,24 @@ impl PersistentGpuContext {
                     label: Some("GPU Charts Persistent Device"),
                     required_features: features,
                     required_limits: limits.clone(),
+                    memory_hints: Default::default(),
+                    trace: Default::default(),
                 },
-                None,
             )
             .await
-            .map_err(|e| Error::GpuError(format!("Failed to create GPU device: {:?}", e)))?;
+            .map_err(|e| {
+                log::error!("Device request failed with error: {:?}", e);
+                Error::GpuError(format!("Failed to create GPU device: {:?}", e))
+            })?;
+        
+        log::info!("Device created successfully!");
 
         let device = Arc::new(device);
         let queue = Arc::new(queue);
 
         log::info!(
-            "GPU context initialized in {:?} with features: {:?}",
-            start_time.elapsed(),
+            "GPU context initialized in {:.2}ms with features: {:?}",
+            start_time.elapsed_millis(),
             features
         );
 
@@ -124,9 +143,9 @@ impl PersistentGpuContext {
         self.features.contains(wgpu::Features::TIMESTAMP_QUERY)
     }
 
-    /// Get uptime of the GPU context
-    pub fn uptime(&self) -> std::time::Duration {
-        self.creation_time.elapsed()
+    /// Get uptime of the GPU context in seconds
+    pub fn uptime_secs(&self) -> f64 {
+        self.creation_time.elapsed_secs()
     }
 
     /// Get device statistics
@@ -150,7 +169,7 @@ impl PersistentGpuContext {
                 "max_vertex_buffers": self.limits.max_vertex_buffers,
                 "max_compute_workgroup_size_x": self.limits.max_compute_workgroup_size_x,
             },
-            "uptime_seconds": self.uptime().as_secs(),
+            "uptime_seconds": self.uptime_secs() as u64,
         })
     }
 }

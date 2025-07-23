@@ -1,7 +1,6 @@
 //! Phase 3 Configuration System with hot-reload and auto-tuning capabilities
 
 pub mod auto_tuning;
-pub mod file_watcher;
 pub mod hot_reload;
 pub mod parser;
 pub mod presets;
@@ -283,7 +282,7 @@ pub enum LightingQuality {
 }
 
 /// Compression algorithms
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum CompressionAlgorithm {
     None,
     Lz4,

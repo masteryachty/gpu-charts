@@ -1,0 +1,11 @@
+[package]
+name = "gpu-charts-benchmarks-simple"
+version = "0.1.0"
+edition = "2021"
+
+[[bench]]
+name = "performance"
+harness = false
+
+[dependencies]
+criterion = "0.5"

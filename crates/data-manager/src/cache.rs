@@ -38,6 +38,26 @@ impl CacheKey {
                 .map(|a| (format!("{:?}", a.aggregation_type), a.timeframe)),
         }
     }
+    
+    pub fn from_metadata(metadata: &crate::handle::BufferMetadata) -> Self {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        
+        let mut hasher = DefaultHasher::new();
+        if let Some(column) = &metadata.column {
+            column.hash(&mut hasher);
+        }
+        metadata.data_type.hash(&mut hasher);
+        let columns_hash = hasher.finish();
+        
+        Self {
+            symbol: metadata.symbol.clone(),
+            time_range: metadata.time_range.map(|(start, end)| TimeRange::new(start, end))
+                .unwrap_or_else(|| TimeRange::new(0, 0)),
+            columns_hash,
+            aggregation: None,
+        }
+    }
 }
 
 impl fmt::Display for CacheKey {

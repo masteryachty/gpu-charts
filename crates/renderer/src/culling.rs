@@ -60,7 +60,9 @@ pub struct CullingSortedData<'a> {
 
 /// High-performance culling system with binary search and GPU acceleration
 pub struct CullingSystem {
+    #[allow(dead_code)]
     device: std::sync::Arc<wgpu::Device>,
+    #[allow(dead_code)]
     cull_pipeline: wgpu::ComputePipeline,
     /// Enable binary search optimization
     use_binary_search: bool,
@@ -78,8 +80,9 @@ impl CullingSystem {
             label: Some("Culling Pipeline"),
             layout: None,
             module: &shader,
-            entry_point: "main",
+            entry_point: Some("main"),
             compilation_options: Default::default(),
+            cache: None,
         });
 
         Ok(Self {

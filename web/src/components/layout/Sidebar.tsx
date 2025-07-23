@@ -9,7 +9,7 @@ import {
   Plus,
   Zap
 } from 'lucide-react';
-import { OptimizationSettings } from '../OptimizationSettings';
+// import { OptimizationSettings } from '../OptimizationSettings';
 
 const sidebarItems = [
   { icon: Settings, label: 'Settings', id: 'settings' },
@@ -149,7 +149,9 @@ export default function Sidebar() {
           {activePanel === 'performance' && (
             <div>
               <h3 className="text-text-primary font-medium mb-4">Performance</h3>
-              <OptimizationSettings />
+              <div className="text-text-secondary text-sm">
+                Performance settings coming soon...
+              </div>
             </div>
           )}
         </div>

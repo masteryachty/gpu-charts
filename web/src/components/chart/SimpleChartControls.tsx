@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
 
-export const SimpleChartControls: React.FC = () => {
+const SimpleChartControls: React.FC = () => {
   const chartType = useAppStore((state) => state.chartConfig.chartType);
   const setChartType = useAppStore((state) => state.setChartType);
   const candleTimeframe = useAppStore((state) => state.chartConfig.candleTimeframe);
@@ -54,3 +54,5 @@ export const SimpleChartControls: React.FC = () => {
     </div>
   );
 };
+
+export { SimpleChartControls };

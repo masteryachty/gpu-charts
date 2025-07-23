@@ -2,7 +2,6 @@
 
 use crate::{
     auto_tuning::{AutoTuner, PerformanceMetrics},
-    file_watcher::{ConfigFileEvent, ConfigFileEventType, DebouncedWatcher},
     hot_reload::{ConfigUpdateEvent, HotReloadManager},
     parser::{ConfigFormat, ConfigParser},
     presets::PresetManager,
@@ -20,8 +19,6 @@ pub struct ConfigurationSystem {
     /// Current configuration manager with hot-reload
     hot_reload: Arc<HotReloadManager>,
 
-    /// File watcher for configuration files
-    file_watcher: Option<RwLock<DebouncedWatcher>>,
 
     /// Auto-tuner
     auto_tuner: Arc<AutoTuner>,
@@ -45,14 +42,17 @@ pub enum SystemEvent {
     /// Configuration updated
     ConfigUpdated(ConfigUpdateEvent),
 
-    /// Configuration file changed
-    FileChanged(ConfigFileEvent),
-
     /// Auto-tuning suggestion
     AutoTuneSuggestion(GpuChartsConfig),
 
     /// Validation error
     ValidationError(String),
+
+    /// Parse error
+    ParseError(String),
+
+    /// Update error
+    UpdateError(String),
 
     /// System error
     SystemError(String),
@@ -86,7 +86,6 @@ impl ConfigurationSystem {
         Ok((
             Self {
                 hot_reload,
-                file_watcher: None,
                 auto_tuner,
                 preset_manager,
                 schema_validator,
@@ -114,20 +113,10 @@ impl ConfigurationSystem {
         // Update
         self.hot_reload.update(config).await?;
 
-        // Add to watched paths
+        // Add to loaded paths
         let mut paths = self.config_paths.write().await;
         if !paths.contains(&path.to_path_buf()) {
             paths.push(path.to_path_buf());
-        }
-
-        // Start watching if not already
-        if self.file_watcher.is_none() {
-            self.start_file_watching().await?;
-        }
-
-        // Watch this file
-        if let Some(watcher) = &self.file_watcher {
-            watcher.write().watch(path)?;
         }
 
         Ok(())
@@ -206,62 +195,6 @@ impl ConfigurationSystem {
         Ok(())
     }
 
-    /// Start file watching
-    async fn start_file_watching(&mut self) -> Result<()> {
-        let (mut watcher, mut event_rx) = DebouncedWatcher::new(500)?;
-
-        // Spawn event handler
-        let update_tx = self.update_tx.clone();
-        let hot_reload = self.hot_reload.clone();
-        let schema_validator = self.schema_validator.clone();
-
-        tokio::spawn(async move {
-            while let Some(events) = event_rx.recv().await {
-                for event in events {
-                    // Send file change event
-                    let _ = update_tx.send(SystemEvent::FileChanged(event.clone()));
-
-                    // Handle configuration reload
-                    if event.event_type == ConfigFileEventType::Modified
-                        || event.event_type == ConfigFileEventType::Created
-                    {
-                        match ConfigParser::parse_file(&event.path) {
-                            Ok(config) => {
-                                // Validate
-                                if let Err(e) = schema_validator.validate(&config) {
-                                    let _ =
-                                        update_tx.send(SystemEvent::ValidationError(e.to_string()));
-                                    continue;
-                                }
-
-                                if let Err(e) = ConfigValidator::validate(&config) {
-                                    let _ =
-                                        update_tx.send(SystemEvent::ValidationError(e.to_string()));
-                                    continue;
-                                }
-
-                                // Update
-                                if let Err(e) = hot_reload.update(config).await {
-                                    let _ = update_tx.send(SystemEvent::SystemError(e.to_string()));
-                                }
-                            }
-                            Err(e) => {
-                                let _ = update_tx.send(SystemEvent::SystemError(e.to_string()));
-                            }
-                        }
-                    }
-                }
-            }
-        });
-
-        self.file_watcher = Some(RwLock::new(watcher));
-        Ok(())
-    }
-
-    /// Stop file watching
-    pub fn stop_file_watching(&mut self) {
-        self.file_watcher = None;
-    }
 
     /// Get configuration history
     pub fn get_history(&self) -> Vec<(std::time::Instant, Arc<GpuChartsConfig>)> {
@@ -302,18 +235,16 @@ impl ConfigurationSystem {
 /// Builder for configuration system
 pub struct ConfigSystemBuilder {
     initial_config: Option<GpuChartsConfig>,
-    watch_paths: Vec<PathBuf>,
+    config_paths: Vec<PathBuf>,
     enable_auto_tuning: bool,
-    enable_file_watching: bool,
 }
 
 impl ConfigSystemBuilder {
     pub fn new() -> Self {
         Self {
             initial_config: None,
-            watch_paths: Vec::new(),
+            config_paths: Vec::new(),
             enable_auto_tuning: true,
-            enable_file_watching: true,
         }
     }
 
@@ -323,7 +254,7 @@ impl ConfigSystemBuilder {
     }
 
     pub fn with_config_file(mut self, path: impl Into<PathBuf>) -> Self {
-        self.watch_paths.push(path.into());
+        self.config_paths.push(path.into());
         self
     }
 
@@ -332,10 +263,6 @@ impl ConfigSystemBuilder {
         self
     }
 
-    pub fn with_file_watching(mut self, enabled: bool) -> Self {
-        self.enable_file_watching = enabled;
-        self
-    }
 
     pub async fn build(
         self,
@@ -343,7 +270,7 @@ impl ConfigSystemBuilder {
         let (mut system, event_rx) = ConfigurationSystem::new(self.initial_config).await?;
 
         // Load config files
-        for path in self.watch_paths {
+        for path in self.config_paths {
             system.load_from_file(path).await?;
         }
 
@@ -352,11 +279,6 @@ impl ConfigSystemBuilder {
             let mut config = (*system.current()).clone();
             config.performance.auto_tuning.enabled = false;
             system.update(config).await?;
-        }
-
-        // Configure file watching
-        if !self.enable_file_watching {
-            system.stop_file_watching();
         }
 
         Ok((system, event_rx))

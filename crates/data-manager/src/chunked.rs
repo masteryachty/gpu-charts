@@ -4,7 +4,7 @@
 //! by processing them in chunks, with backpressure and memory management.
 
 use crate::simd::{ColumnData, ProcessedColumn, SimdBatchProcessor};
-use futures::stream::{Stream, StreamExt};
+use futures::stream::Stream;
 use gpu_charts_shared::{Error, Result};
 use std::path::Path;
 use std::pin::Pin;
@@ -108,12 +108,12 @@ impl ChunkedParser {
     ) -> Result<ChunkedDataStream> {
         let file = File::open(path.as_ref())
             .await
-            .map_err(|e| Error::IoError(e.to_string()))?;
+            .map_err(|e| Error::ParseError(e.to_string()))?;
 
         let metadata = file
             .metadata()
             .await
-            .map_err(|e| Error::IoError(e.to_string()))?;
+            .map_err(|e| Error::ParseError(e.to_string()))?;
 
         let file_size = metadata.len();
 
@@ -133,12 +133,14 @@ impl ChunkedParser {
         estimated_size: u64,
         column_types: Vec<ColumnType>,
     ) -> ChunkedDataStream {
+        // TODO: Fix lifetime issue - for now pass None
+        // The SIMD processor reference needs 'static lifetime but self only has local lifetime
         ChunkedDataStream::new(
             Box::pin(reader),
             estimated_size,
             column_types,
             self.config.clone(),
-            self.simd_processor.as_ref(),
+            None, // TODO: self.simd_processor.as_ref() needs 'static lifetime
         )
     }
 
@@ -216,6 +218,7 @@ impl ChunkedDataStream {
         simd_processor: Option<&'static SimdBatchProcessor>,
     ) -> Self {
         let buffer = Vec::with_capacity(config.chunk_size);
+        let max_memory = config.max_memory;
 
         Self {
             reader,
@@ -226,7 +229,7 @@ impl ChunkedDataStream {
             current_offset: 0,
             chunk_index: 0,
             buffer,
-            memory_pressure: MemoryPressureTracker::new(config.max_memory),
+            memory_pressure: MemoryPressureTracker::new(max_memory),
         }
     }
 
@@ -247,7 +250,7 @@ impl ChunkedDataStream {
             .reader
             .read(&mut self.buffer)
             .await
-            .map_err(|e| Error::IoError(e.to_string()))?;
+            .map_err(|e| Error::ParseError(e.to_string()))?;
 
         if bytes_read == 0 {
             return Ok(None);
@@ -356,7 +359,7 @@ impl ChunkedDataStream {
     fn apply_simd_processing(
         &self,
         columns: Vec<ChunkColumn>,
-        processor: &SimdBatchProcessor,
+        _processor: &SimdBatchProcessor,
     ) -> Vec<ChunkColumn> {
         // Convert to SIMD format, process, and convert back
         // This is a simplified version - real implementation would be more sophisticated

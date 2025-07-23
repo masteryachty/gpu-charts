@@ -11,8 +11,7 @@
     "dev:web": "concurrently \"npm run dev:watch\" \"npm run dev\"",
     "dev:web:server": "concurrently \"npm run dev:watch\" \"npm run dev:server\" \"npm run dev\"",
     "dev:full": "concurrently \"npm run dev:watch\" \"npm run dev:server\" \"npm run dev:logger\" \"npm run dev\"",
-    "dev:wasm": "cd charting && wasm-pack build --target web --out-dir ../web/pkg --dev",
-    "dev:wasm:legacy": "cd charting && wasm-pack build --target web --out-dir ../web/pkg --dev",
+    "dev:wasm": "cd crates/wasm-bridge && wasm-pack build --target web --out-dir ../../web/pkg --no-opt --dev",
     "dev:wasm:phase3": "cd crates/wasm-bridge-minimal && wasm-pack build --target web --out-dir ../../web/pkg --no-opt --dev",
     "dev:watch": "./scripts/dev-build.sh",
     "dev:server": "cd server && cargo run",
@@ -21,9 +20,7 @@
     "dev:logger:build": "cd coinbase-logger && cargo build",
     "setup:ssl": "./scripts/setup-ssl.sh",
     "build": "npm run build:wasm && cd web && npm run build",
-    "build:wasm": "cd charting && wasm-pack build --target web --out-dir ../web/pkg --release --no-opt",
-    "build:wasm:legacy": "cd charting && wasm-pack build --target web --out-dir ../web/pkg",
-    "build:wasm:phase3": "cd crates/wasm-bridge-minimal && wasm-pack build --target web --out-dir ../../web/pkg --no-opt",
+    "build:wasm": "cd crates/wasm-bridge && wasm-pack build --target web --out-dir ../../web/pkg --release --no-opt",
     "build:server": "cd server && cargo build --release --target x86_64-unknown-linux-gnu",
     "build:logger": "cd coinbase-logger && cargo build --release --target x86_64-unknown-linux-gnu",
     "docker:build:server": "./scripts/build-server-docker.sh",
@@ -34,7 +31,7 @@
     "docker:deploy:server": "npm run docker:build:server && npm run docker:stop:server || true && npm run docker:run:server",
     "test": "npm run test:server",
     "test:all": "npm run test:server && npm run test:web && npm run test:crates",
-    "test:crates": "cargo test --workspace --exclude charting",
+    "test:crates": "cargo test --workspace",
     "test:server": "cd server && cargo test --target x86_64-unknown-linux-gnu",
     "test:server:api": "cd server && ./test_api.sh",
     "test:server:api:production": "cd server && ./test_api_production.sh",
@@ -50,7 +47,7 @@
     "lint": "cd web && npm run lint",
     "lint:rust": "cargo clippy --workspace --all-targets -- -D warnings",
     "clean": "rm -rf web/pkg target && cargo clean",
-    "clean:deep": "rm -rf web/pkg web/dist server/target coinbase-logger/target charting/target file_server/target crates/*/target target"
+    "clean:deep": "rm -rf web/pkg web/dist server/target coinbase-logger/target file_server/target crates/*/target target"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

@@ -282,7 +282,7 @@ impl MultiResolutionSystem {
 
 /// Render target for a specific resolution
 #[derive(Debug)]
-struct RenderTarget {
+pub struct RenderTarget {
     width: u32,
     height: u32,
     color_texture: wgpu::Texture,
@@ -393,13 +393,13 @@ fn create_upsampling_pipeline(device: &wgpu::Device) -> Result<wgpu::RenderPipel
         layout: Some(&pipeline_layout),
         vertex: wgpu::VertexState {
             module: &shader,
-            entry_point: "vs_main",
+            entry_point: Some("vs_main"),
             buffers: &[],
             compilation_options: Default::default(),
         },
         fragment: Some(wgpu::FragmentState {
             module: &shader,
-            entry_point: "fs_main",
+            entry_point: Some("fs_main"),
             targets: &[Some(wgpu::ColorTargetState {
                 format: wgpu::TextureFormat::Bgra8UnormSrgb,
                 blend: None,
@@ -419,6 +419,7 @@ fn create_upsampling_pipeline(device: &wgpu::Device) -> Result<wgpu::RenderPipel
         depth_stencil: None,
         multisample: wgpu::MultisampleState::default(),
         multiview: None,
+        cache: None,
     });
 
     Ok(pipeline)

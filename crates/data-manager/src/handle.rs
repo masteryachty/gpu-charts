@@ -233,7 +233,7 @@ impl HandleManager {
         let removed = before - buffers.len();
         self.stats
             .stale_handles_cleaned
-            .fetch_add(removed, Ordering::Relaxed);
+            .fetch_add(removed as u64, Ordering::Relaxed);
         removed
     }
 

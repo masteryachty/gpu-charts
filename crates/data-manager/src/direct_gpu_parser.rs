@@ -31,6 +31,7 @@ impl DirectGpuParser {
 
     /// Parse binary file directly to GPU buffers using memory-mapped I/O
     /// This provides 6-9x speedup over CPU parsing
+    #[cfg(feature = "native")]
     pub fn parse_file_to_gpu<P: AsRef<std::path::Path>>(
         &self,
         path: P,
@@ -47,6 +48,16 @@ impl DirectGpuParser {
         };
 
         self.parse_mmap_to_gpu(&mmap[..], buffer_pool)
+    }
+    
+    /// Parse binary data directly to GPU buffers (WASM version)
+    #[cfg(target_arch = "wasm32")]
+    pub fn parse_data_to_gpu(
+        &self,
+        data: Vec<u8>,
+        buffer_pool: &mut BufferPool,
+    ) -> Result<GpuBufferSetDirect> {
+        self.parse_mmap_to_gpu(&data[..], buffer_pool)
     }
 
     /// Parse memory-mapped data directly to GPU buffers

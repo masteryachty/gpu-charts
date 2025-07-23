@@ -34,7 +34,7 @@ pub struct BenchmarkGpu {
 
 impl BenchmarkGpu {
     pub async fn new() -> Self {
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             backends: wgpu::Backends::all(),
             ..Default::default()
         });
@@ -55,9 +55,10 @@ impl BenchmarkGpu {
                     label: Some("Benchmark Device"),
                     required_features: wgpu::Features::TIMESTAMP_QUERY
                         | wgpu::Features::TIMESTAMP_QUERY_INSIDE_PASSES,
-                    required_limits: wgpu::Limits::default(),
+                    required_limits: wgpu::Limits::downlevel_webgl2_defaults(),
+                    memory_hints: Default::default(),
+                    trace: Default::default(),
                 },
-                None,
             )
             .await
             .expect("Failed to create device");
@@ -178,7 +179,7 @@ impl GpuTimer {
             let _ = sender.send(result);
         });
 
-        device.poll(wgpu::Maintain::Wait);
+        let _ = device.poll(wgpu::PollType::Wait);
         receiver.await.unwrap().unwrap();
 
         let data = buffer_slice.get_mapped_range();

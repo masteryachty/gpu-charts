@@ -158,8 +158,9 @@ impl VertexCompressionSystem {
                 label: Some("Vertex Compression Pipeline"),
                 layout: Some(&pipeline_layout),
                 module: &compression_shader,
-                entry_point: "compress_vertices",
+                entry_point: Some("compress_vertices"),
                 compilation_options: Default::default(),
+                cache: None,
             });
 
         Ok(Self {
@@ -287,8 +288,9 @@ impl DeltaCompressionSystem {
             label: Some("Delta Compression Pipeline"),
             layout: None,
             module: &shader,
-            entry_point: "delta_compress",
+            entry_point: Some("delta_compress"),
             compilation_options: Default::default(),
+            cache: None,
         });
 
         Ok(Self {

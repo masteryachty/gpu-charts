@@ -9,8 +9,8 @@ pub trait OverlayRenderer {
     /// Render the overlay
     fn render<'a>(&'a mut self, pass: &mut wgpu::RenderPass<'a>, context: &RenderContext);
 
-    /// Get the render location (main chart or sub-chart)
-    fn render_location(&self) -> RenderLocation;
+    /// Update visual configuration
+    fn update_visual_config(&mut self, config: &VisualConfig);
 
     /// Handle resize events
     fn on_resize(&mut self, width: u32, height: u32);
@@ -100,13 +100,13 @@ impl VolumeOverlay {
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
-                entry_point: "vs_main",
+                entry_point: Some("vs_main"),
                 buffers: &[],
                 compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
-                entry_point: "fs_main",
+                entry_point: Some("fs_main"),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: wgpu::TextureFormat::Bgra8UnormSrgb,
                     blend: Some(wgpu::BlendState::ALPHA_BLENDING),
@@ -130,6 +130,7 @@ impl VolumeOverlay {
                 alpha_to_coverage_enabled: false,
             },
             multiview: None,
+            cache: None,
         });
 
         Ok(Self {
@@ -149,8 +150,8 @@ impl OverlayRenderer for VolumeOverlay {
         // TODO: Render volume bars
     }
 
-    fn render_location(&self) -> RenderLocation {
-        self.location
+    fn update_visual_config(&mut self, config: &VisualConfig) {
+        self.visual_config = config.clone();
     }
 
     fn on_resize(&mut self, _width: u32, _height: u32) {
@@ -222,13 +223,13 @@ impl MovingAverageOverlay {
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
-                entry_point: "vs_main",
+                entry_point: Some("vs_main"),
                 buffers: &[],
                 compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
-                entry_point: "fs_main",
+                entry_point: Some("fs_main"),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: wgpu::TextureFormat::Bgra8UnormSrgb,
                     blend: Some(wgpu::BlendState::ALPHA_BLENDING),
@@ -240,6 +241,7 @@ impl MovingAverageOverlay {
             depth_stencil: None,
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
+            cache: None,
         });
 
         Ok(Self {
@@ -260,8 +262,8 @@ impl OverlayRenderer for MovingAverageOverlay {
         // TODO: Calculate and render moving average
     }
 
-    fn render_location(&self) -> RenderLocation {
-        self.location
+    fn update_visual_config(&mut self, config: &VisualConfig) {
+        self.visual_config = config.clone();
     }
 
     fn on_resize(&mut self, _width: u32, _height: u32) {
@@ -297,3 +299,7 @@ fn fs_main() -> @location(0) vec4<f32> {
     return vec4<f32>(1.0, 0.5, 0.0, 1.0);
 }
 "#;
+
+// Include the grid overlay
+pub use grid_overlay::GridOverlay;
+pub mod grid_overlay;

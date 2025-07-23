@@ -3,6 +3,7 @@
 use crate::buffer_pool::BufferPool;
 use gpu_charts_shared::{DataMetadata, Error, Result};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 /// Header structure for binary data format
 #[derive(Debug, Clone)]
@@ -13,8 +14,9 @@ pub struct BinaryHeader {
 }
 
 /// Set of GPU buffers for a dataset
+#[derive(Clone)]
 pub struct GpuBufferSet {
-    pub buffers: HashMap<String, Vec<wgpu::Buffer>>,
+    pub buffers: HashMap<String, Vec<Arc<wgpu::Buffer>>>,
     pub metadata: DataMetadata,
 }
 
@@ -115,7 +117,7 @@ impl BinaryParser {
         header: &BinaryHeader,
         header_size: usize,
         buffer_pool: &mut BufferPool,
-    ) -> Result<HashMap<String, Vec<wgpu::Buffer>>> {
+    ) -> Result<HashMap<String, Vec<Arc<wgpu::Buffer>>>> {
         let mut buffers = HashMap::new();
         let mut offset = header_size;
 
@@ -142,7 +144,7 @@ impl BinaryParser {
                 // Write data to buffer
                 queue.write_buffer(&buffer, 0, &data[data_offset..data_offset + chunk_size]);
 
-                column_buffers.push(buffer);
+                column_buffers.push(Arc::new(buffer));
 
                 remaining_bytes -= chunk_size;
                 data_offset += chunk_size;

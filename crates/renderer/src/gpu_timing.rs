@@ -153,7 +153,7 @@ impl GpuTimingSystem {
         });
 
         // Wait for the mapping
-        self.device.poll(wgpu::Maintain::Wait);
+        let _ = self.device.poll(wgpu::PollType::Wait);
         receiver
             .await
             .map_err(|_| Error::GpuError("Failed to receive mapping result".to_string()))?

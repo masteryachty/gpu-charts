@@ -42,8 +42,9 @@ impl AggregationEngine {
                 label: Some("OHLC Pipeline"),
                 layout: None,
                 module: &ohlc_shader,
-                entry_point: "main",
+                entry_point: Some("main"),
                 compilation_options: Default::default(),
+                cache: None,
             });
 
         self.pipelines.insert(AggregationType::Ohlc, ohlc_pipeline);

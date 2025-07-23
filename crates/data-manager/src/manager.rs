@@ -6,7 +6,8 @@
 //! - Coordinating data loading and parsing
 //! - Providing handle-based access to buffers
 
-use crate::cache::{CacheKey, LruCache};
+use crate::cache::CacheKey;
+use lru::LruCache;
 use crate::direct_gpu_parser::DirectGpuParser;
 use crate::handle::{BufferData, BufferHandle, BufferMetadata, HandleManager};
 use gpu_charts_shared::{Error, Result};
@@ -15,7 +16,7 @@ use std::sync::Arc;
 use wgpu::BufferUsages;
 
 /// Configuration for the DataManager
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct DataManagerConfig {
     /// Maximum memory usage in bytes
     pub max_memory_bytes: u64,
@@ -27,6 +28,18 @@ pub struct DataManagerConfig {
     pub enable_speculative_caching: bool,
     /// Buffer pool reference
     pub buffer_pool: Option<Arc<gpu_charts_renderer::buffer_pool::RenderBufferPool>>,
+}
+
+impl std::fmt::Debug for DataManagerConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DataManagerConfig")
+            .field("max_memory_bytes", &self.max_memory_bytes)
+            .field("cache_ttl_seconds", &self.cache_ttl_seconds)
+            .field("enable_prefetching", &self.enable_prefetching)
+            .field("enable_speculative_caching", &self.enable_speculative_caching)
+            .field("buffer_pool", &self.buffer_pool.is_some())
+            .finish()
+    }
 }
 
 impl Default for DataManagerConfig {
@@ -46,7 +59,7 @@ pub struct DataManager {
     /// Handle manager for buffer lifecycle
     handle_manager: Arc<HandleManager>,
     /// LRU cache for loaded data
-    cache: Arc<RwLock<LruCache>>,
+    cache: Arc<RwLock<LruCache<CacheKey, BufferHandle>>>,
     /// Direct GPU parser
     parser: Arc<DirectGpuParser>,
     /// Configuration
@@ -67,7 +80,9 @@ impl DataManager {
         config: DataManagerConfig,
     ) -> Self {
         let handle_manager = Arc::new(HandleManager::new());
-        let cache = Arc::new(RwLock::new(LruCache::new(config.max_memory_bytes)));
+        // LruCache expects NonZeroUsize
+        let cache_size = std::num::NonZeroUsize::new(1000).unwrap(); // 1000 entries
+        let cache = Arc::new(RwLock::new(LruCache::new(cache_size)));
         let parser = Arc::new(DirectGpuParser::new(device.clone(), queue.clone()));
 
         Self {
@@ -100,7 +115,16 @@ impl DataManager {
 
         // Load data based on source
         let buffer_data = match source {
-            DataSource::File(path) => self.load_from_file(path, metadata.clone()).await?,
+            DataSource::File(path) => {
+                #[cfg(feature = "native")]
+                {
+                    self.load_from_file(path, metadata.clone()).await?
+                }
+                #[cfg(not(feature = "native"))]
+                {
+                    return Err(Error::GpuError("File access not available in WASM".to_string()));
+                }
+            }
             DataSource::Url(url) => self.load_from_url(url, metadata.clone()).await?,
             DataSource::Memory(data) => self.create_from_memory(data, metadata.clone())?,
         };
@@ -120,6 +144,7 @@ impl DataManager {
     }
 
     /// Load data from file
+    #[cfg(feature = "native")]
     async fn load_from_file(
         &self,
         path: std::path::PathBuf,
@@ -128,11 +153,17 @@ impl DataManager {
         let start = std::time::Instant::now();
 
         // Use direct GPU parser with buffer pool if available
-        let buffer = if let Some(pool) = &self.config.buffer_pool {
-            let mut pool_guard = pool.lock().unwrap();
-            self.parser
-                .parse_file_to_gpu(&path, &mut *pool_guard)?
-                .into_single_buffer()?
+        let buffer = if let Some(_pool) = &self.config.buffer_pool {
+            // For WASM, we don't have file access, so skip file parsing
+            #[cfg(feature = "native")]
+            {
+                // TODO: Fix buffer pool integration
+                return Err(Error::GpuError("File parsing with buffer pool not yet implemented".to_string()));
+            }
+            #[cfg(not(feature = "native"))]
+            {
+                return Err(Error::GpuError("File access not available in WASM".to_string()));
+            }
         } else {
             // Fallback to creating new buffer
             let file_size = std::fs::metadata(&path)?.len();
@@ -199,50 +230,21 @@ impl DataManager {
     /// Get handle from cache
     fn get_from_cache(&self, key: &CacheKey) -> Option<BufferHandle> {
         let mut cache = self.cache.write();
-        cache.get(key)
+        cache.get(key).cloned()
     }
 
     /// Add handle to cache
     fn add_to_cache(&self, key: CacheKey, handle: BufferHandle) {
         let mut cache = self.cache.write();
 
-        // Check if we need to evict
-        while cache.would_exceed_limit(&handle) {
-            if let Some((evicted_key, evicted_handle)) = cache.evict_lru() {
-                self.handle_manager.release_handle(evicted_handle);
-                self.stats.write().evictions += 1;
-            } else {
-                break;
-            }
-        }
-
-        cache.insert(key, handle);
+        // LruCache in v0.12 has different API - just use put which auto-evicts
+        cache.put(key, handle);
     }
 
     /// Trigger prefetching for related data
-    fn trigger_prefetch(&self, metadata: &BufferMetadata) {
-        if let Some((start, end)) = metadata.time_range {
-            // Prefetch adjacent time ranges
-            let range_size = end - start;
-
-            // Clone self for async operation
-            let self_clone = Arc::new(self.clone());
-            let metadata_clone = metadata.clone();
-
-            tokio::spawn(async move {
-                // Prefetch next time range
-                let mut next_metadata = metadata_clone.clone();
-                next_metadata.time_range = Some((end, end + range_size));
-
-                // Try to load but don't propagate errors
-                let _ = self_clone
-                    .load_data(
-                        DataSource::File(std::path::PathBuf::from("prefetch")), // TODO: Implement proper prefetch logic
-                        next_metadata,
-                    )
-                    .await;
-            });
-        }
+    fn trigger_prefetch(&self, _metadata: &BufferMetadata) {
+        // Prefetching disabled for WASM - would need to be reimplemented
+        // without tokio::spawn for browser compatibility
     }
 
     /// Get current statistics
@@ -253,7 +255,8 @@ impl DataManager {
     /// Clean up stale handles and expired cache entries
     pub fn cleanup(&self) -> CleanupResult {
         let handles_cleaned = self.handle_manager.cleanup_stale_handles();
-        let cache_entries_expired = self.cache.write().cleanup_expired();
+        // LruCache v0.12 doesn't have cleanup_expired - entries are auto-evicted
+        let cache_entries_expired = 0;
 
         CleanupResult {
             handles_cleaned,
@@ -263,10 +266,15 @@ impl DataManager {
 
     /// Get total memory usage
     pub fn memory_usage(&self) -> MemoryUsage {
+        let handle_memory = self.handle_manager.total_memory();
+        // LruCache v0.12 doesn't expose total_memory - estimate based on entry count
+        let cache_len = self.cache.read().len() as u64;
+        let estimated_cache_memory = cache_len * 1024 * 1024; // Rough estimate: 1MB per entry
+        
         MemoryUsage {
-            handle_memory: self.handle_manager.total_memory(),
-            cache_memory: self.cache.read().total_memory(),
-            total_memory: self.handle_manager.total_memory() + self.cache.read().total_memory(),
+            handle_memory,
+            cache_memory: estimated_cache_memory,
+            total_memory: handle_memory + estimated_cache_memory,
         }
     }
 

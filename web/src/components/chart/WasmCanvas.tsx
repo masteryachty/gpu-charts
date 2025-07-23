@@ -34,20 +34,20 @@ export default function WasmCanvas({
   const containerRef = useRef<HTMLDivElement>(null);
   const initializingRef = useRef<boolean>(false);
 
-  // Initialize WASM chart with proper configuration
+  // Initialize WASM chart with new architecture
   const [chartState, chartAPI] = useWasmChart({
     canvasId: 'wasm-chart-canvas',
-    width,
-    height,
+    apiBaseUrl: import.meta.env.VITE_API_BASE_URL || 'https://api.rednax.io',
     enableAutoSync,
     debounceMs,
-    enableDataFetching: true,
-    enablePerformanceMonitoring: true, // Re-enabled after fixing infinite loops
   });
 
   // Set canvas size to match container dimensions exactly
   const updateCanvasSize = useCallback(() => {
     if (!canvasRef.current || !containerRef.current) return;
+    
+    // Don't update size during initialization to prevent loops
+    if (!chartState.isInitialized) return;
 
     const canvas = canvasRef.current;
     const container = containerRef.current;
@@ -57,11 +57,16 @@ export default function WasmCanvas({
     canvas.width = Math.floor(rect.width);
     canvas.height = Math.floor(rect.height);
 
+    // Update chart renderer size
+    if (chartState.chart && chartState.isInitialized) {
+      chartAPI.resize(canvas.width, canvas.height);
+    }
+
     console.log('[WasmCanvas] Canvas size updated:', {
       containerSize: `${rect.width}x${rect.height}`,
       canvasSize: `${canvas.width}x${canvas.height}`
     });
-  }, []);
+  }, [chartState.chart, chartState.isInitialized, chartAPI]);
 
   // Call onChartReady when chart is initialized
   useEffect(() => {
@@ -70,7 +75,7 @@ export default function WasmCanvas({
     }
   }, [chartState.isInitialized, chartState.chart, onChartReady]);
 
-  // Initialize chart when canvas is ready with improved timing
+  // Initialize chart when canvas is ready
   useEffect(() => {
     const initializeChart = async () => {
       // Early return if already initialized to prevent infinite loops
@@ -181,7 +186,7 @@ export default function WasmCanvas({
     return () => {
       clearTimeout(initTimeout);
     };
-  }, [chartAPI, chartState.isInitialized, chartState.isLoading]); // Add missing dependencies
+  }, [chartAPI]); // Only depend on chartAPI to prevent re-initialization loops
 
   // Handle resize events
   useEffect(() => {
@@ -189,8 +194,8 @@ export default function WasmCanvas({
       updateCanvasSize();
     });
 
-    if (canvasRef.current) {
-      resizeObserver.observe(canvasRef.current);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
     }
 
     return () => {
@@ -198,82 +203,12 @@ export default function WasmCanvas({
     };
   }, [updateCanvasSize]);
 
-  // On-demand render loop - only renders when chart state is dirty
-  useEffect(() => {
-    if (!chartState.chart || !chartState.isInitialized) return;
-
-    let animationId: number;
-    let isRendering = false;
-
-    const checkAndRender = async () => {
-      if (!isRendering && chartState.chart && chartState.isInitialized) {
-        // Check if rendering is needed
-        const needsRender = chartState.chart.needs_render?.() ?? false;
-
-        if (needsRender) {
-          isRendering = true;
-          try {
-            await chartState.chart.render?.();
-          } catch (error) {
-            console.warn('[WasmCanvas] Render failed:', error);
-          } finally {
-            isRendering = false;
-          }
-        }
-      }
-
-      // Continue checking at 60fps rate
-      animationId = requestAnimationFrame(checkAndRender);
-    };
-
-    animationId = requestAnimationFrame(checkAndRender);
-
-    return () => {
-      if (animationId) {
-        cancelAnimationFrame(animationId);
-      }
-    };
-  }, [chartState.chart, chartState.isInitialized]);
-
-  // Note: If you need to force render on specific state changes,
-  // you should pass those as props to this component and include them here
+  // Render loop is handled by useWasmChart hook
+  // This prevents the "recursive use of an object detected" error
 
   // Make chart available globally for testing
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      // Add WASM bridge functions for testing
-      (window as any).__UPDATE_WASM_CHART_STATE__ = (stateJson: string) => {
-        try {
-          if (chartState.chart && chartState.isInitialized) {
-            return chartState.chart.update_chart_state?.(stateJson) ||
-              JSON.stringify({ success: true, message: 'State update called' });
-          }
-          return JSON.stringify({ success: false, error: 'Chart not initialized' });
-        } catch (error) {
-          return JSON.stringify({ success: false, error: (error as Error).message });
-        }
-      };
-
-      (window as any).__TRIGGER_VALIDATION_ERROR__ = () => {
-        try {
-          // Simulate a validation error for testing
-          console.error('[Test] Triggered validation error');
-          throw new Error('Validation error triggered for testing');
-        } catch (error) {
-          console.error('Validation error:', error);
-        }
-      };
-
-      (window as any).__TRIGGER_CRITICAL_ERROR__ = () => {
-        try {
-          // Simulate a critical error for testing
-          console.error('[Test] Triggered critical error');
-          throw new Error('Critical error triggered for testing');
-        } catch (error) {
-          console.error('Critical error:', error);
-        }
-      };
-
       // Enhanced performance metrics using real browser data
       const globalPerfMonitor = (window as any).__PERFORMANCE_MONITOR_STATE__;
       const browserMemory = (performance as any).memory;
@@ -286,8 +221,8 @@ export default function WasmCanvas({
       const performanceMetrics = {
         fps: chartState.fps || (globalPerfMonitor?.metrics?.fps) || 60,
         totalMemoryUsage: realMemoryUsage,
-        updateCount: chartState.updateCount || 0,
-        renderLatency: chartState.renderLatency || (globalPerfMonitor?.metrics?.renderLatency) || 0,
+        updateCount: 0,
+        renderLatency: chartState.frameTime || (globalPerfMonitor?.metrics?.renderLatency) || 0,
         memoryUsage: realMemoryUsage,
         cpuUsage: (globalPerfMonitor?.metrics?.cpuUsage) || 0
       };
@@ -342,51 +277,14 @@ export default function WasmCanvas({
               });
             }
           },
-          // For backward compatibility - return the same data as object
-          get_current_state: async () => {
-            try {
-              const store = (window as any).__zustandStore || (window as any).__GET_STORE_STATE__;
-              if (store) {
-                const state = typeof store === 'function' ? store() : store.getState();
-                return {
-                  currentSymbol: state.currentSymbol,
-                  symbol: state.currentSymbol, // Alias for compatibility
-                  chartConfig: state.chartConfig,
-                  timeframe: state.chartConfig?.timeframe,
-                  marketData: state.marketData,
-                  isConnected: state.isConnected,
-                  connected: state.isConnected, // Alias for compatibility
-                  user: state.user,
-                  chartInitialized: true,
-                  startTime: state.chartConfig?.startTime,
-                  endTime: state.chartConfig?.endTime
-                };
-              }
-              return {
-                currentSymbol: 'BTC-USD',
-                symbol: 'BTC-USD',
-                chartInitialized: true,
-                connected: false,
-                timeframe: '1h'
-              };
-            } catch (error) {
-              console.error('[WasmCanvas] Error getting state:', error);
-              return {
-                currentSymbol: 'BTC-USD',
-                symbol: 'BTC-USD',
-                chartInitialized: true,
-                error: String(error)
-              };
-            }
-          },
           // Enhanced chart API access
           chartAPI,
           // Performance and metrics access
           getPerformanceMetrics: () => ({
             fps: chartState.fps || 60,
-            updateCount: chartState.updateCount || 0,
-            renderLatency: chartState.renderLatency || 0,
-            lastStateUpdate: chartState.lastStateUpdate || Date.now()
+            updateCount: 0,
+            renderLatency: chartState.frameTime || 0,
+            lastStateUpdate: Date.now()
           })
         };
 
@@ -398,9 +296,8 @@ export default function WasmCanvas({
 
         // Add direct access methods for testing
         (window as any).__GET_WASM_CHART_STATE__ = () => ({
-          currentSymbol: chartState.chart?.get_current_state ?
-            chartState.chart.get_current_state() :
-            { currentSymbol: 'BTC-USD', symbol: 'BTC-USD' },
+          currentSymbol: 'BTC-USD',
+          symbol: 'BTC-USD',
           chartInitialized: chartState.isInitialized,
           isLoading: chartState.isLoading,
           error: chartState.error
@@ -422,9 +319,9 @@ export default function WasmCanvas({
         });
       }
     }
-  }, [chartState.chart, chartState.isInitialized, chartState.isLoading, chartState.error, chartState.lastStateUpdate, chartAPI, chartState.fps, chartState.updateCount, chartState.renderLatency]);
+  }, [chartState.chart, chartState.isInitialized, chartState.isLoading, chartState.error, chartAPI, chartState.fps, chartState.frameTime]);
 
-  // Mouse wheel handler for zoom
+  // Mouse event handlers connected to wasm-bridge
   const handleMouseWheel = useCallback((event: React.WheelEvent<HTMLCanvasElement>) => {
     if (chartState.chart && chartState.isInitialized) {
       event.preventDefault();
@@ -434,88 +331,54 @@ export default function WasmCanvas({
         const y = event.clientY - rect.top;
         if (chartState.chart.handle_mouse_wheel) {
           chartState.chart.handle_mouse_wheel(event.deltaY, x, y);
-
-          // Increment update counter and update global metrics
-          const newUpdateCount = (chartState.updateCount || 0) + 1;
-          (window as any).__PERFORMANCE_METRICS__ = {
-            ...(window as any).__PERFORMANCE_METRICS__,
-            updateCount: newUpdateCount,
-            lastStateUpdate: Date.now()
-          };
-
-          console.log(`[WasmCanvas] Mouse wheel interaction - Update count: ${newUpdateCount}`);
-        }
-      }
-    }
-  }, [chartState.chart, chartState.isInitialized, chartState.updateCount]);
-
-  // Mouse move handler
-  const handleMouseMove = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
-    if (chartState.chart && chartState.isInitialized) {
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (rect) {
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
-        if (chartState.chart.handle_mouse_move) {
-          chartState.chart.handle_mouse_move(x, y);
         }
       }
     }
   }, [chartState.chart, chartState.isInitialized]);
 
-  // Mouse down handler (start of drag)
+  const handleMouseMove = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (chartState.chart && chartState.isInitialized) {
+      // Defer the mouse move to avoid any potential borrowing conflicts
+      requestAnimationFrame(() => {
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (rect && chartState.chart) {
+          const x = event.clientX - rect.left;
+          const y = event.clientY - rect.top;
+          if (chartState.chart.handle_mouse_move) {
+            chartState.chart.handle_mouse_move(x, y);
+          }
+        }
+      });
+    }
+  }, [chartState.chart, chartState.isInitialized]);
+
   const handleMouseDown = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     if (chartState.chart && chartState.isInitialized) {
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (rect) {
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
-
-        // Update mouse position first
-        if (chartState.chart.handle_mouse_move) {
-          chartState.chart.handle_mouse_move(x, y);
+      requestAnimationFrame(() => {
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (rect && chartState.chart) {
+          const x = event.clientX - rect.left;
+          const y = event.clientY - rect.top;
+          if (chartState.chart.handle_mouse_click) {
+            chartState.chart.handle_mouse_click(x, y, true); // pressed = true
+          }
         }
-
-        // Then handle mouse press
-        if (chartState.chart.handle_mouse_click) {
-          chartState.chart.handle_mouse_click(x, y, true); // pressed = true
-
-          // Increment update counter
-          const newUpdateCount = (chartState.updateCount || 0) + 1;
-          (window as any).__PERFORMANCE_METRICS__ = {
-            ...(window as any).__PERFORMANCE_METRICS__,
-            updateCount: newUpdateCount,
-            lastStateUpdate: Date.now()
-          };
-
-          console.log(`[WasmCanvas] Mouse click interaction - Update count: ${newUpdateCount}`);
-        }
-
-        console.log(`[WasmCanvas] Mouse down at: ${x}, ${y}`);
-      }
+      });
     }
-  }, [chartState.chart, chartState.isInitialized, chartState.updateCount]);
+  }, [chartState.chart, chartState.isInitialized]);
 
-  // Mouse up handler (end of drag)
   const handleMouseUp = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     if (chartState.chart && chartState.isInitialized) {
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (rect) {
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
-
-        // Update mouse position first
-        if (chartState.chart.handle_mouse_move) {
-          chartState.chart.handle_mouse_move(x, y);
+      requestAnimationFrame(() => {
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (rect && chartState.chart) {
+          const x = event.clientX - rect.left;
+          const y = event.clientY - rect.top;
+          if (chartState.chart.handle_mouse_click) {
+            chartState.chart.handle_mouse_click(x, y, false); // pressed = false
+          }
         }
-
-        // Then handle mouse release
-        if (chartState.chart.handle_mouse_click) {
-          chartState.chart.handle_mouse_click(x, y, false); // pressed = false
-        }
-
-        console.log(`[WasmCanvas] Mouse up at: ${x}, ${y}`);
-      }
+      });
     }
   }, [chartState.chart, chartState.isInitialized]);
 
@@ -562,20 +425,18 @@ export default function WasmCanvas({
             <div className="text-red-500 text-4xl mb-4">⚠️</div>
             <div className="text-white font-medium mb-2">Chart Engine Error</div>
             <div className="text-gray-400 text-sm mb-4 break-words">{chartState.error}</div>
-            {chartState.retryCount < 3 && (
-              <button
-                onClick={() => chartAPI.retry()}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                data-testid="retry-button"
-              >
-                Retry ({chartState.retryCount + 1}/3)
-              </button>
-            )}
+            <button
+              onClick={() => chartAPI.initialize()}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+              data-testid="retry-button"
+            >
+              Retry
+            </button>
           </div>
         </div>
       )}
 
-      {/* Enhanced Performance overlay */}
+      {/* Performance overlay */}
       {showPerformanceOverlay && chartState.isInitialized && (
         <div className="absolute top-4 right-4 bg-gray-800/90 text-white text-xs px-3 py-2 rounded backdrop-blur-sm space-y-1" data-testid="performance-overlay">
           <div data-testid="fps-display" className="font-mono">
@@ -583,11 +444,10 @@ export default function WasmCanvas({
               {Math.round(chartState.fps || 60)} FPS
             </span>
           </div>
-          <div className="font-mono">Updates: <span className="text-blue-400">#{chartState.updateCount}</span></div>
-          {chartState.renderLatency > 0 && (
+          {chartState.frameTime > 0 && (
             <div className="font-mono">
-              Latency: <span className={chartState.renderLatency > 50 ? 'text-red-400' : chartState.renderLatency > 25 ? 'text-yellow-400' : 'text-green-400'}>
-                {chartState.renderLatency.toFixed(1)}ms
+              Frame: <span className={chartState.frameTime > 50 ? 'text-red-400' : chartState.frameTime > 25 ? 'text-yellow-400' : 'text-green-400'}>
+                {chartState.frameTime.toFixed(1)}ms
               </span>
             </div>
           )}
@@ -618,13 +478,11 @@ export default function WasmCanvas({
           <div>Initialized: {chartState.isInitialized ? 'Yes' : 'No'}</div>
           <div>Loading: {chartState.isLoading ? 'Yes' : 'No'}</div>
           <div>Error: {chartState.error ? 'Yes' : 'No'}</div>
-          <div>Changes: {chartState.hasUncommittedChanges ? 'Pending' : 'Synced'}</div>
-          <div>Last Update: {chartState.lastStateUpdate > 0 ? new Date(chartState.lastStateUpdate).toLocaleTimeString() : 'Never'}</div>
           <div className="mt-2 flex gap-2">
             <button
               className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
               data-testid="force-update-button"
-              onClick={() => chartAPI.forceStateUpdate && chartAPI.forceStateUpdate()}
+              onClick={() => chartAPI.updateChart()}
             >
               Force Update
             </button>
@@ -632,11 +490,11 @@ export default function WasmCanvas({
               className="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700"
               data-testid="get-state-button"
               onClick={() => {
-                const state = chartState.chart?.get_current_state?.();
-                console.log('Current store state:', state);
+                const state = chartAPI.getConfig();
+                console.log('Current config:', state);
               }}
             >
-              Get State
+              Get Config
             </button>
           </div>
         </div>
