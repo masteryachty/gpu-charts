@@ -1,6 +1,6 @@
 //! Binary data parsing with SIMD optimizations
 
-use shared_types::{ParsedData, DataMetadata};
+use shared_types::{DataMetadata, ParsedData};
 use std::collections::HashMap;
 
 /// Parse binary data from server into structured format
@@ -10,7 +10,7 @@ pub fn parse_binary_data(
 ) -> Result<ParsedData, ParserError> {
     let mut time_data = Vec::new();
     let mut value_data: HashMap<String, Vec<f32>> = HashMap::new();
-    
+
     // Initialize value vectors
     for column in &header.columns {
         if column != "time" {
@@ -20,7 +20,7 @@ pub fn parse_binary_data(
 
     let bytes_per_row = header.columns.len() * 4; // 4 bytes per value
     let expected_bytes = header.row_count * bytes_per_row;
-    
+
     if binary_data.len() != expected_bytes {
         return Err(ParserError::InvalidDataSize {
             expected: expected_bytes,
@@ -31,11 +31,11 @@ pub fn parse_binary_data(
     // Parse row by row
     for row_idx in 0..header.row_count {
         let row_start = row_idx * bytes_per_row;
-        
+
         for (col_idx, column) in header.columns.iter().enumerate() {
             let offset = row_start + col_idx * 4;
             let bytes = &binary_data[offset..offset + 4];
-            
+
             if column == "time" {
                 let timestamp = u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
                 time_data.push(timestamp);
@@ -72,7 +72,7 @@ pub fn binary_search_timestamp(data: &[u8], target: u32) -> Option<usize> {
     while left <= right {
         let mid = left + (right - left) / 2;
         let offset = mid * 4;
-        
+
         let timestamp = u32::from_le_bytes([
             data[offset],
             data[offset + 1],
@@ -111,10 +111,10 @@ pub struct DataResponseHeader {
 pub enum ParserError {
     #[error("Invalid data size: expected {expected} bytes, got {actual}")]
     InvalidDataSize { expected: usize, actual: usize },
-    
+
     #[error("Invalid column configuration")]
     InvalidColumns,
-    
+
     #[error("Parsing error: {0}")]
     ParseError(String),
 }
@@ -144,9 +144,9 @@ impl BatchParser {
             let chunk_rows = (total_rows - processed_rows).min(self.chunk_size);
             let chunk_start = processed_rows * bytes_per_row;
             let chunk_end = chunk_start + chunk_rows * bytes_per_row;
-            
+
             let chunk_data = &binary_data[chunk_start..chunk_end];
-            
+
             // Parse chunk
             let chunk_header = DataResponseHeader {
                 symbol: header.symbol.clone(),
@@ -155,10 +155,10 @@ impl BatchParser {
                 end_time: header.end_time,
                 row_count: chunk_rows,
             };
-            
+
             let parsed_chunk = parse_binary_data(chunk_header, chunk_data)?;
             callback(parsed_chunk)?;
-            
+
             processed_rows += chunk_rows;
         }
 
@@ -173,10 +173,7 @@ mod tests {
     #[test]
     fn test_binary_search() {
         let timestamps = vec![100u32, 200, 300, 400, 500];
-        let data: Vec<u8> = timestamps
-            .iter()
-            .flat_map(|t| t.to_le_bytes())
-            .collect();
+        let data: Vec<u8> = timestamps.iter().flat_map(|t| t.to_le_bytes()).collect();
 
         assert_eq!(binary_search_timestamp(&data, 300), Some(2));
         assert_eq!(binary_search_timestamp(&data, 250), Some(2)); // Insertion point
@@ -203,11 +200,11 @@ mod tests {
         data.extend_from_slice(&51000.0f32.to_le_bytes());
 
         let parsed = parse_binary_data(header, &data).unwrap();
-        
+
         assert_eq!(parsed.time_data.len(), 2);
         assert_eq!(parsed.time_data[0], 1000);
         assert_eq!(parsed.time_data[1], 2000);
-        
+
         assert_eq!(parsed.value_data["price"].len(), 2);
         assert_eq!(parsed.value_data["price"][0], 50000.0);
         assert_eq!(parsed.value_data["price"][1], 51000.0);

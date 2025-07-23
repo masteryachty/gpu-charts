@@ -39,55 +39,45 @@ impl InstanceManager {
             current_store_state: None,
             change_detection_config: ChangeDetectionConfig::default(),
         };
-        
+
         CHART_INSTANCES.with(|instances| {
             instances.borrow_mut().insert(id, instance);
         });
-        
+
         id
     }
-    
+
     /// Get a reference to a chart instance
     pub fn with_instance<F, R>(id: &Uuid, f: F) -> Option<R>
     where
         F: FnOnce(&ChartInstance) -> R,
     {
-        CHART_INSTANCES.with(|instances| {
-            instances.borrow().get(id).map(f)
-        })
+        CHART_INSTANCES.with(|instances| instances.borrow().get(id).map(f))
     }
-    
+
     /// Get a mutable reference to a chart instance
     pub fn with_instance_mut<F, R>(id: &Uuid, f: F) -> Option<R>
     where
         F: FnOnce(&mut ChartInstance) -> R,
     {
-        CHART_INSTANCES.with(|instances| {
-            instances.borrow_mut().get_mut(id).map(f)
-        })
+        CHART_INSTANCES.with(|instances| instances.borrow_mut().get_mut(id).map(f))
     }
-    
+
     /// Check if an instance exists
     pub fn instance_exists(id: &Uuid) -> bool {
-        CHART_INSTANCES.with(|instances| {
-            instances.borrow().contains_key(id)
-        })
+        CHART_INSTANCES.with(|instances| instances.borrow().contains_key(id))
     }
-    
+
     /// Remove an instance
     pub fn remove_instance(id: &Uuid) -> Option<ChartInstance> {
-        CHART_INSTANCES.with(|instances| {
-            instances.borrow_mut().remove(id)
-        })
+        CHART_INSTANCES.with(|instances| instances.borrow_mut().remove(id))
     }
-    
+
     /// Get the number of active instances
     pub fn instance_count() -> usize {
-        CHART_INSTANCES.with(|instances| {
-            instances.borrow().len()
-        })
+        CHART_INSTANCES.with(|instances| instances.borrow().len())
     }
-    
+
     /// Clear all instances (useful for cleanup)
     pub fn clear_all() {
         CHART_INSTANCES.with(|instances| {
@@ -99,12 +89,12 @@ impl InstanceManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_instance_creation_and_retrieval() {
         // Clear any existing instances
         InstanceManager::clear_all();
-        
+
         // Create a dummy instance
         let id = Uuid::new_v4();
         CHART_INSTANCES.with(|instances| {
@@ -116,11 +106,11 @@ mod tests {
             };
             instances.borrow_mut().insert(id, instance);
         });
-        
+
         // Verify it exists
         assert!(InstanceManager::instance_exists(&id));
         assert_eq!(InstanceManager::instance_count(), 1);
-        
+
         // Remove it
         InstanceManager::remove_instance(&id);
         assert!(!InstanceManager::instance_exists(&id));

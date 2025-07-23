@@ -119,4 +119,3 @@ pub async fn fetch_api_response(url: &str) -> Result<(ApiHeader, ArrayBuffer), j
     let binary_data = array_buffer.slice_with_end(header_end + 1, total_length);
     Ok((api_header, binary_data))
 }
-

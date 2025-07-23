@@ -1,9 +1,9 @@
 use std::{cell::RefCell, rc::Rc};
 
-use shared_types::events::{ElementState, MouseScrollDelta, WindowEvent};
 use crate::line_graph::unix_timestamp_to_string;
-use data_manager::{DataStore, DataManager};
+use data_manager::{DataManager, DataStore};
 use renderer::Renderer;
+use shared_types::events::{ElementState, MouseScrollDelta, WindowEvent};
 
 use wasm_bindgen_futures::spawn_local;
 
@@ -112,7 +112,7 @@ impl CanvasController {
         log::info!("handle_cursor_wheel type: {delta:?} {phase:?}");
 
         let MouseScrollDelta::PixelDelta(position) = delta;
-        
+
         let start_x = self.data_store.borrow().start_x;
         let end_x = self.data_store.borrow().end_x;
         let range = end_x - start_x;

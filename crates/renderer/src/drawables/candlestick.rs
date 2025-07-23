@@ -6,8 +6,8 @@ use wgpu::util::DeviceExt;
 use wgpu::TextureFormat;
 
 use crate::calcables::CandleAggregator;
-use data_manager::DataStore;
 use crate::render_engine::RenderEngine;
+use data_manager::DataStore;
 
 use super::plot::RenderListener;
 
@@ -43,6 +43,7 @@ pub struct CandlestickRenderer {
 }
 
 /// Buffer pool for reusing uniform buffers to avoid repeated allocations
+#[allow(dead_code)]
 struct BufferPool {
     x_range_buffers: Vec<wgpu::Buffer>,
     y_range_buffers: Vec<wgpu::Buffer>,
@@ -58,6 +59,7 @@ impl BufferPool {
         }
     }
 
+    #[allow(dead_code)]
     fn get_or_create_x_range_buffer(
         &mut self,
         device: &wgpu::Device,
@@ -108,6 +110,7 @@ impl BufferPool {
         }
     }
 
+    #[allow(dead_code)]
     fn return_buffers(
         &mut self,
         x_buffer: wgpu::Buffer,

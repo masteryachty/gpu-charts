@@ -1,8 +1,8 @@
 use std::{cell::RefCell, rc::Rc};
 
-use data_manager::DataStore;
 use crate::calcables::min_max::calculate_min_max_y;
 use crate::drawables::plot::RenderListener;
+use data_manager::DataStore;
 use futures::channel::oneshot;
 #[cfg(target_arch = "wasm32")]
 use getrandom::Error;

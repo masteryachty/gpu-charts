@@ -1,8 +1,8 @@
 //! Configuration system for GPU Charts
 //! Manages presets, quality settings, and performance tuning
 
-use shared_types::{QualityPreset, PerformanceConfig};
 use serde::{Deserialize, Serialize};
+use shared_types::{PerformanceConfig, QualityPreset};
 
 pub use shared_types::GpuChartsConfig;
 
@@ -29,7 +29,7 @@ impl ConfigManager {
     /// Apply a quality preset
     pub fn apply_preset(&mut self, preset: QualityPreset) {
         self.config.quality_preset = preset;
-        
+
         match preset {
             QualityPreset::Low => {
                 self.config.performance = PerformanceConfig {
@@ -119,7 +119,7 @@ impl ConfigManager {
                 QualityPreset::Medium => self.apply_preset(QualityPreset::Low),
                 QualityPreset::Low => {
                     // Already at lowest, reduce data points
-                    self.config.performance.max_data_points = 
+                    self.config.performance.max_data_points =
                         (self.config.performance.max_data_points as f32 * 0.75) as usize;
                 }
             }
@@ -187,50 +187,54 @@ impl PresetManager {
             RenderingPreset {
                 name: "Line Chart - Ask/Bid".to_string(),
                 description: "Simple line chart showing ask and bid prices".to_string(),
-                chart_types: vec![
-                    ChartPreset {
-                        chart_type: "line".to_string(),
-                        data_columns: vec!["time".to_string(), "best_ask".to_string(), "best_bid".to_string()],
-                        overlays: vec![],
-                        style: serde_json::json!({
-                            "lines": [
-                                {"color": [0.0, 0.5, 1.0], "width": 2.0},
-                                {"color": [1.0, 0.5, 0.0], "width": 2.0}
-                            ]
-                        }),
-                    }
-                ],
+                chart_types: vec![ChartPreset {
+                    chart_type: "line".to_string(),
+                    data_columns: vec![
+                        "time".to_string(),
+                        "best_ask".to_string(),
+                        "best_bid".to_string(),
+                    ],
+                    overlays: vec![],
+                    style: serde_json::json!({
+                        "lines": [
+                            {"color": [0.0, 0.5, 1.0], "width": 2.0},
+                            {"color": [1.0, 0.5, 0.0], "width": 2.0}
+                        ]
+                    }),
+                }],
             },
             RenderingPreset {
                 name: "Candlestick - OHLC".to_string(),
                 description: "Candlestick chart with OHLC data".to_string(),
-                chart_types: vec![
-                    ChartPreset {
-                        chart_type: "candlestick".to_string(),
-                        data_columns: vec!["time".to_string(), "open".to_string(), "high".to_string(), "low".to_string(), "close".to_string()],
-                        overlays: vec![],
-                        style: serde_json::json!({
-                            "up_color": [0.0, 1.0, 0.0],
-                            "down_color": [1.0, 0.0, 0.0],
-                            "body_width": 0.8
-                        }),
-                    }
-                ],
+                chart_types: vec![ChartPreset {
+                    chart_type: "candlestick".to_string(),
+                    data_columns: vec![
+                        "time".to_string(),
+                        "open".to_string(),
+                        "high".to_string(),
+                        "low".to_string(),
+                        "close".to_string(),
+                    ],
+                    overlays: vec![],
+                    style: serde_json::json!({
+                        "up_color": [0.0, 1.0, 0.0],
+                        "down_color": [1.0, 0.0, 0.0],
+                        "body_width": 0.8
+                    }),
+                }],
             },
             RenderingPreset {
                 name: "Volume Bars".to_string(),
                 description: "Bar chart showing trading volume".to_string(),
-                chart_types: vec![
-                    ChartPreset {
-                        chart_type: "bar".to_string(),
-                        data_columns: vec!["time".to_string(), "volume".to_string()],
-                        overlays: vec![],
-                        style: serde_json::json!({
-                            "color": [0.5, 0.5, 1.0],
-                            "width": 0.9
-                        }),
-                    }
-                ],
+                chart_types: vec![ChartPreset {
+                    chart_type: "bar".to_string(),
+                    data_columns: vec!["time".to_string(), "volume".to_string()],
+                    overlays: vec![],
+                    style: serde_json::json!({
+                        "color": [0.5, 0.5, 1.0],
+                        "width": 0.9
+                    }),
+                }],
             },
         ]
     }
@@ -251,10 +255,10 @@ mod tests {
     #[test]
     fn test_quality_presets() {
         let mut config = ConfigManager::new();
-        
+
         config.apply_preset(QualityPreset::Low);
         assert_eq!(config.get_config().performance.target_fps, 30);
-        
+
         config.apply_preset(QualityPreset::Ultra);
         assert_eq!(config.get_config().performance.target_fps, 120);
     }

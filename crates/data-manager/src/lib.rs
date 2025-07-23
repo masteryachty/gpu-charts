@@ -1,24 +1,30 @@
 //! Data Manager crate for GPU Charts
 //! Handles all data operations with focus on performance and GPU optimization
 
+pub mod binary_parser;
+pub mod cache;
 pub mod data_retriever;
 pub mod data_store;
-pub mod cache;
-pub mod binary_parser;
 
+use shared_types::{
+    DataHandle, DataMetadata, GpuBufferSet, GpuChartsError, GpuChartsResult, ParsedData,
+};
 use std::collections::HashMap;
 use std::sync::Arc;
-use wgpu::{Device, Queue};
-use wgpu::util::DeviceExt;
-use shared_types::{DataHandle, DataMetadata, GpuBufferSet, ParsedData, GpuChartsError, GpuChartsResult};
 use uuid::Uuid;
+use wgpu::util::DeviceExt;
+use wgpu::{Device, Queue};
 
-pub use data_retriever::{ApiHeader, ColumnMeta, create_gpu_buffer_from_vec, fetch_api_response, create_chunked_gpu_buffer_from_arraybuffer};
-pub use data_store::{DataStore, DataSeries, MetricSeries, ScreenDimensions, ChartType, Vertex};
+pub use data_retriever::{
+    create_chunked_gpu_buffer_from_arraybuffer, create_gpu_buffer_from_vec, fetch_api_response,
+    ApiHeader, ColumnMeta,
+};
+pub use data_store::{ChartType, DataSeries, DataStore, MetricSeries, ScreenDimensions, Vertex};
 
 /// Main data manager that coordinates all data operations
 pub struct DataManager {
     device: Arc<Device>,
+    #[allow(dead_code)] // Will be used for buffer operations in the future
     queue: Arc<Queue>,
     base_url: String,
     cache: DataCache,
@@ -59,10 +65,12 @@ impl DataManager {
         );
 
         // Fetch from server
-        let (api_header, binary_buffer) = fetch_api_response(&url).await
-            .map_err(|e| GpuChartsError::DataFetch { 
-                message: format!("{:?} (URL: {})", e, url)
-            })?;
+        let (api_header, binary_buffer) =
+            fetch_api_response(&url)
+                .await
+                .map_err(|e| GpuChartsError::DataFetch {
+                    message: format!("{:?} (URL: {})", e, url),
+                })?;
 
         // Parse the binary data into columnar format
         let mut column_buffers = HashMap::new();
@@ -75,11 +83,8 @@ impl DataManager {
             offset = end;
 
             let col_buffer = binary_buffer.slice_with_end(start, end);
-            let gpu_buffers = create_chunked_gpu_buffer_from_arraybuffer(
-                &self.device,
-                &col_buffer,
-                &column.name,
-            );
+            let gpu_buffers =
+                create_chunked_gpu_buffer_from_arraybuffer(&self.device, &col_buffer, &column.name);
             column_buffers.insert(column.name.clone(), gpu_buffers);
         }
 
@@ -91,7 +96,12 @@ impl DataManager {
                 start_time,
                 end_time,
                 columns: api_header.columns.iter().map(|c| c.name.clone()).collect(),
-                row_count: api_header.columns.iter().map(|c| c.data_length / 4).max().unwrap_or(0),
+                row_count: api_header
+                    .columns
+                    .iter()
+                    .map(|c| c.data_length / 4)
+                    .max()
+                    .unwrap_or(0),
             },
         };
 
@@ -108,34 +118,38 @@ impl DataManager {
         Ok(handle)
     }
 
-
     /// Get GPU buffers for a data handle
     pub fn get_buffers(&self, handle: &DataHandle) -> Option<&GpuBufferSet> {
         self.active_handles.get(&handle.id)
     }
 
     /// Create GPU buffers from parsed data
+    #[allow(dead_code)] // Will be used when implementing local data parsing
     fn create_gpu_buffers(&self, data: &ParsedData) -> GpuChartsResult<GpuBufferSet> {
         let mut buffers = HashMap::new();
 
         // Create time buffer
         if !data.time_data.is_empty() {
-            let time_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Time Data Buffer"),
-                contents: bytemuck::cast_slice(&data.time_data),
-                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            });
+            let time_buffer = self
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Time Data Buffer"),
+                    contents: bytemuck::cast_slice(&data.time_data),
+                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                });
             buffers.insert("time".to_string(), vec![time_buffer]);
         }
 
         // Create value buffers
         for (column, values) in &data.value_data {
             if !values.is_empty() {
-                let value_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some(&format!("{} Data Buffer", column)),
-                    contents: bytemuck::cast_slice(values),
-                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                });
+                let value_buffer =
+                    self.device
+                        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                            label: Some(&format!("{} Data Buffer", column)),
+                            contents: bytemuck::cast_slice(values),
+                            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                        });
                 buffers.insert(column.clone(), vec![value_buffer]);
             }
         }
@@ -233,7 +247,7 @@ mod tests {
     #[test]
     fn test_cache_lru() {
         let mut cache = DataCache::new(2);
-        
+
         let handle1 = DataHandle {
             id: Uuid::new_v4(),
             metadata: DataMetadata {
@@ -269,10 +283,10 @@ mod tests {
 
         cache.insert("btc".to_string(), handle1.clone());
         cache.insert("eth".to_string(), handle2.clone());
-        
+
         // Cache is full, inserting another should evict btc
         cache.insert("sol".to_string(), handle3.clone());
-        
+
         assert!(cache.get("btc").is_none());
         assert!(cache.get("eth").is_some());
         assert!(cache.get("sol").is_some());

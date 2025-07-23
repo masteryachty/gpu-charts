@@ -3,8 +3,8 @@ use std::rc::Rc;
 
 use wgpu::TextureFormat;
 
-use data_manager::{DataStore, Vertex};
 use crate::render_engine::RenderEngine;
+use data_manager::{DataStore, Vertex};
 use nalgebra_glm as glm;
 
 pub struct PlotRenderer {

@@ -11,25 +11,25 @@
 use wasm_bindgen::prelude::*;
 
 // Core modules
-pub mod line_graph;
 pub mod controls;
-pub mod wrappers;
 pub mod instance_manager;
+pub mod line_graph;
+pub mod wrappers;
 
 use std::{cell::RefCell, rc::Rc};
-use web_sys::HtmlCanvasElement;
 use uuid::Uuid;
+use web_sys::HtmlCanvasElement;
 
 use controls::canvas_controller::CanvasController;
+use instance_manager::{ChartInstance, InstanceManager};
+use line_graph::LineGraph;
 use shared_types::events::{
     ElementState, MouseButton, MouseScrollDelta, PhysicalPosition, TouchPhase, WindowEvent,
 };
-use line_graph::LineGraph;
 use shared_types::store_state::{
     ChangeDetectionConfig, StateChangeDetection, StoreState, StoreValidationResult,
 };
-use shared_types::{GpuChartsError, GpuChartsResult, ErrorResponse};
-use instance_manager::{InstanceManager, ChartInstance};
+use shared_types::{ErrorResponse, GpuChartsError, GpuChartsResult};
 
 extern crate nalgebra_glm as glm;
 
@@ -104,14 +104,14 @@ impl Chart {
             instance.line_graph.clone()
         })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
-        
+
         // Now perform the async render operation
         line_graph
             .borrow_mut()
             .render()
             .await
             .map_err(|e| format!("Render failed: {e:?}"))?;
-        
+
         Ok(())
     }
 
@@ -131,7 +131,7 @@ impl Chart {
             instance.line_graph.borrow_mut().resized(width, height);
         })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
-        
+
         Ok(())
     }
 
@@ -145,7 +145,7 @@ impl Chart {
             instance.canvas_controller.handle_cursor_event(window_event);
         })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
-        
+
         Ok(())
     }
 
@@ -158,7 +158,7 @@ impl Chart {
             instance.canvas_controller.handle_cursor_event(window_event);
         })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
-        
+
         Ok(())
     }
 
@@ -176,7 +176,7 @@ impl Chart {
             instance.canvas_controller.handle_cursor_event(window_event);
         })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
-        
+
         Ok(())
     }
 
@@ -191,7 +191,7 @@ impl Chart {
                 .set_x_range(start, end);
         })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
-        
+
         Ok(())
     }
 
@@ -264,7 +264,9 @@ impl Chart {
             let data_store = match instance.line_graph.try_borrow() {
                 Ok(line_graph) => line_graph.data_store.clone(),
                 Err(_) => {
-                    log::warn!("Failed to borrow line_graph for data_store - skipping state update");
+                    log::warn!(
+                        "Failed to borrow line_graph for data_store - skipping state update"
+                    );
                     let error_response = serde_json::json!({
                         "success": false,
                         "errors": ["Chart is busy - try again in a moment"],
@@ -325,10 +327,8 @@ impl Chart {
                 }
             }
         });
-        
-        result.unwrap_or_else(|| {
-            Err(JsValue::from_str("Chart not initialized"))
-        })
+
+        result.unwrap_or_else(|| Err(JsValue::from_str("Chart not initialized")))
     }
 
     /// Check if the chart is initialized and has an active instance
@@ -392,7 +392,7 @@ impl Chart {
                 }
             }
         });
-        
+
         result.unwrap_or_else(|| Err(JsValue::from_str("Chart not initialized")))
     }
 
@@ -521,7 +521,7 @@ impl Chart {
             instance.line_graph.borrow_mut().set_chart_type(chart_type);
         })
         .ok_or_else(|| JsValue::from_str("Chart not initialized"))?;
-        
+
         Ok(())
     }
 
@@ -535,7 +535,7 @@ impl Chart {
                 .set_candle_timeframe(timeframe_seconds);
         })
         .ok_or_else(|| JsValue::from_str("Chart not initialized"))?;
-        
+
         Ok(())
     }
 }

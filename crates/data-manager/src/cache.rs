@@ -1,9 +1,9 @@
 //! Advanced caching system for data management
 
+use shared_types::DataHandle;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use shared_types::DataHandle;
 
 /// Cache entry with metadata
 #[derive(Clone)]
@@ -52,7 +52,7 @@ impl AdvancedCache {
                     return None;
                 }
             }
-            
+
             // Update access metadata
             entry.last_accessed = Instant::now();
             entry.access_count += 1;
@@ -87,7 +87,8 @@ impl AdvancedCache {
 
     fn evict_lru(&mut self) {
         // Find least recently used entry
-        if let Some((key, _)) = self.entries
+        if let Some((key, _)) = self
+            .entries
             .iter()
             .min_by_key(|(_, entry)| (entry.last_accessed, entry.access_count))
             .map(|(k, v)| (k.clone(), v.clone()))

@@ -4,8 +4,8 @@ use std::rc::Rc;
 use wgpu::TextureFormat;
 use wgpu_text::glyph_brush::ab_glyph::FontRef;
 
-use data_manager::{create_gpu_buffer_from_vec, DataStore};
 use crate::render_engine::RenderEngine;
+use data_manager::{create_gpu_buffer_from_vec, DataStore};
 use wgpu_text::{
     glyph_brush::{Section as TextSection, Text},
     BrushBuilder, TextBrush,

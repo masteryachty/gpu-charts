@@ -1,25 +1,28 @@
 //! Pure GPU rendering engine for GPU Charts
 //! Implements Phase 3 optimizations for extreme performance
 
-pub mod render_engine;
-pub mod pipeline_builder;
-pub mod mesh_builder;
-pub mod drawables;
 pub mod calcables;
-pub mod shaders;
 pub mod charts;
+pub mod drawables;
+pub mod mesh_builder;
+pub mod pipeline_builder;
+pub mod render_engine;
+pub mod shaders;
 
-use std::rc::Rc;
-use std::cell::RefCell;
-use wgpu::{Device, Queue, TextureView, CommandEncoder};
-use shared_types::{RenderStats, GpuChartsError, GpuChartsResult};
 use config_system::GpuChartsConfig;
 use data_manager::DataStore;
+use shared_types::{GpuChartsError, GpuChartsResult, RenderStats};
+use std::cell::RefCell;
+use std::rc::Rc;
+use wgpu::{CommandEncoder, Device, Queue, TextureView};
 
-pub use render_engine::RenderEngine;
+pub use calcables::{candle_aggregator::CandleAggregator, min_max::calculate_min_max_y};
 pub use drawables::plot::RenderListener;
-pub use drawables::{plot::PlotRenderer, x_axis::XAxisRenderer, y_axis::YAxisRenderer, candlestick::CandlestickRenderer};
-pub use calcables::{min_max::calculate_min_max_y, candle_aggregator::CandleAggregator};
+pub use drawables::{
+    candlestick::CandlestickRenderer, plot::PlotRenderer, x_axis::XAxisRenderer,
+    y_axis::YAxisRenderer,
+};
+pub use render_engine::RenderEngine;
 
 /// Re-export error types
 pub type RenderError = GpuChartsError;
@@ -28,9 +31,10 @@ pub type RenderResult<T> = GpuChartsResult<T>;
 /// Main renderer that orchestrates all rendering operations
 pub struct Renderer {
     pub render_engine: Rc<RefCell<RenderEngine>>,
+    #[allow(dead_code)] // Will be used for quality settings and performance tuning
     config: GpuChartsConfig,
     data_store: Rc<RefCell<DataStore>>,
-    
+
     // Specific renderers
     plot_renderer: Option<Box<dyn RenderListener>>,
     x_axis_renderer: Option<XAxisRenderer>,
@@ -52,20 +56,20 @@ impl Renderer {
             x_axis_renderer: None,
             y_axis_renderer: None,
         };
-        
+
         // Set up initial renderers
         renderer.setup_renderers();
-        
+
         Ok(renderer)
     }
-    
+
     /// Setup renderers based on chart type
     pub fn setup_renderers(&mut self) {
         let format = self.render_engine.borrow().config.format;
         let chart_type = self.data_store.borrow().chart_type;
-        
+
         log::info!("Setting up renderers for chart type: {chart_type:?}");
-        
+
         // Create plot renderer based on chart type
         self.plot_renderer = match chart_type {
             data_manager::ChartType::Line => Some(Box::new(PlotRenderer::new(
@@ -79,14 +83,14 @@ impl Renderer {
                 self.data_store.clone(),
             ))),
         };
-        
+
         // Create axis renderers
         self.x_axis_renderer = Some(XAxisRenderer::new(
             self.render_engine.clone(),
             format,
             self.data_store.clone(),
         ));
-        
+
         self.y_axis_renderer = Some(YAxisRenderer::new(
             self.render_engine.clone(),
             format,
@@ -105,17 +109,22 @@ impl Renderer {
         if !self.data_store.borrow().is_dirty() {
             return Ok(());
         }
-        
+
         // Get current texture
         let engine_borrow = self.render_engine.borrow();
         let output = engine_borrow.surface.get_current_texture()?;
-        let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
-        
+        let view = output
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+
         // Create command encoder
-        let mut encoder = engine_borrow.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Render Encoder"),
-        });
-        
+        let mut encoder =
+            engine_borrow
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("Render Encoder"),
+                });
+
         // Clear pass
         {
             encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -138,7 +147,7 @@ impl Renderer {
                 occlusion_query_set: None,
             });
         }
-        
+
         // Render plot
         if let Some(ref mut plot_renderer) = self.plot_renderer {
             plot_renderer.on_render(
@@ -149,7 +158,7 @@ impl Renderer {
                 self.data_store.clone(),
             );
         }
-        
+
         // Render axes
         if let Some(ref mut x_axis) = self.x_axis_renderer {
             x_axis.on_render(
@@ -160,7 +169,7 @@ impl Renderer {
                 self.data_store.clone(),
             );
         }
-        
+
         if let Some(ref mut y_axis) = self.y_axis_renderer {
             y_axis.on_render(
                 &engine_borrow.queue,
@@ -170,38 +179,45 @@ impl Renderer {
                 self.data_store.clone(),
             );
         }
-        
+
         // Submit commands
-        engine_borrow.queue.submit(std::iter::once(encoder.finish()));
+        engine_borrow
+            .queue
+            .submit(std::iter::once(encoder.finish()));
         drop(engine_borrow); // Drop the borrow before present
         output.present();
-        
+
         // Mark as clean after successful render
         self.data_store.borrow_mut().mark_clean();
-        
+
         Ok(())
     }
-    
+
     /// Update chart type
     pub fn set_chart_type(&mut self, chart_type: data_manager::ChartType) {
         self.data_store.borrow_mut().chart_type = chart_type;
         self.setup_renderers();
     }
-    
+
     /// Resize the renderer
     pub fn resize(&mut self, width: u32, height: u32) {
         self.render_engine.borrow_mut().resized(width, height);
         self.data_store.borrow_mut().resized(width, height);
     }
 
-
     /// Get current statistics
     pub fn get_stats(&self) -> RenderStats {
         let mut draw_calls = 0;
-        if self.plot_renderer.is_some() { draw_calls += 1; }
-        if self.x_axis_renderer.is_some() { draw_calls += 1; }
-        if self.y_axis_renderer.is_some() { draw_calls += 1; }
-        
+        if self.plot_renderer.is_some() {
+            draw_calls += 1;
+        }
+        if self.x_axis_renderer.is_some() {
+            draw_calls += 1;
+        }
+        if self.y_axis_renderer.is_some() {
+            draw_calls += 1;
+        }
+
         RenderStats {
             frame_time_ms: 0.0,
             draw_calls,
@@ -214,11 +230,17 @@ impl Renderer {
 /// Trait for chart-specific renderers
 pub trait ChartRenderer: Send + Sync {
     /// Render the chart
-    fn render(&mut self, encoder: &mut CommandEncoder, view: &TextureView, device: &Device, queue: &Queue);
-    
+    fn render(
+        &mut self,
+        encoder: &mut CommandEncoder,
+        view: &TextureView,
+        device: &Device,
+        queue: &Queue,
+    );
+
     /// Handle resize
     fn resize(&mut self, width: u32, height: u32);
-    
+
     /// Get renderer name
     fn name(&self) -> &str;
 }

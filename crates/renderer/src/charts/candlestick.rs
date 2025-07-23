@@ -1,7 +1,7 @@
 //! Candlestick chart renderer implementation
 
 use crate::ChartRenderer;
-use wgpu::{Device, Queue, CommandEncoder, TextureView};
+use wgpu::{CommandEncoder, Device, Queue, TextureView};
 
 pub struct CandlestickChartRenderer {
     // TODO: Add fields
@@ -16,14 +16,20 @@ impl CandlestickChartRenderer {
 }
 
 impl ChartRenderer for CandlestickChartRenderer {
-    fn render(&mut self, _encoder: &mut CommandEncoder, _view: &TextureView, _device: &Device, _queue: &Queue) {
+    fn render(
+        &mut self,
+        _encoder: &mut CommandEncoder,
+        _view: &TextureView,
+        _device: &Device,
+        _queue: &Queue,
+    ) {
         // TODO: Implement candlestick chart rendering
     }
-    
+
     fn resize(&mut self, _width: u32, _height: u32) {
         // TODO: Handle resize
     }
-    
+
     fn name(&self) -> &str {
         "CandlestickChart"
     }

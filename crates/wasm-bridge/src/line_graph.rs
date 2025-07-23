@@ -1,7 +1,7 @@
-use data_manager::{ChartType, DataStore, DataManager};
-use renderer::{RenderEngine, Renderer};
-use config_system::GpuChartsConfig;
 use chrono::DateTime;
+use config_system::GpuChartsConfig;
+use data_manager::{ChartType, DataManager, DataStore};
+use renderer::{RenderEngine, Renderer};
 use std::sync::Arc;
 
 #[cfg(target_arch = "wasm32")]
@@ -61,7 +61,10 @@ impl LineGraph {
         // Get device and queue for DataManager
         let (device, queue) = {
             let engine_b = engine.borrow();
-            (Arc::new(engine_b.device.clone()), Arc::new(engine_b.queue.clone()))
+            (
+                Arc::new(engine_b.device.clone()),
+                Arc::new(engine_b.queue.clone()),
+            )
         };
 
         // Create DataManager with modular approach
@@ -75,30 +78,23 @@ impl LineGraph {
         let config = GpuChartsConfig::default();
 
         // Create Renderer with modular approach
-        let renderer = Renderer::new(
-            engine.clone(),
-            config,
-            data_store.clone(),
-        ).await.unwrap();
+        let renderer = Renderer::new(engine.clone(), config, data_store.clone())
+            .await
+            .unwrap();
 
         // Try to fetch initial data using DataManager
         log::info!("Attempting initial data fetch...");
         let selected_metrics = vec!["best_bid", "best_ask"];
-        let _ = data_manager.fetch_data(
-            &topic,
-            start as u64,
-            end as u64,
-            &selected_metrics,
-        ).await;
+        let _ = data_manager
+            .fetch_data(&topic, start as u64, end as u64, &selected_metrics)
+            .await;
 
         // Set the time range
         data_store
             .borrow_mut()
             .set_x_range(start as u32, end as u32);
 
-        log::info!(
-            "LineGraph initialization completed (data fetch may have failed gracefully)"
-        );
+        log::info!("LineGraph initialization completed (data fetch may have failed gracefully)");
 
         // Create the LineGraph instance
         Ok(Self {
@@ -120,7 +116,6 @@ impl LineGraph {
         self.data_store.borrow_mut().resized(width, height);
         self.renderer.resize(width, height);
     }
-
 
     // Switch chart type
     pub fn set_chart_type(&mut self, chart_type: &str) {

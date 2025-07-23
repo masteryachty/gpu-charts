@@ -1,7 +1,7 @@
 use js_sys::{ArrayBuffer, Uint32Array};
+use nalgebra_glm as glm;
 use wgpu::util::DeviceExt;
 use wgpu::{Buffer, Device};
-use nalgebra_glm as glm;
 
 pub struct ScreenDimensions {
     pub width: u32,

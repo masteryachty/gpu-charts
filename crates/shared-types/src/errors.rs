@@ -1,8 +1,8 @@
 //! Common error types used across all GPU Charts crates
 //! Provides consistent error handling and reporting
 
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use serde::{Serialize, Deserialize};
 
 /// Base error type for all GPU Charts operations
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
@@ -11,70 +11,79 @@ pub enum GpuChartsError {
     // Data-related errors
     #[error("Data fetch failed: {message}")]
     DataFetch { message: String },
-    
+
     #[error("Data parse error: {message}")]
-    DataParse { message: String, offset: Option<usize> },
-    
+    DataParse {
+        message: String,
+        offset: Option<usize>,
+    },
+
     #[error("Invalid data format: {expected} but got {actual}")]
     InvalidFormat { expected: String, actual: String },
-    
+
     #[error("Data not found: {resource}")]
     DataNotFound { resource: String },
 
     // GPU/Rendering errors
     #[error("GPU initialization failed: {message}")]
     GpuInit { message: String },
-    
+
     #[error("Surface error: {message}")]
     Surface { message: String },
-    
+
     #[error("Buffer creation failed: {message}")]
     BufferCreation { message: String, size: Option<u64> },
-    
+
     #[error("Shader compilation failed: {message}")]
     ShaderCompilation { message: String, shader: String },
-    
+
     #[error("Render pipeline error: {message}")]
     RenderPipeline { message: String },
 
     // Configuration errors
     #[error("Invalid configuration: {message}")]
-    InvalidConfig { message: String, field: Option<String> },
-    
+    InvalidConfig {
+        message: String,
+        field: Option<String>,
+    },
+
     #[error("Missing required configuration: {field}")]
     MissingConfig { field: String },
 
     // State management errors
     #[error("State validation failed: {errors:?}")]
-    StateValidation { errors: Vec<String>, warnings: Vec<String> },
-    
+    StateValidation {
+        errors: Vec<String>,
+        warnings: Vec<String>,
+    },
+
     #[error("State update failed: {message}")]
     StateUpdate { message: String },
-    
+
     #[error("Instance not found: {id}")]
     InstanceNotFound { id: String },
 
     // Network errors
     #[error("Network request failed: {message}")]
     Network { message: String },
-    
+
     #[error("Request timeout: {message}")]
     Timeout { message: String, duration_ms: u64 },
 
     // WASM-specific errors
     #[error("JavaScript interop error: {message}")]
     JsInterop { message: String },
-    
+
     #[error("WASM memory error: {message}")]
     WasmMemory { message: String },
 
     // Generic errors
     #[error("Operation cancelled")]
     Cancelled,
-    
+
     #[error("Not implemented: {feature}")]
     NotImplemented { feature: String },
-    
+
     #[error("Internal error: {message}")]
     Internal { message: String },
 }
@@ -198,8 +207,7 @@ mod tests {
             message: "Failed to connect (URL: https://api.example.com)".to_string(),
         };
 
-        let response = ErrorResponse::new(error)
-            .with_context("DataManager", "fetch_data");
+        let response = ErrorResponse::new(error).with_context("DataManager", "fetch_data");
 
         let json = response.to_json();
         assert!(json.contains("DataFetch"));
@@ -210,7 +218,7 @@ mod tests {
     fn test_error_conversion() {
         let surface_err = wgpu::SurfaceError::Outdated;
         let gpu_err: GpuChartsError = surface_err.into();
-        
+
         match gpu_err {
             GpuChartsError::Surface { message } => {
                 assert!(message.contains("Outdated"));
