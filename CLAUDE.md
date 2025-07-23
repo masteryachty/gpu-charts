@@ -10,6 +10,82 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a WebAssembly-based real-time data visualization application built in Rust that renders interactive charts using WebGPU for high-performance GPU-accelerated rendering. The application uses a modular architecture with separate crates for different concerns and includes a React web frontend.
 
+## Architecture Overview
+
+### Modular Crate Architecture
+
+The project has been restructured into a clean, modular architecture with five specialized crates:
+
+```
+gpu-charts/
+├── crates/
+│   ├── shared-types/     # Common types and data structures
+│   ├── config-system/    # Configuration and quality presets
+│   ├── data-manager/     # Data fetching, parsing, and GPU buffers
+│   ├── renderer/         # Pure GPU rendering engine
+│   └── wasm-bridge/      # JavaScript/React integration layer
+├── web/                  # React frontend application
+├── server/               # High-performance data server
+├── coinbase-logger/      # Real-time market data collector
+└── file_server/          # Legacy development server
+```
+
+#### Crate Dependencies
+```
+shared-types (foundation - no internal deps)
+    ↑
+├── config-system (depends on: shared-types)
+├── data-manager (depends on: shared-types)
+├── renderer (depends on: shared-types, config-system)
+    ↑
+└── wasm-bridge (depends on: all above crates)
+    ↑
+    JavaScript/React
+```
+
+#### Key Architectural Benefits
+- **Clear Separation of Concerns**: Each crate has a single, well-defined responsibility
+- **Testability**: Crates can be tested in isolation
+- **Reusability**: Core logic can be used outside WASM context
+- **Maintainability**: Changes are localized to specific crates
+- **Parallel Development**: Teams can work on different crates independently
+
+### Crate Descriptions
+
+#### 1. **shared-types** (`crates/shared-types/`)
+- Foundation crate with zero dependencies on other workspace crates
+- Common data structures, enums, and types
+- Store state types for React integration
+- Event system types
+- Error definitions
+
+#### 2. **config-system** (`crates/config-system/`)
+- Manages all configuration and quality presets
+- Defines Low/Medium/High/Ultra quality settings
+- Performance tuning parameters
+- Chart appearance configuration
+
+#### 3. **data-manager** (`crates/data-manager/`)
+- Handles all data operations
+- HTTP data fetching with caching
+- Binary data parsing
+- GPU buffer creation and management
+- Screen-space coordinate transformations
+
+#### 4. **renderer** (`crates/renderer/`)
+- Pure GPU rendering engine
+- WebGPU pipeline management
+- Specialized renderers (plot, candlestick, axes)
+- WGSL shader management
+- Surface and texture handling
+
+#### 5. **wasm-bridge** (`crates/wasm-bridge/`)
+- Central orchestration layer
+- JavaScript/React bindings
+- Event handling and user interactions
+- State synchronization
+- Coordinates all other crates
+
 ## Development Commands
 
 ### Code Quality and Pre-commit Hooks
@@ -208,28 +284,6 @@ npm run test:server          # Unit and integration tests
 npm run test:server:api      # Live API tests (requires running server)
 ```
 
-## Architecture Overview
-
-### Modular Architecture
-
-The project uses a multi-crate architecture for better separation of concerns:
-
-#### Core Crates
-- **wasm-bridge** (`crates/wasm-bridge/`): Central orchestration layer that bridges JavaScript and Rust/WebGPU worlds
-- **data-manager** (`crates/data-manager/`): Handles all data operations with focus on performance and GPU optimization
-- **renderer** (`crates/renderer/`): Pure GPU rendering engine implementing Phase 3 optimizations
-- **config-system** (`crates/config-system/`): Configuration and preset management
-- **shared-types** (`crates/shared-types/`): Common data structures used across all crates
-
-#### Key Components
-- **LineGraph** (in wasm-bridge): Main orchestrator that manages data fetching, rendering, and user interactions
-- **RenderEngine** (in renderer): WebGPU rendering system with surface management
-- **DataStore** (in data-manager): Manages time-series data buffers and screen transformations
-- **PlotRenderer/CandlestickRenderer** (in renderer): Chart visualization components
-- **XAxisRenderer/YAxisRenderer** (in renderer): Axis rendering with labels
-
-Each renderer has corresponding WGSL compute/vertex/fragment shaders co-located with the Rust code.
-
 ## Key Technical Considerations
 
 ### WebAssembly Integration
@@ -304,3 +358,52 @@ This project consists of four main components working together:
   - `setup-ssl.sh`: SSL certificate generation and management
 - `package.json`: Top-level orchestration scripts for all components
 - `Cargo.toml`: Workspace configuration for all Rust components
+
+## Working with Individual Crates
+
+Each crate has its own CLAUDE.md file with specific guidance:
+
+- [`crates/shared-types/CLAUDE.md`](crates/shared-types/CLAUDE.md) - Common types and structures
+- [`crates/config-system/CLAUDE.md`](crates/config-system/CLAUDE.md) - Configuration management
+- [`crates/data-manager/CLAUDE.md`](crates/data-manager/CLAUDE.md) - Data operations
+- [`crates/renderer/CLAUDE.md`](crates/renderer/CLAUDE.md) - GPU rendering
+- [`crates/wasm-bridge/CLAUDE.md`](crates/wasm-bridge/CLAUDE.md) - JavaScript integration
+
+## Best Practices for Modular Development
+
+1. **Dependency Direction**: Dependencies should only flow upward in the architecture
+2. **Interface Stability**: Changes to shared-types affect all crates - plan carefully
+3. **Testing**: Each crate should have comprehensive unit tests
+4. **Documentation**: Keep crate-specific CLAUDE.md files updated
+5. **Version Management**: Use workspace versioning for consistency
+
+## Quick Start for New Developers
+
+1. **Clone and Setup**:
+   ```bash
+   git clone <repo>
+   cd gpu-charts
+   npm install
+   npm run setup:ssl
+   ```
+
+2. **Start Development**:
+   ```bash
+   npm run dev:suite  # Full stack: WASM + Server + React
+   ```
+
+3. **Make Changes**:
+   - Rust changes in `/crates/` auto-rebuild via watcher
+   - React changes in `/web/` hot-reload automatically
+   - Server changes require restart
+
+4. **Test Your Changes**:
+   ```bash
+   npm run test:server  # Test Rust code
+   npm run test:web     # Test React code
+   ```
+
+5. **Commit**:
+   ```bash
+   git commit -m "feat: your feature"  # Pre-commit hooks run automatically
+   ```
