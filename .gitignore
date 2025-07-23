@@ -465,3 +465,4 @@ server/localhost.crt
 
 # Keep the certs directory itself
 !server/certs/.gitkeep
+.claude/
