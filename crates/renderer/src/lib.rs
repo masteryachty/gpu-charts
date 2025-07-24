@@ -11,7 +11,7 @@ pub mod shaders;
 use config_system::GpuChartsConfig;
 use data_manager::DataStore;
 use shared_types::{GpuChartsError, GpuChartsResult, RenderStats};
-use std::sync::Arc;
+use std::rc::Rc;
 use wgpu::{CommandEncoder, Device, Queue, TextureView};
 
 pub use calcables::{candle_aggregator::CandleAggregator, min_max::calculate_min_max_y};
@@ -28,8 +28,8 @@ pub type RenderResult<T> = GpuChartsResult<T>;
 pub struct Renderer {
     // WebGPU resources (previously in RenderEngine)
     pub surface: wgpu::Surface<'static>,
-    pub device: Arc<wgpu::Device>,
-    pub queue: Arc<wgpu::Queue>,
+    pub device: Rc<wgpu::Device>,
+    pub queue: Rc<wgpu::Queue>,
     pub config: wgpu::SurfaceConfiguration,
 
     #[allow(dead_code)] // Will be used for quality settings and performance tuning
@@ -48,8 +48,8 @@ impl Renderer {
     #[cfg(target_arch = "wasm32")]
     pub async fn new(
         canvas: web_sys::HtmlCanvasElement,
-        device: Arc<wgpu::Device>,
-        queue: Arc<wgpu::Queue>,
+        device: Rc<wgpu::Device>,
+        queue: Rc<wgpu::Queue>,
         config: GpuChartsConfig,
         data_store: DataStore,
     ) -> RenderResult<Self> {

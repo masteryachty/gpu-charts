@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::rc::Rc;
 
 use wgpu::TextureFormat;
 use wgpu_text::glyph_brush::ab_glyph::FontRef;
@@ -242,8 +242,8 @@ impl XAxisRenderer {
 
 impl XAxisRenderer {
     pub fn new(
-        device: Arc<wgpu::Device>,
-        _queue: Arc<wgpu::Queue>,
+        device: Rc<wgpu::Device>,
+        _queue: Rc<wgpu::Queue>,
         color_format: TextureFormat,
         screen_width: u32,
         screen_height: u32,

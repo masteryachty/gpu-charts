@@ -4,7 +4,7 @@ use data_manager::{ChartType, DataManager, DataStore};
 use js_sys::{Float32Array, Uint32Array};
 use renderer::Renderer;
 use shared_types::DataHandle;
-use std::sync::Arc;
+use std::rc::Rc;
 
 #[cfg(target_arch = "wasm32")]
 use crate::wrappers::js::get_query_params;
@@ -85,10 +85,8 @@ impl LineGraph {
             .await
             .map_err(|e| Error::new(&format!("Failed to request device: {e}")))?;
 
-        #[allow(clippy::arc_with_non_send_sync)]
-        let device = Arc::new(device);
-        #[allow(clippy::arc_with_non_send_sync)]
-        let queue = Arc::new(queue);
+        let device = Rc::new(device);
+        let queue = Rc::new(queue);
 
         // Create DataManager with modular approach
         let mut data_manager = DataManager::new(
@@ -176,7 +174,7 @@ impl LineGraph {
         data_handle: &DataHandle,
         data_manager: &mut DataManager,
         data_store: &mut DataStore,
-        device: &Arc<wgpu::Device>,
+        device: &Rc<wgpu::Device>,
     ) -> Result<(), shared_types::GpuChartsError> {
         // Get the GPU buffer set from the data manager
         let gpu_buffer_set = data_manager.get_buffers(data_handle).ok_or_else(|| {

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::rc::Rc;
 
 use nalgebra_glm as glm;
 use wgpu::util::DeviceExt;
@@ -237,8 +237,8 @@ impl CandlestickRenderer {
     }
 
     pub fn new(
-        device: Arc<wgpu::Device>,
-        _queue: Arc<wgpu::Queue>,
+        device: Rc<wgpu::Device>,
+        _queue: Rc<wgpu::Queue>,
         color_format: TextureFormat,
     ) -> Self {
         // Create shader modules

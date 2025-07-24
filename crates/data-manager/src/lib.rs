@@ -8,7 +8,7 @@ pub mod data_store;
 
 use shared_types::{DataHandle, DataMetadata, GpuChartsError, GpuChartsResult, ParsedData};
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::rc::Rc;
 use uuid::Uuid;
 use wgpu::util::DeviceExt;
 use wgpu::{Device, Queue};
@@ -29,9 +29,9 @@ pub struct GpuBufferSet {
 
 /// Main data manager that coordinates all data operations
 pub struct DataManager {
-    device: Arc<Device>,
+    device: Rc<Device>,
     #[allow(dead_code)] // Will be used for buffer operations in the future
-    queue: Arc<Queue>,
+    queue: Rc<Queue>,
     base_url: String,
     cache: DataCache,
     active_handles: HashMap<Uuid, GpuBufferSet>,
@@ -39,7 +39,7 @@ pub struct DataManager {
 
 impl DataManager {
     /// Create a new data manager
-    pub fn new(device: Arc<Device>, queue: Arc<Queue>, base_url: String) -> Self {
+    pub fn new(device: Rc<Device>, queue: Rc<Queue>, base_url: String) -> Self {
         Self {
             device,
             queue,

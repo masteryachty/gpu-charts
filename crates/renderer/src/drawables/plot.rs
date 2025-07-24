@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::rc::Rc;
 
 use wgpu::TextureFormat;
 
@@ -8,7 +8,7 @@ use nalgebra_glm as glm;
 pub struct PlotRenderer {
     pipeline: wgpu::RenderPipeline,
     bind_group_layout: wgpu::BindGroupLayout,
-    device: Arc<wgpu::Device>,
+    device: Rc<wgpu::Device>,
 }
 
 impl PlotRenderer {
@@ -122,8 +122,8 @@ impl PlotRenderer {
     }
 
     pub fn new(
-        device: Arc<wgpu::Device>,
-        _queue: Arc<wgpu::Queue>,
+        device: Rc<wgpu::Device>,
+        _queue: Rc<wgpu::Queue>,
         color_format: TextureFormat,
     ) -> PlotRenderer {
         let shader = device.create_shader_module(wgpu::include_wgsl!("plot.wgsl"));
