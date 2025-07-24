@@ -267,5 +267,4 @@ mod tests {
         config.apply_preset(QualityPreset::Ultra);
         assert_eq!(config.get_config().performance.target_fps, 120);
     }
-
 }
