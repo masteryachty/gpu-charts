@@ -74,6 +74,7 @@ impl DataManager {
 
         // Parse the binary data into columnar format
         let mut column_buffers = HashMap::new();
+        let mut raw_buffers = HashMap::new();
         let mut offset = 0u32;
 
         for column in &api_header.columns {
@@ -86,11 +87,13 @@ impl DataManager {
             let gpu_buffers =
                 create_chunked_gpu_buffer_from_arraybuffer(&self.device, &col_buffer, &column.name);
             column_buffers.insert(column.name.clone(), gpu_buffers);
+            raw_buffers.insert(column.name.clone(), col_buffer);
         }
 
         // Create GPU buffer set
         let gpu_buffers = GpuBufferSet {
             buffers: column_buffers,
+            raw_buffers,
             metadata: DataMetadata {
                 symbol: symbol.to_string(),
                 start_time,
@@ -156,6 +159,7 @@ impl DataManager {
 
         Ok(GpuBufferSet {
             buffers,
+            raw_buffers: HashMap::new(), // Empty for locally created buffers
             metadata: data.metadata.clone(),
         })
     }

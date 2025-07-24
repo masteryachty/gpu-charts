@@ -51,6 +51,7 @@ export const SimpleChartControls: React.FC = () => {
           </select>
         </div>
       )}
+      
     </div>
   );
 };

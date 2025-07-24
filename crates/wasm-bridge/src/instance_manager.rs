@@ -12,7 +12,7 @@ use shared_types::store_state::{ChangeDetectionConfig, StoreState};
 
 /// Represents a single chart instance with all its associated state
 pub struct ChartInstance {
-    pub line_graph: Rc<RefCell<LineGraph>>,
+    pub line_graph: LineGraph,
     pub canvas_controller: CanvasController,
     pub current_store_state: Option<StoreState>,
     pub change_detection_config: ChangeDetectionConfig,
@@ -29,7 +29,7 @@ pub struct InstanceManager;
 impl InstanceManager {
     /// Create a new chart instance and return its ID
     pub fn create_instance(
-        line_graph: Rc<RefCell<LineGraph>>,
+        line_graph: LineGraph,
         canvas_controller: CanvasController,
     ) -> Uuid {
         let id = Uuid::new_v4();
@@ -82,6 +82,21 @@ impl InstanceManager {
     pub fn clear_all() {
         CHART_INSTANCES.with(|instances| {
             instances.borrow_mut().clear();
+        });
+    }
+
+    /// Temporarily take an instance for async operations
+    /// WARNING: You MUST call put_instance after you're done!
+    pub fn take_instance(id: &Uuid) -> Option<ChartInstance> {
+        CHART_INSTANCES.with(|instances| {
+            instances.borrow_mut().remove(id)
+        })
+    }
+
+    /// Put an instance back after async operations
+    pub fn put_instance(id: Uuid, instance: ChartInstance) {
+        CHART_INSTANCES.with(|instances| {
+            instances.borrow_mut().insert(id, instance);
         });
     }
 }

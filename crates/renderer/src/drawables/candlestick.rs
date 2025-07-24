@@ -1,15 +1,12 @@
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use nalgebra_glm as glm;
 use wgpu::util::DeviceExt;
 use wgpu::TextureFormat;
 
 use crate::calcables::CandleAggregator;
-use crate::render_engine::RenderEngine;
 use data_manager::DataStore;
 
-use super::plot::RenderListener;
 
 /// Renders candlestick charts for financial data visualization.
 ///
@@ -132,31 +129,29 @@ struct CacheKey {
     data_hash: u64,
 }
 
-impl RenderListener for CandlestickRenderer {
-    fn on_render(
+impl CandlestickRenderer {
+    pub fn render(
         &mut self,
-        queue: &wgpu::Queue,
-        device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
         view: &wgpu::TextureView,
-        data_store: Rc<RefCell<DataStore>>,
+        data_store: &DataStore,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
     ) {
-        let ds = data_store.borrow();
-
         // Check if we have data
-        let data_len = ds.get_data_len();
+        let data_len = data_store.get_data_len();
         if data_len == 0 {
             return;
         }
 
         // Update timeframe from DataStore
-        self.candle_timeframe = ds.candle_timeframe;
+        self.candle_timeframe = data_store.candle_timeframe;
 
         // Calculate cache key for current state
-        let data_hash = self.calculate_data_hash(&ds);
+        let data_hash = self.calculate_data_hash(&data_store);
         let new_cache_key = CacheKey {
-            start_x: ds.start_x,
-            end_x: ds.end_x,
+            start_x: data_store.start_x,
+            end_x: data_store.end_x,
             candle_timeframe: self.candle_timeframe,
             data_hash,
         };
@@ -165,70 +160,55 @@ impl RenderListener for CandlestickRenderer {
         let needs_reaggregation = self.cache_key.as_ref() != Some(&new_cache_key);
 
         if needs_reaggregation {
-            self.aggregate_ohlc(device, queue, &ds);
+            // Run aggregation in the same encoder as the render pass
+            self.aggregate_ohlc(encoder, device, queue, &data_store);
+            
             self.cache_key = Some(new_cache_key);
         }
 
         // Only render if we have GPU candles
         if self.gpu_candles_buffer.is_none() || self.num_candles == 0 {
-            log::warn!("CandlestickRenderer: No GPU candles to render. gpu_candles_buffer: {}, num_candles: {}", 
-                      self.gpu_candles_buffer.is_some(), self.num_candles);
             return;
         }
 
-        log::info!(
-            "CandlestickRenderer: Rendering {} candles",
-            self.num_candles
-        );
+        // Begin render pass in a block to ensure it's dropped before function returns
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Candlestick Render Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
 
-        // Begin render pass
-        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Candlestick Render Pass"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Load,
-                    store: wgpu::StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
+            // Create bind group for rendering
+            let bind_group = match self.create_bind_group(device, &data_store) {
+                Some(bg) => bg,
+                None => return,
+            };
 
-        // Create bind group for rendering
-        let bind_group = match self.create_bind_group(device, &ds) {
-            Some(bg) => bg,
-            None => return,
-        };
+            // Render candle bodies
+            render_pass.set_pipeline(&self.body_pipeline);
+            render_pass.set_bind_group(0, &bind_group, &[]);
+            // Draw 6 vertices per candle (2 triangles)
+            let body_vertex_count = self.num_candles * 6;
+            render_pass.draw(0..body_vertex_count, 0..1);
 
-        // Render candle bodies
-        render_pass.set_pipeline(&self.body_pipeline);
-        render_pass.set_bind_group(0, &bind_group, &[]);
-        // Draw 6 vertices per candle (2 triangles)
-        let body_vertex_count = self.num_candles * 6;
-        log::info!(
-            "CandlestickRenderer: Drawing {} body vertices for {} candles",
-            body_vertex_count,
-            self.num_candles
-        );
-        render_pass.draw(0..body_vertex_count, 0..1);
-
-        // Render wicks
-        render_pass.set_pipeline(&self.wick_pipeline);
-        render_pass.set_bind_group(0, &bind_group, &[]);
-        // Draw 4 vertices per candle (2 lines)
-        let wick_vertex_count = self.num_candles * 4;
-        log::info!(
-            "CandlestickRenderer: Drawing {} wick vertices",
-            wick_vertex_count
-        );
-        render_pass.draw(0..wick_vertex_count, 0..1);
+            // Render wicks
+            render_pass.set_pipeline(&self.wick_pipeline);
+            render_pass.set_bind_group(0, &bind_group, &[]);
+            // Draw 4 vertices per candle (2 lines)
+            let wick_vertex_count = self.num_candles * 4;
+            render_pass.draw(0..wick_vertex_count, 0..1);
+        } // render_pass drops here
     }
-}
-
-impl CandlestickRenderer {
     /// Calculate a simple hash of the data to detect changes
     fn calculate_data_hash(&self, ds: &DataStore) -> u64 {
         use std::collections::hash_map::DefaultHasher;
@@ -258,12 +238,10 @@ impl CandlestickRenderer {
     }
 
     pub fn new(
-        engine: Rc<RefCell<RenderEngine>>,
+        device: Arc<wgpu::Device>,
+        _queue: Arc<wgpu::Queue>,
         color_format: TextureFormat,
-        _data_store: Rc<RefCell<DataStore>>,
     ) -> Self {
-        let device = &engine.borrow().device;
-
         // Create shader modules
         let shader = device.create_shader_module(wgpu::include_wgsl!("candlestick.wgsl"));
 
@@ -388,7 +366,7 @@ impl CandlestickRenderer {
             cache: None,
         });
 
-        let candle_aggregator = CandleAggregator::new(device);
+        let candle_aggregator = CandleAggregator::new(&device);
 
         Self {
             body_pipeline,
@@ -410,7 +388,8 @@ impl CandlestickRenderer {
     /// 2. Uses GPU compute shaders to aggregate ticks in parallel
     /// 3. Stores results directly in GPU memory for rendering
     /// 4. Creates vertex buffers from GPU candle data
-    fn aggregate_ohlc(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, ds: &DataStore) {
+    fn aggregate_ohlc(&mut self, encoder: &mut wgpu::CommandEncoder, device: &wgpu::Device, queue: &wgpu::Queue, ds: &DataStore) {
+        
         // Calculate candle boundaries to include partial candles
         // Find the first candle that starts at or before the view start
         let first_candle_start = (ds.start_x / self.candle_timeframe) * self.candle_timeframe;
@@ -422,9 +401,6 @@ impl CandlestickRenderer {
         let num_candles = (extended_time_range / self.candle_timeframe) as u32;
         self.num_candles = num_candles;
 
-        log::info!("CandlestickRenderer: Aggregating OHLC data. Time range: {} to {}, candle_timeframe: {}, num_candles: {}", 
-                  ds.start_x, ds.end_x, self.candle_timeframe, num_candles);
-
         // Get the active data groups
         let active_groups = ds.get_active_data_groups();
         if active_groups.is_empty() {
@@ -435,29 +411,15 @@ impl CandlestickRenderer {
         // Use the first data group and first metric (price data)
         let data_series = &active_groups[0];
         if data_series.metrics.is_empty() {
-            log::warn!("CandlestickRenderer: No metrics available in data series");
             return;
         }
-
-        log::info!(
-            "CandlestickRenderer: Using metric '{}' for OHLC aggregation",
-            data_series.metrics[0].name
-        );
 
         // Check if we have GPU buffers
         if data_series.x_buffers.is_empty() || data_series.metrics[0].y_buffers.is_empty() {
-            log::warn!(
-                "CandlestickRenderer: No GPU buffers available. x_buffers: {}, y_buffers: {}",
-                data_series.x_buffers.len(),
-                data_series.metrics[0].y_buffers.len()
-            );
             return;
         }
 
-        // Create command encoder for GPU work
-        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Candle Aggregation Encoder"),
-        });
+        // Use the passed encoder for GPU work to batch operations
 
         // Handle multiple buffer chunks if necessary
         let tick_count = data_series.length;
@@ -499,7 +461,7 @@ impl CandlestickRenderer {
                     .aggregate_candles(
                         device,
                         queue,
-                        &mut encoder,
+                        encoder,
                         &data_series.x_buffers[0],
                         &data_series.metrics[0].y_buffers[0],
                         tick_count,
@@ -541,7 +503,7 @@ impl CandlestickRenderer {
                     .aggregate_candles_chunked(
                         device,
                         queue,
-                        &mut encoder,
+                        encoder,
                         &data_series.x_buffers,
                         &data_series.metrics[0].y_buffers,
                         &chunk_sizes,
@@ -553,16 +515,6 @@ impl CandlestickRenderer {
                     .clone(),
             );
         }
-
-        // Submit GPU work
-        queue.submit(Some(encoder.finish()));
-
-        log::info!(
-            "CandlestickRenderer: GPU aggregation complete. Buffer size: {} bytes for {} candles",
-            self.num_candles as usize
-                * std::mem::size_of::<crate::calcables::candle_aggregator::GpuOhlcCandle>(),
-            self.num_candles
-        );
     }
 
     fn create_bind_group(

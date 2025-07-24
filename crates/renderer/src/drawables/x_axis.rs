@@ -1,22 +1,21 @@
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use wgpu::TextureFormat;
 use wgpu_text::glyph_brush::ab_glyph::FontRef;
 
-use crate::render_engine::RenderEngine;
 use data_manager::{create_gpu_buffer_from_vec, DataStore};
 use wgpu_text::{
     glyph_brush::{Section as TextSection, Text},
     BrushBuilder, TextBrush,
 };
 
-use super::plot::RenderListener;
 
 pub struct XAxisRenderer {
     // color_format: TextureFormat,
     brush: TextBrush<FontRef<'static>>,
     pipeline: wgpu::RenderPipeline,
+    bind_group_layout: wgpu::BindGroupLayout,
+    device: Arc<wgpu::Device>,
     vertex_buffer: Option<wgpu::Buffer>,
     vertex_count: u32,
     last_min_x: f32,
@@ -45,22 +44,19 @@ const LOGIC_TS_DURATIONS: [i32; 12] = [
     DURATION_DAY * 7,
 ];
 
-impl RenderListener for XAxisRenderer {
-    fn on_render(
+impl XAxisRenderer {
+    pub fn render(
         &mut self,
-        queue: &wgpu::Queue,
-        device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
         view: &wgpu::TextureView,
-        data_store: Rc<RefCell<DataStore>>,
+        data_store: &DataStore,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
     ) {
-        let ds = data_store.borrow();
-        // let data_group = ds.get_active_data_group();
-
-        let min = ds.start_x as i32;
-        let max = ds.end_x as i32;
+        let min = data_store.start_x as i32;
+        let max = data_store.end_x as i32;
         let range = max - min;
-        let width = data_store.borrow().screen_size.width as i32;
+        let width = data_store.screen_size.width as i32;
 
         // Only recalculate and recreate buffers if the data range or width has changed
         let needs_recalculation = self.last_min_x != min as f32
@@ -68,8 +64,6 @@ impl RenderListener for XAxisRenderer {
             || self.last_width != width;
 
         if needs_recalculation {
-            log::info!("Recalculating X-axis with min: {min}, max: {max}");
-
             // Find appropriate time unit for axis labels
             let mut base_unit = 0;
             for i in LOGIC_TS_DURATIONS.iter() {
@@ -82,7 +76,6 @@ impl RenderListener for XAxisRenderer {
             if base_unit == 0 {
                 base_unit = *LOGIC_TS_DURATIONS.last().unwrap();
             }
-            log::info!("Using base_unit: {base_unit}");
 
             let interval = 1;
             let mut timestamps = Vec::new();
@@ -113,13 +106,13 @@ impl RenderListener for XAxisRenderer {
             // Create text sections
             labels.reserve(label_strings.len());
             for (ts_string, ts) in &label_strings {
-                let test = ds.world_to_screen_with_margin(*ts as f32, 0.);
+                let test = data_store.world_to_screen_with_margin(*ts as f32, 0.);
 
                 let section = TextSection::default()
                     .add_text(Text::new(ts_string).with_color([1.0, 1.0, 1.0, 1.0]))
                     .with_screen_position((
                         (((test.0 + 1.) / 2.) * (width as f32)),
-                        (data_store.borrow().screen_size.height - 50) as f32,
+                        (data_store.screen_size.height - 50) as f32,
                     ));
                 labels.push(section);
             }
@@ -148,8 +141,8 @@ impl RenderListener for XAxisRenderer {
 
             // Update text brush
             self.brush.resize_view(
-                data_store.borrow().screen_size.width as f32,
-                data_store.borrow().screen_size.height as f32,
+                data_store.screen_size.width as f32,
+                data_store.screen_size.height as f32,
                 queue,
             );
             self.brush.queue(device, queue, labels).unwrap();
@@ -201,13 +194,12 @@ impl RenderListener for XAxisRenderer {
 
         // Draw vertical lines
         if let Some(buffer) = &self.vertex_buffer {
-            // Only draw if we have a bind group (which requires data to be loaded)
-            if let Some(bind_group) = ds.range_bind_group.as_ref() {
-                render_pass.set_pipeline(&self.pipeline);
-                render_pass.set_bind_group(0, bind_group, &[]);
-                render_pass.set_vertex_buffer(0, buffer.slice(..));
-                render_pass.draw(0..self.vertex_count, 0..1);
-            }
+            // Create bind group for axis rendering
+            let bind_group = self.create_bind_group(device, data_store);
+            render_pass.set_pipeline(&self.pipeline);
+            render_pass.set_bind_group(0, &bind_group, &[]);
+            render_pass.set_vertex_buffer(0, buffer.slice(..));
+            render_pass.draw(0..self.vertex_count, 0..1);
         }
 
         // Draw text labels
@@ -216,20 +208,61 @@ impl RenderListener for XAxisRenderer {
 }
 
 impl XAxisRenderer {
+    fn create_bind_group(&self, device: &wgpu::Device, data_store: &DataStore) -> wgpu::BindGroup {
+        use wgpu::util::DeviceExt;
+        use nalgebra_glm as glm;
+        
+        // Create x range buffer
+        let x_min_max = glm::vec2(data_store.start_x, data_store.end_x);
+        let x_min_max_bytes: &[u8] = unsafe { any_as_u8_slice(&x_min_max) };
+        let x_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("x_axis_x_range_buffer"),
+            contents: x_min_max_bytes,
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
+        
+        // Create y range buffer (for completeness, even if x-axis doesn't use it)
+        let y_min_max = glm::vec2(
+            data_store.min_y.unwrap_or(0.0),
+            data_store.max_y.unwrap_or(1.0),
+        );
+        let y_min_max_bytes: &[u8] = unsafe { any_as_u8_slice(&y_min_max) };
+        let y_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("x_axis_y_range_buffer"),
+            contents: y_min_max_bytes,
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
+        
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("x_axis_bind_group"),
+            layout: &self.bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: x_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: y_buffer.as_entire_binding(),
+                },
+            ],
+        })
+    }
+    
     pub fn new(
-        engine: Rc<RefCell<RenderEngine>>,
+        device: Arc<wgpu::Device>,
+        _queue: Arc<wgpu::Queue>,
         color_format: TextureFormat,
-        data_store: Rc<RefCell<DataStore>>,
+        screen_width: u32,
+        screen_height: u32,
     ) -> Self {
-        let device = &engine.borrow().device;
-
         // Create text brush
         let brush = BrushBuilder::using_font_bytes(include_bytes!("Roboto.ttf"))
             .unwrap()
             .build(
-                device,
-                data_store.borrow().screen_size.width,
-                data_store.borrow().screen_size.height,
+                &device,
+                screen_width,
+                screen_height,
                 color_format,
             );
 
@@ -307,6 +340,8 @@ impl XAxisRenderer {
             // color_format,
             brush,
             pipeline,
+            bind_group_layout,
+            device,
             vertex_buffer: None,
             vertex_count: 0,
             last_min_x: 0.0,
@@ -327,6 +362,6 @@ impl XAxisRenderer {
 }
 
 // Helper function to convert a struct to a u8 slice
-// unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
-//     ::core::slice::from_raw_parts((p as *const T) as *const u8, ::core::mem::size_of::<T>())
-// }
+unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
+    ::core::slice::from_raw_parts((p as *const T) as *const u8, ::core::mem::size_of::<T>())
+}

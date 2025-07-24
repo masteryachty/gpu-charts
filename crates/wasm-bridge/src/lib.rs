@@ -80,11 +80,8 @@ impl Chart {
             .await
             .map_err(|e| format!("Failed to create LineGraph: {e:?}"))?;
 
-        let line_graph = Rc::new(RefCell::new(line_graph));
-
         // Create canvas controller
-        let data_store = line_graph.borrow().data_store.clone();
-        let canvas_controller = CanvasController::new(data_store);
+        let canvas_controller = CanvasController::new();
 
         // Store instance using the instance manager
         self.instance_id = InstanceManager::create_instance(line_graph, canvas_controller);
@@ -97,28 +94,62 @@ impl Chart {
     }
 
     #[wasm_bindgen]
-    #[allow(clippy::await_holding_refcell_ref)]
     pub async fn render(&self) -> Result<(), JsValue> {
-        // Extract the line graph RC before the async operation
-        let line_graph = InstanceManager::with_instance(&self.instance_id, |instance| {
-            instance.line_graph.clone()
-        })
-        .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
-
-        // Now perform the async render operation
-        line_graph
-            .borrow_mut()
-            .render()
-            .await
-            .map_err(|e| format!("Render failed: {e:?}"))?;
-
+        // For web rendering, we typically want to render asynchronously
+        // without blocking. We'll spawn a local task to handle the render.
+        let instance_id = self.instance_id;
+        
+        // Spawn the render task
+        wasm_bindgen_futures::spawn_local(async move {
+            // We need to perform the render in chunks to avoid holding the lock too long
+            // First, check if the instance exists
+            let exists = InstanceManager::instance_exists(&instance_id);
+            if !exists {
+                log::error!("Chart instance not found for rendering");
+                return;
+            }
+            
+            // Now perform the actual render by temporarily taking ownership
+            // This is a workaround for the async/borrow checker issues
+            let render_result = {
+                // Take the instance temporarily
+                let instance_opt = InstanceManager::take_instance(&instance_id);
+                match instance_opt {
+                    Some(mut instance) => {
+                        // Perform the render
+                        let result = instance.line_graph.render().await;
+                        
+                        // Put the instance back
+                        InstanceManager::put_instance(instance_id, instance);
+                        
+                        result
+                    }
+                    None => {
+                        log::error!("Failed to take instance for rendering");
+                        return;
+                    }
+                }
+            };
+            
+            match render_result {
+                Ok(()) => {
+                    log::trace!("Render completed successfully");
+                }
+                Err(e) => {
+                    log::error!("Render failed: {:?}", e);
+                }
+            }
+        });
+        
+        // Return immediately - the render will happen asynchronously
         Ok(())
     }
 
     #[wasm_bindgen]
     pub fn needs_render(&self) -> bool {
         InstanceManager::with_instance(&self.instance_id, |instance| {
-            instance.line_graph.borrow().data_store.borrow().is_dirty()
+            // Check if renderer needs a render
+            instance.line_graph.renderer.needs_render()
         })
         .unwrap_or(false)
     }
@@ -127,8 +158,8 @@ impl Chart {
     pub fn resize(&self, width: u32, height: u32) -> Result<(), JsValue> {
         log::info!("Resizing chart to: {width}x{height}");
 
-        InstanceManager::with_instance(&self.instance_id, |instance| {
-            instance.line_graph.borrow_mut().resized(width, height);
+        InstanceManager::with_instance_mut(&self.instance_id, |instance| {
+            instance.line_graph.resized(width, height);
         })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
 
@@ -142,7 +173,7 @@ impl Chart {
                 delta: MouseScrollDelta::PixelDelta(PhysicalPosition::new(x, delta_y)),
                 phase: TouchPhase::Moved,
             };
-            instance.canvas_controller.handle_cursor_event(window_event);
+            instance.canvas_controller.handle_cursor_event(window_event, &mut instance.line_graph.renderer);
         })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
 
@@ -155,7 +186,7 @@ impl Chart {
             let window_event = WindowEvent::CursorMoved {
                 position: PhysicalPosition::new(x, y),
             };
-            instance.canvas_controller.handle_cursor_event(window_event);
+            instance.canvas_controller.handle_cursor_event(window_event, &mut instance.line_graph.renderer);
         })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
 
@@ -173,7 +204,7 @@ impl Chart {
                 },
                 button: MouseButton::Left,
             };
-            instance.canvas_controller.handle_cursor_event(window_event);
+            instance.canvas_controller.handle_cursor_event(window_event, &mut instance.line_graph.renderer);
         })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
 
@@ -182,12 +213,11 @@ impl Chart {
 
     #[wasm_bindgen]
     pub fn set_data_range(&self, start: u32, end: u32) -> Result<(), JsValue> {
-        InstanceManager::with_instance(&self.instance_id, |instance| {
+        InstanceManager::with_instance_mut(&self.instance_id, |instance| {
             instance
                 .line_graph
-                .borrow()
-                .data_store
-                .borrow_mut()
+                .renderer
+                .data_store_mut()
                 .set_x_range(start, end);
         })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
@@ -203,6 +233,7 @@ impl Chart {
         // For now, we'll just log the request since the RefCell borrow checker is being problematic
         Ok(())
     }
+    
 
     /// Core bridge method: Update chart state from React store
     /// This is the main integration point between React and Rust
@@ -260,28 +291,13 @@ impl Chart {
                 return Ok(response.to_string());
             }
 
-            // Step 3: Extract references using try_borrow to handle conflicts gracefully
-            let data_store = match instance.line_graph.try_borrow() {
-                Ok(line_graph) => line_graph.data_store.clone(),
-                Err(_) => {
-                    log::warn!(
-                        "Failed to borrow line_graph for data_store - skipping state update"
-                    );
-                    let error_response = serde_json::json!({
-                        "success": false,
-                        "errors": ["Chart is busy - try again in a moment"],
-                        "warnings": []
-                    });
-                    return Ok(error_response.to_string());
-                }
-            };
+            // Step 3: Apply the state changes
 
-            // Step 4: Apply the state changes using smart detection with shared refs
+            // Step 4: Apply the state changes using smart detection
             match self.apply_smart_state_changes(
                 &store_state,
                 &change_detection,
                 instance,
-                &data_store,
             ) {
                 Ok(changes_applied) => {
                     // Step 4.5: Handle data fetching for metrics changes
@@ -517,8 +533,8 @@ impl Chart {
     /// Set the chart type (line or candlestick)
     #[wasm_bindgen]
     pub fn set_chart_type(&self, chart_type: &str) -> Result<(), JsValue> {
-        InstanceManager::with_instance(&self.instance_id, |instance| {
-            instance.line_graph.borrow_mut().set_chart_type(chart_type);
+        InstanceManager::with_instance_mut(&self.instance_id, |instance| {
+            instance.line_graph.set_chart_type(chart_type);
         })
         .ok_or_else(|| JsValue::from_str("Chart not initialized"))?;
 
@@ -528,10 +544,9 @@ impl Chart {
     /// Set the candle timeframe in seconds (e.g., 60 for 1 minute, 300 for 5 minutes)
     #[wasm_bindgen]
     pub fn set_candle_timeframe(&self, timeframe_seconds: u32) -> Result<(), JsValue> {
-        InstanceManager::with_instance(&self.instance_id, |instance| {
+        InstanceManager::with_instance_mut(&self.instance_id, |instance| {
             instance
                 .line_graph
-                .borrow_mut()
                 .set_candle_timeframe(timeframe_seconds);
         })
         .ok_or_else(|| JsValue::from_str("Chart not initialized"))?;
@@ -588,8 +603,7 @@ impl Chart {
 
         if needs_data_update {
             // Update the data range in the data store
-            let data_store = instance.line_graph.borrow().data_store.clone();
-            data_store.borrow_mut().set_x_range(
+            instance.line_graph.renderer.data_store_mut().set_x_range(
                 store_state.chart_config.start_time as u32,
                 store_state.chart_config.end_time as u32,
             );
@@ -669,15 +683,14 @@ impl Chart {
         &self,
         store_state: &StoreState,
         change_detection: &StateChangeDetection,
-        _instance: &mut instance_manager::ChartInstance,
-        data_store: &std::rc::Rc<std::cell::RefCell<data_manager::DataStore>>,
+        instance: &mut instance_manager::ChartInstance,
     ) -> GpuChartsResult<Vec<String>> {
         let mut changes_applied = Vec::new();
 
         // Handle symbol changes
         if change_detection.symbol_changed {
-            // Update topic in data store using shared ref
-            data_store.borrow_mut().topic = Some(store_state.chart_config.symbol.clone());
+            // Update topic in data store
+            instance.line_graph.renderer.data_store_mut().topic = Some(store_state.chart_config.symbol.clone());
 
             changes_applied.push(format!(
                 "Symbol updated to: {}",
@@ -692,7 +705,7 @@ impl Chart {
 
         // Handle time range changes
         if change_detection.time_range_changed {
-            data_store.borrow_mut().set_x_range(
+            instance.line_graph.renderer.data_store_mut().set_x_range(
                 store_state.chart_config.start_time as u32,
                 store_state.chart_config.end_time as u32,
             );

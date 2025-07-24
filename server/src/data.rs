@@ -192,7 +192,8 @@ pub async fn load_mmap(path: &str) -> Result<Mmap, String> {
         // Safety: we assume the file is not modified while mapped.
         let mmap = unsafe { Mmap::map(&file).map_err(|e| format!("Failed to mmap {path}: {e}"))? };
 
-        // Optionally lock the mmap pages in memory.
+        // Optionally lock the mmap pages in memory (Linux only).
+        #[cfg(target_os = "linux")]
         unsafe {
             let ret = libc::mlock(mmap.as_ptr().cast::<libc::c_void>(), mmap.len());
             if ret != 0 {

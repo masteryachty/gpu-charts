@@ -1,51 +1,32 @@
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use wgpu::TextureFormat;
 
-use crate::render_engine::RenderEngine;
 use data_manager::{DataStore, Vertex};
 use nalgebra_glm as glm;
 
 pub struct PlotRenderer {
     pipeline: wgpu::RenderPipeline,
     bind_group_layout: wgpu::BindGroupLayout,
-    // pub engine: Rc<RefCell<RenderEngine>>,
+    device: Arc<wgpu::Device>,
 }
 
-pub trait RenderListener {
-    fn on_render(
+impl PlotRenderer {
+    pub fn render(
         &mut self,
-        queue: &wgpu::Queue,
-        device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
         view: &wgpu::TextureView,
-        data_store: Rc<RefCell<DataStore>>,
-    );
-}
-
-impl RenderListener for PlotRenderer {
-    fn on_render(
-        &mut self,
-        _: &wgpu::Queue,
-        device: &wgpu::Device,
-        encoder: &mut wgpu::CommandEncoder,
-        view: &wgpu::TextureView,
-        data_store: Rc<RefCell<DataStore>>,
+        data_store: &DataStore,
     ) {
-        //log::info!("Render plot2");
-        // let device = &self.engine.borrow().device;
-
-        let data_len = data_store.borrow().get_data_len();
-        // log::info!("Data len: {}", data_len);
+        let data_len = data_store.get_data_len();
         if data_len > 0 {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Triangle Drawer"),
+                label: Some("Plot Renderer"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        load: wgpu::LoadOp::Load,
                         store: wgpu::StoreOp::Store,
                     },
                 })],
@@ -55,34 +36,34 @@ impl RenderListener for PlotRenderer {
             });
 
             {
-                let ds = data_store.borrow();
                 render_pass.set_pipeline(&self.pipeline);
 
                 // Render all visible metrics from all active data groups
-                for (data_series, metric) in ds.get_all_visible_metrics() {
+                let visible_metrics = data_store.get_all_visible_metrics();
+                
+                for (data_series, metric) in visible_metrics {
+                    
                     // Create a bind group for this specific metric with its color
-                    let bind_group = self.create_bind_group_for_metric(device, &ds, metric);
+                    let bind_group = self.create_bind_group_for_metric(data_store, metric);
                     render_pass.set_bind_group(0, &bind_group, &[]);
 
                     for (i, x_buffer) in data_series.x_buffers.iter().enumerate() {
                         if let Some(y_buffer) = metric.y_buffers.get(i) {
                             render_pass.set_vertex_buffer(0, x_buffer.slice(..));
                             render_pass.set_vertex_buffer(1, y_buffer.slice(..));
-                            log::info!("size: {:?}, metric: {}", x_buffer.size(), metric.name);
-                            render_pass.draw(0..(x_buffer.size() / 4) as u32, 0..1);
+                            let vertex_count = (x_buffer.size() / 4) as u32;
+                            render_pass.draw(0..vertex_count, 0..1);
                         }
                     }
                 }
             }
         }
-        //log render
     }
 }
 
 impl PlotRenderer {
     fn create_bind_group_for_metric(
         &self,
-        device: &wgpu::Device,
         data_store: &DataStore,
         metric: &data_manager::MetricSeries,
     ) -> wgpu::BindGroup {
@@ -91,7 +72,7 @@ impl PlotRenderer {
         // Create buffers for x_min_max, y_min_max, and color
         let x_min_max = glm::vec2(data_store.start_x, data_store.end_x);
         let x_min_max_bytes: &[u8] = unsafe { any_as_u8_slice(&x_min_max) };
-        let x_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let x_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("x_min_max buffer"),
             contents: x_min_max_bytes,
             usage: wgpu::BufferUsages::UNIFORM,
@@ -102,20 +83,20 @@ impl PlotRenderer {
             data_store.max_y.unwrap_or(1.0),
         );
         let y_min_max_bytes: &[u8] = unsafe { any_as_u8_slice(&y_min_max) };
-        let y_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let y_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("y_min_max buffer"),
             contents: y_min_max_bytes,
             usage: wgpu::BufferUsages::UNIFORM,
         });
 
         let color_bytes: &[u8] = unsafe { any_as_u8_slice(&metric.color) };
-        let color_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let color_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("color buffer"),
             contents: color_bytes,
             usage: wgpu::BufferUsages::UNIFORM,
         });
 
-        device.create_bind_group(&wgpu::BindGroupDescriptor {
+        self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some(&format!("bind_group_{}", metric.name)),
             layout: &self.bind_group_layout,
             entries: &[
@@ -136,12 +117,10 @@ impl PlotRenderer {
     }
 
     pub fn new(
-        engine: Rc<RefCell<RenderEngine>>,
+        device: Arc<wgpu::Device>,
+        _queue: Arc<wgpu::Queue>,
         color_format: TextureFormat,
-        _: Rc<RefCell<DataStore>>,
     ) -> PlotRenderer {
-        let device = &engine.borrow().device;
-        // let queue = &engine.borrow().queue;
         let shader = device.create_shader_module(wgpu::include_wgsl!("plot.wgsl"));
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: None,
@@ -204,7 +183,7 @@ impl PlotRenderer {
                 topology: wgpu::PrimitiveTopology::LineStrip,
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
+                cull_mode: None,
                 polygon_mode: wgpu::PolygonMode::Fill,
                 unclipped_depth: false,
                 conservative: false,
@@ -218,7 +197,7 @@ impl PlotRenderer {
         Self {
             pipeline,
             bind_group_layout,
-            // engine: engine.clone(),
+            device,
         }
     }
 }

@@ -1,17 +1,14 @@
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use wgpu::TextureFormat;
 use wgpu_text::glyph_brush::ab_glyph::FontRef;
 
-use crate::render_engine::RenderEngine;
 use data_manager::{create_gpu_buffer_from_vec, DataStore};
 use wgpu_text::{
     glyph_brush::{Section as TextSection, Text},
     BrushBuilder, TextBrush,
 };
 
-use super::plot::RenderListener;
 
 pub struct YAxisRenderer {
     // color_format: TextureFormat,
@@ -24,29 +21,26 @@ pub struct YAxisRenderer {
     last_height: i32,
 }
 
-impl RenderListener for YAxisRenderer {
-    fn on_render(
+impl YAxisRenderer {
+    pub fn render(
         &mut self,
-        queue: &wgpu::Queue,
-        device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
         view: &wgpu::TextureView,
-        data_store: Rc<RefCell<DataStore>>,
+        data_store: &DataStore,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
     ) {
-        let ds = data_store.borrow();
         // Use default values if min/max Y are not set yet
-        let min = ds.min_y.unwrap_or(0.0);
-        let max = ds.max_y.unwrap_or(100.0);
+        let min = data_store.min_y.unwrap_or(0.0);
+        let max = data_store.max_y.unwrap_or(100.0);
         // let range = max - min;
-        let height = data_store.borrow().screen_size.height as i32;
+        let height = data_store.screen_size.height as i32;
 
         // Only recalculate and recreate buffers if the data range or width has changed
         let needs_recalculation =
             self.last_min_y != min || self.last_max_y != max || self.last_height != height;
 
         if needs_recalculation {
-            log::info!("Recalculating Y-axis with min: {min}, max: {max}, height: {height}");
-
             let (interval, start, end) = calculate_y_axis_interval(min, max);
             let mut y_values = Vec::new();
             let mut labels = Vec::new();
@@ -67,7 +61,7 @@ impl RenderListener for YAxisRenderer {
             // Create text sections
             labels.reserve(label_strings.len());
             for (y_string, y) in &label_strings {
-                let coord = ds.world_to_screen_with_margin(0., *y);
+                let coord = data_store.world_to_screen_with_margin(0., *y);
                 let section = TextSection::default()
                     .add_text(Text::new(y_string).with_color([1.0, 1.0, 1.0, 1.0]))
                     .with_screen_position((
@@ -101,7 +95,7 @@ impl RenderListener for YAxisRenderer {
 
             // Update text brush
             self.brush.resize_view(
-                data_store.borrow().screen_size.width as f32,
+                data_store.screen_size.width as f32,
                 height as f32,
                 queue,
             );
@@ -155,7 +149,7 @@ impl RenderListener for YAxisRenderer {
         // Draw vertical lines
         if let Some(buffer) = &self.vertex_buffer {
             // Only draw if we have a bind group (which requires data to be loaded)
-            if let Some(bind_group) = ds.range_bind_group.as_ref() {
+            if let Some(bind_group) = data_store.range_bind_group.as_ref() {
                 render_pass.set_pipeline(&self.pipeline);
                 render_pass.set_bind_group(0, bind_group, &[]);
                 render_pass.set_vertex_buffer(0, buffer.slice(..));
@@ -170,19 +164,19 @@ impl RenderListener for YAxisRenderer {
 
 impl YAxisRenderer {
     pub fn new(
-        engine: Rc<RefCell<RenderEngine>>,
+        device: Arc<wgpu::Device>,
+        _queue: Arc<wgpu::Queue>,
         color_format: TextureFormat,
-        data_store: Rc<RefCell<DataStore>>,
+        screen_width: u32,
+        screen_height: u32,
     ) -> Self {
-        let device = &engine.borrow().device;
-
         // Create text brush
         let brush = BrushBuilder::using_font_bytes(include_bytes!("Roboto.ttf"))
             .unwrap()
             .build(
-                device,
-                data_store.borrow().screen_size.width,
-                data_store.borrow().screen_size.height,
+                &device,
+                screen_width,
+                screen_height,
                 color_format,
             );
 

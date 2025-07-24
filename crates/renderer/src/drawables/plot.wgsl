@@ -30,7 +30,7 @@ fn vs_main(vertex: Vertex) -> VertexPayload {
     var out: VertexPayload;
     var projection = world_to_screen_conversion_with_margin(0., f32(x_min_max.max_val - start_ts), y_min_max.min_val, y_min_max.max_val, -1., 1.);
     out.position = projection * vec4f(x_f32, vertex.y, 0., 1.);
-    out.position.z = 1.;
+    out.position.z = 0.0;  // Not the issue, but keeping at 0.0 for correctness
     out.position.w = 1.;
     out.color = line_color;
     return out;

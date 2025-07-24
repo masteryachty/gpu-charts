@@ -906,6 +906,33 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
       try {
         console.log('[useWasmChart] Setting chart type:', storeChartType);
         chartState.chart.set_chart_type(storeChartType);
+        
+        // TEST: Add timestamp to understand timing
+        const chartTypeChangeTime = performance.now();
+        console.log(`[useWasmChart] Chart type changed at ${chartTypeChangeTime.toFixed(2)}ms`);
+        
+        // TEST: Temporarily disable resize workaround to see if issue still occurs
+        const ENABLE_RESIZE_WORKAROUND = false;
+        
+        if (ENABLE_RESIZE_WORKAROUND) {
+          // Force canvas update by triggering resize
+          // This is the only reliable way to flush WebGPU's buffered frames
+          const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
+          if (canvas && chartState.chart.resize) {
+            const width = canvas.width;
+            const height = canvas.height;
+            
+            // Toggle size to force WebGPU to reconfigure
+            chartState.chart.resize(width + 1, height);
+            
+            // Resize back to original
+            setTimeout(() => {
+              chartState.chart.resize(width, height);
+            }, 0);
+          }
+        } else {
+          console.log('[useWasmChart] Resize workaround DISABLED for testing');
+        }
       } catch (error) {
         console.error('[useWasmChart] Error setting chart type:', error);
       }

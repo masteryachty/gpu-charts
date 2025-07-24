@@ -49,15 +49,26 @@ export default function WasmCanvas({
     const container = containerRef.current;
     const rect = container.getBoundingClientRect();
 
-    // Set canvas size to exact container dimensions - no scaling
-    canvas.width = Math.floor(rect.width);
-    canvas.height = Math.floor(rect.height);
+    const newWidth = Math.floor(rect.width);
+    const newHeight = Math.floor(rect.height);
 
-    console.log('[WasmCanvas] Canvas size updated:', {
-      containerSize: `${rect.width}x${rect.height}`,
-      canvasSize: `${canvas.width}x${canvas.height}`
-    });
-  }, []);
+    // CRITICAL: Only update canvas size if it actually changed
+    // Setting width/height clears the canvas and breaks WebGPU rendering
+    if (canvas.width !== newWidth || canvas.height !== newHeight) {
+      canvas.width = newWidth;
+      canvas.height = newHeight;
+
+      console.log('[WasmCanvas] Canvas size updated:', {
+        containerSize: `${rect.width}x${rect.height}`,
+        canvasSize: `${canvas.width}x${canvas.height}`
+      });
+      
+      // Notify the chart about the resize
+      if (chartState.chart && chartState.isInitialized && chartState.chart.resize) {
+        chartState.chart.resize(newWidth, newHeight);
+      }
+    }
+  }, [chartState.chart, chartState.isInitialized]);
 
   // Initialize chart when canvas is ready with improved timing
   useEffect(() => {
@@ -178,8 +189,8 @@ export default function WasmCanvas({
       updateCanvasSize();
     });
 
-    if (canvasRef.current) {
-      resizeObserver.observe(canvasRef.current);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
     }
 
     return () => {
@@ -292,6 +303,8 @@ export default function WasmCanvas({
 
       if (chartState.chart && chartState.isInitialized) {
         const chartGlobal = {
+          // Keep reference to actual WASM chart instance
+          _wasmChart: chartState.chart,
           ...chartState.chart,
           // Enhanced state access methods
           get_current_store_state: async () => {

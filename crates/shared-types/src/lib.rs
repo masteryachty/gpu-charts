@@ -15,6 +15,7 @@ pub use store_state::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
+use web_sys::js_sys;
 
 /// Common data structures used across crates (as per architect.md)
 
@@ -75,6 +76,7 @@ pub struct OverlayConfig {
 /// GPU buffer set for storing data
 pub struct GpuBufferSet {
     pub buffers: HashMap<String, Vec<wgpu::Buffer>>,
+    pub raw_buffers: HashMap<String, js_sys::ArrayBuffer>, // Store raw data for DataStore
     pub metadata: DataMetadata,
 }
 
