@@ -8,7 +8,83 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a WebAssembly-based real-time data visualization application built in Rust that renders interactive line graphs using WebGPU for high-performance GPU-accelerated rendering. The application has both a standalone WASM module and a React web frontend for development.
+This is a WebAssembly-based real-time data visualization application built in Rust that renders interactive charts using WebGPU for high-performance GPU-accelerated rendering. The application uses a modular architecture with separate crates for different concerns and includes a React web frontend.
+
+## Architecture Overview
+
+### Modular Crate Architecture
+
+The project has been restructured into a clean, modular architecture with five specialized crates:
+
+```
+gpu-charts/
+├── crates/
+│   ├── shared-types/     # Common types and data structures
+│   ├── config-system/    # Configuration and quality presets
+│   ├── data-manager/     # Data fetching, parsing, and GPU buffers
+│   ├── renderer/         # Pure GPU rendering engine
+│   └── wasm-bridge/      # JavaScript/React integration layer
+├── web/                  # React frontend application
+├── server/               # High-performance data server
+├── coinbase-logger/      # Real-time market data collector
+└── file_server/          # Legacy development server
+```
+
+#### Crate Dependencies
+```
+shared-types (foundation - no internal deps)
+    ↑
+├── config-system (depends on: shared-types)
+├── data-manager (depends on: shared-types)
+├── renderer (depends on: shared-types, config-system)
+    ↑
+└── wasm-bridge (depends on: all above crates)
+    ↑
+    JavaScript/React
+```
+
+#### Key Architectural Benefits
+- **Clear Separation of Concerns**: Each crate has a single, well-defined responsibility
+- **Testability**: Crates can be tested in isolation
+- **Reusability**: Core logic can be used outside WASM context
+- **Maintainability**: Changes are localized to specific crates
+- **Parallel Development**: Teams can work on different crates independently
+
+### Crate Descriptions
+
+#### 1. **shared-types** (`crates/shared-types/`)
+- Foundation crate with zero dependencies on other workspace crates
+- Common data structures, enums, and types
+- Store state types for React integration
+- Event system types
+- Error definitions
+
+#### 2. **config-system** (`crates/config-system/`)
+- Manages all configuration and quality presets
+- Defines Low/Medium/High/Ultra quality settings
+- Performance tuning parameters
+- Chart appearance configuration
+
+#### 3. **data-manager** (`crates/data-manager/`)
+- Handles all data operations
+- HTTP data fetching with caching
+- Binary data parsing
+- GPU buffer creation and management
+- Screen-space coordinate transformations
+
+#### 4. **renderer** (`crates/renderer/`)
+- Pure GPU rendering engine
+- WebGPU pipeline management
+- Specialized renderers (plot, candlestick, axes)
+- WGSL shader management
+- Surface and texture handling
+
+#### 5. **wasm-bridge** (`crates/wasm-bridge/`)
+- Central orchestration layer
+- JavaScript/React bindings
+- Event handling and user interactions
+- State synchronization
+- Coordinates all other crates
 
 ## Development Commands
 
@@ -208,29 +284,6 @@ npm run test:server          # Unit and integration tests
 npm run test:server:api      # Live API tests (requires running server)
 ```
 
-## Architecture Overview
-
-### Core Components (Charting Library)
-- **LineGraph** (`charting/src/line_graph.rs`): Main orchestrator that manages data fetching, rendering, and user interactions
-- **RenderEngine** (`charting/src/renderer/render_engine.rs`): WebGPU rendering system with surface management
-- **DataStore** (`charting/src/renderer/data_store.rs`): Manages time-series data buffers and screen transformations
-- **DataRetriever** (`charting/src/renderer/data_retriever.rs`): HTTP-based data fetching from external APIs
-
-### Rendering Pipeline
-The application uses separate render passes for different components:
-- **PlotRenderer** (`charting/src/drawables/plot.rs`): Main data line visualization
-- **XAxisRenderer** (`charting/src/drawables/x_axis.rs`): Time-based X-axis with labels
-- **YAxisRenderer** (`charting/src/drawables/y_axis.rs`): Value-based Y-axis with labels
-
-Each renderer has corresponding WGSL compute/vertex/fragment shaders.
-
-### GPU Compute
-- **MinMax** (`charting/src/calcables/min_max.rs`): Uses compute shaders to efficiently calculate dataset bounds on GPU
-- All shaders located in respective component directories as `.wgsl` files
-
-### User Interaction
-- **CanvasController** (`charting/src/controls/canvas_controller.rs`): Handles mouse wheel zoom, cursor panning, and triggers data refetching for new time ranges
-
 ## Key Technical Considerations
 
 ### WebAssembly Integration
@@ -255,16 +308,16 @@ Each renderer has corresponding WGSL compute/vertex/fragment shaders.
 
 This project consists of four main components working together:
 
-### 1. Charting Library (`/charting`)
-- **Core Engine**: WebAssembly-based charting library built in Rust
+### 1. WASM Bridge and Core Libraries (`/crates/`)
+- **Core Engine**: Modular WebAssembly-based charting system built in Rust
 - **Technology**: WebGPU for GPU-accelerated rendering, WASM for web integration
-- **Output**: Built to `web/pkg/` for React consumption
+- **Output**: Built from `crates/wasm-bridge` to `web/pkg/` for React consumption
 - **Features**: Real-time data visualization, interactive controls, high-performance rendering
-- **Development**: Hot reloading via `scripts/dev-build.sh` watching Rust changes
+- **Development**: Hot reloading via `scripts/dev-build.sh` watching all crate changes
 
 ### 2. React Frontend (`/web`)
 - **Frontend**: Modern React app with TypeScript, Tailwind CSS, and Vite
-- **Integration**: Consumes WASM charting library from `web/pkg/`
+- **Integration**: Consumes WASM module from `web/pkg/`
 - **State Management**: Zustand store in `web/src/store/`
 - **Components**: React components in `web/src/components/` with chart integration
 - **Data Source**: Connects to local data server via HTTPS API
@@ -289,12 +342,14 @@ This project consists of four main components working together:
 - **Legacy Support**: Maintains original URL parameter-based interface
 
 ## File Structure Notes
-- `charting/`: Core WebAssembly charting library (moved from root `src/`)
-  - WGSL shaders co-located with respective Rust components
-  - Font files in `charting/src/drawables/` for text rendering
-  - React bridge code in `charting/src/lib_react.rs` and `charting/src/react_bridge.rs`
+- `crates/`: Modular Rust crates for the charting system
+  - `wasm-bridge/`: Central orchestration and JavaScript bridge
+  - `data-manager/`: Data operations and GPU buffer management
+  - `renderer/`: Pure GPU rendering with WGSL shaders
+  - `config-system/`: Configuration and quality presets
+  - `shared-types/`: Common types and interfaces
 - `web/`: React frontend application
-  - `web/pkg/`: Generated WASM modules from charting library
+  - `web/pkg/`: Generated WASM modules from wasm-bridge crate
 - `server/`: High-performance data server with SSL certificates
 - `coinbase-logger/`: Real-time market data collection service
 - `file_server/`: Simple Actix-web development server (legacy mode)
@@ -303,3 +358,52 @@ This project consists of four main components working together:
   - `setup-ssl.sh`: SSL certificate generation and management
 - `package.json`: Top-level orchestration scripts for all components
 - `Cargo.toml`: Workspace configuration for all Rust components
+
+## Working with Individual Crates
+
+Each crate has its own CLAUDE.md file with specific guidance:
+
+- [`crates/shared-types/CLAUDE.md`](crates/shared-types/CLAUDE.md) - Common types and structures
+- [`crates/config-system/CLAUDE.md`](crates/config-system/CLAUDE.md) - Configuration management
+- [`crates/data-manager/CLAUDE.md`](crates/data-manager/CLAUDE.md) - Data operations
+- [`crates/renderer/CLAUDE.md`](crates/renderer/CLAUDE.md) - GPU rendering
+- [`crates/wasm-bridge/CLAUDE.md`](crates/wasm-bridge/CLAUDE.md) - JavaScript integration
+
+## Best Practices for Modular Development
+
+1. **Dependency Direction**: Dependencies should only flow upward in the architecture
+2. **Interface Stability**: Changes to shared-types affect all crates - plan carefully
+3. **Testing**: Each crate should have comprehensive unit tests
+4. **Documentation**: Keep crate-specific CLAUDE.md files updated
+5. **Version Management**: Use workspace versioning for consistency
+
+## Quick Start for New Developers
+
+1. **Clone and Setup**:
+   ```bash
+   git clone <repo>
+   cd gpu-charts
+   npm install
+   npm run setup:ssl
+   ```
+
+2. **Start Development**:
+   ```bash
+   npm run dev:suite  # Full stack: WASM + Server + React
+   ```
+
+3. **Make Changes**:
+   - Rust changes in `/crates/` auto-rebuild via watcher
+   - React changes in `/web/` hot-reload automatically
+   - Server changes require restart
+
+4. **Test Your Changes**:
+   ```bash
+   npm run test:server  # Test Rust code
+   npm run test:web     # Test React code
+   ```
+
+5. **Commit**:
+   ```bash
+   git commit -m "feat: your feature"  # Pre-commit hooks run automatically
+   ```

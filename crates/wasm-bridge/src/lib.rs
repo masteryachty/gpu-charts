@@ -1,0 +1,831 @@
+//! WASM Bridge crate for GPU Charts
+//! Central orchestration layer that bridges JavaScript and Rust/WebGPU worlds
+
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
+
+// Core modules
+pub mod controls;
+pub mod instance_manager;
+pub mod line_graph;
+pub mod wrappers;
+
+use uuid::Uuid;
+use web_sys::HtmlCanvasElement;
+
+use controls::canvas_controller::CanvasController;
+use instance_manager::InstanceManager;
+use line_graph::LineGraph;
+use shared_types::events::{
+    ElementState, MouseButton, MouseScrollDelta, PhysicalPosition, TouchPhase, WindowEvent,
+};
+use shared_types::store_state::{
+    ChangeDetectionConfig, StateChangeDetection, StoreState, StoreValidationResult,
+};
+use shared_types::GpuChartsResult;
+
+extern crate nalgebra_glm as glm;
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub struct Chart {
+    instance_id: Uuid,
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+impl Chart {
+    #[wasm_bindgen(constructor)]
+    #[allow(clippy::new_without_default)]
+    pub fn new() -> Chart {
+        // Create a new instance ID but don't create the actual instance yet
+        // That happens in init()
+        Chart {
+            instance_id: Uuid::new_v4(),
+        }
+    }
+
+    #[wasm_bindgen]
+    pub async fn init(&mut self, canvas_id: &str, width: u32, height: u32) -> Result<(), JsValue> {
+        cfg_if::cfg_if! {
+            if #[cfg(target_arch = "wasm32")] {
+                std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+                console_log::init_with_level(log::Level::Debug).expect("Couldn't initialize logger");
+            }
+        }
+
+        log::info!("Initializing chart with canvas: {canvas_id}, size: {width}x{height}");
+
+        // Get the canvas element
+        let window = web_sys::window().ok_or("No window")?;
+        let document = window.document().ok_or("No document")?;
+        let canvas = document
+            .get_element_by_id(canvas_id)
+            .ok_or("Canvas not found")?
+            .dyn_into::<HtmlCanvasElement>()
+            .map_err(|_| "Element is not a canvas")?;
+
+        // Set canvas size
+        canvas.set_width(width);
+        canvas.set_height(height);
+
+        // Initialize the line graph directly with canvas
+        let line_graph = LineGraph::new(width, height, canvas)
+            .await
+            .map_err(|e| format!("Failed to create LineGraph: {e:?}"))?;
+
+        // Create canvas controller
+        let canvas_controller = CanvasController::new();
+
+        // Store instance using the instance manager
+        self.instance_id = InstanceManager::create_instance(line_graph, canvas_controller);
+
+        // Initial render
+        self.render().await?;
+
+        log::info!("Chart initialized successfully");
+        Ok(())
+    }
+
+    #[wasm_bindgen]
+    pub async fn render(&self) -> Result<(), JsValue> {
+        // For web rendering, we typically want to render asynchronously
+        // without blocking. We'll spawn a local task to handle the render.
+        let instance_id = self.instance_id;
+
+        // Spawn the render task
+        wasm_bindgen_futures::spawn_local(async move {
+            // We need to perform the render in chunks to avoid holding the lock too long
+            // First, check if the instance exists
+            let exists = InstanceManager::instance_exists(&instance_id);
+            if !exists {
+                log::error!("Chart instance not found for rendering");
+                return;
+            }
+
+            // Now perform the actual render by temporarily taking ownership
+            // This is a workaround for the async/borrow checker issues
+            let render_result = {
+                // Take the instance temporarily
+                let instance_opt = InstanceManager::take_instance(&instance_id);
+                match instance_opt {
+                    Some(mut instance) => {
+                        // Perform the render
+                        let result = instance.line_graph.render().await;
+
+                        // Put the instance back
+                        InstanceManager::put_instance(instance_id, instance);
+
+                        result
+                    }
+                    None => {
+                        log::error!("Failed to take instance for rendering");
+                        return;
+                    }
+                }
+            };
+
+            match render_result {
+                Ok(()) => {
+                    log::trace!("Render completed successfully");
+                }
+                Err(e) => {
+                    log::error!("Render failed: {e:?}");
+                }
+            }
+        });
+
+        // Return immediately - the render will happen asynchronously
+        Ok(())
+    }
+
+    #[wasm_bindgen]
+    pub fn needs_render(&self) -> bool {
+        InstanceManager::with_instance(&self.instance_id, |instance| {
+            // Check if renderer needs a render
+            instance.line_graph.renderer.needs_render()
+        })
+        .unwrap_or(false)
+    }
+
+    #[wasm_bindgen]
+    pub fn resize(&self, width: u32, height: u32) -> Result<(), JsValue> {
+        log::info!("Resizing chart to: {width}x{height}");
+
+        InstanceManager::with_instance_mut(&self.instance_id, |instance| {
+            instance.line_graph.resized(width, height);
+        })
+        .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
+
+        Ok(())
+    }
+
+    #[wasm_bindgen]
+    pub fn handle_mouse_wheel(&self, delta_y: f64, x: f64, _y: f64) -> Result<(), JsValue> {
+        InstanceManager::with_instance_mut(&self.instance_id, |instance| {
+            let window_event = WindowEvent::MouseWheel {
+                delta: MouseScrollDelta::PixelDelta(PhysicalPosition::new(x, delta_y)),
+                phase: TouchPhase::Moved,
+            };
+            instance
+                .canvas_controller
+                .handle_cursor_event(window_event, &mut instance.line_graph.renderer);
+        })
+        .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
+
+        Ok(())
+    }
+
+    #[wasm_bindgen]
+    pub fn handle_mouse_move(&self, x: f64, y: f64) -> Result<(), JsValue> {
+        InstanceManager::with_instance_mut(&self.instance_id, |instance| {
+            let window_event = WindowEvent::CursorMoved {
+                position: PhysicalPosition::new(x, y),
+            };
+            instance
+                .canvas_controller
+                .handle_cursor_event(window_event, &mut instance.line_graph.renderer);
+        })
+        .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
+
+        Ok(())
+    }
+
+    #[wasm_bindgen]
+    pub fn handle_mouse_click(&self, _x: f64, _y: f64, pressed: bool) -> Result<(), JsValue> {
+        InstanceManager::with_instance_mut(&self.instance_id, |instance| {
+            let window_event = WindowEvent::MouseInput {
+                state: if pressed {
+                    ElementState::Pressed
+                } else {
+                    ElementState::Released
+                },
+                button: MouseButton::Left,
+            };
+            instance
+                .canvas_controller
+                .handle_cursor_event(window_event, &mut instance.line_graph.renderer);
+        })
+        .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
+
+        Ok(())
+    }
+
+    #[wasm_bindgen]
+    pub fn set_data_range(&self, start: u32, end: u32) -> Result<(), JsValue> {
+        InstanceManager::with_instance_mut(&self.instance_id, |instance| {
+            instance
+                .line_graph
+                .renderer
+                .data_store_mut()
+                .set_x_range(start, end);
+        })
+        .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
+
+        Ok(())
+    }
+
+    #[wasm_bindgen]
+    pub fn request_redraw(&self) -> Result<(), JsValue> {
+        // Simply mark that a redraw is needed - actual rendering will happen on next frame
+        log::debug!("Redraw requested");
+        // In a real implementation, this would set a flag that the render loop checks
+        // For now, we'll just log the request since the RefCell borrow checker is being problematic
+        Ok(())
+    }
+
+    /// Core bridge method: Update chart state from React store
+    /// This is the main integration point between React and Rust
+    #[wasm_bindgen]
+    pub fn update_chart_state(&self, store_state_json: &str) -> Result<String, JsValue> {
+        log::info!("update_chart_state called with: {store_state_json}");
+
+        // Step 1: Deserialize and validate the store state
+        let store_state = match self.deserialize_and_validate_store_state(store_state_json) {
+            Ok(state) => state,
+            Err(validation_result) => {
+                // Return validation errors as JSON
+                let error_response = serde_json::json!({
+                    "success": false,
+                    "errors": validation_result.errors,
+                    "warnings": validation_result.warnings
+                });
+                return Ok(error_response.to_string());
+            }
+        };
+
+        // Step 2: Smart change detection
+        let result = InstanceManager::with_instance_mut(&self.instance_id, |instance| {
+            let change_detection = if let Some(ref current_state) = instance.current_store_state {
+                store_state.detect_changes_from(current_state, &instance.change_detection_config)
+            } else {
+                // First time - treat everything as changed
+                StateChangeDetection {
+                    has_changes: true,
+                    symbol_changed: true,
+                    time_range_changed: true,
+                    timeframe_changed: true,
+                    indicators_changed: true,
+                    metrics_changed: true,
+                    connection_changed: true,
+                    user_changed: false,
+                    market_data_changed: false,
+                    requires_data_fetch: true,
+                    requires_render: true,
+                    change_summary: vec!["Initial state setup".to_string()],
+                }
+            };
+
+            if !change_detection.has_changes {
+                log::info!("Store state unchanged, skipping update");
+                let response = serde_json::json!({
+                    "success": true,
+                    "message": "No changes detected",
+                    "updated": false,
+                    "changeDetection": {
+                        "hasChanges": false,
+                        "summary": []
+                    }
+                });
+                return Ok(response.to_string());
+            }
+
+            // Step 3: Apply the state changes
+
+            // Step 4: Apply the state changes using smart detection
+            match self.apply_smart_state_changes(&store_state, &change_detection, instance) {
+                Ok(changes_applied) => {
+                    // Step 4.5: Handle data fetching for metrics changes
+                    if change_detection.metrics_changed && change_detection.requires_data_fetch {
+                        log::info!("Triggering data fetch for metrics changes - should be handled by parent component");
+                        // Note: Data fetching should be triggered by the parent component
+                        // that has access to the DataManager instance
+                    }
+
+                    // Step 4: Update stored state
+                    instance.current_store_state = Some(store_state);
+
+                    // Step 5: Return detailed success response
+                    let response = serde_json::json!({
+                        "success": true,
+                        "message": "Chart state updated successfully",
+                        "updated": true,
+                        "changes": changes_applied,
+                        "changeDetection": {
+                            "hasChanges": change_detection.has_changes,
+                            "symbolChanged": change_detection.symbol_changed,
+                            "timeRangeChanged": change_detection.time_range_changed,
+                            "timeframeChanged": change_detection.timeframe_changed,
+                            "indicatorsChanged": change_detection.indicators_changed,
+                            "metricsChanged": change_detection.metrics_changed,
+                            "connectionChanged": change_detection.connection_changed,
+                            "userChanged": change_detection.user_changed,
+                            "marketDataChanged": change_detection.market_data_changed,
+                            "requiresDataFetch": change_detection.requires_data_fetch,
+                            "requiresRender": change_detection.requires_render,
+                            "summary": change_detection.change_summary
+                        }
+                    });
+                    Ok(response.to_string())
+                }
+                Err(e) => {
+                    let error_response = serde_json::json!({
+                        "success": false,
+                        "errors": [format!("Failed to apply state changes: {}", e)],
+                        "warnings": []
+                    });
+                    Ok(error_response.to_string())
+                }
+            }
+        });
+
+        result.unwrap_or_else(|| Err(JsValue::from_str("Chart not initialized")))
+    }
+
+    /// Check if the chart is initialized and has an active instance
+    #[wasm_bindgen]
+    pub fn is_initialized(&self) -> bool {
+        InstanceManager::instance_exists(&self.instance_id)
+    }
+
+    /// Get current store state as JSON (for debugging/sync purposes)
+    #[wasm_bindgen]
+    pub fn get_current_store_state(&self) -> Result<String, JsValue> {
+        InstanceManager::with_instance(&self.instance_id, |instance| {
+            if let Some(ref state) = instance.current_store_state {
+                match serde_json::to_string(state) {
+                    Ok(json) => Ok(json),
+                    Err(e) => Err(JsValue::from_str(&format!("Serialization failed: {e}"))),
+                }
+            } else {
+                Ok("null".to_string())
+            }
+        })
+        .unwrap_or_else(|| Err(JsValue::from_str("Chart not initialized")))
+    }
+
+    /// Force a state update even if no changes detected (for debugging)
+    #[wasm_bindgen]
+    pub fn force_update_chart_state(&self, store_state_json: &str) -> Result<String, JsValue> {
+        log::info!("force_update_chart_state called");
+
+        let store_state = match self.deserialize_and_validate_store_state(store_state_json) {
+            Ok(state) => state,
+            Err(validation_result) => {
+                let error_response = serde_json::json!({
+                    "success": false,
+                    "errors": validation_result.errors,
+                    "warnings": validation_result.warnings
+                });
+                return Ok(error_response.to_string());
+            }
+        };
+
+        let result = InstanceManager::with_instance_mut(&self.instance_id, |instance| {
+            match self.apply_store_state_changes(&store_state, instance) {
+                Ok(changes_applied) => {
+                    instance.current_store_state = Some(store_state);
+                    let response = serde_json::json!({
+                        "success": true,
+                        "message": "Chart state force-updated successfully",
+                        "updated": true,
+                        "changes": changes_applied
+                    });
+                    Ok(response.to_string())
+                }
+                Err(e) => {
+                    let error_response = serde_json::json!({
+                        "success": false,
+                        "errors": [format!("Failed to apply state changes: {}", e)],
+                        "warnings": []
+                    });
+                    Ok(error_response.to_string())
+                }
+            }
+        });
+
+        result.unwrap_or_else(|| Err(JsValue::from_str("Chart not initialized")))
+    }
+
+    /// Configure change detection behavior
+    #[wasm_bindgen]
+    pub fn configure_change_detection(&self, config_json: &str) -> Result<String, JsValue> {
+        log::info!("configure_change_detection called with: {config_json}");
+
+        // Parse the configuration JSON first
+        let config: ChangeDetectionConfig = match serde_json::from_str(config_json) {
+            Ok(config) => config,
+            Err(e) => {
+                let error_response = serde_json::json!({
+                    "success": false,
+                    "errors": [format!("Invalid configuration JSON: {}", e)],
+                    "warnings": []
+                });
+                return Ok(error_response.to_string());
+            }
+        };
+
+        InstanceManager::with_instance_mut(&self.instance_id, |instance| {
+            // Update the configuration
+            instance.change_detection_config = config;
+
+            let response = serde_json::json!({
+                "success": true,
+                "message": "Change detection configuration updated",
+                "config": {
+                    "enableSymbolChangeDetection": instance.change_detection_config.enable_symbol_change_detection,
+                    "enableTimeRangeChangeDetection": instance.change_detection_config.enable_time_range_change_detection,
+                    "enableTimeframeChangeDetection": instance.change_detection_config.enable_timeframe_change_detection,
+                    "enableIndicatorChangeDetection": instance.change_detection_config.enable_indicator_change_detection,
+                    "symbolChangeTriggersF etch": instance.change_detection_config.symbol_change_triggers_fetch,
+                    "timeRangeChangeTriggersF etch": instance.change_detection_config.time_range_change_triggers_fetch,
+                    "minimumTimeRangeChangeSeconds": instance.change_detection_config.minimum_time_range_change_seconds
+                }
+            });
+            Ok(response.to_string())
+        })
+        .unwrap_or_else(|| Err(JsValue::from_str("Chart not initialized")))
+    }
+
+    /// Get current change detection configuration
+    #[wasm_bindgen]
+    pub fn get_change_detection_config(&self) -> Result<String, JsValue> {
+        InstanceManager::with_instance(&self.instance_id, |instance| {
+            let config_json = serde_json::json!({
+                "enableSymbolChangeDetection": instance.change_detection_config.enable_symbol_change_detection,
+                "enableTimeRangeChangeDetection": instance.change_detection_config.enable_time_range_change_detection,
+                "enableTimeframeChangeDetection": instance.change_detection_config.enable_timeframe_change_detection,
+                "enableIndicatorChangeDetection": instance.change_detection_config.enable_indicator_change_detection,
+                "symbolChangeTriggersF etch": instance.change_detection_config.symbol_change_triggers_fetch,
+                "timeRangeChangeTriggersF etch": instance.change_detection_config.time_range_change_triggers_fetch,
+                "timeframeChangeTriggersRender": instance.change_detection_config.timeframe_change_triggers_render,
+                "indicatorChangeTriggersRender": instance.change_detection_config.indicator_change_triggers_render,
+                "minimumTimeRangeChangeSeconds": instance.change_detection_config.minimum_time_range_change_seconds
+            });
+            Ok(config_json.to_string())
+        })
+        .unwrap_or_else(|| Err(JsValue::from_str("Chart not initialized")))
+    }
+
+    /// Detect changes between current state and provided state without applying them
+    #[wasm_bindgen]
+    pub fn detect_state_changes(&self, store_state_json: &str) -> Result<String, JsValue> {
+        log::info!("detect_state_changes called");
+
+        let store_state = match self.deserialize_and_validate_store_state(store_state_json) {
+            Ok(state) => state,
+            Err(validation_result) => {
+                let error_response = serde_json::json!({
+                    "success": false,
+                    "errors": validation_result.errors,
+                    "warnings": validation_result.warnings
+                });
+                return Ok(error_response.to_string());
+            }
+        };
+
+        InstanceManager::with_instance(&self.instance_id, |instance| {
+            let change_detection = if let Some(ref current_state) = instance.current_store_state {
+                store_state.detect_changes_from(current_state, &instance.change_detection_config)
+            } else {
+                StateChangeDetection {
+                    has_changes: true,
+                    symbol_changed: true,
+                    time_range_changed: true,
+                    timeframe_changed: true,
+                    indicators_changed: true,
+                    metrics_changed: true,
+                    connection_changed: true,
+                    user_changed: false,
+                    market_data_changed: false,
+                    requires_data_fetch: true,
+                    requires_render: true,
+                    change_summary: vec!["No previous state for comparison".to_string()],
+                }
+            };
+
+            let response = serde_json::json!({
+                "success": true,
+                "changeDetection": {
+                    "hasChanges": change_detection.has_changes,
+                    "symbolChanged": change_detection.symbol_changed,
+                    "timeRangeChanged": change_detection.time_range_changed,
+                    "timeframeChanged": change_detection.timeframe_changed,
+                    "indicatorsChanged": change_detection.indicators_changed,
+                    "connectionChanged": change_detection.connection_changed,
+                    "userChanged": change_detection.user_changed,
+                    "marketDataChanged": change_detection.market_data_changed,
+                    "requiresDataFetch": change_detection.requires_data_fetch,
+                    "requiresRender": change_detection.requires_render,
+                    "summary": change_detection.change_summary
+                }
+            });
+            Ok(response.to_string())
+        })
+        .unwrap_or_else(|| Err(JsValue::from_str("Chart not initialized")))
+    }
+
+    /// Set the chart type (line or candlestick)
+    #[wasm_bindgen]
+    pub fn set_chart_type(&self, chart_type: &str) -> Result<(), JsValue> {
+        InstanceManager::with_instance_mut(&self.instance_id, |instance| {
+            instance.line_graph.set_chart_type(chart_type);
+        })
+        .ok_or_else(|| JsValue::from_str("Chart not initialized"))?;
+
+        Ok(())
+    }
+
+    /// Set the candle timeframe in seconds (e.g., 60 for 1 minute, 300 for 5 minutes)
+    #[wasm_bindgen]
+    pub fn set_candle_timeframe(&self, timeframe_seconds: u32) -> Result<(), JsValue> {
+        InstanceManager::with_instance_mut(&self.instance_id, |instance| {
+            instance.line_graph.set_candle_timeframe(timeframe_seconds);
+        })
+        .ok_or_else(|| JsValue::from_str("Chart not initialized"))?;
+
+        Ok(())
+    }
+}
+
+// Private implementation methods for Chart
+#[cfg(target_arch = "wasm32")]
+impl Chart {
+    /// Deserialize and validate store state from JSON
+    fn deserialize_and_validate_store_state(
+        &self,
+        json: &str,
+    ) -> Result<StoreState, StoreValidationResult> {
+        // First, try to deserialize the JSON
+        let store_state: StoreState = match serde_json::from_str(json) {
+            Ok(state) => state,
+            Err(e) => {
+                return Err(StoreValidationResult {
+                    is_valid: false,
+                    errors: vec![format!("JSON deserialization failed: {}", e)],
+                    warnings: vec![],
+                });
+            }
+        };
+
+        // Then validate the deserialized state
+        let validation_result = store_state.validate();
+        if validation_result.is_valid {
+            Ok(store_state)
+        } else {
+            Err(validation_result)
+        }
+    }
+
+    /// Apply store state changes to the chart
+    fn apply_store_state_changes(
+        &self,
+        store_state: &StoreState,
+        instance: &mut instance_manager::ChartInstance,
+    ) -> GpuChartsResult<Vec<String>> {
+        let mut changes_applied = Vec::new();
+
+        // Check if we need to update data (symbol or time range changed)
+        let needs_data_update = if let Some(ref current_state) = instance.current_store_state {
+            store_state.chart_config.symbol != current_state.chart_config.symbol
+                || store_state.chart_config.start_time != current_state.chart_config.start_time
+                || store_state.chart_config.end_time != current_state.chart_config.end_time
+        } else {
+            true // First time, always need data
+        };
+
+        if needs_data_update {
+            // Update the data range in the data store
+            instance.line_graph.renderer.data_store_mut().set_x_range(
+                store_state.chart_config.start_time as u32,
+                store_state.chart_config.end_time as u32,
+            );
+
+            // Note: In a full implementation, we would trigger data fetching here
+            // For now, we just update the range
+            changes_applied.push(format!(
+                "Updated time range: {} to {}",
+                store_state.chart_config.start_time, store_state.chart_config.end_time
+            ));
+
+            if let Some(ref current_state) = instance.current_store_state {
+                if store_state.chart_config.symbol != current_state.chart_config.symbol {
+                    changes_applied.push(format!(
+                        "Changed symbol: {} -> {}",
+                        current_state.chart_config.symbol, store_state.chart_config.symbol
+                    ));
+                }
+            } else {
+                changes_applied.push(format!("Set symbol: {}", store_state.chart_config.symbol));
+            }
+        }
+
+        // Check for timeframe changes
+        if let Some(ref current_state) = instance.current_store_state {
+            if store_state.chart_config.timeframe != current_state.chart_config.timeframe {
+                changes_applied.push(format!(
+                    "Changed timeframe: {} -> {}",
+                    current_state.chart_config.timeframe, store_state.chart_config.timeframe
+                ));
+            }
+
+            // Check for indicator changes
+            if store_state.chart_config.indicators != current_state.chart_config.indicators {
+                changes_applied.push(format!(
+                    "Updated indicators: {:?} -> {:?}",
+                    current_state.chart_config.indicators, store_state.chart_config.indicators
+                ));
+            }
+
+            // Check for connection status changes
+            if store_state.is_connected != current_state.is_connected {
+                changes_applied.push(format!(
+                    "Connection status: {} -> {}",
+                    current_state.is_connected, store_state.is_connected
+                ));
+            }
+        } else {
+            // First time setup
+            changes_applied.push(format!(
+                "Set timeframe: {}",
+                store_state.chart_config.timeframe
+            ));
+            changes_applied.push(format!(
+                "Set indicators: {:?}",
+                store_state.chart_config.indicators
+            ));
+            changes_applied.push(format!(
+                "Set connection status: {}",
+                store_state.is_connected
+            ));
+        }
+
+        // If any changes were applied, request a redraw
+        if !changes_applied.is_empty() {
+            log::info!("Requesting redraw due to state changes");
+            // Request a redraw instead of directly spawning render task
+            // This avoids RefCell borrow issues across await points
+            log::info!("Requesting redraw due to state changes");
+        }
+
+        Ok(changes_applied)
+    }
+
+    /// Smart state changes application using detailed change detection
+    fn apply_smart_state_changes(
+        &self,
+        store_state: &StoreState,
+        change_detection: &StateChangeDetection,
+        instance: &mut instance_manager::ChartInstance,
+    ) -> GpuChartsResult<Vec<String>> {
+        let mut changes_applied = Vec::new();
+
+        // Handle symbol changes
+        if change_detection.symbol_changed {
+            // Update topic in data store
+            instance.line_graph.renderer.data_store_mut().topic =
+                Some(store_state.chart_config.symbol.clone());
+
+            changes_applied.push(format!(
+                "Symbol updated to: {}",
+                store_state.chart_config.symbol
+            ));
+
+            // Note: In full implementation, this would trigger async data fetching
+            if change_detection.requires_data_fetch {
+                changes_applied.push("Data fetch triggered for new symbol".to_string());
+            }
+        }
+
+        // Handle time range changes
+        if change_detection.time_range_changed {
+            instance.line_graph.renderer.data_store_mut().set_x_range(
+                store_state.chart_config.start_time as u32,
+                store_state.chart_config.end_time as u32,
+            );
+
+            changes_applied.push(format!(
+                "Time range updated: {} to {}",
+                store_state.chart_config.start_time, store_state.chart_config.end_time
+            ));
+
+            if change_detection.requires_data_fetch {
+                changes_applied.push("Data fetch triggered for new time range".to_string());
+            }
+        }
+
+        // Handle timeframe changes
+        if change_detection.timeframe_changed {
+            changes_applied.push(format!(
+                "Timeframe updated to: {}",
+                store_state.chart_config.timeframe
+            ));
+
+            // Note: In full implementation, this would update aggregation logic
+            if change_detection.requires_render {
+                changes_applied.push("Render triggered for timeframe change".to_string());
+            }
+        }
+
+        // Handle indicator changes
+        if change_detection.indicators_changed {
+            changes_applied.push(format!(
+                "Indicators updated: {:?}",
+                store_state.chart_config.indicators
+            ));
+
+            // Note: In full implementation, this would update indicator renderers
+            if change_detection.requires_render {
+                changes_applied.push("Render triggered for indicator changes".to_string());
+            }
+        }
+
+        // Handle metrics changes
+        if change_detection.metrics_changed {
+            changes_applied.push(format!(
+                "Metrics updated: {:?}",
+                store_state.chart_config.selected_metrics
+            ));
+
+            // This is the key change - metrics changes should trigger data fetching
+            if change_detection.requires_data_fetch {
+                changes_applied.push("Data fetch triggered for new metrics".to_string());
+
+                // Note: We skip the actual fetch here to avoid borrow conflicts
+                // The data fetching will be handled elsewhere or deferred
+            }
+
+            if change_detection.requires_render {
+                changes_applied.push("Render triggered for metrics changes".to_string());
+            }
+        }
+
+        // Handle connection status changes
+        if change_detection.connection_changed {
+            log::info!("Connection status changed");
+            changes_applied.push(format!("Connection status: {}", store_state.is_connected));
+
+            // Note: In full implementation, this might pause/resume data feeds
+        }
+
+        // Handle user changes
+        if change_detection.user_changed {
+            log::info!("User information changed");
+            if store_state.user.is_some() {
+                changes_applied.push("User session updated".to_string());
+            } else {
+                changes_applied.push("User logged out".to_string());
+            }
+        }
+
+        // Handle market data changes
+        if change_detection.market_data_changed {
+            changes_applied.push("Market data refreshed".to_string());
+
+            if change_detection.requires_render {
+                changes_applied.push("Render triggered for market data update".to_string());
+            }
+        }
+
+        // Note: Data fetching for metrics changes will be handled by the caller
+        // to avoid borrow conflicts within this function
+
+        // Trigger rendering if needed
+        if change_detection.requires_render && !changes_applied.is_empty() {
+            log::info!("Triggering render due to state changes");
+            // Request a redraw instead of directly spawning render task
+            // This avoids RefCell borrow issues across await points
+        }
+
+        // Add smart change detection summary
+        changes_applied.extend(change_detection.change_summary.clone());
+
+        Ok(changes_applied)
+    }
+}
+
+// Also export manual_run for backward compatibility if needed
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn manual_run() {
+    // This could be used for standalone mode if needed in the future
+    // For now, just initialize logging
+    cfg_if::cfg_if! {
+        if #[cfg(target_arch = "wasm32")] {
+            std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+            let _ = console_log::init_with_level(log::Level::Debug);
+        }
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = console)]
+    fn log(s: &str);
+}
+
+#[macro_export]
+macro_rules! console_log {
+    ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
+}

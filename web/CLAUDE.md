@@ -100,6 +100,8 @@ src/
 
 ## WebAssembly Integration
 
+The WASM module is built from the modular crate architecture in `/crates/`, specifically from the `wasm-bridge` crate which orchestrates all other crates (shared-types, config-system, data-manager, renderer). The build output is placed in `web/pkg/`.
+
 ### WASM Package Configuration
 ```typescript
 // vite.config.ts
@@ -811,7 +813,11 @@ The application includes built-in performance monitoring:
 5. Write Playwright tests for new functionality
 
 ### Integrating New WASM Features
-1. Add new methods to WASM bridge (`lib_react.rs`)
+1. Add new methods to WASM bridge in the appropriate crate:
+   - Core types → `crates/shared-types/`
+   - Data operations → `crates/data-manager/`
+   - Rendering features → `crates/renderer/`
+   - JavaScript API → `crates/wasm-bridge/src/lib.rs`
 2. Update TypeScript declarations (`types/wasm.d.ts`)
 3. Implement React component integration
 4. Add event handling and state management

@@ -40,7 +40,12 @@ Once running, access the application at:
 
 ## Project Structure
 
-- `/charting` - Core WebAssembly charting library
+- `/crates` - Modular Rust crates for the charting system
+  - `wasm-bridge` - Central orchestration and JavaScript bridge
+  - `data-manager` - Data operations and GPU buffer management
+  - `renderer` - Pure GPU rendering engine
+  - `config-system` - Configuration management
+  - `shared-types` - Common types and interfaces
 - `/web` - React frontend application
 - `/server` - High-performance data server
 - `/coinbase-logger` - Real-time market data logger

@@ -33,26 +33,11 @@ jobs:
         run: npm run lint
       
       - name: Check Rust formatting (workspace)
-        run: cargo fmt --check
+        run: cargo fmt --all --check
       
-      - name: Check Rust formatting (charting)
+      - name: Run Clippy (WASM crates)
         run: |
-          cd charting
-          cargo fmt --check
-      
-      - name: Check Rust formatting (server)
-        run: |
-          cd server
-          cargo fmt --check
-      
-      - name: Check Rust formatting (coinbase-logger)
-        run: |
-          cd coinbase-logger
-          cargo fmt --check
-      
-      - name: Run Clippy (charting WASM)
-        run: |
-          cd charting
+          cd crates/wasm-bridge
           cargo clippy --target wasm32-unknown-unknown -- -D warnings
       
       - name: Run Clippy (server)
@@ -166,7 +151,9 @@ jobs:
         targets: wasm32-unknown-unknown
     
     - name: Install wasm-pack
-      run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      run: |
+        curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
     
     - name: Cache Rust dependencies
       uses: actions/cache@v4
@@ -174,7 +161,8 @@ jobs:
         path: |
           ~/.cargo/registry
           ~/.cargo/git
-          charting/target
+          crates/*/target
+          target
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
     
     - name: Install dependencies
@@ -247,7 +235,9 @@ jobs:
         sudo apt-get install -y pkg-config libssl-dev
     
     - name: Install wasm-pack
-      run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      run: |
+        curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
     
     - name: Install dependencies
       run: |
