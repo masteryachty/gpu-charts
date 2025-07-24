@@ -18,7 +18,8 @@ fn vs_main(
     var output: VertexPayload;
     var projection = world_to_screen_conversion_with_margin(x_min_max.min_val, x_min_max.max_val, y_min_max.min_val, y_min_max.max_val, -1., 1.);
     output.position = projection * vec4f(pos.x, pos.y, 0, 1);
-    output.position.x = pos.x;
+    // Don't override the x position - keep the transformed value
+    // output.position.x = pos.x;
     output.position.z = 0.01;
     output.position.w = 1.;
     output.color = vec3f(1.0, 1.0, 1.0);

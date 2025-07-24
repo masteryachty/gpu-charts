@@ -173,7 +173,7 @@ impl LineGraph {
         data_handle: &DataHandle,
         data_manager: &mut DataManager,
         data_store: &mut DataStore,
-        _device: &Arc<wgpu::Device>,
+        device: &Arc<wgpu::Device>,
     ) -> Result<(), shared_types::GpuChartsError> {
         // Get the GPU buffer set from the data manager
         let gpu_buffer_set = data_manager
@@ -245,12 +245,12 @@ impl LineGraph {
         log::info!("Successfully added {} columns to DataStore", gpu_buffer_set.metadata.columns.len());
         
         // Calculate min/max Y values from the loaded data
-        Self::calculate_data_bounds(data_store)?;
+        Self::calculate_data_bounds(data_store, device)?;
         
         Ok(())
     }
     
-    fn calculate_data_bounds(data_store: &mut DataStore) -> Result<(), shared_types::GpuChartsError> {
+    fn calculate_data_bounds(data_store: &mut DataStore, device: &wgpu::Device) -> Result<(), shared_types::GpuChartsError> {
         // Get all data groups and calculate min/max
         let mut global_min = f32::INFINITY;
         let mut global_max = f32::NEG_INFINITY;
@@ -324,10 +324,14 @@ impl LineGraph {
             
             log::info!("Calculated Y bounds from data: min={}, max={}", global_min, global_max);
             data_store.update_min_max_y(global_min, global_max);
+            // Update the shared bind group with new bounds
+            data_store.update_shared_bind_group(device);
         } else {
             log::warn!("No valid data found for Y bounds calculation");
             // Set reasonable defaults for financial data
             data_store.update_min_max_y(0.0, 100000.0);
+            // Update the shared bind group with default bounds
+            data_store.update_shared_bind_group(device);
         }
         
         Ok(())

@@ -323,6 +323,78 @@ impl DataStore {
             self.mark_dirty();
         }
     }
+    
+    /// Update the shared range bind group with current x/y min/max values
+    /// This should be called whenever bounds change or before rendering
+    pub fn update_shared_bind_group(&mut self, device: &wgpu::Device) {
+        use wgpu::util::DeviceExt;
+        
+        // Create x range buffer
+        let x_min_max = glm::vec2(self.start_x as f32, self.end_x as f32);
+        let x_min_max_bytes: &[u8] = unsafe { any_as_u8_slice(&x_min_max) };
+        let x_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("shared_x_range_buffer"),
+            contents: x_min_max_bytes,
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
+        
+        // Create y range buffer
+        let y_min_max = glm::vec2(
+            self.min_y.unwrap_or(0.0),
+            self.max_y.unwrap_or(100.0),
+        );
+        let y_min_max_bytes: &[u8] = unsafe { any_as_u8_slice(&y_min_max) };
+        let y_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("shared_y_range_buffer"),
+            contents: y_min_max_bytes,
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
+        
+        // Create the bind group layout if it doesn't exist
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("shared_range_bind_group_layout"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+            ],
+        });
+        
+        // Create the shared bind group
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("shared_range_bind_group"),
+            layout: &bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: x_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: y_buffer.as_entire_binding(),
+                },
+            ],
+        });
+        
+        self.range_bind_group = Some(bind_group);
+    }
 
     pub fn set_chart_type(&mut self, chart_type: ChartType) {
         if self.chart_type != chart_type {

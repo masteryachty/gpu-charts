@@ -73,11 +73,14 @@ impl YAxisRenderer {
 
             // Create vertex data for axis lines
             let mut vertices = Vec::with_capacity(y_values.len() * 4);
-            for y in y_values {
-                vertices.push(-1.);
-                vertices.push(y);
-                vertices.push(1.);
-                vertices.push(y);
+            log::info!("Y-axis: Creating horizontal lines from x={} to x={}", data_store.start_x, data_store.end_x);
+            for y in &y_values {
+                // Use the actual X range from the data store
+                vertices.push(data_store.start_x as f32);
+                vertices.push(*y);
+                vertices.push(data_store.end_x as f32);
+                vertices.push(*y);
+                log::info!("Y-axis: Line at y={} from ({}, {}) to ({}, {})", y, data_store.start_x, y, data_store.end_x, y);
             }
 
             // Create or update buffer
@@ -146,15 +149,20 @@ impl YAxisRenderer {
             occlusion_query_set: None,
         });
 
-        // Draw vertical lines
+        // Draw horizontal lines
         if let Some(buffer) = &self.vertex_buffer {
-            // Only draw if we have a bind group (which requires data to be loaded)
+            // Use the shared bind group from DataStore
             if let Some(bind_group) = data_store.range_bind_group.as_ref() {
+                log::info!("Y-axis: Drawing {} vertices for horizontal lines", self.vertex_count);
                 render_pass.set_pipeline(&self.pipeline);
                 render_pass.set_bind_group(0, bind_group, &[]);
                 render_pass.set_vertex_buffer(0, buffer.slice(..));
                 render_pass.draw(0..self.vertex_count, 0..1);
+            } else {
+                log::warn!("Y-axis: No shared bind group available, skipping horizontal lines");
             }
+        } else {
+            log::warn!("Y-axis: No vertex buffer available");
         }
 
         // Draw text labels
@@ -263,10 +271,6 @@ impl YAxisRenderer {
     }
 }
 
-// Helper function to convert a struct to a u8 slice
-// unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
-//     ::core::slice::from_raw_parts((p as *const T) as *const u8, ::core::mem::size_of::<T>())
-// }
 
 /// Calculates Y-axis interval given a min and max value.
 pub fn calculate_y_axis_interval(min: f32, max: f32) -> (f32, f32, f32) {

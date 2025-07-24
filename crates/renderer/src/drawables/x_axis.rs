@@ -14,8 +14,6 @@ pub struct XAxisRenderer {
     // color_format: TextureFormat,
     brush: TextBrush<FontRef<'static>>,
     pipeline: wgpu::RenderPipeline,
-    bind_group_layout: wgpu::BindGroupLayout,
-    device: Arc<wgpu::Device>,
     vertex_buffer: Option<wgpu::Buffer>,
     vertex_count: u32,
     last_min_x: f32,
@@ -65,9 +63,10 @@ impl XAxisRenderer {
 
         if needs_recalculation {
             // Find appropriate time unit for axis labels
+            // Adjusted threshold from 150 to 100 pixels to get more grid lines
             let mut base_unit = 0;
             for i in LOGIC_TS_DURATIONS.iter() {
-                if base_unit == 0 && (*i as f32 / range as f32) * width as f32 > 150.0 {
+                if base_unit == 0 && (*i as f32 / range as f32) * width as f32 > 100.0 {
                     base_unit = *i;
                     break;
                 }
@@ -76,6 +75,9 @@ impl XAxisRenderer {
             if base_unit == 0 {
                 base_unit = *LOGIC_TS_DURATIONS.last().unwrap();
             }
+            
+            log::info!("X-axis: Range={} seconds, width={} pixels, selected base_unit={} seconds", 
+                range, width, base_unit);
 
             let interval = 1;
             let mut timestamps = Vec::new();
@@ -88,19 +90,21 @@ impl XAxisRenderer {
             label_strings.reserve(estimated_count as usize);
 
             // Collect timestamps and prepare labels
-            for i in (0..=(range / base_unit)).rev() {
-                let ts = (max / base_unit - i) * base_unit;
-
-                if ts % (base_unit * interval) == 0 {
-                    timestamps.push(ts);
-
-                    // Format timestamp only when needed
-                    if let Some(dt) = chrono::DateTime::from_timestamp(ts as i64, 0) {
-                        let dt_str = dt.to_string();
-                        let ts_string = format!("{}\n{}", &dt_str[0..10], &dt_str[11..]);
-                        label_strings.push((ts_string, ts));
-                    }
+            // Start from the first timestamp that's aligned to base_unit and >= min
+            let first_ts = ((min + base_unit - 1) / base_unit) * base_unit;
+            
+            let mut ts = first_ts;
+            while ts <= max {
+                timestamps.push(ts);
+                
+                // Format timestamp only when needed
+                if let Some(dt) = chrono::DateTime::from_timestamp(ts as i64, 0) {
+                    let dt_str = dt.to_string();
+                    let ts_string = format!("{}\n{}", &dt_str[0..10], &dt_str[11..]);
+                    label_strings.push((ts_string, ts));
                 }
+                
+                ts += base_unit * interval;
             }
 
             // Create text sections
@@ -119,11 +123,22 @@ impl XAxisRenderer {
 
             // Create vertex data for axis lines
             let mut vertices = Vec::with_capacity(timestamps.len() * 4);
-            for timestamp in timestamps {
-                vertices.push((timestamp - min) as f32);
-                vertices.push(-1.);
-                vertices.push((timestamp - min) as f32);
-                vertices.push(1.);
+            
+            // Get the Y range from data_store
+            let y_min = data_store.min_y.unwrap_or(0.0);
+            let y_max = data_store.max_y.unwrap_or(100.0);
+            
+            log::info!("X-axis: Creating vertical lines for {} timestamps within range [{}, {}], Y range: [{}, {}]", 
+                timestamps.len(), min, max, y_min, y_max);
+            
+            for timestamp in &timestamps {
+                // Use absolute timestamps and Y values that match the data range
+                vertices.push(*timestamp as f32);
+                vertices.push(y_min);
+                vertices.push(*timestamp as f32);
+                vertices.push(y_max);
+                log::debug!("X-axis: Line at x={} from ({}, {}) to ({}, {})", 
+                    timestamp, timestamp, y_min, timestamp, y_max);
             }
 
             // Create or update buffer
@@ -194,12 +209,18 @@ impl XAxisRenderer {
 
         // Draw vertical lines
         if let Some(buffer) = &self.vertex_buffer {
-            // Create bind group for axis rendering
-            let bind_group = self.create_bind_group(device, data_store);
-            render_pass.set_pipeline(&self.pipeline);
-            render_pass.set_bind_group(0, &bind_group, &[]);
-            render_pass.set_vertex_buffer(0, buffer.slice(..));
-            render_pass.draw(0..self.vertex_count, 0..1);
+            // Use the shared bind group from DataStore
+            if let Some(bind_group) = data_store.range_bind_group.as_ref() {
+                log::info!("X-axis: Drawing {} vertices for vertical lines", self.vertex_count);
+                render_pass.set_pipeline(&self.pipeline);
+                render_pass.set_bind_group(0, bind_group, &[]);
+                render_pass.set_vertex_buffer(0, buffer.slice(..));
+                render_pass.draw(0..self.vertex_count, 0..1);
+            } else {
+                log::warn!("X-axis: No shared bind group available, skipping vertical lines");
+            }
+        } else {
+            log::warn!("X-axis: No vertex buffer available");
         }
 
         // Draw text labels
@@ -208,47 +229,6 @@ impl XAxisRenderer {
 }
 
 impl XAxisRenderer {
-    fn create_bind_group(&self, device: &wgpu::Device, data_store: &DataStore) -> wgpu::BindGroup {
-        use wgpu::util::DeviceExt;
-        use nalgebra_glm as glm;
-        
-        // Create x range buffer
-        let x_min_max = glm::vec2(data_store.start_x, data_store.end_x);
-        let x_min_max_bytes: &[u8] = unsafe { any_as_u8_slice(&x_min_max) };
-        let x_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("x_axis_x_range_buffer"),
-            contents: x_min_max_bytes,
-            usage: wgpu::BufferUsages::UNIFORM,
-        });
-        
-        // Create y range buffer (for completeness, even if x-axis doesn't use it)
-        let y_min_max = glm::vec2(
-            data_store.min_y.unwrap_or(0.0),
-            data_store.max_y.unwrap_or(1.0),
-        );
-        let y_min_max_bytes: &[u8] = unsafe { any_as_u8_slice(&y_min_max) };
-        let y_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("x_axis_y_range_buffer"),
-            contents: y_min_max_bytes,
-            usage: wgpu::BufferUsages::UNIFORM,
-        });
-        
-        device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("x_axis_bind_group"),
-            layout: &self.bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: x_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: y_buffer.as_entire_binding(),
-                },
-            ],
-        })
-    }
-    
     pub fn new(
         device: Arc<wgpu::Device>,
         _queue: Arc<wgpu::Queue>,
@@ -340,8 +320,6 @@ impl XAxisRenderer {
             // color_format,
             brush,
             pipeline,
-            bind_group_layout,
-            device,
             vertex_buffer: None,
             vertex_count: 0,
             last_min_x: 0.0,
@@ -361,7 +339,3 @@ impl XAxisRenderer {
     // }
 }
 
-// Helper function to convert a struct to a u8 slice
-unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
-    ::core::slice::from_raw_parts((p as *const T) as *const u8, ::core::mem::size_of::<T>())
-}
