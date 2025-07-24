@@ -937,7 +937,7 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
         console.error('[useWasmChart] Error setting chart type:', error);
       }
     }
-  }, [storeChartType, chartState.isInitialized, chartState.chart, enableAutoSync]);
+  }, [storeChartType, chartState.isInitialized, chartState.chart, enableAutoSync, canvasId]);
   
   // Effect to update candle timeframe when it changes
   useEffect(() => {

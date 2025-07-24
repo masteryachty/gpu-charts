@@ -22,20 +22,8 @@ jobs:
       - name: Install cargo-audit
         run: cargo install cargo-audit
       
-      - name: Run cargo audit on server
-        run: |
-          cd server
-          cargo audit
-      
-      - name: Run cargo audit on charting
-        run: |
-          cd charting
-          cargo audit
-      
-      - name: Run cargo audit on coinbase-logger
-        run: |
-          cd coinbase-logger
-          cargo audit
+      - name: Run cargo audit on workspace
+        run: cargo audit
 
   npm-security-audit:
     runs-on: ubuntu-latest
