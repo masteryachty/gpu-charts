@@ -1,8 +1,6 @@
 //! WASM Bridge crate for GPU Charts
 //! Central orchestration layer that bridges JavaScript and Rust/WebGPU worlds
 
-// WASM Bridge requires some specific naming for JS compatibility
-#![allow(non_snake_case)] // Required for JS API compatibility
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
