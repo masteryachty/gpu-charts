@@ -7,6 +7,7 @@ use shared_types::{PerformanceConfig, QualityPreset};
 pub use shared_types::GpuChartsConfig;
 
 /// Configuration manager for GPU Charts
+#[derive(Default)]
 pub struct ConfigManager {
     config: GpuChartsConfig,
 }
@@ -14,9 +15,7 @@ pub struct ConfigManager {
 impl ConfigManager {
     /// Create a new configuration manager with default settings
     pub fn new() -> Self {
-        Self {
-            config: GpuChartsConfig::default(),
-        }
+        Self::default()
     }
 
     /// Create with a specific quality preset
@@ -175,11 +174,17 @@ pub struct PresetManager {
     presets: Vec<RenderingPreset>,
 }
 
-impl PresetManager {
-    pub fn new() -> Self {
+impl Default for PresetManager {
+    fn default() -> Self {
         Self {
             presets: Self::default_presets(),
         }
+    }
+}
+
+impl PresetManager {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     fn default_presets() -> Vec<RenderingPreset> {

@@ -58,7 +58,7 @@ impl DataManager {
         columns: &[&str],
     ) -> GpuChartsResult<DataHandle> {
         // Check cache first
-        let cache_key = format!("{}-{}-{}-{:?}", symbol, start_time, end_time, columns);
+        let cache_key = format!("{symbol}-{start_time}-{end_time}-{columns:?}");
         if let Some(handle) = self.cache.get(&cache_key) {
             return Ok(handle);
         }
@@ -78,7 +78,7 @@ impl DataManager {
             fetch_api_response(&url)
                 .await
                 .map_err(|e| GpuChartsError::DataFetch {
-                    message: format!("{:?} (URL: {})", e, url),
+                    message: format!("{e:?} (URL: {url})"),
                 })?;
 
         // Parse the binary data into columnar format
@@ -158,7 +158,7 @@ impl DataManager {
                 let value_buffer =
                     self.device
                         .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                            label: Some(&format!("{} Data Buffer", column)),
+                            label: Some(&format!("{column} Data Buffer")),
                             contents: bytemuck::cast_slice(values),
                             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                         });
