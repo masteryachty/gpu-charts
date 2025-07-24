@@ -13,12 +13,18 @@ pub struct CanvasController {
     start_drag_pos: Option<Position>,
 }
 
-impl CanvasController {
-    pub fn new() -> Self {
+impl Default for CanvasController {
+    fn default() -> Self {
         CanvasController {
             position: Position { x: -1., y: -1. },
             start_drag_pos: None,
         }
+    }
+}
+
+impl CanvasController {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn handle_cursor_event(&mut self, event: WindowEvent, renderer: &mut Renderer) {

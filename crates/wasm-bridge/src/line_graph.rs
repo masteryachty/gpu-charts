@@ -61,7 +61,7 @@ impl LineGraph {
 
         let surface = instance
             .create_surface(wgpu::SurfaceTarget::Canvas(canvas.clone()))
-            .map_err(|e| Error::new(&format!("Failed to create surface: {}", e)))?;
+            .map_err(|e| Error::new(&format!("Failed to create surface: {e}")))?;
 
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
@@ -83,9 +83,11 @@ impl LineGraph {
                 None,
             )
             .await
-            .map_err(|e| Error::new(&format!("Failed to request device: {}", e)))?;
+            .map_err(|e| Error::new(&format!("Failed to request device: {e}")))?;
 
+        #[allow(clippy::arc_with_non_send_sync)]
         let device = Arc::new(device);
+        #[allow(clippy::arc_with_non_send_sync)]
         let queue = Arc::new(queue);
 
         // Create DataManager with modular approach
@@ -104,7 +106,7 @@ impl LineGraph {
         // Create Renderer with modular approach
         let mut renderer = Renderer::new(canvas, device.clone(), queue.clone(), config, data_store)
             .await
-            .map_err(|e| Error::new(&format!("Failed to create renderer: {:?}", e)))?;
+            .map_err(|e| Error::new(&format!("Failed to create renderer: {e:?}")))?;
 
         // Try to fetch initial data using DataManager
         log::info!("Attempting initial data fetch...");
@@ -122,11 +124,11 @@ impl LineGraph {
                     renderer.data_store_mut(),
                     &device,
                 ) {
-                    log::error!("Failed to process data: {:?}", e);
+                    log::error!("Failed to process data: {e:?}");
                 }
             }
             Err(e) => {
-                log::warn!("Failed to fetch initial data: {:?}", e);
+                log::warn!("Failed to fetch initial data: {e:?}");
             }
         }
 
@@ -270,7 +272,7 @@ impl LineGraph {
         // Get the time range for filtering
         let start_x = data_store.start_x;
         let end_x = data_store.end_x;
-        log::info!("Calculating bounds for time range: {} - {}", start_x, end_x);
+        log::info!("Calculating bounds for time range: {start_x} - {end_x}");
 
         // Iterate through all data groups
         for (group_idx, data_group) in data_store.data_groups.iter().enumerate() {
@@ -337,9 +339,7 @@ impl LineGraph {
             global_max += margin;
 
             log::info!(
-                "Calculated Y bounds from data: min={}, max={}",
-                global_min,
-                global_max
+                "Calculated Y bounds from data: min={global_min}, max={global_max}"
             );
             data_store.update_min_max_y(global_min, global_max);
             // Update the shared bind group with new bounds

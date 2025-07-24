@@ -39,6 +39,7 @@ pub struct Chart {
 #[wasm_bindgen]
 impl Chart {
     #[wasm_bindgen(constructor)]
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Chart {
         // Create a new instance ID but don't create the actual instance yet
         // That happens in init()
@@ -132,7 +133,7 @@ impl Chart {
                     log::trace!("Render completed successfully");
                 }
                 Err(e) => {
-                    log::error!("Render failed: {:?}", e);
+                    log::error!("Render failed: {e:?}");
                 }
             }
         });
