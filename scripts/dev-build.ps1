@@ -6,7 +6,7 @@ Write-Host "Starting development build pipeline..." -ForegroundColor Green
 function Build-Wasm {
     Write-Host "Building WASM package..." -ForegroundColor Yellow
     
-    Push-Location crates\wasm-bridge
+    Push-Location (Join-Path $PSScriptRoot "..\crates\wasm-bridge")
     $result = wasm-pack build --target web --out-dir ..\..\web\pkg --dev
     $success = $LASTEXITCODE -eq 0
     Pop-Location
@@ -16,10 +16,11 @@ function Build-Wasm {
         Write-Host "WASM files output to web/pkg/" -ForegroundColor Blue
         
         # Trigger Vite reload by touching a watched file
-        if (-not (Test-Path "web\src\wasm-trigger.ts")) {
-            New-Item -Path "web\src\wasm-trigger.ts" -ItemType File -Force | Out-Null
+        $triggerPath = Join-Path $PSScriptRoot "..\web\src\wasm-trigger.ts"
+        if (-not (Test-Path $triggerPath)) {
+            New-Item -Path $triggerPath -ItemType File -Force | Out-Null
         }
-        (Get-Item "web\src\wasm-trigger.ts").LastWriteTime = Get-Date
+        (Get-Item $triggerPath).LastWriteTime = Get-Date
         Write-Host "Triggered React hot reload" -ForegroundColor Cyan
     } else {
         Write-Host "WASM build failed" -ForegroundColor Red
@@ -29,7 +30,9 @@ function Build-Wasm {
 }
 
 # Initial build
+Push-Location (Join-Path $PSScriptRoot "..")
 Build-Wasm
+Pop-Location
 
 # Watch for Rust file changes
 Write-Host "Watching for Rust file changes..." -ForegroundColor Cyan
@@ -57,7 +60,7 @@ $action = {
         
         # Build in the main thread context
         $scriptPath = $Event.MessageData.ScriptPath
-        Push-Location $scriptPath
+        Push-Location (Join-Path $scriptPath "..")
         Build-Wasm
         Pop-Location
         
