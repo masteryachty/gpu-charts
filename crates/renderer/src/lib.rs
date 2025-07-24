@@ -63,7 +63,7 @@ impl Renderer {
         let surface = instance
             .create_surface(wgpu::SurfaceTarget::Canvas(canvas))
             .map_err(|e| GpuChartsError::Surface {
-                message: format!("Failed to create surface: {}", e),
+                message: format!("Failed to create surface: {e}"),
             })?;
 
         // Get surface capabilities
@@ -276,7 +276,7 @@ impl Renderer {
             self.data_store.chart_type,
             chart_type
         );
-        let old_type = self.data_store.chart_type.clone();
+        let old_type = self.data_store.chart_type;
         self.data_store.chart_type = chart_type;
 
         self.setup_renderers();
@@ -285,9 +285,7 @@ impl Renderer {
         self.data_store.mark_dirty();
 
         log::info!(
-            "Chart type changed from {:?} to {:?} - marked dirty",
-            old_type,
-            chart_type
+            "Chart type changed from {old_type:?} to {chart_type:?} - marked dirty"
         );
     }
 

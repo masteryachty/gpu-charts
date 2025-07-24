@@ -147,7 +147,7 @@ impl CandlestickRenderer {
         self.candle_timeframe = data_store.candle_timeframe;
 
         // Calculate cache key for current state
-        let data_hash = self.calculate_data_hash(&data_store);
+        let data_hash = self.calculate_data_hash(data_store);
         let new_cache_key = CacheKey {
             start_x: data_store.start_x,
             end_x: data_store.end_x,
@@ -160,7 +160,7 @@ impl CandlestickRenderer {
 
         if needs_reaggregation {
             // Run aggregation in the same encoder as the render pass
-            self.aggregate_ohlc(encoder, device, queue, &data_store);
+            self.aggregate_ohlc(encoder, device, queue, data_store);
 
             self.cache_key = Some(new_cache_key);
         }
@@ -188,7 +188,7 @@ impl CandlestickRenderer {
             });
 
             // Create bind group for rendering
-            let bind_group = match self.create_bind_group(device, &data_store) {
+            let bind_group = match self.create_bind_group(device, data_store) {
                 Some(bg) => bg,
                 None => return,
             };
@@ -402,7 +402,7 @@ impl CandlestickRenderer {
         let last_candle_end = ds.end_x.div_ceil(self.candle_timeframe) * self.candle_timeframe;
 
         let extended_time_range = last_candle_end - first_candle_start;
-        let num_candles = (extended_time_range / self.candle_timeframe) as u32;
+        let num_candles = extended_time_range / self.candle_timeframe;
         self.num_candles = num_candles;
 
         // Get the active data groups

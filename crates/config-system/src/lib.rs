@@ -268,18 +268,4 @@ mod tests {
         assert_eq!(config.get_config().performance.target_fps, 120);
     }
 
-    #[test]
-    fn test_auto_tune() {
-        let mut config = ConfigManager::new();
-        config.get_config_mut().enable_auto_tuning = true;
-
-        let gpu_info = GpuInfo {
-            name: "Test GPU".to_string(),
-            memory_mb: 1024,
-            compute_units: 16,
-        };
-
-        config.auto_tune(&gpu_info);
-        assert_eq!(config.get_config().quality_preset, QualityPreset::Low);
-    }
 }

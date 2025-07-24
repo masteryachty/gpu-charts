@@ -76,10 +76,7 @@ impl XAxisRenderer {
             }
 
             log::info!(
-                "X-axis: Range={} seconds, width={} pixels, selected base_unit={} seconds",
-                range,
-                width,
-                base_unit
+                "X-axis: Range={range} seconds, width={width} pixels, selected base_unit={base_unit} seconds"
             );
 
             let interval = 1;
@@ -141,12 +138,7 @@ impl XAxisRenderer {
                 vertices.push(*timestamp as f32);
                 vertices.push(y_max);
                 log::debug!(
-                    "X-axis: Line at x={} from ({}, {}) to ({}, {})",
-                    timestamp,
-                    timestamp,
-                    y_min,
-                    timestamp,
-                    y_max
+                    "X-axis: Line at x={timestamp} from ({timestamp}, {y_min}) to ({timestamp}, {y_max})"
                 );
             }
 

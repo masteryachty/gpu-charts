@@ -119,6 +119,7 @@ impl CandleAggregator {
     ///
     /// Returns a buffer containing the computed candles in GPU memory.
     /// The buffer can be used directly for rendering without CPU readback.
+    #[allow(clippy::too_many_arguments)]
     pub fn aggregate_candles(
         &mut self,
         device: &wgpu::Device,
@@ -215,6 +216,7 @@ impl CandleAggregator {
     /// Aggregates tick data from multiple buffer chunks.
     ///
     /// This handles the case where data is split across multiple GPU buffers.
+    #[allow(clippy::too_many_arguments)]
     pub fn aggregate_candles_chunked(
         &mut self,
         device: &wgpu::Device,
