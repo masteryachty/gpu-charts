@@ -172,7 +172,7 @@ impl From<serde_json::Error> for GpuChartsError {
 impl From<wasm_bindgen::JsValue> for GpuChartsError {
     fn from(err: wasm_bindgen::JsValue) -> Self {
         GpuChartsError::JsInterop {
-            message: format!("{:?}", err),
+            message: format!("{err:?}"),
         }
     }
 }

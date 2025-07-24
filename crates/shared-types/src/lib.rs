@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
-/// Common data structures used across crates (as per architect.md)
+// Common data structures used across crates (as per architect.md)
 
 /// Chart configuration for rendering
 #[derive(Debug, Clone, Serialize, Deserialize)]
