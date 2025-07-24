@@ -1,9 +1,6 @@
 use crate::line_graph::unix_timestamp_to_string;
-use data_manager::{DataManager, DataStore};
 use renderer::Renderer;
 use shared_types::events::{ElementState, MouseScrollDelta, WindowEvent};
-
-use wasm_bindgen_futures::spawn_local;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Position {
@@ -71,7 +68,12 @@ impl CanvasController {
         log::info!("MouseInput type: {button:?} {state:?}");
     }
 
-    fn apply_drag_zoom(&self, start_pos: Position, end_position: Position, renderer: &mut Renderer) {
+    fn apply_drag_zoom(
+        &self,
+        start_pos: Position,
+        end_position: Position,
+        renderer: &mut Renderer,
+    ) {
         let start_ts = renderer
             .data_store()
             .screen_to_world_with_margin(start_pos.x as f32, start_pos.y as f32);

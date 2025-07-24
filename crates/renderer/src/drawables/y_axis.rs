@@ -9,7 +9,6 @@ use wgpu_text::{
     BrushBuilder, TextBrush,
 };
 
-
 pub struct YAxisRenderer {
     // color_format: TextureFormat,
     brush: TextBrush<FontRef<'static>>,
@@ -73,14 +72,25 @@ impl YAxisRenderer {
 
             // Create vertex data for axis lines
             let mut vertices = Vec::with_capacity(y_values.len() * 4);
-            log::info!("Y-axis: Creating horizontal lines from x={} to x={}", data_store.start_x, data_store.end_x);
+            log::info!(
+                "Y-axis: Creating horizontal lines from x={} to x={}",
+                data_store.start_x,
+                data_store.end_x
+            );
             for y in &y_values {
                 // Use the actual X range from the data store
                 vertices.push(data_store.start_x as f32);
                 vertices.push(*y);
                 vertices.push(data_store.end_x as f32);
                 vertices.push(*y);
-                log::info!("Y-axis: Line at y={} from ({}, {}) to ({}, {})", y, data_store.start_x, y, data_store.end_x, y);
+                log::info!(
+                    "Y-axis: Line at y={} from ({}, {}) to ({}, {})",
+                    y,
+                    data_store.start_x,
+                    y,
+                    data_store.end_x,
+                    y
+                );
             }
 
             // Create or update buffer
@@ -97,11 +107,8 @@ impl YAxisRenderer {
             self.last_height = height;
 
             // Update text brush
-            self.brush.resize_view(
-                data_store.screen_size.width as f32,
-                height as f32,
-                queue,
-            );
+            self.brush
+                .resize_view(data_store.screen_size.width as f32, height as f32, queue);
             self.brush.queue(device, queue, labels).unwrap();
         } else {
             // If only the window size changed, update the text brush size
@@ -153,7 +160,10 @@ impl YAxisRenderer {
         if let Some(buffer) = &self.vertex_buffer {
             // Use the shared bind group from DataStore
             if let Some(bind_group) = data_store.range_bind_group.as_ref() {
-                log::info!("Y-axis: Drawing {} vertices for horizontal lines", self.vertex_count);
+                log::info!(
+                    "Y-axis: Drawing {} vertices for horizontal lines",
+                    self.vertex_count
+                );
                 render_pass.set_pipeline(&self.pipeline);
                 render_pass.set_bind_group(0, bind_group, &[]);
                 render_pass.set_vertex_buffer(0, buffer.slice(..));
@@ -181,12 +191,7 @@ impl YAxisRenderer {
         // Create text brush
         let brush = BrushBuilder::using_font_bytes(include_bytes!("Roboto.ttf"))
             .unwrap()
-            .build(
-                &device,
-                screen_width,
-                screen_height,
-                color_format,
-            );
+            .build(&device, screen_width, screen_height, color_format);
 
         // Create shader and pipeline
         let shader = device.create_shader_module(wgpu::include_wgsl!("y_axis.wgsl"));
@@ -270,7 +275,6 @@ impl YAxisRenderer {
         }
     }
 }
-
 
 /// Calculates Y-axis interval given a min and max value.
 pub fn calculate_y_axis_interval(min: f32, max: f32) -> (f32, f32, f32) {

@@ -53,9 +53,9 @@ impl DataStore {
     pub fn new(width: u32, height: u32) -> DataStore {
         DataStore {
             start_x: 0,
-            end_x: 100,  // Default to a reasonable range
-            min_y: Some(0.0),    // Default min Y value
-            max_y: Some(100.0),  // Default max Y value
+            end_x: 100,         // Default to a reasonable range
+            min_y: Some(0.0),   // Default min Y value
+            max_y: Some(100.0), // Default max Y value
             data_groups: Vec::new(),
             active_data_group_indices: Vec::new(),
             range_bind_group: None,
@@ -198,7 +198,7 @@ impl DataStore {
         let min_y = self.min_y.unwrap_or(0.0);
         let max_y = self.max_y.unwrap_or(100.0);
         let y_range = max_y - min_y;
-        
+
         let projection = glm::ortho_rh_zo(
             self.start_x as f32,
             self.end_x as f32,
@@ -323,12 +323,12 @@ impl DataStore {
             self.mark_dirty();
         }
     }
-    
+
     /// Update the shared range bind group with current x/y min/max values
     /// This should be called whenever bounds change or before rendering
     pub fn update_shared_bind_group(&mut self, device: &wgpu::Device) {
         use wgpu::util::DeviceExt;
-        
+
         // Create x range buffer
         let x_min_max = glm::vec2(self.start_x as f32, self.end_x as f32);
         let x_min_max_bytes: &[u8] = unsafe { any_as_u8_slice(&x_min_max) };
@@ -337,19 +337,16 @@ impl DataStore {
             contents: x_min_max_bytes,
             usage: wgpu::BufferUsages::UNIFORM,
         });
-        
+
         // Create y range buffer
-        let y_min_max = glm::vec2(
-            self.min_y.unwrap_or(0.0),
-            self.max_y.unwrap_or(100.0),
-        );
+        let y_min_max = glm::vec2(self.min_y.unwrap_or(0.0), self.max_y.unwrap_or(100.0));
         let y_min_max_bytes: &[u8] = unsafe { any_as_u8_slice(&y_min_max) };
         let y_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("shared_y_range_buffer"),
             contents: y_min_max_bytes,
             usage: wgpu::BufferUsages::UNIFORM,
         });
-        
+
         // Create the bind group layout if it doesn't exist
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("shared_range_bind_group_layout"),
@@ -376,7 +373,7 @@ impl DataStore {
                 },
             ],
         });
-        
+
         // Create the shared bind group
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("shared_range_bind_group"),
@@ -392,7 +389,7 @@ impl DataStore {
                 },
             ],
         });
-        
+
         self.range_bind_group = Some(bind_group);
     }
 

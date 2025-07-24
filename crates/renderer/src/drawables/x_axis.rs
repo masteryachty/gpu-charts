@@ -9,7 +9,6 @@ use wgpu_text::{
     BrushBuilder, TextBrush,
 };
 
-
 pub struct XAxisRenderer {
     // color_format: TextureFormat,
     brush: TextBrush<FontRef<'static>>,
@@ -75,9 +74,13 @@ impl XAxisRenderer {
             if base_unit == 0 {
                 base_unit = *LOGIC_TS_DURATIONS.last().unwrap();
             }
-            
-            log::info!("X-axis: Range={} seconds, width={} pixels, selected base_unit={} seconds", 
-                range, width, base_unit);
+
+            log::info!(
+                "X-axis: Range={} seconds, width={} pixels, selected base_unit={} seconds",
+                range,
+                width,
+                base_unit
+            );
 
             let interval = 1;
             let mut timestamps = Vec::new();
@@ -92,18 +95,18 @@ impl XAxisRenderer {
             // Collect timestamps and prepare labels
             // Start from the first timestamp that's aligned to base_unit and >= min
             let first_ts = ((min + base_unit - 1) / base_unit) * base_unit;
-            
+
             let mut ts = first_ts;
             while ts <= max {
                 timestamps.push(ts);
-                
+
                 // Format timestamp only when needed
                 if let Some(dt) = chrono::DateTime::from_timestamp(ts as i64, 0) {
                     let dt_str = dt.to_string();
                     let ts_string = format!("{}\n{}", &dt_str[0..10], &dt_str[11..]);
                     label_strings.push((ts_string, ts));
                 }
-                
+
                 ts += base_unit * interval;
             }
 
@@ -123,22 +126,28 @@ impl XAxisRenderer {
 
             // Create vertex data for axis lines
             let mut vertices = Vec::with_capacity(timestamps.len() * 4);
-            
+
             // Get the Y range from data_store
             let y_min = data_store.min_y.unwrap_or(0.0);
             let y_max = data_store.max_y.unwrap_or(100.0);
-            
+
             log::info!("X-axis: Creating vertical lines for {} timestamps within range [{}, {}], Y range: [{}, {}]", 
                 timestamps.len(), min, max, y_min, y_max);
-            
+
             for timestamp in &timestamps {
                 // Use absolute timestamps and Y values that match the data range
                 vertices.push(*timestamp as f32);
                 vertices.push(y_min);
                 vertices.push(*timestamp as f32);
                 vertices.push(y_max);
-                log::debug!("X-axis: Line at x={} from ({}, {}) to ({}, {})", 
-                    timestamp, timestamp, y_min, timestamp, y_max);
+                log::debug!(
+                    "X-axis: Line at x={} from ({}, {}) to ({}, {})",
+                    timestamp,
+                    timestamp,
+                    y_min,
+                    timestamp,
+                    y_max
+                );
             }
 
             // Create or update buffer
@@ -211,7 +220,10 @@ impl XAxisRenderer {
         if let Some(buffer) = &self.vertex_buffer {
             // Use the shared bind group from DataStore
             if let Some(bind_group) = data_store.range_bind_group.as_ref() {
-                log::info!("X-axis: Drawing {} vertices for vertical lines", self.vertex_count);
+                log::info!(
+                    "X-axis: Drawing {} vertices for vertical lines",
+                    self.vertex_count
+                );
                 render_pass.set_pipeline(&self.pipeline);
                 render_pass.set_bind_group(0, bind_group, &[]);
                 render_pass.set_vertex_buffer(0, buffer.slice(..));
@@ -239,12 +251,7 @@ impl XAxisRenderer {
         // Create text brush
         let brush = BrushBuilder::using_font_bytes(include_bytes!("Roboto.ttf"))
             .unwrap()
-            .build(
-                &device,
-                screen_width,
-                screen_height,
-                color_format,
-            );
+            .build(&device, screen_width, screen_height, color_format);
 
         // Create shader and pipeline
         let shader = device.create_shader_module(wgpu::include_wgsl!("x_axis.wgsl"));
@@ -338,4 +345,3 @@ impl XAxisRenderer {
     //     *LOGIC_TS_DURATIONS.last().unwrap()
     // }
 }
-

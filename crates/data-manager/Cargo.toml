@@ -15,6 +15,7 @@ bytemuck = "1.14"
 log = "0.4"
 nalgebra-glm = "0.18"
 wgpu = { version = "=24.0.5", features = ["webgpu"] }
+urlencoding = "2.1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2"

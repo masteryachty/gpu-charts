@@ -6,9 +6,7 @@ pub mod cache;
 pub mod data_retriever;
 pub mod data_store;
 
-use shared_types::{
-    DataHandle, DataMetadata, GpuBufferSet, GpuChartsError, GpuChartsResult, ParsedData,
-};
+use shared_types::{DataHandle, DataMetadata, GpuChartsError, GpuChartsResult, ParsedData};
 use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -20,6 +18,14 @@ pub use data_retriever::{
     ApiHeader, ColumnMeta,
 };
 pub use data_store::{ChartType, DataSeries, DataStore, MetricSeries, ScreenDimensions, Vertex};
+
+/// GPU buffer set for storing data
+/// This is internal to data-manager and contains GPU resources
+pub struct GpuBufferSet {
+    pub buffers: HashMap<String, Vec<wgpu::Buffer>>,
+    pub raw_buffers: HashMap<String, js_sys::ArrayBuffer>, // Store raw data for DataStore
+    pub metadata: DataMetadata,
+}
 
 /// Main data manager that coordinates all data operations
 pub struct DataManager {
@@ -57,11 +63,14 @@ impl DataManager {
             return Ok(handle);
         }
 
-        // Build the API URL
+        // Build the API URL with proper encoding
         let columns_str = columns.join(",");
+        let encoded_symbol = urlencoding::encode(symbol);
+        let encoded_columns = urlencoding::encode(&columns_str);
+
         let url = format!(
             "{}/api/data?symbol={}&type=MD&start={}&end={}&columns={}",
-            self.base_url, symbol, start_time, end_time, columns_str
+            self.base_url, encoded_symbol, start_time, end_time, encoded_columns
         );
 
         // Fetch from server

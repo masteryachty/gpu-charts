@@ -1,10 +1,10 @@
 use chrono::DateTime;
 use config_system::GpuChartsConfig;
 use data_manager::{ChartType, DataManager, DataStore};
+use js_sys::{Float32Array, Uint32Array};
 use renderer::Renderer;
 use shared_types::DataHandle;
 use std::sync::Arc;
-use js_sys::{Float32Array, Uint32Array};
 
 #[cfg(target_arch = "wasm32")]
 use crate::wrappers::js::get_query_params;
@@ -58,11 +58,11 @@ impl LineGraph {
             flags: wgpu::InstanceFlags::default(),
             ..Default::default()
         });
-        
+
         let surface = instance
             .create_surface(wgpu::SurfaceTarget::Canvas(canvas.clone()))
             .map_err(|e| Error::new(&format!("Failed to create surface: {}", e)))?;
-        
+
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 compatible_surface: Some(&surface),
@@ -71,7 +71,7 @@ impl LineGraph {
             })
             .await
             .ok_or_else(|| Error::new("Failed to get adapter"))?;
-            
+
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
@@ -84,7 +84,7 @@ impl LineGraph {
             )
             .await
             .map_err(|e| Error::new(&format!("Failed to request device: {}", e)))?;
-            
+
         let device = Arc::new(device);
         let queue = Arc::new(queue);
 
@@ -105,7 +105,6 @@ impl LineGraph {
         let mut renderer = Renderer::new(canvas, device.clone(), queue.clone(), config, data_store)
             .await
             .map_err(|e| Error::new(&format!("Failed to create renderer: {:?}", e)))?;
-
 
         // Try to fetch initial data using DataManager
         log::info!("Attempting initial data fetch...");
@@ -166,7 +165,9 @@ impl LineGraph {
 
     // Set candle timeframe (in seconds)
     pub fn set_candle_timeframe(&mut self, timeframe_seconds: u32) {
-        self.renderer.data_store_mut().set_candle_timeframe(timeframe_seconds);
+        self.renderer
+            .data_store_mut()
+            .set_candle_timeframe(timeframe_seconds);
     }
 
     fn process_data_handle(
@@ -176,36 +177,34 @@ impl LineGraph {
         device: &Arc<wgpu::Device>,
     ) -> Result<(), shared_types::GpuChartsError> {
         // Get the GPU buffer set from the data manager
-        let gpu_buffer_set = data_manager
-            .get_buffers(data_handle)
-            .ok_or_else(|| shared_types::GpuChartsError::DataNotFound {
+        let gpu_buffer_set = data_manager.get_buffers(data_handle).ok_or_else(|| {
+            shared_types::GpuChartsError::DataNotFound {
                 resource: "GPU buffers for data handle".to_string(),
-            })?;
+            }
+        })?;
 
         // Clear existing data groups before adding new data
         data_store.data_groups.clear();
         data_store.active_data_group_indices.clear();
 
         // Extract the time column (shared x-axis for all metrics)
-        let time_buffer = gpu_buffer_set
-            .raw_buffers
-            .get("time")
-            .ok_or_else(|| shared_types::GpuChartsError::DataNotFound {
+        let time_buffer = gpu_buffer_set.raw_buffers.get("time").ok_or_else(|| {
+            shared_types::GpuChartsError::DataNotFound {
                 resource: "Time column in data".to_string(),
-            })?;
+            }
+        })?;
 
-        let time_gpu_buffers = gpu_buffer_set
-            .buffers
-            .get("time")
-            .ok_or_else(|| shared_types::GpuChartsError::DataNotFound {
+        let time_gpu_buffers = gpu_buffer_set.buffers.get("time").ok_or_else(|| {
+            shared_types::GpuChartsError::DataNotFound {
                 resource: "Time GPU buffers".to_string(),
-            })?;
+            }
+        })?;
 
         // Add the data group with time as x-axis
         data_store.add_data_group((time_buffer.clone(), time_gpu_buffers.clone()), true);
 
         let data_group_index = 0; // We just added the first group
-        
+
         // Mark the group as active
         data_store.active_data_group_indices.push(data_group_index);
 
@@ -242,57 +241,67 @@ impl LineGraph {
             }
         }
 
-        log::info!("Successfully added {} columns to DataStore", gpu_buffer_set.metadata.columns.len());
-        
+        log::info!(
+            "Successfully added {} columns to DataStore",
+            gpu_buffer_set.metadata.columns.len()
+        );
+
         // Calculate min/max Y values from the loaded data
         Self::calculate_data_bounds(data_store, device)?;
-        
+
         Ok(())
     }
-    
-    fn calculate_data_bounds(data_store: &mut DataStore, device: &wgpu::Device) -> Result<(), shared_types::GpuChartsError> {
+
+    fn calculate_data_bounds(
+        data_store: &mut DataStore,
+        device: &wgpu::Device,
+    ) -> Result<(), shared_types::GpuChartsError> {
         // Get all data groups and calculate min/max
         let mut global_min = f32::INFINITY;
         let mut global_max = f32::NEG_INFINITY;
         let mut found_data = false;
-        
+
         // Check if we have any data groups
         if data_store.data_groups.is_empty() {
             log::warn!("No data groups available for bounds calculation");
             return Ok(());
         }
-        
+
         // Get the time range for filtering
         let start_x = data_store.start_x;
         let end_x = data_store.end_x;
         log::info!("Calculating bounds for time range: {} - {}", start_x, end_x);
-        
+
         // Iterate through all data groups
         for (group_idx, data_group) in data_store.data_groups.iter().enumerate() {
             // Skip if this group is not active
             if !data_store.active_data_group_indices.contains(&group_idx) {
                 continue;
             }
-            
+
             // Get time data from the group
             let x_data = Uint32Array::new(&data_group.x_raw);
             let x_length = x_data.length();
-            
+
             // Check each metric in this group
             for metric in &data_group.metrics {
                 if !metric.visible {
                     continue;
                 }
-                
+
                 // Get the Y data from the metric
                 let y_data = Float32Array::new(&metric.y_raw);
                 let y_length = y_data.length();
-                
+
                 // Ensure arrays have same length
                 let length = x_length.min(y_length);
-                
-                log::debug!("Processing metric '{}' with {} data points", metric.name, length);
-                
+
+                log::debug!(
+                    "Processing metric '{}' with {} data points",
+                    metric.name,
+                    length
+                );
+
                 // Find min/max in the visible range
                 let mut points_in_range = 0;
                 for i in 0..length {
@@ -307,22 +316,31 @@ impl LineGraph {
                         }
                     }
                 }
-                
+
                 if points_in_range > 0 {
-                    log::debug!("Found {} points in time range {}-{} for metric '{}'", 
-                        points_in_range, start_x, end_x, metric.name);
+                    log::debug!(
+                        "Found {} points in time range {}-{} for metric '{}'",
+                        points_in_range,
+                        start_x,
+                        end_x,
+                        metric.name
+                    );
                 }
             }
         }
-        
+
         if found_data {
             // Add some margin (10% on each side)
             let range = global_max - global_min;
             let margin = range * 0.1;
             global_min -= margin;
             global_max += margin;
-            
-            log::info!("Calculated Y bounds from data: min={}, max={}", global_min, global_max);
+
+            log::info!(
+                "Calculated Y bounds from data: min={}, max={}",
+                global_min,
+                global_max
+            );
             data_store.update_min_max_y(global_min, global_max);
             // Update the shared bind group with new bounds
             data_store.update_shared_bind_group(device);
@@ -333,7 +351,7 @@ impl LineGraph {
             // Update the shared bind group with default bounds
             data_store.update_shared_bind_group(device);
         }
-        
+
         Ok(())
     }
 

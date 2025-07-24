@@ -31,7 +31,7 @@ pub struct Renderer {
     pub device: Arc<wgpu::Device>,
     pub queue: Arc<wgpu::Queue>,
     pub config: wgpu::SurfaceConfiguration,
-    
+
     #[allow(dead_code)] // Will be used for quality settings and performance tuning
     settings: GpuChartsConfig,
     data_store: DataStore,
@@ -59,13 +59,13 @@ impl Renderer {
             flags: wgpu::InstanceFlags::default(),
             ..Default::default()
         });
-        
+
         let surface = instance
             .create_surface(wgpu::SurfaceTarget::Canvas(canvas))
-            .map_err(|e| GpuChartsError::Surface { 
-                message: format!("Failed to create surface: {}", e) 
+            .map_err(|e| GpuChartsError::Surface {
+                message: format!("Failed to create surface: {}", e),
             })?;
-        
+
         // Get surface capabilities
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
@@ -77,13 +77,13 @@ impl Renderer {
             .ok_or_else(|| GpuChartsError::GpuInit {
                 message: "Failed to get adapter".to_string(),
             })?;
-            
+
         let surface_capabilities = surface.get_capabilities(&adapter);
         let surface_format = surface_capabilities.formats[0];
-        
+
         let width = data_store.screen_size.width;
         let height = data_store.screen_size.height;
-        
+
         let surface_config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: surface_format,
@@ -136,11 +136,7 @@ impl Renderer {
         // Create renderer based on chart type
         match self.data_store.chart_type {
             data_manager::ChartType::Line => {
-                self.plot_renderer = Some(PlotRenderer::new(
-                    device.clone(),
-                    queue.clone(),
-                    format,
-                ));
+                self.plot_renderer = Some(PlotRenderer::new(device.clone(), queue.clone(), format));
             }
             data_manager::ChartType::Candlestick => {
                 self.candlestick_renderer = Some(CandlestickRenderer::new(
@@ -181,8 +177,7 @@ impl Renderer {
             // log::debug!("Skipping render - data store not dirty");
             return Ok(());
         }
-        
-        
+
         // Get current texture
         let output = self.surface.get_current_texture()?;
         let view = output
@@ -190,9 +185,11 @@ impl Renderer {
             .create_view(&wgpu::TextureViewDescriptor::default());
 
         // Create command encoder
-        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Render Encoder"),
-        });
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Render Encoder"),
+            });
 
         // Clear pass
         {
@@ -228,23 +225,41 @@ impl Renderer {
             }
             data_manager::ChartType::Candlestick => {
                 if let Some(ref mut candlestick_renderer) = self.candlestick_renderer {
-                    candlestick_renderer.render(&mut encoder, &view, &self.data_store, &self.device, &self.queue);
+                    candlestick_renderer.render(
+                        &mut encoder,
+                        &view,
+                        &self.data_store,
+                        &self.device,
+                        &self.queue,
+                    );
                 }
             }
         }
 
         // Render axes
         if let Some(ref mut x_axis) = self.x_axis_renderer {
-            x_axis.render(&mut encoder, &view, &self.data_store, &self.device, &self.queue);
+            x_axis.render(
+                &mut encoder,
+                &view,
+                &self.data_store,
+                &self.device,
+                &self.queue,
+            );
         }
 
         if let Some(ref mut y_axis) = self.y_axis_renderer {
-            y_axis.render(&mut encoder, &view, &self.data_store, &self.device, &self.queue);
+            y_axis.render(
+                &mut encoder,
+                &view,
+                &self.data_store,
+                &self.device,
+                &self.queue,
+            );
         }
 
         // Submit commands
         self.queue.submit(std::iter::once(encoder.finish()));
-        
+
         // Present the frame
         output.present();
 
@@ -256,16 +271,24 @@ impl Renderer {
 
     /// Update chart type
     pub fn set_chart_type(&mut self, chart_type: data_manager::ChartType) {
-        log::info!("set_chart_type called: {:?} -> {:?}", self.data_store.chart_type, chart_type);
+        log::info!(
+            "set_chart_type called: {:?} -> {:?}",
+            self.data_store.chart_type,
+            chart_type
+        );
         let old_type = self.data_store.chart_type.clone();
         self.data_store.chart_type = chart_type;
-        
+
         self.setup_renderers();
-        
+
         // Mark data store as dirty to trigger a render
         self.data_store.mark_dirty();
-        
-        log::info!("Chart type changed from {:?} to {:?} - marked dirty", old_type, chart_type);
+
+        log::info!(
+            "Chart type changed from {:?} to {:?} - marked dirty",
+            old_type,
+            chart_type
+        );
     }
 
     /// Resize the renderer
@@ -281,8 +304,20 @@ impl Renderer {
     pub fn get_stats(&self) -> RenderStats {
         // Only count the active renderer based on chart type
         let mut draw_calls = match self.data_store.chart_type {
-            data_manager::ChartType::Line => if self.plot_renderer.is_some() { 1 } else { 0 },
-            data_manager::ChartType::Candlestick => if self.candlestick_renderer.is_some() { 1 } else { 0 },
+            data_manager::ChartType::Line => {
+                if self.plot_renderer.is_some() {
+                    1
+                } else {
+                    0
+                }
+            }
+            data_manager::ChartType::Candlestick => {
+                if self.candlestick_renderer.is_some() {
+                    1
+                } else {
+                    0
+                }
+            }
         };
         if self.x_axis_renderer.is_some() {
             draw_calls += 1;
@@ -298,12 +333,12 @@ impl Renderer {
             gpu_memory_used: 0,
         }
     }
-    
+
     /// Get mutable access to data store
     pub fn data_store_mut(&mut self) -> &mut DataStore {
         &mut self.data_store
     }
-    
+
     /// Get access to data store
     pub fn data_store(&self) -> &DataStore {
         &self.data_store
@@ -315,7 +350,6 @@ impl Renderer {
         // In the future, we could track dirty state
         true
     }
-    
 }
 
 /// Trait for chart-specific renderers

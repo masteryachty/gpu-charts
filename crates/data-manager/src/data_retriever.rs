@@ -64,9 +64,31 @@ pub fn create_chunked_gpu_buffer_from_arraybuffer(
         {
             // Copy the relevant slice from the JS memory into the GPU–buffer.
             let mut mapped_range = buffer.slice(0..(chunk_size as u64)).get_mapped_range_mut();
+
+            // Validate bounds before unsafe operation
+            let start_idx = offset as u32;
+            let end_idx = (offset + chunk_size) as u32;
+
+            if end_idx > typed_array.length() {
+                panic!(
+                    "Buffer overflow: attempting to read beyond typed array bounds. \
+                       Array length: {}, requested end: {}",
+                    typed_array.length(),
+                    end_idx
+                );
+            }
+
+            if mapped_range.len() < chunk_size {
+                panic!(
+                    "Mapped range too small: expected {}, got {}",
+                    chunk_size,
+                    mapped_range.len()
+                );
+            }
+
             unsafe {
                 typed_array
-                    .subarray(offset as u32, (offset + chunk_size) as u32)
+                    .subarray(start_idx, end_idx)
                     .raw_copy_to_ptr(mapped_range.as_mut_ptr());
             }
         }

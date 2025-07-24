@@ -1,11 +1,8 @@
 //! WASM Bridge crate for GPU Charts
 //! Central orchestration layer that bridges JavaScript and Rust/WebGPU worlds
 
-// Allow clippy warnings for this crate
-#![allow(clippy::all)]
-#![allow(non_snake_case)]
-#![allow(dead_code)]
-#![allow(unused_imports)]
+// WASM Bridge requires some specific naming for JS compatibility
+#![allow(non_snake_case)] // Required for JS API compatibility
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -16,12 +13,11 @@ pub mod instance_manager;
 pub mod line_graph;
 pub mod wrappers;
 
-use std::{cell::RefCell, rc::Rc};
 use uuid::Uuid;
 use web_sys::HtmlCanvasElement;
 
 use controls::canvas_controller::CanvasController;
-use instance_manager::{ChartInstance, InstanceManager};
+use instance_manager::InstanceManager;
 use line_graph::LineGraph;
 use shared_types::events::{
     ElementState, MouseButton, MouseScrollDelta, PhysicalPosition, TouchPhase, WindowEvent,
@@ -29,7 +25,7 @@ use shared_types::events::{
 use shared_types::store_state::{
     ChangeDetectionConfig, StateChangeDetection, StoreState, StoreValidationResult,
 };
-use shared_types::{ErrorResponse, GpuChartsError, GpuChartsResult};
+use shared_types::GpuChartsResult;
 
 extern crate nalgebra_glm as glm;
 
@@ -98,7 +94,7 @@ impl Chart {
         // For web rendering, we typically want to render asynchronously
         // without blocking. We'll spawn a local task to handle the render.
         let instance_id = self.instance_id;
-        
+
         // Spawn the render task
         wasm_bindgen_futures::spawn_local(async move {
             // We need to perform the render in chunks to avoid holding the lock too long
@@ -108,7 +104,7 @@ impl Chart {
                 log::error!("Chart instance not found for rendering");
                 return;
             }
-            
+
             // Now perform the actual render by temporarily taking ownership
             // This is a workaround for the async/borrow checker issues
             let render_result = {
@@ -118,10 +114,10 @@ impl Chart {
                     Some(mut instance) => {
                         // Perform the render
                         let result = instance.line_graph.render().await;
-                        
+
                         // Put the instance back
                         InstanceManager::put_instance(instance_id, instance);
-                        
+
                         result
                     }
                     None => {
@@ -130,7 +126,7 @@ impl Chart {
                     }
                 }
             };
-            
+
             match render_result {
                 Ok(()) => {
                     log::trace!("Render completed successfully");
@@ -140,7 +136,7 @@ impl Chart {
                 }
             }
         });
-        
+
         // Return immediately - the render will happen asynchronously
         Ok(())
     }
@@ -173,7 +169,9 @@ impl Chart {
                 delta: MouseScrollDelta::PixelDelta(PhysicalPosition::new(x, delta_y)),
                 phase: TouchPhase::Moved,
             };
-            instance.canvas_controller.handle_cursor_event(window_event, &mut instance.line_graph.renderer);
+            instance
+                .canvas_controller
+                .handle_cursor_event(window_event, &mut instance.line_graph.renderer);
         })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
 
@@ -186,7 +184,9 @@ impl Chart {
             let window_event = WindowEvent::CursorMoved {
                 position: PhysicalPosition::new(x, y),
             };
-            instance.canvas_controller.handle_cursor_event(window_event, &mut instance.line_graph.renderer);
+            instance
+                .canvas_controller
+                .handle_cursor_event(window_event, &mut instance.line_graph.renderer);
         })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
 
@@ -204,7 +204,9 @@ impl Chart {
                 },
                 button: MouseButton::Left,
             };
-            instance.canvas_controller.handle_cursor_event(window_event, &mut instance.line_graph.renderer);
+            instance
+                .canvas_controller
+                .handle_cursor_event(window_event, &mut instance.line_graph.renderer);
         })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
 
@@ -233,7 +235,6 @@ impl Chart {
         // For now, we'll just log the request since the RefCell borrow checker is being problematic
         Ok(())
     }
-    
 
     /// Core bridge method: Update chart state from React store
     /// This is the main integration point between React and Rust
@@ -294,11 +295,7 @@ impl Chart {
             // Step 3: Apply the state changes
 
             // Step 4: Apply the state changes using smart detection
-            match self.apply_smart_state_changes(
-                &store_state,
-                &change_detection,
-                instance,
-            ) {
+            match self.apply_smart_state_changes(&store_state, &change_detection, instance) {
                 Ok(changes_applied) => {
                     // Step 4.5: Handle data fetching for metrics changes
                     if change_detection.metrics_changed && change_detection.requires_data_fetch {
@@ -545,9 +542,7 @@ impl Chart {
     #[wasm_bindgen]
     pub fn set_candle_timeframe(&self, timeframe_seconds: u32) -> Result<(), JsValue> {
         InstanceManager::with_instance_mut(&self.instance_id, |instance| {
-            instance
-                .line_graph
-                .set_candle_timeframe(timeframe_seconds);
+            instance.line_graph.set_candle_timeframe(timeframe_seconds);
         })
         .ok_or_else(|| JsValue::from_str("Chart not initialized"))?;
 
@@ -690,7 +685,8 @@ impl Chart {
         // Handle symbol changes
         if change_detection.symbol_changed {
             // Update topic in data store
-            instance.line_graph.renderer.data_store_mut().topic = Some(store_state.chart_config.symbol.clone());
+            instance.line_graph.renderer.data_store_mut().topic =
+                Some(store_state.chart_config.symbol.clone());
 
             changes_applied.push(format!(
                 "Symbol updated to: {}",

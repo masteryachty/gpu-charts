@@ -7,7 +7,6 @@ use wgpu::TextureFormat;
 use crate::calcables::CandleAggregator;
 use data_manager::DataStore;
 
-
 /// Renders candlestick charts for financial data visualization.
 ///
 /// This renderer aggregates tick data into OHLC (Open, High, Low, Close) candles
@@ -162,7 +161,7 @@ impl CandlestickRenderer {
         if needs_reaggregation {
             // Run aggregation in the same encoder as the render pass
             self.aggregate_ohlc(encoder, device, queue, &data_store);
-            
+
             self.cache_key = Some(new_cache_key);
         }
 
@@ -388,8 +387,13 @@ impl CandlestickRenderer {
     /// 2. Uses GPU compute shaders to aggregate ticks in parallel
     /// 3. Stores results directly in GPU memory for rendering
     /// 4. Creates vertex buffers from GPU candle data
-    fn aggregate_ohlc(&mut self, encoder: &mut wgpu::CommandEncoder, device: &wgpu::Device, queue: &wgpu::Queue, ds: &DataStore) {
-        
+    fn aggregate_ohlc(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        ds: &DataStore,
+    ) {
         // Calculate candle boundaries to include partial candles
         // Find the first candle that starts at or before the view start
         let first_candle_start = (ds.start_x / self.candle_timeframe) * self.candle_timeframe;

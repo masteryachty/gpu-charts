@@ -40,9 +40,8 @@ impl PlotRenderer {
 
                 // Render all visible metrics from all active data groups
                 let visible_metrics = data_store.get_all_visible_metrics();
-                
+
                 for (data_series, metric) in visible_metrics {
-                    
                     // Create a bind group for this specific metric with its color
                     let bind_group = self.create_bind_group_for_metric(data_store, metric);
                     render_pass.set_bind_group(0, &bind_group, &[]);
@@ -72,29 +71,35 @@ impl PlotRenderer {
         // Create buffers for x_min_max, y_min_max, and color
         let x_min_max = glm::vec2(data_store.start_x, data_store.end_x);
         let x_min_max_bytes: &[u8] = unsafe { any_as_u8_slice(&x_min_max) };
-        let x_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("x_min_max buffer"),
-            contents: x_min_max_bytes,
-            usage: wgpu::BufferUsages::UNIFORM,
-        });
+        let x_buffer = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("x_min_max buffer"),
+                contents: x_min_max_bytes,
+                usage: wgpu::BufferUsages::UNIFORM,
+            });
 
         let y_min_max = glm::vec2(
             data_store.min_y.unwrap_or(0.0),
             data_store.max_y.unwrap_or(1.0),
         );
         let y_min_max_bytes: &[u8] = unsafe { any_as_u8_slice(&y_min_max) };
-        let y_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("y_min_max buffer"),
-            contents: y_min_max_bytes,
-            usage: wgpu::BufferUsages::UNIFORM,
-        });
+        let y_buffer = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("y_min_max buffer"),
+                contents: y_min_max_bytes,
+                usage: wgpu::BufferUsages::UNIFORM,
+            });
 
         let color_bytes: &[u8] = unsafe { any_as_u8_slice(&metric.color) };
-        let color_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("color buffer"),
-            contents: color_bytes,
-            usage: wgpu::BufferUsages::UNIFORM,
-        });
+        let color_buffer = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("color buffer"),
+                contents: color_bytes,
+                usage: wgpu::BufferUsages::UNIFORM,
+            });
 
         self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some(&format!("bind_group_{}", metric.name)),

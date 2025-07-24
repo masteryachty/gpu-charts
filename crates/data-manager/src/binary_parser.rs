@@ -34,6 +34,20 @@ pub fn parse_binary_data(
 
         for (col_idx, column) in header.columns.iter().enumerate() {
             let offset = row_start + col_idx * 4;
+
+            // Validate bounds before accessing
+            if offset + 4 > binary_data.len() {
+                return Err(ParserError::ParseError(format!(
+                    "Buffer underrun: attempting to read beyond data bounds. \
+                     Data length: {}, requested range: {}..{} (row: {}, col: {})",
+                    binary_data.len(),
+                    offset,
+                    offset + 4,
+                    row_idx,
+                    col_idx
+                )));
+            }
+
             let bytes = &binary_data[offset..offset + 4];
 
             if column == "time" {
