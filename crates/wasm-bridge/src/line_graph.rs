@@ -336,9 +336,7 @@ impl LineGraph {
             global_min -= margin;
             global_max += margin;
 
-            log::info!(
-                "Calculated Y bounds from data: min={global_min}, max={global_max}"
-            );
+            log::info!("Calculated Y bounds from data: min={global_min}, max={global_max}");
             data_store.update_min_max_y(global_min, global_max);
             // Update the shared bind group with new bounds
             data_store.update_shared_bind_group(device);

@@ -284,9 +284,7 @@ impl Renderer {
         // Mark data store as dirty to trigger a render
         self.data_store.mark_dirty();
 
-        log::info!(
-            "Chart type changed from {old_type:?} to {chart_type:?} - marked dirty"
-        );
+        log::info!("Chart type changed from {old_type:?} to {chart_type:?} - marked dirty");
     }
 
     /// Resize the renderer
