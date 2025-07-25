@@ -1,5 +1,12 @@
 # Phase 1: Enhanced Ticker Trade Logging
 
+> **⚠️ DEPRECATED**: This feature has been removed from the codebase. The ticker_trades functionality was found to be redundant with the more comprehensive market trades (Phase 2) feature. This documentation is preserved for historical reference only.
+>
+> **Current Status**: 
+> - All ticker_trades code has been removed
+> - Only market trades (TRADES) data is now collected
+> - The ticker channel is used only for market data (MD)
+
 ## Overview
 
 This phase enhances the existing ticker channel subscription to extract and store trade-specific data in a format optimized for chart visualization. We'll create dedicated trade data files while maintaining backward compatibility with the existing system.

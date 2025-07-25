@@ -1,5 +1,12 @@
 # Phase 1 Completion Summary: Enhanced Ticker Trade Logging
 
+> **⚠️ DEPRECATED**: The ticker_trades feature described in this document has been removed from the codebase. It was found to be redundant with the more comprehensive market trades (Phase 2) feature. This documentation is preserved for historical reference only.
+>
+> **Current Status**: 
+> - All ticker_trades code has been removed
+> - Only market trades (TRADES) data is now collected
+> - The ticker channel is used only for market data (MD)
+
 ## Overview
 Phase 1 has been successfully implemented, adding trade-specific logging capabilities to the coinbase logger by extracting and storing trade data from existing ticker messages.
 
