@@ -1,8 +1,8 @@
 //! Configuration system for GPU Charts
 //! Manages presets, quality settings, and performance tuning
 
-use serde::{Deserialize, Serialize};
-use shared_types::{PerformanceConfig, QualityPreset};
+use serde::{ Deserialize, Serialize };
+use shared_types::{ PerformanceConfig, QualityPreset };
 
 pub use shared_types::GpuChartsConfig;
 
@@ -120,13 +120,16 @@ impl ConfigManager {
                 QualityPreset::Medium => self.apply_preset(QualityPreset::Low),
                 QualityPreset::Low => {
                     // Already at lowest, reduce data points
-                    self.config.performance.max_data_points =
-                        (self.config.performance.max_data_points as f32 * 0.75) as usize;
+                    self.config.performance.max_data_points = ((
+                        self.config.performance.max_data_points as f32
+                    ) * 0.75) as usize;
                 }
             }
-        }
-        // If we're well above target, we could increase quality
-        else if current_fps > target_fps * 1.5 && metrics.gpu_utilization < 0.7 {
+        } else if
+            // If we're well above target, we could increase quality
+            current_fps > target_fps * 1.5 &&
+            metrics.gpu_utilization < 0.7
+        {
             match self.config.quality_preset {
                 QualityPreset::Low => self.apply_preset(QualityPreset::Medium),
                 QualityPreset::Medium => self.apply_preset(QualityPreset::High),
@@ -156,10 +159,10 @@ pub struct PerformanceMetrics {
 
 /// Rendering preset configurations
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RenderingPreset {
+pub struct ChartPreset {
     pub name: String,
     pub description: String,
-    pub chart_types: Vec<ChartPreset>,
+    pub chart_types: Vec<RenderPreset>,
 }
 
 /// Render type for chart elements
@@ -168,7 +171,7 @@ pub enum RenderType {
     Line,
     Bar,
     Candlestick,
-    Triangle,  // For trade markers
+    Triangle, // For trade markers
     Area,
 }
 
@@ -176,10 +179,10 @@ pub enum RenderType {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RenderStyle {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub color: Option<[f32; 4]>,  // Single color (for most render types)
+    pub color: Option<[f32; 4]>, // Single color (for most render types)
     #[serde(rename = "colorOptions", skip_serializing_if = "Option::is_none")]
-    pub color_options: Option<Vec<[f32; 4]>>,  // Multiple colors (e.g., for trades buy/sell)
-    pub size: f32,  // Line width, triangle size, bar width, etc.
+    pub color_options: Option<Vec<[f32; 4]>>, // Multiple colors (e.g., for trades buy/sell)
+    pub size: f32, // Line width, triangle size, bar width, etc.
 }
 
 /// Compute operation for calculated fields
@@ -200,52 +203,52 @@ pub enum ComputeOp {
     /// Max value
     Max,
     /// Weighted average: (a * weight_a + b * weight_b) / (weight_a + weight_b)
-    WeightedAverage { weights: Vec<f32> },
+    WeightedAverage {
+        weights: Vec<f32>,
+    },
 }
 
 /// Chart-specific preset
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ChartPreset {
+pub struct RenderPreset {
     pub render_type: RenderType,
-    pub data_columns: Vec<(String, String)>,  // (data_type, column_name)
+    pub data_columns: Vec<(String, String)>, // (data_type, column_name)
     pub visible: bool,
     pub label: String,
     #[serde(flatten)]
     pub style: RenderStyle,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub compute_op: Option<ComputeOp>,  // For calculated fields like mid price
+    pub compute_op: Option<ComputeOp>, // For calculated fields like mid price
 }
 
 /// Preset manager for common chart configurations
 pub struct PresetManager {
-    presets: Vec<RenderingPreset>,
+    presets: Vec<ChartPreset>,
 }
 
 impl Default for PresetManager {
     fn default() -> Self {
         let presets = presets::get_all_presets();
-        
+
         // Add legacy volume bars preset
         let mut all_presets = presets;
-        all_presets.push(RenderingPreset {
+        all_presets.push(ChartPreset {
             name: "Volume Bars".to_string(),
             description: "Bar chart showing trading volume".to_string(),
-            chart_types: vec![ChartPreset {
+            chart_types: vec![RenderPreset {
                 render_type: RenderType::Bar,
-                data_columns: vec![
-                    ("md".to_string(), "volume".to_string()),
-                ],
+                data_columns: vec![("md".to_string(), "volume".to_string())],
                 visible: true,
                 label: "Volume".to_string(),
                 style: RenderStyle {
                     color: Some([0.5, 0.5, 1.0, 1.0]),
                     color_options: None,
-                    size: 0.9,  // Bar width
+                    size: 0.9, // Bar width
                 },
                 compute_op: None,
             }],
         });
-        
+
         Self {
             presets: all_presets,
         }
@@ -257,21 +260,24 @@ impl PresetManager {
         Self::default()
     }
 
-    pub fn get_preset(&self, name: &str) -> Option<&RenderingPreset> {
+    pub fn get_preset(&self, name: &str) -> Option<&ChartPreset> {
         self.presets.iter().find(|p| p.name == name)
     }
 
     pub fn list_presets(&self) -> Vec<&str> {
-        self.presets.iter().map(|p| p.name.as_str()).collect()
+        self.presets
+            .iter()
+            .map(|p| p.name.as_str())
+            .collect()
     }
 
     /// Get all presets
-    pub fn get_all_presets(&self) -> &[RenderingPreset] {
+    pub fn get_all_presets(&self) -> &[ChartPreset] {
         &self.presets
     }
-    
+
     /// Update a preset with new state
-    pub fn update_preset(&mut self, name: &str, updated_preset: RenderingPreset) -> bool {
+    pub fn update_preset(&mut self, name: &str, updated_preset: ChartPreset) -> bool {
         if let Some(index) = self.presets.iter().position(|p| p.name == name) {
             self.presets[index] = updated_preset;
             true

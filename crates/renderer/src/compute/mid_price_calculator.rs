@@ -17,7 +17,9 @@ pub struct MidPriceCalculator {
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 struct ComputeParams {
     element_count: u32,
-    _padding: [u32; 3], // Align to 16 bytes
+    _padding1: u32,
+    _padding2: u32,
+    _padding3: u32,
 }
 
 impl MidPriceCalculator {
@@ -87,7 +89,9 @@ impl MidPriceCalculator {
         // Create params buffer
         let params = ComputeParams {
             element_count: 0,
-            _padding: [0; 3],
+            _padding1: 0,
+            _padding2: 0,
+            _padding3: 0,
         };
         
         let params_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -115,7 +119,9 @@ impl MidPriceCalculator {
         // Update params
         let params = ComputeParams {
             element_count,
-            _padding: [0; 3],
+            _padding1: 0,
+            _padding2: 0,
+            _padding3: 0,
         };
         
         self.infrastructure.queue.write_buffer(

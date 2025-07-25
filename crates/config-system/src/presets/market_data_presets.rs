@@ -2,21 +2,21 @@
 //!
 //! Preset for market data visualization with bid/ask lines and trade triangles
 
-use crate::{ ChartPreset, RenderingPreset, RenderStyle, RenderType, ComputeOp };
+use crate::{ RenderPreset, ChartPreset, RenderStyle, RenderType, ComputeOp };
 
 /// Create all market data presets
-pub fn create_market_data_presets() -> RenderingPreset {
+pub fn create_market_data_presets() -> ChartPreset {
     market_data_preset()
 }
 
 /// Combined market data preset with bid, ask, trades, and mid price
-fn market_data_preset() -> RenderingPreset {
-    RenderingPreset {
+fn market_data_preset() -> ChartPreset {
+    ChartPreset {
         name: "Market Data".to_string(),
         description: "Market data visualization with bid/ask lines and trade markers".to_string(),
         chart_types: vec![
             // Bid line
-            ChartPreset {
+            RenderPreset {
                 render_type: RenderType::Line,
                 data_columns: vec![("md".to_string(), "best_bid".to_string())],
                 visible: true,
@@ -29,7 +29,7 @@ fn market_data_preset() -> RenderingPreset {
                 compute_op: None,
             },
             // Ask line
-            ChartPreset {
+            RenderPreset {
                 render_type: RenderType::Line,
                 data_columns: vec![("md".to_string(), "best_ask".to_string())],
                 visible: true,
@@ -42,7 +42,7 @@ fn market_data_preset() -> RenderingPreset {
                 compute_op: None,
             },
             // Trade triangles
-            ChartPreset {
+            RenderPreset {
                 render_type: RenderType::Triangle,
                 data_columns: vec![
                     ("trades".to_string(), "price".to_string()),
@@ -63,7 +63,7 @@ fn market_data_preset() -> RenderingPreset {
                 compute_op: None,
             },
             // Mid price (calculated from bid/ask)
-            ChartPreset {
+            RenderPreset {
                 render_type: RenderType::Line,
                 data_columns: vec![
                     ("md".to_string(), "best_ask".to_string()),

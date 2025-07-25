@@ -2,19 +2,19 @@
 //!
 //! Presets for candlestick charts with optional volume panels
 
-use crate::{ ChartPreset, RenderingPreset, RenderStyle, RenderType };
+use crate::{ RenderPreset, ChartPreset, RenderStyle, RenderType };
 
 /// Create the candlestick preset
-pub fn create_candle_presets() -> RenderingPreset {
+pub fn create_candle_presets() -> ChartPreset {
     candlestick_preset()
 }
 
 /// Candlestick chart preset
-fn candlestick_preset() -> RenderingPreset {
-    RenderingPreset {
+fn candlestick_preset() -> ChartPreset {
+    ChartPreset {
         name: "Candlestick".to_string(),
         description: "Standard OHLC candlestick chart".to_string(),
-        chart_types: vec![ChartPreset {
+        chart_types: vec![RenderPreset {
             render_type: RenderType::Candlestick,
             data_columns: vec![
                 ("ohlc".to_string(), "open".to_string()),

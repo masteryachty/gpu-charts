@@ -6,12 +6,9 @@ pub mod candle_presets;
 pub use market_data_presets::*;
 pub use candle_presets::*;
 
-use crate::RenderingPreset;
+use crate::ChartPreset;
 
 /// Get all preset groups
-pub fn get_all_presets() -> Vec<RenderingPreset> {
-    vec![
-        market_data_presets::create_market_data_presets(),
-        candle_presets::create_candle_presets()
-    ]
+pub fn get_all_presets() -> Vec<ChartPreset> {
+    vec![market_data_presets::create_market_data_presets(), candle_presets::create_candle_presets()]
 }

@@ -2,7 +2,9 @@
 
 struct ComputeParams {
     element_count: u32,
-    _padding: array<u32, 3>, // Align to 16 bytes
+    _padding1: u32,
+    _padding2: u32,
+    _padding3: u32,
 }
 
 @group(0) @binding(0) var<storage, read> bid_data: array<f32>;
