@@ -24,8 +24,8 @@ impl ExchangeId {
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum TradeSide {
-    Buy = 1,
-    Sell = 2,
+    Buy = 0,
+    Sell = 1,
 }
 
 impl TradeSide {
@@ -174,8 +174,8 @@ mod tests {
         assert_eq!(TradeSide::parse("buy"), Some(TradeSide::Buy));
         assert_eq!(TradeSide::parse("SELL"), Some(TradeSide::Sell));
         assert_eq!(TradeSide::parse("invalid"), None);
-        assert_eq!(TradeSide::Buy.as_u32(), 1);
-        assert_eq!(TradeSide::Sell.as_u32(), 2);
+        assert_eq!(TradeSide::Buy.as_u32(), 0);
+        assert_eq!(TradeSide::Sell.as_u32(), 1);
     }
 
     #[test]
