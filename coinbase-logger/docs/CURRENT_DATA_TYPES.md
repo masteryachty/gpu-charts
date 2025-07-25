@@ -33,13 +33,6 @@ The coinbase-logger currently collects and stores two types of data from Coinbas
   - `maker_order_id.{DD}.{MM}.{YY}.bin` - Maker's order UUID (16 bytes)
   - `taker_order_id.{DD}.{MM}.{YY}.bin` - Taker's order UUID (16 bytes)
 
-## Deprecated Data Types
-
-### ~~Ticker Trades (TICKER_TRADES)~~ - REMOVED
-- This data type was removed as it was redundant with market trades
-- Previously extracted last trade from ticker updates
-- All trade data is now captured more comprehensively via the TRADES data type
-
 ## API Access
 
 Both data types can be accessed through the server API:
