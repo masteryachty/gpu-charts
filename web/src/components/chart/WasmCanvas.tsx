@@ -16,6 +16,12 @@ interface WasmCanvasProps {
 
   /** Enable debug information (default: false) */
   debugMode?: boolean;
+
+  /** Callback when chart is ready with the chart instance */
+  onChartReady?: (chart: any) => void;
+  
+  /** Currently active preset name */
+  activePreset?: string | null;
 }
 
 export default function WasmCanvas({
@@ -24,7 +30,9 @@ export default function WasmCanvas({
   enableAutoSync = true,
   debounceMs = 100,
   showPerformanceOverlay = true,
-  debugMode = false
+  debugMode = false,
+  onChartReady,
+  activePreset
 }: WasmCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -237,6 +245,13 @@ export default function WasmCanvas({
 
   // Note: If you need to force render on specific state changes,
   // you should pass those as props to this component and include them here
+
+  // Call onChartReady when chart is initialized
+  useEffect(() => {
+    if (chartState.isInitialized && chartState.chart && onChartReady) {
+      onChartReady(chartState.chart);
+    }
+  }, [chartState.isInitialized, chartState.chart, onChartReady]);
 
   // Make chart available globally for testing
   useEffect(() => {
@@ -553,6 +568,16 @@ export default function WasmCanvas({
             <div className="animate-spin text-blue-500 text-4xl mb-4">⚡</div>
             <div className="text-white font-medium mb-2">Loading Chart Engine</div>
             <div className="text-gray-400 text-sm">Initializing WebGPU...</div>
+          </div>
+        </div>
+      )}
+
+      {/* Ready state - prompt to select preset */}
+      {chartState.isInitialized && !chartState.isLoading && !chartState.error && !activePreset && (
+        <div className="absolute inset-0 pointer-events-none flex items-center justify-center" data-testid="ready-overlay">
+          <div className="text-center bg-gray-800/80 px-6 py-4 rounded-lg backdrop-blur-sm">
+            <div className="text-gray-300 font-medium mb-2">Chart Ready</div>
+            <div className="text-gray-400 text-sm">Select a preset from the controls panel to load data</div>
           </div>
         </div>
       )}

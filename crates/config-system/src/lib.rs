@@ -6,6 +6,8 @@ use shared_types::{PerformanceConfig, QualityPreset};
 
 pub use shared_types::GpuChartsConfig;
 
+pub mod presets;
+
 /// Configuration manager for GPU Charts
 #[derive(Default)]
 pub struct ConfigManager {
@@ -160,13 +162,58 @@ pub struct RenderingPreset {
     pub chart_types: Vec<ChartPreset>,
 }
 
+/// Render type for chart elements
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum RenderType {
+    Line,
+    Bar,
+    Candlestick,
+    Triangle,  // For trade markers
+    Area,
+}
+
+/// Style configuration for rendering
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RenderStyle {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color: Option<[f32; 4]>,  // Single color (for most render types)
+    #[serde(rename = "colorOptions", skip_serializing_if = "Option::is_none")]
+    pub color_options: Option<Vec<[f32; 4]>>,  // Multiple colors (e.g., for trades buy/sell)
+    pub size: f32,  // Line width, triangle size, bar width, etc.
+}
+
+/// Compute operation for calculated fields
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ComputeOp {
+    /// Average of all inputs: (a + b + ...) / n
+    Average,
+    /// Sum of all inputs: a + b + ...
+    Sum,
+    /// Difference: a - b
+    Difference,
+    /// Product: a * b * ...
+    Product,
+    /// Ratio: a / b
+    Ratio,
+    /// Min value
+    Min,
+    /// Max value
+    Max,
+    /// Weighted average: (a * weight_a + b * weight_b) / (weight_a + weight_b)
+    WeightedAverage { weights: Vec<f32> },
+}
+
 /// Chart-specific preset
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChartPreset {
-    pub chart_type: String,
-    pub data_columns: Vec<String>,
-    pub overlays: Vec<String>,
-    pub style: serde_json::Value,
+    pub render_type: RenderType,
+    pub data_columns: Vec<(String, String)>,  // (data_type, column_name)
+    pub visible: bool,
+    pub label: String,
+    #[serde(flatten)]
+    pub style: RenderStyle,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub compute_op: Option<ComputeOp>,  // For calculated fields like mid price
 }
 
 /// Preset manager for common chart configurations
@@ -176,8 +223,31 @@ pub struct PresetManager {
 
 impl Default for PresetManager {
     fn default() -> Self {
+        let presets = presets::get_all_presets();
+        
+        // Add legacy volume bars preset
+        let mut all_presets = presets;
+        all_presets.push(RenderingPreset {
+            name: "Volume Bars".to_string(),
+            description: "Bar chart showing trading volume".to_string(),
+            chart_types: vec![ChartPreset {
+                render_type: RenderType::Bar,
+                data_columns: vec![
+                    ("md".to_string(), "volume".to_string()),
+                ],
+                visible: true,
+                label: "Volume".to_string(),
+                style: RenderStyle {
+                    color: Some([0.5, 0.5, 1.0, 1.0]),
+                    color_options: None,
+                    size: 0.9,  // Bar width
+                },
+                compute_op: None,
+            }],
+        });
+        
         Self {
-            presets: Self::default_presets(),
+            presets: all_presets,
         }
     }
 }
@@ -187,69 +257,27 @@ impl PresetManager {
         Self::default()
     }
 
-    fn default_presets() -> Vec<RenderingPreset> {
-        vec![
-            RenderingPreset {
-                name: "Line Chart - Ask/Bid".to_string(),
-                description: "Simple line chart showing ask and bid prices".to_string(),
-                chart_types: vec![ChartPreset {
-                    chart_type: "line".to_string(),
-                    data_columns: vec![
-                        "time".to_string(),
-                        "best_ask".to_string(),
-                        "best_bid".to_string(),
-                    ],
-                    overlays: vec![],
-                    style: serde_json::json!({
-                        "lines": [
-                            {"color": [0.0, 0.5, 1.0], "width": 2.0},
-                            {"color": [1.0, 0.5, 0.0], "width": 2.0}
-                        ]
-                    }),
-                }],
-            },
-            RenderingPreset {
-                name: "Candlestick - OHLC".to_string(),
-                description: "Candlestick chart with OHLC data".to_string(),
-                chart_types: vec![ChartPreset {
-                    chart_type: "candlestick".to_string(),
-                    data_columns: vec![
-                        "time".to_string(),
-                        "open".to_string(),
-                        "high".to_string(),
-                        "low".to_string(),
-                        "close".to_string(),
-                    ],
-                    overlays: vec![],
-                    style: serde_json::json!({
-                        "up_color": [0.0, 1.0, 0.0],
-                        "down_color": [1.0, 0.0, 0.0],
-                        "body_width": 0.8
-                    }),
-                }],
-            },
-            RenderingPreset {
-                name: "Volume Bars".to_string(),
-                description: "Bar chart showing trading volume".to_string(),
-                chart_types: vec![ChartPreset {
-                    chart_type: "bar".to_string(),
-                    data_columns: vec!["time".to_string(), "volume".to_string()],
-                    overlays: vec![],
-                    style: serde_json::json!({
-                        "color": [0.5, 0.5, 1.0],
-                        "width": 0.9
-                    }),
-                }],
-            },
-        ]
-    }
-
     pub fn get_preset(&self, name: &str) -> Option<&RenderingPreset> {
         self.presets.iter().find(|p| p.name == name)
     }
 
     pub fn list_presets(&self) -> Vec<&str> {
         self.presets.iter().map(|p| p.name.as_str()).collect()
+    }
+
+    /// Get all presets
+    pub fn get_all_presets(&self) -> &[RenderingPreset] {
+        &self.presets
+    }
+    
+    /// Update a preset with new state
+    pub fn update_preset(&mut self, name: &str, updated_preset: RenderingPreset) -> bool {
+        if let Some(index) = self.presets.iter().position(|p| p.name == name) {
+            self.presets[index] = updated_preset;
+            true
+        } else {
+            false
+        }
     }
 }
 

@@ -46,6 +46,15 @@ declare module '@pkg/tutorial1_window' {
     // Chart type controls
     set_chart_type(chart_type: string): void;
     set_candle_timeframe(timeframe_seconds: number): void;
+    
+    // Preset methods
+    list_presets(): string;
+    apply_preset(preset_name: string): string;
+    is_preset_data_loaded(): boolean;
+    fetch_preset_data(symbol: string, start_time: bigint, end_time: bigint): Promise<string>;
+    get_active_preset(): string;
+    clear_preset(): string;
+    update_trade_data(trades_json: string): string;
   }
 
   // Main chart class - uses WasmCanvas for full-featured rendering
@@ -108,6 +117,15 @@ declare module '@pkg/tutorial1_window.js' {
     // Chart type controls
     set_chart_type(chart_type: string): void;
     set_candle_timeframe(timeframe_seconds: number): void;
+    
+    // Preset methods
+    list_presets(): string;
+    apply_preset(preset_name: string): string;
+    is_preset_data_loaded(): boolean;
+    fetch_preset_data(symbol: string, start_time: bigint, end_time: bigint): Promise<string>;
+    get_active_preset(): string;
+    clear_preset(): string;
+    update_trade_data(trades_json: string): string;
   }
 
   // Main chart class - uses WasmCanvas for full-featured rendering
@@ -169,6 +187,15 @@ declare module '@pkg/GPU_charting.js' {
     // Chart type controls
     set_chart_type(chart_type: string): void;
     set_candle_timeframe(timeframe_seconds: number): void;
+    
+    // Preset methods
+    list_presets(): string;
+    apply_preset(preset_name: string): string;
+    is_preset_data_loaded(): boolean;
+    fetch_preset_data(symbol: string, start_time: bigint, end_time: bigint): Promise<string>;
+    get_active_preset(): string;
+    clear_preset(): string;
+    update_trade_data(trades_json: string): string;
   }
 }
 
@@ -195,6 +222,15 @@ declare module '@pkg/GPU_charting' {
     set_data_range(start: number, end: number): void;
     set_chart_type(chart_type: string): void;
     set_candle_timeframe(timeframe_seconds: number): void;
+    
+    // Preset methods
+    list_presets(): string;
+    apply_preset(preset_name: string): string;
+    is_preset_data_loaded(): boolean;
+    fetch_preset_data(symbol: string, start_time: bigint, end_time: bigint): Promise<string>;
+    get_active_preset(): string;
+    clear_preset(): string;
+    update_trade_data(trades_json: string): string;
   }
 }
 
@@ -236,6 +272,15 @@ declare module '@pkg/wasm_bridge.js' {
     // Chart type controls
     set_chart_type(chart_type: string): void;
     set_candle_timeframe(timeframe_seconds: number): void;
+    
+    // Preset methods
+    list_presets(): string;
+    apply_preset(preset_name: string): string;
+    is_preset_data_loaded(): boolean;
+    fetch_preset_data(symbol: string, start_time: bigint, end_time: bigint): Promise<string>;
+    get_active_preset(): string;
+    clear_preset(): string;
+    update_trade_data(trades_json: string): string;
   }
 }
 
@@ -263,6 +308,15 @@ declare module '@pkg/wasm_bridge' {
     set_data_range(start: number, end: number): void;
     set_chart_type(chart_type: string): void;
     set_candle_timeframe(timeframe_seconds: number): void;
+    
+    // Preset methods
+    list_presets(): string;
+    apply_preset(preset_name: string): string;
+    is_preset_data_loaded(): boolean;
+    fetch_preset_data(symbol: string, start_time: bigint, end_time: bigint): Promise<string>;
+    get_active_preset(): string;
+    clear_preset(): string;
+    update_trade_data(trades_json: string): string;
   }
 }
 

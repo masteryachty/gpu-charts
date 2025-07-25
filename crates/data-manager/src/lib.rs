@@ -25,6 +25,16 @@ pub struct GpuBufferSet {
     pub buffers: HashMap<String, Vec<wgpu::Buffer>>,
     pub raw_buffers: HashMap<String, js_sys::ArrayBuffer>, // Store raw data for DataStore
     pub metadata: DataMetadata,
+    pub data_type: String, // Track the data type (e.g., "MD", "trades")
+}
+
+/// Multi-type data handle containing multiple data handles
+#[derive(Debug, Clone)]
+pub struct MultiDataHandle {
+    pub handles: HashMap<String, DataHandle>, // key is data type (e.g., "MD", "trades")
+    pub symbol: String,
+    pub start_time: u64,
+    pub end_time: u64,
 }
 
 /// Main data manager that coordinates all data operations
@@ -53,12 +63,13 @@ impl DataManager {
     pub async fn fetch_data(
         &mut self,
         symbol: &str,
+        data_type: &str,
         start_time: u64,
         end_time: u64,
         columns: &[&str],
     ) -> GpuChartsResult<DataHandle> {
         // Check cache first
-        let cache_key = format!("{symbol}-{start_time}-{end_time}-{columns:?}");
+        let cache_key = format!("{symbol}-{data_type}-{start_time}-{end_time}-{columns:?}");
         if let Some(handle) = self.cache.get(&cache_key) {
             return Ok(handle);
         }
@@ -69,8 +80,8 @@ impl DataManager {
         let encoded_columns = urlencoding::encode(&columns_str);
 
         let url = format!(
-            "{}/api/data?symbol={}&type=MD&start={}&end={}&columns={}",
-            self.base_url, encoded_symbol, start_time, end_time, encoded_columns
+            "{}/api/data?symbol={}&type={}&start={}&end={}&columns={}",
+            self.base_url, encoded_symbol, data_type, start_time, end_time, encoded_columns
         );
 
         // Fetch from server
@@ -115,6 +126,7 @@ impl DataManager {
                     .max()
                     .unwrap_or(0),
             },
+            data_type: data_type.to_string(),
         };
 
         // Create handle
@@ -170,6 +182,7 @@ impl DataManager {
             buffers,
             raw_buffers: HashMap::new(), // Empty for locally created buffers
             metadata: data.metadata.clone(),
+            data_type: "local".to_string(), // Default for locally created data
         })
     }
 

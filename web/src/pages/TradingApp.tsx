@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import Header from '../components/layout/Header';
@@ -6,13 +6,14 @@ import Sidebar from '../components/layout/Sidebar';
 import StatusBar from '../components/layout/StatusBar';
 import WasmCanvas from '../components/chart/WasmCanvas';
 import ChartControls from '../components/chart/ChartControls';
-import { SimpleChartControls } from '../components/chart/SimpleChartControls';
 // import DataFetchingMonitor from '../components/monitoring/DataFetchingMonitor'; // Disabled temporarily
 
 function ChartView() {
   const [showDebugMode, setShowDebugMode] = useState(false);
   const [showSubscriptionInfo, setShowSubscriptionInfo] = useState(false);
   const [enableChangeTracking, setEnableChangeTracking] = useState(false);
+  const [chartInstance, setChartInstance] = useState<any>(null);
+  const [activePreset, setActivePreset] = useState<string | null>(null);
 
   // Get store actions
   const { setCurrentSymbol, setTimeRange } = useAppStore();
@@ -66,7 +67,14 @@ function ChartView() {
             <div className="mb-6 flex items-center justify-between">
               <div>
                 <h1 className="text-3xl font-bold text-white mb-2">Trading Dashboard</h1>
-                <p className="text-gray-400">Real-time store synchronization with WebGPU acceleration</p>
+                <p className="text-gray-400">
+                  Real-time store synchronization with WebGPU acceleration
+                  {activePreset && (
+                    <span className="ml-2 px-2 py-1 bg-blue-600 text-white text-xs rounded">
+                      Preset: {activePreset}
+                    </span>
+                  )}
+                </p>
               </div>
               
               {/* Debug Controls */}
@@ -107,8 +115,10 @@ function ChartView() {
               {/* Chart Controls Panel */}
               <div className="w-full lg:w-80 flex-shrink-0 space-y-4">
                 <ChartControls 
+                  chartInstance={chartInstance}
                   showSubscriptionInfo={showSubscriptionInfo}
                   enableChangeTracking={enableChangeTracking}
+                  onPresetChange={setActivePreset}
                 />
                 
                 {/* Data Fetching Monitor - Disabled temporarily
@@ -122,16 +132,13 @@ function ChartView() {
               
               {/* Main Chart Area */}
               <div className="flex-1 flex flex-col">
-                {/* Simple Chart Controls */}
-                <div className="mb-4">
-                  <SimpleChartControls />
-                </div>
-                
                 <WasmCanvas 
                   enableAutoSync={true}
                   debounceMs={100}
                   showPerformanceOverlay={true}
                   debugMode={debugMode}
+                  onChartReady={setChartInstance}
+                  activePreset={activePreset}
                 />
               </div>
             </div>

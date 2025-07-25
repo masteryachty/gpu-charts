@@ -48,7 +48,7 @@ const DEFAULT_CONFIG: ChartConfig = {
   endTime: Math.floor(Date.now() / 1000), // Now
   indicators: [],
   selectedMetrics: ['best_bid'], // For candlestick, we need a single price metric
-  chartType: 'candlestick',
+  chartType: 'line',
   candleTimeframe: 60, // Default 1 minute candles
 };
 

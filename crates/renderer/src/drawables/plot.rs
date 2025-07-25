@@ -9,9 +9,17 @@ pub struct PlotRenderer {
     pipeline: wgpu::RenderPipeline,
     bind_group_layout: wgpu::BindGroupLayout,
     device: Rc<wgpu::Device>,
+    /// Optional filter for specific data columns (data_type, column_name)
+    data_filter: Option<Vec<(String, String)>>,
 }
 
 impl PlotRenderer {
+    /// Set the data filter to restrict which data columns this renderer will display
+    pub fn set_data_filter(&mut self, filter: Option<Vec<(String, String)>>) {
+        self.data_filter = filter;
+        log::info!("PlotRenderer: Data filter set to {:?}", self.data_filter);
+    }
+
     pub fn render(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
@@ -38,10 +46,29 @@ impl PlotRenderer {
             {
                 render_pass.set_pipeline(&self.pipeline);
 
-                // Render all visible metrics from all active data groups
+                // Get visible metrics and apply filter if set
                 let visible_metrics = data_store.get_all_visible_metrics();
+                log::debug!("PlotRenderer: Found {} visible metrics before filtering", visible_metrics.len());
 
                 for (data_series, metric) in visible_metrics {
+                    // Apply data filter if set
+                    if let Some(ref filter) = self.data_filter {
+                        let mut should_render = false;
+                        
+                        // Check if this metric matches any of our filter criteria
+                        for (_data_type, column_name) in filter {
+                            if metric.name == *column_name {
+                                log::debug!("PlotRenderer: Metric '{}' matches filter column '{}'", metric.name, column_name);
+                                should_render = true;
+                                break;
+                            }
+                        }
+                        
+                        if !should_render {
+                            log::debug!("PlotRenderer: Skipping metric '{}' (not in filter)", metric.name);
+                            continue;
+                        }
+                    }
                     // Create a bind group for this specific metric with its color
                     let bind_group = self.create_bind_group_for_metric(data_store, metric);
                     render_pass.set_bind_group(0, &bind_group, &[]);
@@ -203,6 +230,7 @@ impl PlotRenderer {
             pipeline,
             bind_group_layout,
             device,
+            data_filter: None,
         }
     }
 }

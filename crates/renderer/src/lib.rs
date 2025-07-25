@@ -5,6 +5,7 @@ pub mod calcables;
 pub mod charts;
 pub mod drawables;
 pub mod mesh_builder;
+pub mod multi_renderer;
 pub mod pipeline_builder;
 pub mod shaders;
 
@@ -15,9 +16,13 @@ use std::rc::Rc;
 use wgpu::{CommandEncoder, Device, Queue, TextureView};
 
 pub use calcables::{candle_aggregator::CandleAggregator, min_max::calculate_min_max_y};
+pub use charts::TriangleRenderer;
 pub use drawables::{
     candlestick::CandlestickRenderer, plot::PlotRenderer, x_axis::XAxisRenderer,
     y_axis::YAxisRenderer,
+};
+pub use multi_renderer::{
+    MultiRenderer, MultiRendererBuilder, MultiRenderable, RenderOrder, RendererAdapter, ConfigurablePlotRenderer,
 };
 
 /// Re-export error types
@@ -345,6 +350,126 @@ impl Renderer {
         // For now, always return true
         // In the future, we could track dirty state
         true
+    }
+
+    /// Create a multi-renderer pipeline for complex visualizations
+    /// 
+    /// Example usage:
+    /// ```rust,ignore
+    /// let multi_renderer = renderer.create_multi_renderer()
+    ///     .with_render_order(RenderOrder::BackgroundToForeground)
+    ///     .add_candlestick_renderer()
+    ///     .add_plot_renderer()
+    ///     .add_x_axis_renderer(width, height)
+    ///     .add_y_axis_renderer(width, height)
+    ///     .build();
+    /// ```
+    pub fn create_multi_renderer(&self) -> MultiRendererBuilder {
+        MultiRendererBuilder::new(
+            self.device.clone(),
+            self.queue.clone(),
+            self.config.format,
+        )
+    }
+
+    /// Example: Create a multi-renderer with candles and volume bars
+    pub fn create_candles_with_volume_renderer(&self) -> MultiRenderer {
+        let width = self.data_store.screen_size.width;
+        let height = self.data_store.screen_size.height;
+
+        let mut multi_renderer = self.create_multi_renderer()
+            .with_render_order(RenderOrder::BackgroundToForeground)
+            .build();
+
+        // Add volume bars first (background)
+        let volume_renderer = drawables::volume_bars::create_custom_volume_renderer(
+            self.device.clone(),
+            self.queue.clone(),
+            self.config.format,
+        );
+        multi_renderer.add_renderer(volume_renderer);
+
+        // Add candlesticks
+        let candle_renderer = CandlestickRenderer::new(
+            self.device.clone(),
+            self.queue.clone(),
+            self.config.format,
+        );
+        multi_renderer.add_renderer(Box::new(candle_renderer));
+
+        // Add axes on top
+        let x_axis = XAxisRenderer::new(
+            self.device.clone(),
+            self.queue.clone(),
+            self.config.format,
+            width,
+            height,
+        );
+        multi_renderer.add_renderer(Box::new(x_axis));
+
+        let y_axis = YAxisRenderer::new(
+            self.device.clone(),
+            self.queue.clone(),
+            self.config.format,
+            width,
+            height,
+        );
+        multi_renderer.add_renderer(Box::new(y_axis));
+
+        multi_renderer
+    }
+
+    /// Example: Create a multi-renderer with multiple line plots
+    pub fn create_multi_line_renderer(&self) -> MultiRenderer {
+        let width = self.data_store.screen_size.width;
+        let height = self.data_store.screen_size.height;
+
+        // In a real implementation, you'd create multiple PlotRenderers
+        // with different data sources/colors
+        self.create_multi_renderer()
+            .with_render_order(RenderOrder::Sequential)
+            .add_plot_renderer()
+            .add_x_axis_renderer(width, height)
+            .add_y_axis_renderer(width, height)
+            .build()
+    }
+
+    /// Alternative render method using MultiRenderer
+    /// 
+    /// This demonstrates how MultiRenderer can replace the manual render orchestration
+    /// in the main render() method.
+    pub async fn render_with_multi(&mut self, multi_renderer: &mut MultiRenderer) -> RenderResult<()> {
+        // Check if rendering is needed
+        if !self.data_store.is_dirty() {
+            return Ok(());
+        }
+
+        // Get current texture
+        let output = self.surface.get_current_texture()?;
+        let view = output
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+
+        // Create command encoder
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Multi Render Encoder"),
+            });
+
+        // Let MultiRenderer handle all rendering
+        multi_renderer.render(&mut encoder, &view, &self.data_store)?;
+
+        // Submit commands
+        self.queue.submit(std::iter::once(encoder.finish()));
+
+        // Present the frame
+        output.present();
+
+        // Mark as clean after successful render
+        self.data_store.mark_clean();
+
+        Ok(())
     }
 }
 

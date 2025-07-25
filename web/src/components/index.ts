@@ -5,3 +5,4 @@ export { default as StatusBar } from './layout/StatusBar';
 
 // Chart components
 export { default as WasmCanvas } from './chart/WasmCanvas';
+export { default as PresetSelector } from './PresetSelector';

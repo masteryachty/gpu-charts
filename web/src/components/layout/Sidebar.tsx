@@ -25,7 +25,7 @@ const indicators = [
 ];
 
 export default function Sidebar() {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const [activePanel, setActivePanel] = useState<string | null>('indicators');
 
   return (

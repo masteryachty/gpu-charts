@@ -80,6 +80,61 @@ export interface PerformanceMetrics {
   latency: number;
 }
 
+// Preset types
+export interface ChartPreset {
+  render_type: 'Line' | 'Bar' | 'Dot' | 'Candle' | 'Area' | 'Step';
+  data_columns: Array<[string, string]>; // [data_type, column_name]
+  visible: boolean;
+  label: string;
+  style?: any; // RenderStyle - keeping flexible for now
+  compute_op?: string; // Optional compute operation
+}
+
+export interface RenderingPreset {
+  name: string;
+  description: string;
+  chart_types: ChartPreset[];
+}
+
+export interface PresetListResponse {
+  presets: RenderingPreset[];
+}
+
+export interface PresetApplyResponse {
+  success: boolean;
+  message?: string;
+  applied_preset?: string;
+}
+
+export interface PresetDataResponse {
+  success: boolean;
+  data?: any; // Binary data or parsed data
+  error?: string;
+}
+
+export interface ChartStateInfo {
+  label: string;
+  visible: boolean;
+  render_type: string;
+  data_columns?: Array<[string, string]>;
+}
+
+export interface PresetChartStatesResponse {
+  success: boolean;
+  preset_name?: string;
+  chart_states?: ChartStateInfo[];
+  error?: string;
+}
+
+export interface ToggleChartTypeResponse {
+  success: boolean;
+  chart_label?: string;
+  visible?: boolean;
+  visible_count?: number;
+  all_chart_states?: ChartStateInfo[];
+  error?: string;
+}
+
 // Import constants from centralized configuration
 import { 
   STORE_CONSTANTS, 

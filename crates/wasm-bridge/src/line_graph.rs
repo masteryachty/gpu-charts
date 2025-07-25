@@ -1,8 +1,8 @@
 use chrono::DateTime;
-use config_system::GpuChartsConfig;
+use config_system::{GpuChartsConfig, PresetManager};
 use data_manager::{ChartType, DataManager, DataStore};
 use js_sys::{Float32Array, Uint32Array};
-use renderer::Renderer;
+use renderer::{MultiRenderer, Renderer};
 use shared_types::DataHandle;
 use std::rc::Rc;
 
@@ -17,6 +17,8 @@ use web_sys::HtmlCanvasElement;
 pub struct LineGraph {
     pub renderer: Renderer,
     pub data_manager: DataManager,
+    pub preset_manager: PresetManager,
+    pub multi_renderer: Option<MultiRenderer>,
 }
 
 impl LineGraph {
@@ -89,7 +91,7 @@ impl LineGraph {
         let queue = Rc::new(queue);
 
         // Create DataManager with modular approach
-        let mut data_manager = DataManager::new(
+        let data_manager = DataManager::new(
             device.clone(),
             queue.clone(),
             "https://api.rednax.io".to_string(),
@@ -102,53 +104,49 @@ impl LineGraph {
         data_store.set_x_range(start as u32, end as u32);
 
         // Create Renderer with modular approach
-        let mut renderer = Renderer::new(canvas, device.clone(), queue.clone(), config, data_store)
+        let renderer = Renderer::new(canvas, device.clone(), queue.clone(), config, data_store)
             .await
             .map_err(|e| Error::new(&format!("Failed to create renderer: {e:?}")))?;
 
-        // Try to fetch initial data using DataManager
-        log::info!("Attempting initial data fetch...");
-        let selected_metrics = vec!["time", "best_bid", "best_ask"];
-        match data_manager
-            .fetch_data(&topic, start as u64, end as u64, &selected_metrics)
-            .await
-        {
-            Ok(data_handle) => {
-                log::info!("Data fetched successfully, processing...");
-                // Process the data and add it to the DataStore
-                if let Err(e) = Self::process_data_handle(
-                    &data_handle,
-                    &mut data_manager,
-                    renderer.data_store_mut(),
-                    &device,
-                ) {
-                    log::error!("Failed to process data: {e:?}");
-                }
-            }
-            Err(e) => {
-                log::warn!("Failed to fetch initial data: {e:?}");
-            }
-        }
+        // Skip initial data fetch - wait for user to select a preset
+        log::info!("Skipping initial data fetch - waiting for preset selection");
+        // Data will be fetched when user selects a preset via fetch_preset_data
 
-        log::info!("LineGraph initialization completed (data fetch may have failed gracefully)");
+        log::info!("LineGraph initialization completed - no data loaded yet");
 
         // Create the LineGraph instance
         Ok(Self {
             renderer,
             data_manager,
+            preset_manager: PresetManager::new(),
+            multi_renderer: None,
         })
     }
 
     pub async fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        // Use the new Renderer
-        self.renderer.render().await.map_err(|e| match e {
-            shared_types::GpuChartsError::Surface { .. } => wgpu::SurfaceError::Outdated,
-            _ => wgpu::SurfaceError::Outdated,
-        })
+        // Check if we have a multi-renderer from a preset
+        if let Some(ref mut multi_renderer) = self.multi_renderer {
+            // Use the multi-renderer for preset-based rendering
+            self.renderer.render_with_multi(multi_renderer).await.map_err(|e| match e {
+                shared_types::GpuChartsError::Surface { .. } => wgpu::SurfaceError::Outdated,
+                _ => wgpu::SurfaceError::Outdated,
+            })
+        } else {
+            // Use the standard renderer
+            self.renderer.render().await.map_err(|e| match e {
+                shared_types::GpuChartsError::Surface { .. } => wgpu::SurfaceError::Outdated,
+                _ => wgpu::SurfaceError::Outdated,
+            })
+        }
     }
 
     pub fn resized(&mut self, width: u32, height: u32) {
         self.renderer.resize(width, height);
+        
+        // Also resize the multi-renderer if present
+        if let Some(ref mut multi_renderer) = self.multi_renderer {
+            multi_renderer.resize(width, height);
+        }
     }
 
     // Switch chart type

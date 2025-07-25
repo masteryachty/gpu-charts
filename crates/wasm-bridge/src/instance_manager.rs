@@ -15,6 +15,7 @@ pub struct ChartInstance {
     pub canvas_controller: CanvasController,
     pub current_store_state: Option<StoreState>,
     pub change_detection_config: ChangeDetectionConfig,
+    pub active_preset: Option<String>,
 }
 
 // Thread-local storage for chart instances
@@ -34,6 +35,7 @@ impl InstanceManager {
             canvas_controller,
             current_store_state: None,
             change_detection_config: ChangeDetectionConfig::default(),
+            active_preset: None,
         };
 
         CHART_INSTANCES.with(|instances| {

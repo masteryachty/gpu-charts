@@ -14,7 +14,7 @@ const WASM_CHART_CONSTANTS = {
   DEFAULT_MAX_RETRIES: 3,
   DEFAULT_RETRY_DELAY_MS: 1000,
   DEFAULT_PERFORMANCE_INTERVAL_MS: 1000,
-  INITIALIZATION_DELAY_MS: 50,
+  INITIALIZATION_DELAY_MS: 200,
   WASM_LOAD_TIMEOUT_MS: 10000,
   MAX_MEMORY_GROWTH_PERCENTAGE: 200,
   MIN_FPS_THRESHOLD: 30,
@@ -508,7 +508,8 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
       // Trigger initial state sync if enabled
       if (enableAutoSync) {
         setTimeout(() => {
-          if (updateStateRef.current) {
+          if (updateStateRef.current && mountedRef.current) {
+            console.log('[useWasmChart] Triggering initial state sync after initialization');
             updateStateRef.current();
           }
         }, WASM_CHART_CONSTANTS.INITIALIZATION_DELAY_MS);
@@ -570,10 +571,19 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
       });
 
       // Update chart state based on store changes
-      const isStillInitialized = chartState.chart.is_initialized();
+      let isStillInitialized = false;
+      try {
+        isStillInitialized = chartState.chart.is_initialized();
+      } catch (checkError) {
+        console.error('[useWasmChart] Error checking is_initialized:', checkError);
+        // If we can't check initialization status, assume it's not initialized
+        isStillInitialized = false;
+      }
       
       if (!isStillInitialized) {
-        throw new Error('Chart is no longer initialized');
+        console.warn('[useWasmChart] Chart is not initialized, skipping update');
+        // Don't throw an error, just skip the update
+        return false;
       }
 
       // Measure render latency
@@ -679,10 +689,17 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
       console.log('[useWasmChart] Force update requested');
       
       // Verify chart is still initialized
-      const isStillInitialized = chartState.chart.is_initialized();
+      let isStillInitialized = false;
+      try {
+        isStillInitialized = chartState.chart.is_initialized();
+      } catch (checkError) {
+        console.error('[useWasmChart] Error checking is_initialized in forceUpdate:', checkError);
+        return false;
+      }
       
       if (!isStillInitialized) {
-        throw new Error('Chart is no longer initialized');
+        console.warn('[useWasmChart] Chart is not initialized in forceUpdate');
+        return false;
       }
       
       // Force render if available
@@ -874,7 +891,7 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
 
   // Automatic store state subscription with debouncing
   useEffect(() => {
-    if (!enableAutoSync || !chartState.isInitialized) return;
+    if (!enableAutoSync || !chartState.isInitialized || !chartState.chart) return;
 
     // Clear existing debounce timer
     if (debounceRef.current) {
@@ -886,7 +903,8 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
 
     // Debounced update
     debounceRef.current = setTimeout(() => {
-      if (mountedRef.current && updateStateRef.current) {
+      if (mountedRef.current && updateStateRef.current && chartState.chart) {
+        console.log('[useWasmChart] Auto-sync update triggered');
         updateStateRef.current(storeSymbol, storeTimeframe, storeConnected, storeSelectedMetrics);
       }
     }, debounceMs);
@@ -896,7 +914,7 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
         clearTimeout(debounceRef.current);
       }
     };
-  }, [storeSymbol, storeTimeframe, storeConnected, storeSelectedMetrics, enableAutoSync, chartState.isInitialized, debounceMs]);
+  }, [storeSymbol, storeTimeframe, storeConnected, storeSelectedMetrics, enableAutoSync, chartState.isInitialized, chartState.chart, debounceMs]);
   
   // Effect to update chart type when it changes
   useEffect(() => {
