@@ -15,8 +15,8 @@ WORKDIR /usr/src/app
 # Copy everything
 COPY . .
 
-# Build the application
-RUN cargo build --release --target x86_64-unknown-linux-gnu
+# Build the application for the native platform
+RUN cargo build --release
 
 # Stage 2: Runtime image
 FROM debian:bookworm-slim
@@ -36,7 +36,7 @@ RUN mkdir -p /mnt/md/data && \
     chown -R logger:logger /mnt/md/data
 
 # Copy binary from builder
-COPY --from=builder /usr/src/app/target/x86_64-unknown-linux-gnu/release/logger /usr/local/bin/logger
+COPY --from=builder /usr/src/app/target/release/logger /usr/local/bin/logger
 
 # Set ownership of binary
 RUN chown logger:logger /usr/local/bin/logger && \

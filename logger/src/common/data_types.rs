@@ -171,9 +171,9 @@ mod tests {
 
     #[test]
     fn test_trade_side_conversion() {
-        assert_eq!(TradeSide::from_str("buy"), Some(TradeSide::Buy));
-        assert_eq!(TradeSide::from_str("SELL"), Some(TradeSide::Sell));
-        assert_eq!(TradeSide::from_str("invalid"), None);
+        assert_eq!(TradeSide::parse("buy"), Some(TradeSide::Buy));
+        assert_eq!(TradeSide::parse("SELL"), Some(TradeSide::Sell));
+        assert_eq!(TradeSide::parse("invalid"), None);
         assert_eq!(TradeSide::Buy.as_u32(), 1);
         assert_eq!(TradeSide::Sell.as_u32(), 2);
     }

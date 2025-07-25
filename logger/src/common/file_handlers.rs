@@ -350,7 +350,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let manager = FileHandlerManager::new(temp_dir.path().to_path_buf());
 
-        let handler = manager
+        let _handler = manager
             .get_or_create(ExchangeId::Coinbase, "BTC-USD", Utc::now())
             .await
             .unwrap();

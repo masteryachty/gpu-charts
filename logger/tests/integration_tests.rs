@@ -266,15 +266,15 @@ async fn test_config_loading() {
 async fn test_symbol_distribution() {
     use logger::exchanges::distribute_symbols;
 
-    let symbols: Vec<String> = (0..255).map(|i| format!("SYMBOL{}", i)).collect();
+    let symbols: Vec<String> = (0..255).map(|i| format!("SYMBOL{i}")).collect();
     let distributions = distribute_symbols(symbols.clone(), 50).await;
 
     // Should have 6 batches (5 full + 1 partial)
     assert_eq!(distributions.len(), 6);
 
     // First 5 should be full
-    for i in 0..5 {
-        assert_eq!(distributions[i].len(), 50);
+    for distribution in distributions.iter().take(5) {
+        assert_eq!(distribution.len(), 50);
     }
 
     // Last should have remaining 5

@@ -212,7 +212,7 @@ mod tests {
 
     #[test]
     fn test_symbol_normalization() {
-        let mapper = create_test_mapper();
+        let _mapper = create_test_mapper();
 
         // Test various Binance symbols
         assert_eq!(normalize_symbol_binance("BTCUSDT"), "BTC-USDT");

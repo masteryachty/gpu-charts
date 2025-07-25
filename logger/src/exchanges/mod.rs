@@ -91,7 +91,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_distribute_symbols() {
-        let symbols: Vec<String> = (0..25).map(|i| format!("SYM{}", i)).collect();
+        let symbols: Vec<String> = (0..25).map(|i| format!("SYM{i}")).collect();
         let distributions = distribute_symbols(symbols, 10).await;
 
         assert_eq!(distributions.len(), 3);
