@@ -29,6 +29,7 @@ pub struct QueryParams {
     pub start: u32,
     pub end: u32,
     pub columns: Vec<String>,
+    pub exchange: Option<String>, // Optional, defaults to "coinbase" for backward compatibility
 }
 
 /// Column metadata that will be sent in the JSON header.
@@ -121,7 +122,7 @@ impl From<DataChunk> for Bytes {
     }
 }
 
-/// Parse query parameters from the request’s query string.
+/// Parse query parameters from the request's query string.
 pub fn parse_query_params(query: Option<&str>) -> Result<QueryParams, String> {
     let query = query.ok_or("Missing query string")?;
     let params: HashMap<_, _> = form_urlencoded::parse(query.as_bytes())
@@ -144,12 +145,14 @@ pub fn parse_query_params(query: Option<&str>) -> Result<QueryParams, String> {
         .split(',')
         .map(|s| s.trim().to_string())
         .collect();
+    let exchange = params.get("exchange").map(|s| s.to_string());
     Ok(QueryParams {
         symbol,
         type_,
         start,
         end,
         columns,
+        exchange,
     })
 }
 
@@ -227,9 +230,13 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
     // Build a base path using the configured data path
     // Always use /mnt/md/data as the base path
     let data_root = "/mnt/md/data".to_string();
+
+    // Use exchange parameter if provided, otherwise default to "coinbase" for backward compatibility
+    let exchange = query_params.exchange.as_deref().unwrap_or("coinbase");
+
     let base_path = format!(
-        "{}/{}/{}",
-        data_root, query_params.symbol, query_params.type_
+        "{}/{}/{}/{}",
+        data_root, exchange, query_params.symbol, query_params.type_
     );
 
     // Convert the query's start and end timestamps into UTC DateTime.

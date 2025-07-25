@@ -1,0 +1,47 @@
+logger:
+  data_path: "/mnt/md/data"
+  buffer_size: 8192
+  flush_interval_secs: 5
+  health_check_port: 8080
+
+exchanges:
+  coinbase:
+    enabled: true
+    ws_endpoint: "wss://ws-feed.exchange.coinbase.com"
+    rest_endpoint: "https://api.exchange.coinbase.com"
+    max_connections: 10
+    symbols_per_connection: 50
+    reconnect_delay_secs: 1
+    max_reconnect_delay_secs: 60
+    # Optional: specify specific symbols to monitor
+    # symbols:
+    #   - "BTC-USD"
+    #   - "ETH-USD"
+    
+  binance:
+    enabled: true
+    ws_endpoint: "wss://stream.binance.com:9443"
+    rest_endpoint: "https://api.binance.com"
+    max_connections: 5
+    symbols_per_connection: 100
+    reconnect_delay_secs: 1
+    max_reconnect_delay_secs: 60
+    ping_interval_secs: 20
+    # Optional: specify specific symbols to monitor
+    # symbols:
+    #   - "BTCUSDT"
+    #   - "ETHUSDT"
+
+symbol_mappings:
+  mappings_file: "symbol_mappings.yaml"
+  auto_discover: true
+  equivalence_rules:
+    quote_assets:
+      - group: "USD_EQUIVALENT"
+        members:
+          - "USD"
+          - "USDT"
+          - "USDC"
+          - "BUSD"
+          - "DAI"
+        primary: "USD"
