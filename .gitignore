@@ -466,3 +466,4 @@ server/localhost.crt
 # Keep the certs directory itself
 !server/certs/.gitkeep
 .claude/
+coinbase-logger/coinbase-logger/data/00-USD/MD/best_ask.25.07.25.bin

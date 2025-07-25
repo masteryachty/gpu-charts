@@ -16,16 +16,6 @@ pub struct FileHandles {
     pub best_ask_file: BufWriter<File>,
 }
 
-/// Trade-specific file handles for enhanced trade logging
-pub struct TradeFileHandles {
-    pub trade_time_file: BufWriter<File>,
-    pub trade_nanos_file: BufWriter<File>,
-    pub trade_price_file: BufWriter<File>,
-    pub trade_volume_file: BufWriter<File>,
-    pub trade_side_file: BufWriter<File>,
-    pub trade_spread_file: BufWriter<File>,
-}
-
 /// Market trades file handles for individual trade data
 pub struct MarketTradeFileHandles {
     pub trade_id_file: BufWriter<File>,
@@ -67,38 +57,6 @@ impl FileHandles {
         self.side_file.shutdown().await?;
         self.best_bid_file.shutdown().await?;
         self.best_ask_file.shutdown().await?;
-
-        Ok(())
-    }
-}
-
-impl TradeFileHandles {
-    pub async fn flush_all(&mut self) -> Result<()> {
-        // Flush all trade files in parallel
-        let flush_futures = vec![
-            self.trade_time_file.flush(),
-            self.trade_nanos_file.flush(),
-            self.trade_price_file.flush(),
-            self.trade_volume_file.flush(),
-            self.trade_side_file.flush(),
-            self.trade_spread_file.flush(),
-        ];
-
-        try_join_all(flush_futures).await?;
-        Ok(())
-    }
-
-    pub async fn close(mut self) -> Result<()> {
-        // Flush all buffers before closing
-        self.flush_all().await?;
-
-        // Shutdown all writers to ensure data is written
-        self.trade_time_file.shutdown().await?;
-        self.trade_nanos_file.shutdown().await?;
-        self.trade_price_file.shutdown().await?;
-        self.trade_volume_file.shutdown().await?;
-        self.trade_side_file.shutdown().await?;
-        self.trade_spread_file.shutdown().await?;
 
         Ok(())
     }

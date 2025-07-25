@@ -7,10 +7,8 @@ use tokio::io::{AsyncWriteExt, BufWriter};
 use tokio::time::{interval, sleep};
 use tokio_tungstenite::{connect_async_with_config, tungstenite::Message};
 
-use crate::data_types::{uuid_to_bytes, MarketTradeData, TickerData, TickerTradeData};
-use crate::file_handlers::{
-    open_file, FileHandles, MarketTradeFileHandles, TradeFileHandles, FILE_BUFFER_SIZE,
-};
+use crate::data_types::{uuid_to_bytes, MarketTradeData, TickerData};
+use crate::file_handlers::{open_file, FileHandles, MarketTradeFileHandles, FILE_BUFFER_SIZE};
 use crate::simple_analytics::AnalyticsManager;
 use crate::websocket::create_websocket_config;
 use crate::Result;
@@ -23,10 +21,8 @@ pub struct ConnectionHandler {
     pub connection_id: usize,
     pub symbols: Vec<String>,
     pub buffer: BTreeMap<(u64, String), TickerData>,
-    pub trade_buffer: BTreeMap<(u64, String), TickerTradeData>,
     pub market_trades_buffer: BTreeMap<(u64, String), MarketTradeData>,
     pub file_handles: HashMap<String, FileHandles>,
-    pub trade_file_handles: HashMap<String, TradeFileHandles>,
     pub market_trade_file_handles: HashMap<String, MarketTradeFileHandles>,
     pub analytics_manager: AnalyticsManager,
     pub reconnect_delay: Duration,
@@ -36,7 +32,6 @@ pub struct ConnectionHandler {
 impl ConnectionHandler {
     pub async fn new(connection_id: usize, symbols: Vec<String>) -> Result<Self> {
         let mut file_handles = HashMap::new();
-        let mut trade_file_handles = HashMap::new();
         let mut market_trade_file_handles = HashMap::new();
         let date = Local::now().format("%d.%m.%y").to_string();
 
@@ -56,30 +51,6 @@ impl ConnectionHandler {
                     // Cleanup already created handles
                     Self::cleanup_all_handles(
                         file_handles,
-                        trade_file_handles,
-                        market_trade_file_handles,
-                        connection_id,
-                    )
-                    .await;
-
-                    return Err(e);
-                }
-            }
-
-            // Create trade-specific file handles
-            match Self::create_trade_file_handles_for_symbol(&base_path, &date).await {
-                Ok(handles) => {
-                    trade_file_handles.insert(symbol.clone(), handles);
-                }
-                Err(e) => {
-                    eprintln!(
-                        "Connection {connection_id}: Failed to create trade file handles for {symbol}: {e}"
-                    );
-
-                    // Cleanup all handles
-                    Self::cleanup_all_handles(
-                        file_handles,
-                        trade_file_handles,
                         market_trade_file_handles,
                         connection_id,
                     )
@@ -102,7 +73,6 @@ impl ConnectionHandler {
                     // Cleanup all handles
                     Self::cleanup_all_handles(
                         file_handles,
-                        trade_file_handles,
                         market_trade_file_handles,
                         connection_id,
                     )
@@ -120,10 +90,8 @@ impl ConnectionHandler {
             connection_id,
             symbols,
             buffer: BTreeMap::new(),
-            trade_buffer: BTreeMap::new(),
             market_trades_buffer: BTreeMap::new(),
             file_handles,
-            trade_file_handles,
             market_trade_file_handles,
             analytics_manager,
             reconnect_delay: Duration::from_secs(1),
@@ -166,43 +134,6 @@ impl ConnectionHandler {
             best_ask_file: BufWriter::with_capacity(
                 FILE_BUFFER_SIZE,
                 open_file(&format!("{md_path}/best_ask.{date}.bin")).await?,
-            ),
-        };
-
-        Ok(handles)
-    }
-
-    pub async fn create_trade_file_handles_for_symbol(
-        base_path: &str,
-        date: &str,
-    ) -> Result<TradeFileHandles> {
-        let trade_path = format!("{base_path}/TICKER_TRADES");
-        tokio::fs::create_dir_all(&trade_path).await?;
-
-        let handles = TradeFileHandles {
-            trade_time_file: BufWriter::with_capacity(
-                FILE_BUFFER_SIZE,
-                open_file(&format!("{trade_path}/trade_time.{date}.bin")).await?,
-            ),
-            trade_nanos_file: BufWriter::with_capacity(
-                FILE_BUFFER_SIZE,
-                open_file(&format!("{trade_path}/trade_nanos.{date}.bin")).await?,
-            ),
-            trade_price_file: BufWriter::with_capacity(
-                FILE_BUFFER_SIZE,
-                open_file(&format!("{trade_path}/trade_price.{date}.bin")).await?,
-            ),
-            trade_volume_file: BufWriter::with_capacity(
-                FILE_BUFFER_SIZE,
-                open_file(&format!("{trade_path}/trade_volume.{date}.bin")).await?,
-            ),
-            trade_side_file: BufWriter::with_capacity(
-                FILE_BUFFER_SIZE,
-                open_file(&format!("{trade_path}/trade_side.{date}.bin")).await?,
-            ),
-            trade_spread_file: BufWriter::with_capacity(
-                FILE_BUFFER_SIZE,
-                open_file(&format!("{trade_path}/trade_spread.{date}.bin")).await?,
             ),
         };
 
@@ -256,20 +187,12 @@ impl ConnectionHandler {
 
     async fn cleanup_all_handles(
         file_handles: HashMap<String, FileHandles>,
-        trade_file_handles: HashMap<String, TradeFileHandles>,
         market_trade_file_handles: HashMap<String, MarketTradeFileHandles>,
         connection_id: usize,
     ) {
         for (sym, handles) in file_handles {
             if let Err(e) = handles.close().await {
                 eprintln!("Connection {connection_id}: Error closing file handles for {sym}: {e}");
-            }
-        }
-        for (sym, handles) in trade_file_handles {
-            if let Err(e) = handles.close().await {
-                eprintln!(
-                    "Connection {connection_id}: Error closing trade file handles for {sym}: {e}"
-                );
             }
         }
         for (sym, handles) in market_trade_file_handles {
@@ -513,24 +436,12 @@ impl ConnectionHandler {
                     best_ask,
                 };
 
-                // Create trade-specific data from ticker
-                let trade_data = TickerTradeData::from_ticker(&ticker_data);
+                let key = (
+                    (timestamp_secs as u64) * 1_000_000_000 + (timestamp_nanos as u64),
+                    product_id.to_string(),
+                );
 
-                // Validate trade data before storing
-                if trade_data.is_valid() {
-                    let key = (
-                        (timestamp_secs as u64) * 1_000_000_000 + (timestamp_nanos as u64),
-                        product_id.to_string(),
-                    );
-
-                    self.buffer.insert(key.clone(), ticker_data);
-                    self.trade_buffer.insert(key, trade_data);
-                } else {
-                    eprintln!(
-                        "Connection {}: Invalid trade data for {}: price={}, volume={}, side={}, spread={}",
-                        self.connection_id, product_id, price, volume, side, best_ask - best_bid
-                    );
-                }
+                self.buffer.insert(key, ticker_data);
             }
         }
         Ok(())
@@ -629,10 +540,7 @@ impl ConnectionHandler {
     }
 
     pub async fn flush_buffer(&mut self) -> Result<()> {
-        if self.buffer.is_empty()
-            && self.trade_buffer.is_empty()
-            && self.market_trades_buffer.is_empty()
-        {
+        if self.buffer.is_empty() && self.market_trades_buffer.is_empty() {
             return Ok(());
         }
 
@@ -642,16 +550,14 @@ impl ConnectionHandler {
                 self.connection_id
             );
             self.buffer.clear();
-            self.trade_buffer.clear();
             self.market_trades_buffer.clear();
             return Ok(());
         }
 
         println!(
-            "Connection {}: Flushing {} ticker messages, {} trade messages, and {} market trades",
+            "Connection {}: Flushing {} ticker messages and {} market trades",
             self.connection_id,
             self.buffer.len(),
-            self.trade_buffer.len(),
             self.market_trades_buffer.len()
         );
 
@@ -674,29 +580,6 @@ impl ConnectionHandler {
                     handles.side_file.write_all(&side_bytes),
                     handles.best_bid_file.write_all(&best_bid_bytes),
                     handles.best_ask_file.write_all(&best_ask_bytes),
-                ];
-
-                try_join_all(write_futures).await?;
-            }
-        }
-
-        // Write trade data
-        for ((_, symbol), trade_data) in self.trade_buffer.iter() {
-            if let Some(handles) = self.trade_file_handles.get_mut(symbol) {
-                let time_bytes = trade_data.timestamp_secs.to_le_bytes();
-                let nanos_bytes = trade_data.timestamp_nanos.to_le_bytes();
-                let price_bytes = trade_data.trade_price.to_le_bytes();
-                let volume_bytes = trade_data.trade_volume.to_le_bytes();
-                let side_bytes = [trade_data.trade_side, 0, 0, 0];
-                let spread_bytes = trade_data.spread.to_le_bytes();
-
-                let write_futures = vec![
-                    handles.trade_time_file.write_all(&time_bytes),
-                    handles.trade_nanos_file.write_all(&nanos_bytes),
-                    handles.trade_price_file.write_all(&price_bytes),
-                    handles.trade_volume_file.write_all(&volume_bytes),
-                    handles.trade_side_file.write_all(&side_bytes),
-                    handles.trade_spread_file.write_all(&spread_bytes),
                 ];
 
                 try_join_all(write_futures).await?;
@@ -741,15 +624,6 @@ impl ConnectionHandler {
             }
         }
 
-        // Flush trade files
-        let trade_flush_futures: Vec<_> = self
-            .trade_file_handles
-            .values_mut()
-            .map(|handles| handles.flush_all())
-            .collect();
-
-        try_join_all(trade_flush_futures).await?;
-
         // Flush market trade files
         let market_trade_flush_futures: Vec<_> = self
             .market_trade_file_handles
@@ -760,7 +634,6 @@ impl ConnectionHandler {
         try_join_all(market_trade_flush_futures).await?;
 
         self.buffer.clear();
-        self.trade_buffer.clear();
         self.market_trades_buffer.clear();
         Ok(())
     }
@@ -786,19 +659,6 @@ impl ConnectionHandler {
             }
         }
 
-        // Close trade file handles
-        let trade_symbols: Vec<String> = self.trade_file_handles.keys().cloned().collect();
-        for symbol in trade_symbols {
-            if let Some(handles) = self.trade_file_handles.remove(&symbol) {
-                if let Err(e) = handles.close().await {
-                    eprintln!(
-                        "Connection {}: Error closing trade file handles for {}: {}",
-                        self.connection_id, symbol, e
-                    );
-                }
-            }
-        }
-
         // Close market trade file handles
         let market_trade_symbols: Vec<String> =
             self.market_trade_file_handles.keys().cloned().collect();
@@ -814,7 +674,6 @@ impl ConnectionHandler {
         }
 
         self.file_handles.clear();
-        self.trade_file_handles.clear();
         self.market_trade_file_handles.clear();
 
         Ok(())
@@ -823,7 +682,6 @@ impl ConnectionHandler {
     pub async fn recreate_file_handles(&mut self) -> Result<()> {
         let date = Local::now().format("%d.%m.%y").to_string();
         let mut new_file_handles = HashMap::new();
-        let mut new_trade_file_handles = HashMap::new();
         let mut new_market_trade_file_handles = HashMap::new();
 
         for symbol in &self.symbols {
@@ -851,33 +709,6 @@ impl ConnectionHandler {
                 }
             }
 
-            // Recreate trade file handles
-            match Self::create_trade_file_handles_for_symbol(&base_path, &date).await {
-                Ok(handles) => {
-                    new_trade_file_handles.insert(symbol.clone(), handles);
-                }
-                Err(e) => {
-                    eprintln!(
-                        "Connection {}: Failed to recreate trade file handles for {}: {}",
-                        self.connection_id, symbol, e
-                    );
-
-                    // Cleanup all handles on error
-                    for (sym, handles) in new_file_handles {
-                        if let Err(close_err) = handles.close().await {
-                            eprintln!("Connection {}: Error closing file handles for {} during cleanup: {}", self.connection_id, sym, close_err);
-                        }
-                    }
-                    for (sym, handles) in new_trade_file_handles {
-                        if let Err(close_err) = handles.close().await {
-                            eprintln!("Connection {}: Error closing trade file handles for {} during cleanup: {}", self.connection_id, sym, close_err);
-                        }
-                    }
-
-                    return Err(e);
-                }
-            }
-
             // Recreate market trade file handles
             match Self::create_market_trade_file_handles_for_symbol(&base_path, &date).await {
                 Ok(handles) => {
@@ -895,11 +726,6 @@ impl ConnectionHandler {
                             eprintln!("Connection {}: Error closing file handles for {} during cleanup: {}", self.connection_id, sym, close_err);
                         }
                     }
-                    for (sym, handles) in new_trade_file_handles {
-                        if let Err(close_err) = handles.close().await {
-                            eprintln!("Connection {}: Error closing trade file handles for {} during cleanup: {}", self.connection_id, sym, close_err);
-                        }
-                    }
                     for (sym, handles) in new_market_trade_file_handles {
                         if let Err(close_err) = handles.close().await {
                             eprintln!("Connection {}: Error closing market trade file handles for {} during cleanup: {}", self.connection_id, sym, close_err);
@@ -912,7 +738,6 @@ impl ConnectionHandler {
         }
 
         self.file_handles = new_file_handles;
-        self.trade_file_handles = new_trade_file_handles;
         self.market_trade_file_handles = new_market_trade_file_handles;
         self.current_date = date;
         Ok(())
@@ -957,18 +782,6 @@ impl ConnectionHandler {
                 }
             }
 
-            let trade_symbols: Vec<String> = self.trade_file_handles.keys().cloned().collect();
-            for symbol in trade_symbols {
-                if let Some(handles) = self.trade_file_handles.remove(&symbol) {
-                    if let Err(e) = handles.close().await {
-                        eprintln!(
-                            "Connection {}: Error closing trade file handles for {} during rotation: {}",
-                            self.connection_id, symbol, e
-                        );
-                    }
-                }
-            }
-
             let market_trade_symbols: Vec<String> =
                 self.market_trade_file_handles.keys().cloned().collect();
             for symbol in market_trade_symbols {
@@ -984,7 +797,6 @@ impl ConnectionHandler {
 
             // Clear the handle maps
             self.file_handles.clear();
-            self.trade_file_handles.clear();
             self.market_trade_file_handles.clear();
 
             // Create new file handles with the new date
