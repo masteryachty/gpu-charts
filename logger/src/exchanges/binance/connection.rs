@@ -3,7 +3,7 @@ use crate::exchanges::{Channel, ExchangeConnection, Message};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use futures_util::{SinkExt, StreamExt};
-use serde_json::{json, Value};
+use serde_json::Value;
 use std::sync::Arc;
 use tokio::net::TcpStream;
 use tokio::sync::{mpsc, Mutex};
@@ -20,7 +20,7 @@ pub struct BinanceConnection {
     symbols: Vec<String>,
     data_sender: mpsc::Sender<Message>,
     ws_stream: Arc<Mutex<Option<WsStream>>>,
-    ping_interval_secs: u64,
+    _ping_interval_secs: u64,
     symbol_mapper: Arc<SymbolMapper>,
 }
 
@@ -37,7 +37,7 @@ impl BinanceConnection {
             symbols,
             data_sender,
             ws_stream: Arc::new(Mutex::new(None)),
-            ping_interval_secs,
+            _ping_interval_secs: ping_interval_secs,
             symbol_mapper,
         }
     }
@@ -51,9 +51,9 @@ impl BinanceConnection {
 
             for channel in channels {
                 let stream = match channel {
-                    Channel::Ticker => format!("{}@ticker", symbol_lower),
-                    Channel::Trades => format!("{}@trade", symbol_lower),
-                    Channel::OrderBook => format!("{}@depth", symbol_lower),
+                    Channel::Ticker => format!("{symbol_lower}@ticker"),
+                    Channel::Trades => format!("{symbol_lower}@trade"),
+                    Channel::OrderBook => format!("{symbol_lower}@depth"),
                 };
                 streams.push(stream);
             }
@@ -62,7 +62,7 @@ impl BinanceConnection {
         format!("{}/stream?streams={}", self.base_url, streams.join("/"))
     }
 
-    async fn send_json(&self, payload: Value) -> Result<()> {
+    async fn _send_json(&self, payload: Value) -> Result<()> {
         let mut stream = self.ws_stream.lock().await;
         if let Some(ws) = &mut *stream {
             let msg = WsMessage::Text(payload.to_string());
@@ -108,6 +108,9 @@ impl BinanceConnection {
             let error_msg = format!("Binance error: {:?}", value["error"]);
             error!("{}", error_msg);
             self.data_sender.send(Message::Error(error_msg)).await?;
+        } else {
+            // Log any other message types to understand what's happening
+            debug!("Received unhandled message: {:?}", value);
         }
 
         Ok(())
@@ -117,23 +120,24 @@ impl BinanceConnection {
 #[async_trait]
 impl ExchangeConnection for BinanceConnection {
     async fn connect(&mut self) -> Result<()> {
-        // For initial connection, we don't subscribe to streams yet
-        let url = format!("{}/ws/dummy", self.base_url);
-        info!("Connecting to Binance WebSocket: {}", url);
-
-        let (ws_stream, _) = connect_async(&url).await?;
-        *self.ws_stream.lock().await = Some(ws_stream);
-
-        info!("Connected to Binance WebSocket");
+        // For Binance, we connect directly to the stream URL with all subscriptions
+        // This avoids the need for a separate subscribe step
         Ok(())
     }
 
     async fn subscribe(&mut self, channels: Vec<Channel>) -> Result<()> {
-        // For Binance, we need to reconnect with the stream URL
+        // Build the stream URL with all symbols and channels
         let stream_url = self.build_stream_url(&channels);
-        info!("Connecting to Binance streams: {}", stream_url);
 
-        // Close existing connection
+        // Log only the base URL and stream count to avoid excessive logging
+        let stream_count = self.symbols.len() * channels.len();
+        info!(
+            "Connecting to Binance WebSocket with {} streams",
+            stream_count
+        );
+        debug!("Full stream URL: {}", stream_url);
+
+        // Close any existing connection
         *self.ws_stream.lock().await = None;
 
         // Connect to combined stream
@@ -141,7 +145,7 @@ impl ExchangeConnection for BinanceConnection {
         *self.ws_stream.lock().await = Some(ws_stream);
 
         info!(
-            "Subscribed to {} symbols with {} channels",
+            "Successfully connected to Binance with {} symbols and {} channels",
             self.symbols.len(),
             channels.len()
         );
@@ -154,7 +158,10 @@ impl ExchangeConnection for BinanceConnection {
             match ws.next().await {
                 Some(Ok(WsMessage::Text(text))) => {
                     drop(stream); // Release lock before processing
-                    self.process_message(&text).await?;
+                    if let Err(e) = self.process_message(&text).await {
+                        error!("Failed to process message: {}", e);
+                        // Don't propagate the error, just log it
+                    }
                     Ok(Some(serde_json::from_str(&text)?))
                 }
                 Some(Ok(WsMessage::Ping(data))) => {
@@ -197,7 +204,7 @@ impl ExchangeConnection for BinanceConnection {
 
     async fn reconnect(&mut self) -> Result<()> {
         *self.ws_stream.lock().await = None;
-        self.connect().await?;
+        // For Binance, connect and subscribe are combined
         self.subscribe(vec![Channel::Ticker, Channel::Trades]).await
     }
 

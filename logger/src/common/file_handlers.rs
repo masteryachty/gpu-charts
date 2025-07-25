@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::fs;
 use tokio::sync::Mutex;
-use tracing::{debug, error, info};
+// use tracing::warn;
 
 const BUFFER_SIZE: usize = 64 * 1024; // 64KB buffer
 
@@ -21,8 +21,8 @@ pub struct FileHandlerManager {
 
 #[derive(Debug)]
 pub struct FileHandlers {
-    exchange: ExchangeId,
-    symbol: String,
+    _exchange: ExchangeId,
+    _symbol: String,
     date: DateTime<Utc>,
     md_files: MarketDataFiles,
     trade_files: TradeFiles,
@@ -134,10 +134,10 @@ impl FileHandlers {
         // Create directories
         fs::create_dir_all(&md_path)
             .await
-            .with_context(|| format!("Failed to create MD directory: {:?}", md_path))?;
+            .with_context(|| format!("Failed to create MD directory: {md_path:?}"))?;
         fs::create_dir_all(&trades_path)
             .await
-            .with_context(|| format!("Failed to create TRADES directory: {:?}", trades_path))?;
+            .with_context(|| format!("Failed to create TRADES directory: {trades_path:?}"))?;
 
         let date_suffix = format!(
             "{:02}.{:02}.{:02}",
@@ -159,19 +159,19 @@ impl FileHandlers {
 
         // Create trade files
         let trade_files = TradeFiles {
-            trade_id: Self::create_file(&trades_path, "trade_id", &date_suffix)?,
-            trade_time: Self::create_file(&trades_path, "trade_time", &date_suffix)?,
-            trade_nanos: Self::create_file(&trades_path, "trade_nanos", &date_suffix)?,
-            trade_price: Self::create_file(&trades_path, "trade_price", &date_suffix)?,
-            trade_size: Self::create_file(&trades_path, "trade_size", &date_suffix)?,
-            trade_side: Self::create_file(&trades_path, "trade_side", &date_suffix)?,
+            trade_id: Self::create_file(&trades_path, "id", &date_suffix)?,
+            trade_time: Self::create_file(&trades_path, "time", &date_suffix)?,
+            trade_nanos: Self::create_file(&trades_path, "nanos", &date_suffix)?,
+            trade_price: Self::create_file(&trades_path, "price", &date_suffix)?,
+            trade_size: Self::create_file(&trades_path, "size", &date_suffix)?,
+            trade_side: Self::create_file(&trades_path, "side", &date_suffix)?,
             maker_order_id: Self::create_file(&trades_path, "maker_order_id", &date_suffix)?,
             taker_order_id: Self::create_file(&trades_path, "taker_order_id", &date_suffix)?,
         };
 
         Ok(Self {
-            exchange,
-            symbol,
+            _exchange: exchange,
+            _symbol: symbol,
             date,
             md_files,
             trade_files,
@@ -179,14 +179,14 @@ impl FileHandlers {
     }
 
     fn create_file(path: &Path, name: &str, date_suffix: &str) -> Result<BufWriter<std::fs::File>> {
-        let filename = format!("{}.{}.bin", name, date_suffix);
+        let filename = format!("{name}.{date_suffix}.bin");
         let file_path = path.join(filename);
 
         let file = std::fs::OpenOptions::new()
             .create(true)
             .append(true)
             .open(&file_path)
-            .with_context(|| format!("Failed to open file: {:?}", file_path))?;
+            .with_context(|| format!("Failed to open file: {file_path:?}"))?;
 
         Ok(BufWriter::with_capacity(BUFFER_SIZE, file))
     }

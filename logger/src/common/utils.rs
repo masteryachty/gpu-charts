@@ -74,7 +74,7 @@ pub fn normalize_symbol_binance(symbol: &str) -> String {
     for quote in quotes {
         if symbol.ends_with(quote) {
             let base = &symbol[..symbol.len() - quote.len()];
-            return format!("{}-{}", base, quote);
+            return format!("{base}-{quote}");
         }
     }
 

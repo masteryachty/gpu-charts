@@ -11,7 +11,7 @@ use std::sync::Arc;
 pub struct SymbolMapper {
     mappings: Arc<DashMap<String, ExchangeSymbolMap>>,
     normalized_index: Arc<DashMap<String, String>>, // exchange:symbol -> normalized
-    asset_groups: Arc<DashMap<String, Vec<SymbolInfo>>>, // BTC -> all BTC pairs
+    _asset_groups: Arc<DashMap<String, Vec<SymbolInfo>>>, // BTC -> all BTC pairs
     config: SymbolMappingsConfig,
 }
 
@@ -54,7 +54,7 @@ impl SymbolMapper {
         let mapper = Self {
             mappings: Arc::new(DashMap::new()),
             normalized_index: Arc::new(DashMap::new()),
-            asset_groups: Arc::new(DashMap::new()),
+            _asset_groups: Arc::new(DashMap::new()),
             config,
         };
 

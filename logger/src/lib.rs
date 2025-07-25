@@ -10,7 +10,7 @@ use anyhow::Result;
 use std::sync::Arc;
 
 pub struct Logger {
-    config: Arc<Config>,
+    _config: Arc<Config>,
     exchanges: Vec<Arc<dyn Exchange>>,
 }
 
@@ -32,7 +32,10 @@ impl Logger {
             )?));
         }
 
-        Ok(Self { config, exchanges })
+        Ok(Self {
+            _config: config,
+            exchanges,
+        })
     }
 
     pub async fn run(&self) -> Result<()> {

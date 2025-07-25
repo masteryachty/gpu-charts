@@ -132,11 +132,11 @@ impl Exchange for CoinbaseExchange {
     }
 
     fn parse_market_data(&self, raw: &Value) -> Result<Option<UnifiedMarketData>> {
-        parse_coinbase_ticker(raw, &*self.symbol_mapper)
+        parse_coinbase_ticker(raw, &self.symbol_mapper)
     }
 
     fn parse_trade_data(&self, raw: &Value) -> Result<Option<UnifiedTradeData>> {
-        parse_coinbase_trade(raw, &*self.symbol_mapper)
+        parse_coinbase_trade(raw, &self.symbol_mapper)
     }
 
     fn max_symbols_per_connection(&self) -> usize {
@@ -207,7 +207,7 @@ impl Exchange for CoinbaseExchange {
                     // Read messages
                     loop {
                         match connection.read_message().await {
-                            Ok(Some(msg)) => {
+                            Ok(Some(_msg)) => {
                                 metrics.record_message("coinbase");
                             }
                             Ok(None) => {

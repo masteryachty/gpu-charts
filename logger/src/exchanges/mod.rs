@@ -2,11 +2,9 @@ pub mod binance;
 pub mod coinbase;
 
 use crate::common::data_types::{ExchangeId, Symbol, UnifiedMarketData, UnifiedTradeData};
-use crate::config::Config;
 use anyhow::Result;
 use async_trait::async_trait;
 use serde_json::Value;
-use std::sync::Arc;
 use tokio::sync::mpsc;
 
 #[derive(Debug, Clone)]

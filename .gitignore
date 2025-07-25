@@ -467,3 +467,4 @@ server/localhost.crt
 !server/certs/.gitkeep
 .claude/
 coinbase-logger/coinbase-logger/data/00-USD/MD/best_ask.25.07.25.bin
+data/

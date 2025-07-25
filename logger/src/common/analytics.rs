@@ -212,13 +212,19 @@ pub struct ConnectionHealth {
     pub last_error: Option<String>,
 }
 
-impl MarketMetrics {
-    pub fn new() -> Self {
+impl Default for MarketMetrics {
+    fn default() -> Self {
         Self {
             messages_per_second: Arc::new(DashMap::new()),
             last_message_time: Arc::new(DashMap::new()),
             connection_health: Arc::new(DashMap::new()),
         }
+    }
+}
+
+impl MarketMetrics {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn record_message(&self, exchange: &str) {

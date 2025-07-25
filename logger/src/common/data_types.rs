@@ -29,7 +29,7 @@ pub enum TradeSide {
 }
 
 impl TradeSide {
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "buy" | "b" => Some(TradeSide::Buy),
             "sell" | "s" => Some(TradeSide::Sell),

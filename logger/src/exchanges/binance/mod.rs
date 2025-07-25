@@ -18,7 +18,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::time::interval;
-use tracing::{error, info};
+use tracing::{debug, error, info, warn};
 
 pub struct BinanceExchange {
     config: Arc<Config>,
@@ -140,11 +140,11 @@ impl Exchange for BinanceExchange {
     }
 
     fn parse_market_data(&self, raw: &Value) -> Result<Option<UnifiedMarketData>> {
-        parse_binance_ticker(raw, &*self.symbol_mapper)
+        parse_binance_ticker(raw, &self.symbol_mapper)
     }
 
     fn parse_trade_data(&self, raw: &Value) -> Result<Option<UnifiedTradeData>> {
-        parse_binance_trade(raw, &*self.symbol_mapper)
+        parse_binance_trade(raw, &self.symbol_mapper)
     }
 
     fn max_symbols_per_connection(&self) -> usize {
@@ -200,24 +200,19 @@ impl Exchange for BinanceExchange {
                 );
 
                 loop {
-                    metrics.record_connection_status("binance", true);
-
-                    if let Err(e) = connection.connect().await {
-                        error!("Connection {} failed to connect: {}", idx, e);
+                    // For Binance, connect and subscribe are combined
+                    if let Err(e) = connection
+                        .subscribe(vec![Channel::Ticker, Channel::Trades])
+                        .await
+                    {
+                        error!("Connection {} failed to connect and subscribe: {}", idx, e);
                         metrics.record_error("binance", e.to_string());
                         metrics.record_connection_status("binance", false);
                         tokio::time::sleep(Duration::from_secs(5)).await;
                         continue;
                     }
 
-                    if let Err(e) = connection
-                        .subscribe(vec![Channel::Ticker, Channel::Trades])
-                        .await
-                    {
-                        error!("Connection {} failed to subscribe: {}", idx, e);
-                        tokio::time::sleep(Duration::from_secs(5)).await;
-                        continue;
-                    }
+                    metrics.record_connection_status("binance", true);
 
                     // Spawn ping task for Binance
                     let mut ping_interval = interval(Duration::from_secs(ping_interval));
@@ -235,19 +230,45 @@ impl Exchange for BinanceExchange {
                     };
 
                     // Read messages
+                    info!("Connection {} started reading messages", idx);
+                    let mut last_message_time = tokio::time::Instant::now();
+                    let timeout_duration = Duration::from_secs(60); // 60 second timeout
+
                     loop {
-                        match connection.read_message().await {
-                            Ok(Some(_msg)) => {
+                        // Use timeout to avoid indefinite blocking
+                        let read_timeout = Duration::from_secs(30);
+                        let read_future =
+                            tokio::time::timeout(read_timeout, connection.read_message());
+
+                        match read_future.await {
+                            Ok(Ok(Some(_msg))) => {
                                 metrics.record_message("binance");
+                                last_message_time = tokio::time::Instant::now();
                             }
-                            Ok(None) => {
-                                // Connection closed
-                                break;
+                            Ok(Ok(None)) => {
+                                // Some message types return None (ping/pong, etc.)
+                                // This is normal, just continue
+                                continue;
                             }
-                            Err(e) => {
+                            Ok(Err(e)) => {
                                 error!("Connection {} read error: {}", idx, e);
                                 metrics.record_error("binance", e.to_string());
                                 break;
+                            }
+                            Err(_) => {
+                                // Timeout reading message
+                                if last_message_time.elapsed() > timeout_duration {
+                                    warn!(
+                                        "Connection {} timed out - no messages for 60 seconds",
+                                        idx
+                                    );
+                                    break;
+                                }
+                                // Otherwise, just continue - Binance might be slow
+                                debug!(
+                                    "Connection {} read timeout, but within acceptable window",
+                                    idx
+                                );
                             }
                         }
                     }
