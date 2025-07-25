@@ -1550,7 +1550,7 @@ impl Chart {
     /// Calculate data bounds from the loaded data
     fn calculate_data_bounds(
         data_store: &mut data_manager::DataStore,
-        _device: &wgpu::Device,
+        device: &wgpu::Device,
     ) -> Result<(), shared_types::GpuChartsError> {
         // Get all data groups and calculate min/max
         let mut global_min = f32::INFINITY;
@@ -1597,11 +1597,22 @@ impl Chart {
         }
 
         if found_data {
-            data_store.min_y = Some(global_min);
-            data_store.max_y = Some(global_max);
-            log::info!("Calculated bounds: min={}, max={}", global_min, global_max);
+            // Add some margin (10% on each side)
+            let range = global_max - global_min;
+            let margin = range * 0.1;
+            global_min -= margin;
+            global_max += margin;
+            
+            log::info!("Calculated Y bounds from data: min={}, max={}", global_min, global_max);
+            data_store.update_min_max_y(global_min, global_max);
+            // Update the shared bind group with new bounds
+            data_store.update_shared_bind_group(device);
         } else {
             log::warn!("No data found in range [{}, {}]", start_x, end_x);
+            // Set reasonable defaults for financial data
+            data_store.update_min_max_y(0.0, 100000.0);
+            // Update the shared bind group with default bounds
+            data_store.update_shared_bind_group(device);
         }
 
         Ok(())

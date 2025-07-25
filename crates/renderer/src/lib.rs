@@ -445,6 +445,10 @@ impl Renderer {
             return Ok(());
         }
 
+        // Update the shared bind group with current bounds
+        // This is needed for axis renderers to work properly
+        self.data_store.update_shared_bind_group(&self.device);
+
         // Get current texture
         let output = self.surface.get_current_texture()?;
         let view = output
