@@ -82,7 +82,7 @@ npm install
 npm run dev:wasm
 
 # Start development server
-npm run dev:full
+npm run dev:web
 ```
 
 ### Basic Usage

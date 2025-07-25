@@ -599,17 +599,65 @@ impl Chart {
                     
                     match chart_preset.render_type {
                     RenderType::Line => {
-                        // Create a ConfigurablePlotRenderer with specific data columns
-                        let plot_renderer = renderer::ConfigurablePlotRenderer::new(
-                            instance.line_graph.renderer.device.clone(),
-                            instance.line_graph.renderer.queue.clone(),
-                            instance.line_graph.renderer.config.format,
-                            format!("PlotRenderer_{}", chart_preset.label),
-                            chart_preset.data_columns.clone(),
-                        );
-                        log::info!("  Created ConfigurablePlotRenderer for '{}' with columns: {:?}", 
-                            chart_preset.label, chart_preset.data_columns);
-                        multi_renderer.add_renderer(Box::new(plot_renderer));
+                        // Check if this is a computed line (e.g., mid price)
+                        if let Some(compute_op) = &chart_preset.compute_op {
+                            use config_system::ComputeOp;
+                            match compute_op {
+                                ComputeOp::Average if chart_preset.data_columns.len() == 2 => {
+                                    // Check if this is the mid price calculation (bid/ask average)
+                                    let is_mid_price = chart_preset.data_columns.iter().any(|(_, col)| col == "best_bid") &&
+                                                      chart_preset.data_columns.iter().any(|(_, col)| col == "best_ask");
+                                    
+                                    if is_mid_price {
+                                        // Use GPU compute shader for mid price
+                                        log::info!("  Creating ComputedLineRenderer for '{}' with GPU compute", chart_preset.label);
+                                        let computed_renderer = renderer::ComputedLineRenderer::new(
+                                            instance.line_graph.renderer.device.clone(),
+                                            instance.line_graph.renderer.queue.clone(),
+                                            instance.line_graph.renderer.config.format,
+                                            format!("ComputedLineRenderer_{}", chart_preset.label),
+                                            chart_preset.style.color.unwrap_or([0.7, 0.7, 1.0, 1.0])[..3].try_into().unwrap(),
+                                        );
+                                        multi_renderer.add_renderer(Box::new(computed_renderer));
+                                    } else {
+                                        // For other averages, fall back to CPU computation for now
+                                        log::info!("  Creating ConfigurablePlotRenderer for '{}' with CPU compute", chart_preset.label);
+                                        let plot_renderer = renderer::ConfigurablePlotRenderer::new(
+                                            instance.line_graph.renderer.device.clone(),
+                                            instance.line_graph.renderer.queue.clone(),
+                                            instance.line_graph.renderer.config.format,
+                                            format!("PlotRenderer_{}", chart_preset.label),
+                                            chart_preset.data_columns.clone(),
+                                        );
+                                        multi_renderer.add_renderer(Box::new(plot_renderer));
+                                    }
+                                }
+                                _ => {
+                                    // For other compute operations, use regular plot renderer for now
+                                    log::info!("  Creating ConfigurablePlotRenderer for '{}' (compute op not GPU-accelerated yet)", chart_preset.label);
+                                    let plot_renderer = renderer::ConfigurablePlotRenderer::new(
+                                        instance.line_graph.renderer.device.clone(),
+                                        instance.line_graph.renderer.queue.clone(),
+                                        instance.line_graph.renderer.config.format,
+                                        format!("PlotRenderer_{}", chart_preset.label),
+                                        chart_preset.data_columns.clone(),
+                                    );
+                                    multi_renderer.add_renderer(Box::new(plot_renderer));
+                                }
+                            }
+                        } else {
+                            // No compute operation, regular line rendering
+                            let plot_renderer = renderer::ConfigurablePlotRenderer::new(
+                                instance.line_graph.renderer.device.clone(),
+                                instance.line_graph.renderer.queue.clone(),
+                                instance.line_graph.renderer.config.format,
+                                format!("PlotRenderer_{}", chart_preset.label),
+                                chart_preset.data_columns.clone(),
+                            );
+                            log::info!("  Created ConfigurablePlotRenderer for '{}' with columns: {:?}", 
+                                chart_preset.label, chart_preset.data_columns);
+                            multi_renderer.add_renderer(Box::new(plot_renderer));
+                        }
                     }
                     RenderType::Triangle => {
                         // Create a TriangleRenderer for trade markers

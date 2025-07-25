@@ -133,7 +133,7 @@ npm run dev:watch
 npm run dev:server
 
 # Full development server (WASM watch + React dev server)
-npm run dev:full
+npm run dev:web
 
 # Complete development stack (WASM + server + React)
 npm run dev:suite

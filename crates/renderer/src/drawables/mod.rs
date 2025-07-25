@@ -1,4 +1,5 @@
 pub mod candlestick;
+pub mod computed_line;
 pub mod plot;
 pub mod volume_bars;
 pub mod x_axis;

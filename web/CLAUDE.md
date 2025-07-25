@@ -15,7 +15,7 @@ npm run dev:suite     # WASM watch + data server + React dev server
 
 # Individual components
 npm run dev             # React dev server only (port 3000)
-npm run dev:full        # WASM watch + React dev server
+npm run dev:web        # WASM watch + React dev server
 npm run dev:wasm        # Build WASM for development
 npm run dev:watch       # Auto-rebuild WASM with hot reload
 npm run dev:server      # Run data server (port 8443)
@@ -726,7 +726,7 @@ The development workflow includes sophisticated hot reload:
 {
   "scripts": {
     "dev": "vite",
-    "dev:full": "concurrently \"npm run dev:watch\" \"npm run dev\"",
+    "dev:web": "concurrently \"npm run dev:watch\" \"npm run dev\"",
     "dev:suite": "concurrently \"npm run dev:watch\" \"npm run dev:server\" \"npm run dev\"",
     "dev:wasm": "cd .. && wasm-pack build --target web --out-dir web/pkg",
     "dev:watch": "../scripts/dev-build.sh",

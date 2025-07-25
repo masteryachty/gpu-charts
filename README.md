@@ -22,12 +22,12 @@ WebAssembly-based real-time data visualization application built in Rust that re
 
 3. **Run development server**:
    ```bash
-   npm run dev:full
+   npm run dev:web
    ```
 
 ## Development Commands
 
-- `npm run dev:full` - Run WASM watch + React dev server
+- `npm run dev:web` - Run WASM watch + React dev server
 - `npm run dev:suite` - Run full suite with data server
 - `npm run dev:wasm` - Build WASM module once
 - `npm run build` - Production build
