@@ -33,7 +33,7 @@ config = "0.14"
 once_cell = "1.19"
 parking_lot = "0.12"
 warp = "0.3"
-prometheus = { version = "0.13", features = ["process"] }
+prometheus = { version = "0.14", features = ["process"] }
 clap = { version = "4.0", features = ["derive"] }
 
 [dev-dependencies]

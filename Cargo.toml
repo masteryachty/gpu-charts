@@ -2,7 +2,6 @@
 resolver = "2"
 members = [
     "server", 
-    "coinbase-logger",
     "logger",
     "file_server",
     "crates/shared-types",

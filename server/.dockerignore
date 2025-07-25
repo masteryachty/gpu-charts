@@ -7,7 +7,7 @@ node_modules/
 web/
 charting/
 file_server/
-coinbase-logger/
+logger/
 scripts/
 
 # Git files
