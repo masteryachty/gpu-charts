@@ -1,0 +1,216 @@
+symbol_mappings:
+  # Bitcoin pairs
+  - normalized: "BTC-USD"
+    base: "BTC"
+    quote: "USD"
+    quote_type: "fiat"
+    exchanges:
+      coinbase: "BTC-USD"
+      binance: "BTCUSDT"    # Maps USDT to USD equivalent
+      kraken: "XBTUSD"
+      
+  - normalized: "BTC-USDT"
+    base: "BTC"
+    quote: "USDT"
+    quote_type: "stablecoin"
+    exchanges:
+      binance: "BTCUSDT"
+      coinbase: "BTC-USDT"
+      
+  - normalized: "BTC-EUR"
+    base: "BTC"
+    quote: "EUR"
+    quote_type: "fiat"
+    exchanges:
+      coinbase: "BTC-EUR"
+      binance: "BTCEUR"
+      kraken: "XBTEUR"
+      
+  # Ethereum pairs
+  - normalized: "ETH-USD"
+    base: "ETH"
+    quote: "USD"
+    quote_type: "fiat"
+    exchanges:
+      coinbase: "ETH-USD"
+      binance: "ETHUSDT"
+      kraken: "ETHUSD"
+      
+  - normalized: "ETH-USDT"
+    base: "ETH"
+    quote: "USDT"
+    quote_type: "stablecoin"
+    exchanges:
+      binance: "ETHUSDT"
+      coinbase: "ETH-USDT"
+      
+  - normalized: "ETH-BTC"
+    base: "ETH"
+    quote: "BTC"
+    quote_type: "crypto"
+    exchanges:
+      coinbase: "ETH-BTC"
+      binance: "ETHBTC"
+      kraken: "ETHXBT"
+      
+  # Solana pairs
+  - normalized: "SOL-USD"
+    base: "SOL"
+    quote: "USD"
+    quote_type: "fiat"
+    exchanges:
+      coinbase: "SOL-USD"
+      binance: "SOLUSDT"
+      
+  - normalized: "SOL-USDT"
+    base: "SOL"
+    quote: "USDT"
+    quote_type: "stablecoin"
+    exchanges:
+      binance: "SOLUSDT"
+      coinbase: "SOL-USDT"
+      
+  # Cardano pairs
+  - normalized: "ADA-USD"
+    base: "ADA"
+    quote: "USD"
+    quote_type: "fiat"
+    exchanges:
+      coinbase: "ADA-USD"
+      binance: "ADAUSDT"
+      
+  - normalized: "ADA-USDT"
+    base: "ADA"
+    quote: "USDT"
+    quote_type: "stablecoin"
+    exchanges:
+      binance: "ADAUSDT"
+      coinbase: "ADA-USDT"
+      
+  # XRP pairs
+  - normalized: "XRP-USD"
+    base: "XRP"
+    quote: "USD"
+    quote_type: "fiat"
+    exchanges:
+      coinbase: "XRP-USD"
+      binance: "XRPUSDT"
+      kraken: "XRPUSD"
+      
+  # Dogecoin pairs
+  - normalized: "DOGE-USD"
+    base: "DOGE"
+    quote: "USD"
+    quote_type: "fiat"
+    exchanges:
+      coinbase: "DOGE-USD"
+      binance: "DOGEUSDT"
+      
+  # Polygon pairs
+  - normalized: "MATIC-USD"
+    base: "MATIC"
+    quote: "USD"
+    quote_type: "fiat"
+    exchanges:
+      coinbase: "MATIC-USD"
+      binance: "MATICUSDT"
+      
+  # Avalanche pairs
+  - normalized: "AVAX-USD"
+    base: "AVAX"
+    quote: "USD"
+    quote_type: "fiat"
+    exchanges:
+      coinbase: "AVAX-USD"
+      binance: "AVAXUSDT"
+      
+  # Chainlink pairs
+  - normalized: "LINK-USD"
+    base: "LINK"
+    quote: "USD"
+    quote_type: "fiat"
+    exchanges:
+      coinbase: "LINK-USD"
+      binance: "LINKUSDT"
+      
+  # Uniswap pairs
+  - normalized: "UNI-USD"
+    base: "UNI"
+    quote: "USD"
+    quote_type: "fiat"
+    exchanges:
+      coinbase: "UNI-USD"
+      binance: "UNIUSDT"
+      
+  # Litecoin pairs
+  - normalized: "LTC-USD"
+    base: "LTC"
+    quote: "USD"
+    quote_type: "fiat"
+    exchanges:
+      coinbase: "LTC-USD"
+      binance: "LTCUSDT"
+      kraken: "LTCUSD"
+      
+  # Bitcoin Cash pairs
+  - normalized: "BCH-USD"
+    base: "BCH"
+    quote: "USD"
+    quote_type: "fiat"
+    exchanges:
+      coinbase: "BCH-USD"
+      binance: "BCHUSDT"
+      
+  # Cosmos pairs
+  - normalized: "ATOM-USD"
+    base: "ATOM"
+    quote: "USD"
+    quote_type: "fiat"
+    exchanges:
+      coinbase: "ATOM-USD"
+      binance: "ATOMUSDT"
+      
+  # Algorand pairs
+  - normalized: "ALGO-USD"
+    base: "ALGO"
+    quote: "USD"
+    quote_type: "fiat"
+    exchanges:
+      coinbase: "ALGO-USD"
+      binance: "ALGOUSDT"
+      
+  # Near Protocol pairs
+  - normalized: "NEAR-USD"
+    base: "NEAR"
+    quote: "USD"
+    quote_type: "fiat"
+    exchanges:
+      coinbase: "NEAR-USD"
+      binance: "NEARUSDT"
+      
+  # Aave pairs
+  - normalized: "AAVE-USD"
+    base: "AAVE"
+    quote: "USD"
+    quote_type: "fiat"
+    exchanges:
+      coinbase: "AAVE-USD"
+      binance: "AAVEUSDT"
+      
+  # Compound pairs
+  - normalized: "COMP-USD"
+    base: "COMP"
+    quote: "USD"
+    quote_type: "fiat"
+    exchanges:
+      coinbase: "COMP-USD"
+      binance: "COMPUSDT"
+      
+  # Maker pairs
+  - normalized: "MKR-USD"
+    base: "MKR"
+    quote: "USD"
+    quote_type: "fiat"
+    exchanges:
+      coinbase: "MKR-USD"
+      binance: "MKRUSDT"

@@ -7,7 +7,7 @@ on:
       - master
     paths:
       - 'server/**'
-      - 'coinbase-logger/**'
+      - 'logger/**'
       - 'docker-compose*.yml'
       - '.github/workflows/docker-publish-all.yml'
   workflow_dispatch:
@@ -97,7 +97,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ secrets.DOCKER_USERNAME }}/coinbase-logger
+          images: ${{ secrets.DOCKER_USERNAME }}/multi-exchange-logger
           tags: |
             type=ref,event=branch
             type=semver,pattern={{version}}
@@ -108,7 +108,7 @@ jobs:
       - name: Build and push Logger
         uses: docker/build-push-action@v5
         with:
-          context: ./coinbase-logger
+          context: ./logger
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
@@ -139,6 +139,6 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
-          repository: ${{ secrets.DOCKER_USERNAME }}/coinbase-logger
-          readme-filepath: ./coinbase-logger/DOCKER_DEPLOYMENT.md
+          repository: ${{ secrets.DOCKER_USERNAME }}/multi-exchange-logger
+          readme-filepath: ./logger/README.md
         continue-on-error: true

@@ -9,7 +9,7 @@ set -e
 DOCKER_REGISTRY=${DOCKER_REGISTRY:-"docker.io"}
 DOCKER_USERNAME=${DOCKER_USERNAME:-""}
 SERVER_IMAGE_NAME=${SERVER_IMAGE_NAME:-"gpu-charts-server"}
-LOGGER_IMAGE_NAME=${LOGGER_IMAGE_NAME:-"coinbase-logger"}
+LOGGER_IMAGE_NAME=${LOGGER_IMAGE_NAME:-"multi-exchange-logger"}
 TAG=${TAG:-"latest"}
 
 # Colors for output
@@ -43,7 +43,7 @@ print_usage() {
     echo "  --registry REGISTRY     Docker registry (default: docker.io)"
     echo "  --username USERNAME     Docker Hub username"
     echo "  --server-name NAME      Server image name (default: gpu-charts-server)"
-    echo "  --logger-name NAME      Logger image name (default: coinbase-logger)"
+    echo "  --logger-name NAME      Logger image name (default: multi-exchange-logger)"
     echo "  --no-cache             Build without Docker cache"
     echo ""
     echo "Environment Variables:"
@@ -188,11 +188,11 @@ build_server() {
 }
 
 build_logger() {
-    log_info "Building Coinbase logger image..."
+    log_info "Building Multi-Exchange logger image..."
     log_info "Image: $LOGGER_IMAGE"
     
-    # Build from the coinbase-logger directory (Dockerfile expects this context)
-    cd "$SCRIPT_DIR/coinbase-logger"
+    # Build from the logger directory (Dockerfile expects this context)
+    cd "$SCRIPT_DIR/logger"
     
     docker build $NO_CACHE -f Dockerfile -t "$LOGGER_IMAGE" .
     
