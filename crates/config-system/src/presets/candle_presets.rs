@@ -22,6 +22,7 @@ fn candlestick_preset() -> ChartPreset {
                 ("ohlc".to_string(), "low".to_string()),
                 ("ohlc".to_string(), "close".to_string())
             ],
+            additional_data_columns: None,
             visible: true,
             label: "OHLC".to_string(),
             style: RenderStyle {

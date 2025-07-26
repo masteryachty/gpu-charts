@@ -17,7 +17,7 @@ pub use data_retriever::{
     create_chunked_gpu_buffer_from_arraybuffer, create_gpu_buffer_from_vec, fetch_api_response,
     ApiHeader, ColumnMeta,
 };
-pub use data_store::{ChartType, DataSeries, DataStore, MetricSeries, ScreenDimensions, Vertex};
+pub use data_store::{ChartType, DataSeries, DataStore, MetricSeries, ScreenDimensions, Vertex, MetricRef, ComputeType};
 
 /// GPU buffer set for storing data
 /// This is internal to data-manager and contains GPU resources

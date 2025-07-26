@@ -1,7 +1,6 @@
 use chrono::DateTime;
 use config_system::{GpuChartsConfig, PresetManager};
 use data_manager::{ChartType, DataManager, DataStore};
-use js_sys::{Float32Array, Uint32Array};
 use renderer::{MultiRenderer, Renderer};
 use shared_types::DataHandle;
 use std::rc::Rc;
@@ -22,6 +21,47 @@ pub struct LineGraph {
 }
 
 impl LineGraph {
+    /// Get list of column names that should be excluded from Y bounds calculation
+    /// based on the active preset's additional_data_columns
+    pub fn get_excluded_columns_from_preset(&self, preset_name: &str) -> Vec<String> {
+        let mut excluded_columns = Vec::new();
+        
+        log::info!("[LineGraph] Getting excluded columns for preset '{}'", preset_name);
+        
+        if let Some(preset) = self.preset_manager.get_preset(preset_name) {
+            log::info!("[LineGraph] Found preset with {} chart types", preset.chart_types.len());
+            
+            for (idx, chart_type) in preset.chart_types.iter().enumerate() {
+                log::info!("[LineGraph]   Chart type[{}]: '{}' - visible={}", idx, chart_type.label, chart_type.visible);
+                
+                if let Some(additional_cols) = &chart_type.additional_data_columns {
+                    log::info!("[LineGraph]     Has {} additional columns", additional_cols.len());
+                    
+                    for (_data_type, column_name) in additional_cols {
+                        log::info!("[LineGraph]     Adding excluded column: '{}'", column_name);
+                        if !excluded_columns.contains(column_name) {
+                            excluded_columns.push(column_name.clone());
+                        }
+                    }
+                } else {
+                    log::info!("[LineGraph]     No additional columns");
+                }
+            }
+        } else {
+            log::warn!("[LineGraph] Preset '{}' not found!", preset_name);
+        }
+        
+        // Always exclude "side" and "volume" as defaults
+        for default_exclude in ["side", "volume"] {
+            if !excluded_columns.contains(&default_exclude.to_string()) {
+                log::info!("[LineGraph] Adding default excluded column: '{}'", default_exclude);
+                excluded_columns.push(default_exclude.to_string());
+            }
+        }
+        
+        log::info!("[LineGraph] Final excluded columns from preset '{}': {:?}", preset_name, excluded_columns);
+        excluded_columns
+    }
     #[cfg(target_arch = "wasm32")]
     pub async fn new(
         width: u32,
@@ -102,6 +142,12 @@ impl LineGraph {
 
         // Set the time range BEFORE creating the renderer
         data_store.set_x_range(start as u32, end as u32);
+        
+        // Log initial state before moving data_store
+        log::info!("Initial DataStore state:");
+        log::info!("  - X range: {} to {}", data_store.start_x, data_store.end_x);
+        log::info!("  - Y bounds: min={:?}, max={:?}", data_store.min_y, data_store.max_y);
+        log::info!("  - Excluded columns: {:?}", data_store.get_excluded_columns());
 
         // Create Renderer with modular approach
         let renderer = Renderer::new(canvas, device.clone(), queue.clone(), config, data_store)
@@ -113,30 +159,35 @@ impl LineGraph {
         // Data will be fetched when user selects a preset via fetch_preset_data
 
         log::info!("LineGraph initialization completed - no data loaded yet");
+        
+        // Create a default multi-renderer with basic line plot and axes
+        let multi_renderer = renderer.create_multi_renderer()
+            .with_render_order(renderer::RenderOrder::BackgroundToForeground)
+            .add_plot_renderer()
+            .add_x_axis_renderer(renderer.data_store().screen_size.width, renderer.data_store().screen_size.height)
+            .add_y_axis_renderer(renderer.data_store().screen_size.width, renderer.data_store().screen_size.height)
+            .build();
 
         // Create the LineGraph instance
         Ok(Self {
             renderer,
             data_manager,
             preset_manager: PresetManager::new(),
-            multi_renderer: None,
+            multi_renderer: Some(multi_renderer),
         })
     }
 
     pub async fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        // Check if we have a multi-renderer from a preset
+        // Always use multi-renderer (we ensure it exists in new())
         if let Some(ref mut multi_renderer) = self.multi_renderer {
-            // Use the multi-renderer for preset-based rendering
-            self.renderer.render_with_multi(multi_renderer).await.map_err(|e| match e {
+            self.renderer.render(multi_renderer).await.map_err(|e| match e {
                 shared_types::GpuChartsError::Surface { .. } => wgpu::SurfaceError::Outdated,
                 _ => wgpu::SurfaceError::Outdated,
             })
         } else {
-            // Use the standard renderer
-            self.renderer.render().await.map_err(|e| match e {
-                shared_types::GpuChartsError::Surface { .. } => wgpu::SurfaceError::Outdated,
-                _ => wgpu::SurfaceError::Outdated,
-            })
+            // This should never happen since we create a default multi-renderer in new()
+            log::error!("No multi-renderer available!");
+            Err(wgpu::SurfaceError::Outdated)
         }
     }
 
@@ -243,108 +294,21 @@ impl LineGraph {
             "Successfully added {} columns to DataStore",
             gpu_buffer_set.metadata.columns.len()
         );
-
-        // Calculate min/max Y values from the loaded data
-        Self::calculate_data_bounds(data_store, device)?;
-
-        Ok(())
-    }
-
-    fn calculate_data_bounds(
-        data_store: &mut DataStore,
-        device: &wgpu::Device,
-    ) -> Result<(), shared_types::GpuChartsError> {
-        // Get all data groups and calculate min/max
-        let mut global_min = f32::INFINITY;
-        let mut global_max = f32::NEG_INFINITY;
-        let mut found_data = false;
-
-        // Check if we have any data groups
-        if data_store.data_groups.is_empty() {
-            log::warn!("No data groups available for bounds calculation");
-            return Ok(());
-        }
-
-        // Get the time range for filtering
-        let start_x = data_store.start_x;
-        let end_x = data_store.end_x;
-        log::info!("Calculating bounds for time range: {start_x} - {end_x}");
-
-        // Iterate through all data groups
-        for (group_idx, data_group) in data_store.data_groups.iter().enumerate() {
-            // Skip if this group is not active
-            if !data_store.active_data_group_indices.contains(&group_idx) {
-                continue;
-            }
-
-            // Get time data from the group
-            let x_data = Uint32Array::new(&data_group.x_raw);
-            let x_length = x_data.length();
-
-            // Check each metric in this group
-            for metric in &data_group.metrics {
-                if !metric.visible {
-                    continue;
-                }
-
-                // Get the Y data from the metric
-                let y_data = Float32Array::new(&metric.y_raw);
-                let y_length = y_data.length();
-
-                // Ensure arrays have same length
-                let length = x_length.min(y_length);
-
-                log::debug!(
-                    "Processing metric '{}' with {} data points",
-                    metric.name,
-                    length
-                );
-
-                // Find min/max in the visible range
-                let mut points_in_range = 0;
-                for i in 0..length {
-                    let x_val = x_data.get_index(i);
-                    if x_val >= start_x && x_val <= end_x {
-                        points_in_range += 1;
-                        let y_val = y_data.get_index(i);
-                        if !y_val.is_nan() && !y_val.is_infinite() {
-                            global_min = global_min.min(y_val);
-                            global_max = global_max.max(y_val);
-                            found_data = true;
-                        }
-                    }
-                }
-
-                if points_in_range > 0 {
-                    log::debug!(
-                        "Found {} points in time range {}-{} for metric '{}'",
-                        points_in_range,
-                        start_x,
-                        end_x,
-                        metric.name
-                    );
-                }
+        
+        log::info!("[process_data_handle] Data loaded, before Y bounds calculation:");
+        log::info!("  - Excluded columns: {:?}", data_store.get_excluded_columns());
+        log::info!("  - Total data groups: {}", data_store.data_groups.len());
+        
+        // Log all metrics that were added
+        for (idx, group) in data_store.data_groups.iter().enumerate() {
+            log::info!("  - Data group[{}]: {} metrics", idx, group.metrics.len());
+            for metric in &group.metrics {
+                log::info!("    - Metric: '{}' (visible={})", metric.name, metric.visible);
             }
         }
 
-        if found_data {
-            // Add some margin (10% on each side)
-            let range = global_max - global_min;
-            let margin = range * 0.1;
-            global_min -= margin;
-            global_max += margin;
-
-            log::info!("Calculated Y bounds from data: min={global_min}, max={global_max}");
-            data_store.update_min_max_y(global_min, global_max);
-            // Update the shared bind group with new bounds
-            data_store.update_shared_bind_group(device);
-        } else {
-            log::warn!("No valid data found for Y bounds calculation");
-            // Set reasonable defaults for financial data
-            data_store.update_min_max_y(0.0, 100000.0);
-            // Update the shared bind group with default bounds
-            data_store.update_shared_bind_group(device);
-        }
+        // Mark as dirty so bounds will be calculated on next render
+        data_store.mark_dirty();
 
         Ok(())
     }

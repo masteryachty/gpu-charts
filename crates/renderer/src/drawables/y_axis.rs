@@ -29,10 +29,24 @@ impl YAxisRenderer {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
     ) {
-        // Use default values if min/max Y are not set yet
-        let min = data_store.min_y.unwrap_or(0.0);
-        let max = data_store.max_y.unwrap_or(100.0);
-        // let range = max - min;
+        // Get bounds for display - prefer GPU bounds, fall back to reasonable defaults
+        let (min, max) = data_store.get_gpu_y_bounds()
+            .unwrap_or_else(|| {
+                // Use the actual data range from the shader's perspective
+                // The shader will use the correct bounds, we just need values for labels
+                match (data_store.min_y, data_store.max_y) {
+                    (Some(min), Some(max)) => (min, max),
+                    _ => {
+                        // If no bounds yet, use the last known bounds or defaults
+                        if self.last_min_y != 0.0 || self.last_max_y != 0.0 {
+                            (self.last_min_y, self.last_max_y)
+                        } else {
+                            (0.0, 100.0)
+                        }
+                    }
+                }
+            });
+        
         let height = data_store.screen_size.height as i32;
 
         // Only recalculate and recreate buffers if the data range or width has changed
@@ -40,6 +54,13 @@ impl YAxisRenderer {
             self.last_min_y != min || self.last_max_y != max || self.last_height != height;
 
         if needs_recalculation {
+            // Log when we update labels
+            if data_store.get_gpu_y_bounds().is_some() {
+                log::debug!("[YAxisRenderer] Rendering with GPU bounds: min={}, max={}", min, max);
+            } else {
+                log::debug!("[YAxisRenderer] Rendering with fallback bounds: min={}, max={}", min, max);
+            }
+            
             let (interval, start, end) = calculate_y_axis_interval(min, max);
             let mut y_values = Vec::new();
             let mut labels = Vec::new();

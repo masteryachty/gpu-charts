@@ -19,6 +19,7 @@ fn market_data_preset() -> ChartPreset {
             RenderPreset {
                 render_type: RenderType::Line,
                 data_columns: vec![("md".to_string(), "best_bid".to_string())],
+                additional_data_columns: None,
                 visible: true,
                 label: "Bid".to_string(),
                 style: RenderStyle {
@@ -32,6 +33,7 @@ fn market_data_preset() -> ChartPreset {
             RenderPreset {
                 render_type: RenderType::Line,
                 data_columns: vec![("md".to_string(), "best_ask".to_string())],
+                additional_data_columns: None,
                 visible: true,
                 label: "Ask".to_string(),
                 style: RenderStyle {
@@ -46,8 +48,10 @@ fn market_data_preset() -> ChartPreset {
                 render_type: RenderType::Triangle,
                 data_columns: vec![
                     ("trades".to_string(), "price".to_string()),
-                    ("trades".to_string(), "side".to_string())
                 ],
+                additional_data_columns: Some(vec![
+                    ("trades".to_string(), "side".to_string())
+                ]),
                 visible: true,
                 label: "Trades".to_string(),
                 style: RenderStyle {
@@ -69,7 +73,8 @@ fn market_data_preset() -> ChartPreset {
                     ("md".to_string(), "best_ask".to_string()),
                     ("md".to_string(), "best_bid".to_string())
                 ],
-                visible: false, // Hidden by default as requested
+                additional_data_columns: None,
+                visible: true, // Now visible by default
                 label: "Mid".to_string(),
                 style: RenderStyle {
                     color: Some([0.7, 0.7, 1.0, 1.0]), // Light blue
@@ -107,7 +112,7 @@ mod tests {
         assert!(preset.chart_types[0].visible); // Bid visible
         assert!(preset.chart_types[1].visible); // Ask visible
         assert!(preset.chart_types[2].visible); // Trades visible by default
-        assert!(!preset.chart_types[3].visible); // Mid hidden by default
+        assert!(preset.chart_types[3].visible); // Mid visible by default
     }
 
     #[test]

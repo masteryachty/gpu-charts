@@ -95,6 +95,7 @@ impl Chart {
 
     #[wasm_bindgen]
     pub async fn render(&self) -> Result<(), JsValue> {
+        
         // For web rendering, we typically want to render asynchronously
         // without blocking. We'll spawn a local task to handle the render.
         let instance_id = self.instance_id;
@@ -153,6 +154,20 @@ impl Chart {
         })
         .unwrap_or(false)
     }
+    
+    /// Poll GPU operations and check if a render is needed
+    /// This should be called periodically from JavaScript to ensure GPU bounds are read
+    #[wasm_bindgen]
+    pub fn poll_gpu_operations(&self) -> bool {
+        InstanceManager::with_instance_mut(&self.instance_id, |instance| {
+            // Poll the device to progress any pending GPU operations
+            instance.line_graph.renderer.device.poll(wgpu::Maintain::Poll);
+            
+            // Check if we need to render (e.g., GPU bounds are pending)
+            instance.line_graph.renderer.needs_render()
+        })
+        .unwrap_or(false)
+    }
 
     #[wasm_bindgen]
     pub fn resize(&self, width: u32, height: u32) -> Result<(), JsValue> {
@@ -168,14 +183,33 @@ impl Chart {
 
     #[wasm_bindgen]
     pub fn handle_mouse_wheel(&self, delta_y: f64, x: f64, _y: f64) -> Result<(), JsValue> {
+        log::info!("[WASM] handle_mouse_wheel called with delta_y={}, x={}", delta_y, x);
+        
         InstanceManager::with_instance_mut(&self.instance_id, |instance| {
             let window_event = WindowEvent::MouseWheel {
                 delta: MouseScrollDelta::PixelDelta(PhysicalPosition::new(x, delta_y)),
                 phase: TouchPhase::Moved,
             };
+            
+            log::info!("[WASM] Created MouseWheel event, passing to canvas_controller");
+            
             instance
                 .canvas_controller
                 .handle_cursor_event(window_event, &mut instance.line_graph.renderer);
+            
+            // After zoom, ensure bounds are recalculated
+            let renderer = &mut instance.line_graph.renderer;
+            let data_store = renderer.data_store_mut();
+            
+            log::info!("[WASM] After handle_cursor_event - data_store is_dirty: {}, min_y: {:?}, max_y: {:?}", 
+                data_store.is_dirty(), data_store.min_y, data_store.max_y);
+            
+            if data_store.is_dirty() {
+                // Force recalculation of Y bounds by clearing them
+                data_store.min_y = None;
+                data_store.max_y = None;
+                log::info!("[WASM] Cleared Y bounds for recalculation");
+            }
         })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
 
@@ -211,6 +245,17 @@ impl Chart {
             instance
                 .canvas_controller
                 .handle_cursor_event(window_event, &mut instance.line_graph.renderer);
+            
+            // After drag zoom (on release), ensure bounds are recalculated
+            if !pressed {
+                let renderer = &mut instance.line_graph.renderer;
+                let data_store = renderer.data_store_mut();
+                if data_store.is_dirty() {
+                    // Force recalculation of Y bounds by clearing them
+                    data_store.min_y = None;
+                    data_store.max_y = None;
+                }
+            }
         })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
 
@@ -609,14 +654,14 @@ impl Chart {
                                                       chart_preset.data_columns.iter().any(|(_, col)| col == "best_ask");
                                     
                                     if is_mid_price {
-                                        // Mid price is computed during data load and stored as "mid_price" metric
-                                        log::info!("  Creating ConfigurablePlotRenderer for '{}' (using pre-computed data)", chart_preset.label);
+                                        // Mid price is computed by the GPU compute engine during rendering
+                                        log::debug!("  Creating ConfigurablePlotRenderer for '{}' (GPU-computed metric)", chart_preset.label);
                                         let plot_renderer = renderer::ConfigurablePlotRenderer::new(
                                             instance.line_graph.renderer.device.clone(),
                                             instance.line_graph.renderer.queue.clone(),
                                             instance.line_graph.renderer.config.format,
                                             format!("PlotRenderer_{}", chart_preset.label),
-                                            vec![("md".to_string(), "mid_price".to_string())], // Use the computed metric
+                                            vec![("MD".to_string(), "mid_price".to_string())], // GPU-computed metric in MD group
                                         );
                                         multi_renderer.add_renderer(Box::new(plot_renderer));
                                     } else {
@@ -735,8 +780,18 @@ impl Chart {
             // Store the active preset name
             instance.active_preset = Some(preset_name.to_string());
             
+            log::info!("🎯 [apply_preset] Updating excluded columns for preset '{}'", preset_name);
+            
+            // Update excluded columns for Y bounds calculation
+            let excluded_columns = instance.line_graph.get_excluded_columns_from_preset(preset_name);
+            log::info!("🎯 [apply_preset] Excluded columns to set: {:?}", excluded_columns);
+            
+            instance.line_graph.renderer.data_store_mut().set_excluded_columns(excluded_columns);
+            
             // Mark renderer as dirty to trigger re-render
             instance.line_graph.renderer.data_store_mut().mark_dirty();
+            
+            log::info!("🎯 [apply_preset] Preset '{}' applied successfully", preset_name);
             
             let response = serde_json::json!({
                 "success": true,
@@ -974,14 +1029,14 @@ impl Chart {
                                                       chart_preset.data_columns.iter().any(|(_, col)| col == "best_ask");
                                     
                                     if is_mid_price {
-                                        // Mid price is computed during data load and stored as "mid_price" metric
-                                        log::info!("  Creating ConfigurablePlotRenderer for '{}' (using pre-computed data)", chart_preset.label);
+                                        // Mid price is computed by the GPU compute engine during rendering
+                                        log::debug!("  Creating ConfigurablePlotRenderer for '{}' (GPU-computed metric)", chart_preset.label);
                                         let plot_renderer = renderer::ConfigurablePlotRenderer::new(
                                             instance.line_graph.renderer.device.clone(),
                                             instance.line_graph.renderer.queue.clone(),
                                             instance.line_graph.renderer.config.format,
                                             format!("PlotRenderer_{}", chart_preset.label),
-                                            vec![("md".to_string(), "mid_price".to_string())], // Use the computed metric
+                                            vec![("MD".to_string(), "mid_price".to_string())], // GPU-computed metric in MD group
                                         );
                                         multi_renderer.add_renderer(Box::new(plot_renderer));
                                     } else {
@@ -1187,8 +1242,8 @@ impl Chart {
             if let Some(preset_name) = &instance.active_preset {
                 log::info!("📌 [fetch_preset_data] Active preset: '{}'", preset_name);
                 if let Some(preset) = instance.line_graph.preset_manager.get_preset(preset_name) {
-                    // Collect unique data requirements
-                    let mut data_requirements = std::collections::HashMap::new();
+                    // Collect unique data requirements using HashSet to avoid duplicates
+                    let mut data_requirements: std::collections::HashMap<String, std::collections::HashSet<String>> = std::collections::HashMap::new();
                     log::info!("📊 [fetch_preset_data] Analyzing {} chart types in preset", preset.chart_types.len());
                     
                     for (idx, chart_preset) in preset.chart_types.iter().enumerate() {
@@ -1197,11 +1252,22 @@ impl Chart {
                         
                         // Only collect data for visible chart types
                         if chart_preset.visible {
+                            // Add main data columns
                             for (data_type, column) in &chart_preset.data_columns {
                                 log::info!("    Adding data requirement: type='{}', column='{}'", data_type, column);
                                 data_requirements.entry(data_type.clone())
-                                    .or_insert_with(Vec::new)
-                                    .push(column.clone());
+                                    .or_insert_with(std::collections::HashSet::new)
+                                    .insert(column.clone());
+                            }
+                            
+                            // Also add additional data columns if present
+                            if let Some(additional_cols) = &chart_preset.additional_data_columns {
+                                for (data_type, column) in additional_cols {
+                                    log::info!("    Adding additional data requirement: type='{}', column='{}'", data_type, column);
+                                    data_requirements.entry(data_type.clone())
+                                        .or_insert_with(std::collections::HashSet::new)
+                                        .insert(column.clone());
+                                }
                             }
                         } else {
                             log::info!("    Skipping data fetch for '{}' (not visible)", chart_preset.label);
@@ -1233,7 +1299,8 @@ impl Chart {
                     Some(mut instance) => {
                         // Prepare column list with "time" always included
                         let mut all_columns = vec!["time"];
-                        all_columns.extend(columns.iter().map(|s| s.as_str()));
+                        let columns_vec: Vec<String> = columns.into_iter().collect();
+                        all_columns.extend(columns_vec.iter().map(|s| s.as_str()));
                         
                         log::info!("📡 [fetch_preset_data] Requesting data: symbol='{}', type='{}', columns={:?}", 
                             symbol, data_type, all_columns);
@@ -1259,7 +1326,7 @@ impl Chart {
                                     fetch_results.push((data_type.to_string(), Err(format!("Processing failed: {:?}", e))));
                                 } else {
                                     log::info!("✅ [fetch_preset_data] Successfully processed '{}' data", data_type);
-                                    fetch_results.push((data_type.to_string(), Ok(columns)));
+                                    fetch_results.push((data_type.to_string(), Ok(columns_vec)));
                                 }
                             }
                             Err(e) => {
@@ -1277,136 +1344,8 @@ impl Chart {
                 }
             }
             
-            // After fetching all data, handle computed fields
-            log::info!("🧮 [fetch_preset_data] Checking for computed fields in preset");
-            
-            // Get the preset again to check for compute operations
-            let compute_results = InstanceManager::with_instance_mut(&instance_id, |instance| {
-                if let Some(preset) = instance.line_graph.preset_manager.get_preset(&preset_name) {
-                    let mut compute_results = Vec::new();
-                    
-                    // Check each chart type for compute operations
-                    for chart_preset in &preset.chart_types {
-                        if let Some(compute_op) = &chart_preset.compute_op {
-                            log::info!("  📊 Found compute operation for '{}': {:?}", chart_preset.label, compute_op);
-                            
-                            // Handle mid price computation
-                            use config_system::ComputeOp;
-                            match compute_op {
-                                ComputeOp::Average if chart_preset.data_columns.len() == 2 => {
-                                    let is_mid_price = chart_preset.data_columns.iter().any(|(_, col)| col == "best_bid") &&
-                                                      chart_preset.data_columns.iter().any(|(_, col)| col == "best_ask");
-                                    
-                                    if is_mid_price {
-                                        log::info!("  💹 Computing mid price from bid/ask");
-                                        
-                                        // Get the data store
-                                        let data_store = instance.line_graph.renderer.data_store();
-                                        
-                                        // Find bid and ask buffers in the data store
-                                        let mut bid_buffer = None;
-                                        let mut ask_buffer = None;
-                                        let mut time_buffer = None;
-                                        let mut time_gpu_buffers = None;
-                                        let mut element_count = 0u32;
-                                        
-                                        for data_group in &data_store.data_groups {
-                                            for metric in &data_group.metrics {
-                                                if metric.name == "best_bid" && !metric.y_buffers.is_empty() {
-                                                    bid_buffer = Some(&metric.y_buffers[0]);
-                                                    element_count = data_group.length;
-                                                    // Get time buffers from this group
-                                                    time_buffer = Some(data_group.x_raw.clone());
-                                                    time_gpu_buffers = Some(data_group.x_buffers.clone());
-                                                } else if metric.name == "best_ask" && !metric.y_buffers.is_empty() {
-                                                    ask_buffer = Some(&metric.y_buffers[0]);
-                                                }
-                                            }
-                                        }
-                                        
-                                        if let (Some(bid), Some(ask), Some(_time_buf), Some(_time_gpu)) = 
-                                            (bid_buffer, ask_buffer, time_buffer, time_gpu_buffers) {
-                                            
-                                            // Create compute pipeline
-                                            let calculator = renderer::compute::MidPriceCalculator::new(
-                                                instance.line_graph.renderer.device.clone(),
-                                                instance.line_graph.renderer.queue.clone(),
-                                            );
-                                            
-                                            // Create command encoder
-                                            let mut encoder = instance.line_graph.renderer.device.create_command_encoder(
-                                                &wgpu::CommandEncoderDescriptor {
-                                                    label: Some("Mid Price Compute Encoder"),
-                                                }
-                                            );
-                                            
-                                            match calculator {
-                                                Ok(calc) => {
-                                                    // Run the compute shader
-                                                    match calc.calculate(bid, ask, element_count, &mut encoder) {
-                                                        Ok(result) => {
-                                                            // Submit the compute commands
-                                                            instance.line_graph.renderer.queue.submit(std::iter::once(encoder.finish()));
-                                                            
-                                                            // Add the computed buffer to the data store
-                                                            // Find or create the data group for computed data
-                                                            let data_store_mut = instance.line_graph.renderer.data_store_mut();
-                                                            
-                                                            // Find the MD data group index to add the computed metric to
-                                                            if let Some((group_index, _)) = data_store_mut.data_groups.iter()
-                                                                .enumerate()
-                                                                .find(|(_, g)| g.metrics.iter().any(|m| m.name == "best_bid" || m.name == "best_ask")) {
-                                                                
-                                                                // Create a raw buffer from the computed data (for consistency)
-                                                                // Note: In a real implementation, we'd copy the GPU buffer back to CPU
-                                                                let raw_buffer = js_sys::ArrayBuffer::new(element_count * 4);
-                                                                
-                                                                // Add the computed metric
-                                                                data_store_mut.add_metric_to_group(
-                                                                    group_index,
-                                                                    (raw_buffer, vec![result.output_buffer]),
-                                                                    [0.7, 0.7, 1.0], // Light blue color
-                                                                    "mid_price".to_string(),
-                                                                );
-                                                                
-                                                                log::info!("  ✅ Successfully added computed mid price to data store");
-                                                                compute_results.push((chart_preset.label.clone(), Ok("Computed mid price".to_string())));
-                                                            } else {
-                                                                log::error!("  ❌ Could not find data group to add computed metric");
-                                                                compute_results.push((chart_preset.label.clone(), Err("No data group found".to_string())));
-                                                            }
-                                                        }
-                                                        Err(e) => {
-                                                            log::error!("  ❌ Failed to compute mid price: {}", e);
-                                                            compute_results.push((chart_preset.label.clone(), Err(format!("Compute failed: {}", e))));
-                                                        }
-                                                    }
-                                                }
-                                                Err(e) => {
-                                                    log::error!("  ❌ Failed to create calculator: {}", e);
-                                                    compute_results.push((chart_preset.label.clone(), Err(format!("Calculator creation failed: {}", e))));
-                                                }
-                                            }
-                                        } else {
-                                            log::warn!("  ⚠️ Missing bid/ask data for mid price computation");
-                                            compute_results.push((chart_preset.label.clone(), Err("Missing input data".to_string())));
-                                        }
-                                    }
-                                }
-                                _ => {
-                                    log::warn!("  ⚠️ Compute operation {:?} not implemented yet", compute_op);
-                                    compute_results.push((chart_preset.label.clone(), Err("Not implemented".to_string())));
-                                }
-                            }
-                        }
-                    }
-                    
-                    Some(compute_results)
-                } else {
-                    None
-                }
-            }).unwrap_or(None);
-            
+            // After fetching all data, computed fields will be handled by the compute engine
+            log::debug!("[fetch_preset_data] Computed fields will be processed by compute engine during rendering");
             // Build response
             let mut successes = Vec::new();
             let mut failures = Vec::new();
@@ -1421,24 +1360,6 @@ impl Chart {
                         "data_type": data_type,
                         "error": error
                     }))
-                }
-            }
-            
-            // Add compute results if any
-            if let Some(compute_res) = compute_results {
-                for (label, result) in compute_res {
-                    match result {
-                        Ok(msg) => successes.push(serde_json::json!({
-                            "data_type": "computed",
-                            "label": label,
-                            "message": msg
-                        })),
-                        Err(error) => failures.push(serde_json::json!({
-                            "data_type": "computed", 
-                            "label": label,
-                            "error": error
-                        }))
-                    }
                 }
             }
             
@@ -1500,9 +1421,19 @@ impl Chart {
         let data_group_index = data_store.data_groups.len() - 1;
 
         // Add each metric column
+        let mut has_bid = false;
+        let mut has_ask = false;
+        
         for column_name in &gpu_buffer_set.metadata.columns {
             if column_name == "time" {
                 continue; // Skip time column as it's already the x-axis
+            }
+            
+            // Track if we have bid/ask data
+            if column_name == "best_bid" {
+                has_bid = true;
+            } else if column_name == "best_ask" {
+                has_ask = true;
             }
 
             if let (Some(raw_buffer), Some(gpu_buffers)) = (
@@ -1533,87 +1464,38 @@ impl Chart {
                 );
             }
         }
+        
+        // If we have both bid and ask, add a computed mid_price metric
+        if has_bid && has_ask {
+            log::debug!("[process_data_handle] Adding computed mid_price metric");
+            
+            // Find the bid and ask metric refs
+            let bid_ref = data_store.find_metric("best_bid");
+            let ask_ref = data_store.find_metric("best_ask");
+            
+            if let (Some(bid_ref), Some(ask_ref)) = (bid_ref, ask_ref) {
+                data_store.add_computed_metric_to_group(
+                    data_group_index,
+                    "mid_price".to_string(),
+                    [0.7, 0.7, 1.0], // Light blue
+                    data_manager::ComputeType::Average,
+                    vec![bid_ref, ask_ref],
+                );
+                log::debug!("[process_data_handle] Successfully added computed mid_price metric");
+            } else {
+                log::error!("[process_data_handle] Failed to find bid/ask metrics for mid_price computation");
+            }
+        }
 
         log::info!(
             "Successfully added {} columns to DataStore for data type",
             gpu_buffer_set.metadata.columns.len()
         );
 
-        // Recalculate bounds if needed
-        if data_store.min_y.is_none() || data_store.max_y.is_none() {
-            Self::calculate_data_bounds(data_store, device)?;
-        }
-
-        Ok(())
-    }
-
-    /// Calculate data bounds from the loaded data
-    fn calculate_data_bounds(
-        data_store: &mut data_manager::DataStore,
-        device: &wgpu::Device,
-    ) -> Result<(), shared_types::GpuChartsError> {
-        // Get all data groups and calculate min/max
-        let mut global_min = f32::INFINITY;
-        let mut global_max = f32::NEG_INFINITY;
-        let mut found_data = false;
-
-        // Check if we have any data groups
-        if data_store.data_groups.is_empty() {
-            log::warn!("No data groups available for bounds calculation");
-            return Ok(());
-        }
-
-        // Get the time range for filtering
-        let start_x = data_store.start_x;
-        let end_x = data_store.end_x;
-
-        // Iterate through all visible metrics to find min/max
-        for (data_series, metric) in data_store.get_all_visible_metrics() {
-            // Skip non-numeric metrics like "side"
-            if metric.name == "side" {
-                continue;
-            }
-
-            // Get the time data for this series
-            let time_array = js_sys::Uint32Array::new(&data_series.x_raw);
-            let time_data: Vec<u32> = time_array.to_vec();
-
-            // Get the metric data
-            let metric_array = js_sys::Float32Array::new(&metric.y_raw);
-            let metric_data: Vec<f32> = metric_array.to_vec();
-
-            // Find min/max within the time range
-            for (i, &time) in time_data.iter().enumerate() {
-                if time >= start_x && time <= end_x {
-                    if let Some(&value) = metric_data.get(i) {
-                        if value.is_finite() {
-                            global_min = global_min.min(value);
-                            global_max = global_max.max(value);
-                            found_data = true;
-                        }
-                    }
-                }
-            }
-        }
-
-        if found_data {
-            // Add some margin (10% on each side)
-            let range = global_max - global_min;
-            let margin = range * 0.1;
-            global_min -= margin;
-            global_max += margin;
-            
-            log::info!("Calculated Y bounds from data: min={}, max={}", global_min, global_max);
-            data_store.update_min_max_y(global_min, global_max);
-            // Update the shared bind group with new bounds
-            data_store.update_shared_bind_group(device);
-        } else {
-            log::warn!("No data found in range [{}, {}]", start_x, end_x);
-            // Set reasonable defaults for financial data
-            data_store.update_min_max_y(0.0, 100000.0);
-            // Update the shared bind group with default bounds
-            data_store.update_shared_bind_group(device);
-        }
+        // Calculate initial CPU bounds for immediate rendering
+        // This provides reasonable bounds while GPU calculation happens asynchronously
+        #[allow(deprecated)]
+        data_store.recalculate_y_bounds();
 
         Ok(())
     }

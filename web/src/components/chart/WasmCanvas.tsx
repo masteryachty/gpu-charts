@@ -219,6 +219,7 @@ export default function WasmCanvas({
         const needsRender = chartState.chart.needs_render?.() ?? false;
 
         if (needsRender) {
+          // console.log('[React] needs_render returned true, calling render()');
           isRendering = true;
           try {
             await chartState.chart.render?.();
@@ -443,13 +444,21 @@ export default function WasmCanvas({
 
   // Mouse wheel handler for zoom
   const handleMouseWheel = useCallback((event: React.WheelEvent<HTMLCanvasElement>) => {
+    console.log('[React] handleMouseWheel called, deltaY:', event.deltaY);
+    console.log('[React] chartState.chart exists:', !!chartState.chart);
+    console.log('[React] chartState.isInitialized:', chartState.isInitialized);
+    
     if (chartState.chart && chartState.isInitialized) {
       event.preventDefault();
       const rect = canvasRef.current?.getBoundingClientRect();
       if (rect) {
         const x = event.clientX - rect.left;
         const y = event.clientY - rect.top;
+        console.log('[React] Mouse position - x:', x, 'y:', y);
+        console.log('[React] chart.handle_mouse_wheel exists:', !!chartState.chart.handle_mouse_wheel);
+        
         if (chartState.chart.handle_mouse_wheel) {
+          console.log('[React] Calling WASM handle_mouse_wheel with deltaY:', event.deltaY);
           chartState.chart.handle_mouse_wheel(event.deltaY, x, y);
 
           // Increment update counter and update global metrics

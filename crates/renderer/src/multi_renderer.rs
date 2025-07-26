@@ -56,6 +56,22 @@ pub trait MultiRenderable: Send + Sync {
     fn is_ready(&self) -> bool {
         true
     }
+
+    /// Check if this renderer has compute capabilities
+    fn has_compute(&self) -> bool {
+        false // Default to no compute
+    }
+
+    /// Run compute passes (called before min/max calculation)
+    fn compute(
+        &mut self,
+        _encoder: &mut CommandEncoder,
+        _data_store: &DataStore,
+        _device: &Device,
+        _queue: &Queue,
+    ) {
+        // Default implementation does nothing
+    }
 }
 
 /// Trait for renderers that can be added to a MultiRenderer (WASM version without Send+Sync)
@@ -92,6 +108,22 @@ pub trait MultiRenderable {
     /// Check if the renderer is ready to render
     fn is_ready(&self) -> bool {
         true
+    }
+
+    /// Check if this renderer has compute capabilities
+    fn has_compute(&self) -> bool {
+        false // Default to no compute
+    }
+
+    /// Run compute passes (called before min/max calculation)
+    fn compute(
+        &mut self,
+        _encoder: &mut CommandEncoder,
+        _data_store: &DataStore,
+        _device: &Device,
+        _queue: &Queue,
+    ) {
+        // Default implementation does nothing
     }
 }
 
@@ -197,6 +229,25 @@ impl MultiRenderer {
             RenderOrder::BackgroundToForeground | RenderOrder::Priority => {
                 // Sort by priority (stable sort preserves insertion order for equal priorities)
                 self.renderers.sort_by_key(|r| r.priority());
+            }
+        }
+    }
+
+    /// Run compute passes for all renderers that support it
+    /// This should be called BEFORE calculating min/max bounds
+    pub fn run_compute_passes(
+        &mut self,
+        encoder: &mut CommandEncoder,
+        data_store: &DataStore,
+        device: &Device,
+        queue: &Queue,
+    ) {
+        log::info!("[MultiRenderer] Running compute passes for {} renderers", self.renderers.len());
+        
+        for renderer in &mut self.renderers {
+            if renderer.has_compute() {
+                log::info!("[MultiRenderer] Running compute pass for '{}'", renderer.name());
+                renderer.compute(encoder, data_store, device, queue);
             }
         }
     }

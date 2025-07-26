@@ -213,6 +213,8 @@ pub enum ComputeOp {
 pub struct RenderPreset {
     pub render_type: RenderType,
     pub data_columns: Vec<(String, String)>, // (data_type, column_name)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub additional_data_columns: Option<Vec<(String, String)>>, // Additional columns not used for Y bounds (e.g., side for coloring)
     pub visible: bool,
     pub label: String,
     #[serde(flatten)]
@@ -238,6 +240,7 @@ impl Default for PresetManager {
             chart_types: vec![RenderPreset {
                 render_type: RenderType::Bar,
                 data_columns: vec![("md".to_string(), "volume".to_string())],
+                additional_data_columns: None,
                 visible: true,
                 label: "Volume".to_string(),
                 style: RenderStyle {

@@ -4,6 +4,7 @@
 pub mod calcables;
 pub mod charts;
 pub mod compute;
+pub mod compute_engine;
 pub mod drawables;
 pub mod mesh_builder;
 pub mod multi_renderer;
@@ -41,12 +42,7 @@ pub struct Renderer {
     #[allow(dead_code)] // Will be used for quality settings and performance tuning
     settings: GpuChartsConfig,
     data_store: DataStore,
-
-    // Specific renderers
-    plot_renderer: Option<PlotRenderer>,
-    candlestick_renderer: Option<CandlestickRenderer>,
-    x_axis_renderer: Option<XAxisRenderer>,
-    y_axis_renderer: Option<YAxisRenderer>,
+    compute_engine: compute_engine::ComputeEngine,
 }
 
 impl Renderer {
@@ -102,88 +98,31 @@ impl Renderer {
         };
         surface.configure(&device, &surface_config);
 
-        let mut renderer = Self {
+        // Create compute engine
+        let compute_engine = compute_engine::ComputeEngine::new(device.clone(), queue.clone());
+        
+        let renderer = Self {
             surface,
             device,
             queue,
             config: surface_config,
             settings: config,
             data_store,
-            plot_renderer: None,
-            candlestick_renderer: None,
-            x_axis_renderer: None,
-            y_axis_renderer: None,
+            compute_engine,
         };
-
-        // Set up initial renderers
-        renderer.setup_renderers();
 
         Ok(renderer)
     }
 
-    /// Setup renderers based on chart type
-    pub fn setup_renderers(&mut self) {
-        let format = self.config.format;
-        let chart_type = self.data_store.chart_type;
 
-        log::info!("Setting up renderers for chart type: {chart_type:?}");
-
-        // Create shared references for device and queue
-        let device = self.device.clone();
-        let queue = self.queue.clone();
-
-        let width = self.data_store.screen_size.width;
-        let height = self.data_store.screen_size.height;
-
-        // Clear only chart-specific renderers, preserve axis renderers to avoid recalculation
-        self.plot_renderer = None;
-        self.candlestick_renderer = None;
-
-        // Create renderer based on chart type
-        match self.data_store.chart_type {
-            data_manager::ChartType::Line => {
-                self.plot_renderer = Some(PlotRenderer::new(device.clone(), queue.clone(), format));
-            }
-            data_manager::ChartType::Candlestick => {
-                self.candlestick_renderer = Some(CandlestickRenderer::new(
-                    device.clone(),
-                    queue.clone(),
-                    format,
-                ));
-            }
-        }
-
-        // Create axis renderers only if they don't exist
-        // This preserves their cached values when switching chart types
-        if self.x_axis_renderer.is_none() {
-            self.x_axis_renderer = Some(XAxisRenderer::new(
-                device.clone(),
-                queue.clone(),
-                format,
-                width,
-                height,
-            ));
-        }
-
-        if self.y_axis_renderer.is_none() {
-            self.y_axis_renderer = Some(YAxisRenderer::new(
-                device.clone(),
-                queue.clone(),
-                format,
-                width,
-                height,
-            ));
-        }
-    }
-
-    /// Render a frame
-    pub async fn render(&mut self) -> RenderResult<()> {
+    /// Render a frame using the provided multi-renderer
+    pub async fn render(&mut self, multi_renderer: &mut MultiRenderer) -> RenderResult<()> {
         // Check if rendering is needed
         if !self.data_store.is_dirty() {
-            // log::debug!("Skipping render - data store not dirty");
             return Ok(());
         }
-
+        
+        
         // Get current texture
         let output = self.surface.get_current_texture()?;
         let view = output
@@ -197,80 +136,56 @@ impl Renderer {
                 label: Some("Render Encoder"),
             });
 
-        // Clear pass
-        {
-            let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Clear Pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.1,
-                            b: 0.1,
-                            a: 1.0,
-                        }),
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-            });
-            // Explicitly drop the render pass to end it
-            drop(render_pass);
+        // Run pre-render compute passes (e.g., compute mid price)
+        // This must happen BEFORE calculating min/max bounds
+        if self.data_store.min_max_buffer.is_none() {
+            log::debug!("[Renderer] Running pre-render compute passes...");
+            self.compute_engine.run_compute_passes(&mut encoder, &mut self.data_store);
         }
 
-        // Render based on current chart type
-        match self.data_store.chart_type {
-            data_manager::ChartType::Line => {
-                if let Some(ref mut plot_renderer) = self.plot_renderer {
-                    plot_renderer.render(&mut encoder, &view, &self.data_store);
-                }
-            }
-            data_manager::ChartType::Candlestick => {
-                if let Some(ref mut candlestick_renderer) = self.candlestick_renderer {
-                    candlestick_renderer.render(
-                        &mut encoder,
-                        &view,
-                        &self.data_store,
-                        &self.device,
-                        &self.queue,
-                    );
-                }
-            }
-        }
-
-        // Render axes
-        if let Some(ref mut x_axis) = self.x_axis_renderer {
-            x_axis.render(
-                &mut encoder,
-                &view,
-                &self.data_store,
+        // Calculate Y bounds using GPU if not already calculated
+        if self.data_store.min_max_buffer.is_none() {
+            log::debug!("[Renderer] Calculating Y bounds using GPU min/max...");
+            
+            let (x_min, x_max) = (self.data_store.start_x, self.data_store.end_x);
+            let (min_max_buffer, staging_buffer) = calculate_min_max_y(
                 &self.device,
                 &self.queue,
+                &mut encoder,
+                &self.data_store,
+                x_min,
+                x_max,
             );
+            
+            // Store both GPU min/max buffer and staging buffer
+            self.data_store.min_max_buffer = Some(std::sync::Arc::new(min_max_buffer));
+            self.data_store.min_max_staging_buffer = Some(std::sync::Arc::new(staging_buffer));
         }
 
-        if let Some(ref mut y_axis) = self.y_axis_renderer {
-            y_axis.render(
-                &mut encoder,
-                &view,
-                &self.data_store,
-                &self.device,
-                &self.queue,
-            );
-        }
+        // Update the shared bind group with GPU-calculated bounds
+        self.data_store.update_shared_bind_group_with_gpu_buffer(&self.device);
+
+        // Let MultiRenderer handle all rendering
+        multi_renderer.render(&mut encoder, &view, &self.data_store)?;
 
         // Submit commands
         self.queue.submit(std::iter::once(encoder.finish()));
-
+        
         // Present the frame
         output.present();
+        
+        // After presenting, try to read GPU bounds for next frame
+        // This is non-blocking and will update the bounds when ready
+        let needs_rerender = if self.data_store.gpu_min_y.is_none() {
+            self.try_read_gpu_bounds()
+        } else {
+            false
+        };
 
-        // Mark as clean after successful render
-        self.data_store.mark_clean();
+        // Mark as clean after successful render unless we need another render for GPU bounds
+        if !needs_rerender {
+            self.data_store.mark_clean();
+        }
 
         Ok(())
     }
@@ -284,8 +199,6 @@ impl Renderer {
         );
         let old_type = self.data_store.chart_type;
         self.data_store.chart_type = chart_type;
-
-        self.setup_renderers();
 
         // Mark data store as dirty to trigger a render
         self.data_store.mark_dirty();
@@ -304,33 +217,10 @@ impl Renderer {
 
     /// Get current statistics
     pub fn get_stats(&self) -> RenderStats {
-        // Only count the active renderer based on chart type
-        let mut draw_calls = match self.data_store.chart_type {
-            data_manager::ChartType::Line => {
-                if self.plot_renderer.is_some() {
-                    1
-                } else {
-                    0
-                }
-            }
-            data_manager::ChartType::Candlestick => {
-                if self.candlestick_renderer.is_some() {
-                    1
-                } else {
-                    0
-                }
-            }
-        };
-        if self.x_axis_renderer.is_some() {
-            draw_calls += 1;
-        }
-        if self.y_axis_renderer.is_some() {
-            draw_calls += 1;
-        }
-
+        // Multi-renderer tracks its own stats
         RenderStats {
             frame_time_ms: 0.0,
-            draw_calls,
+            draw_calls: 0, // Would be provided by multi-renderer
             vertices_rendered: 0,
             gpu_memory_used: 0,
         }
@@ -348,9 +238,75 @@ impl Renderer {
 
     /// Check if the renderer needs to render
     pub fn needs_render(&self) -> bool {
-        // For now, always return true
-        // In the future, we could track dirty state
-        true
+        // Check if data is dirty
+        if self.data_store.is_dirty() {
+            return true;
+        }
+        
+        // Check if we're waiting for GPU bounds to be read
+        if self.data_store.gpu_min_y.is_none() && self.data_store.min_max_staging_buffer.is_some() {
+            return true;
+        }
+        
+        false
+    }
+    
+    /// Try to read GPU-calculated bounds from the staging buffer
+    /// Returns true if bounds were successfully read and a re-render is needed
+    fn try_read_gpu_bounds(&mut self) -> bool {
+        // Skip if we already have the bounds
+        if self.data_store.gpu_min_y.is_some() {
+            return false;
+        }
+        
+        if let Some(staging_buffer) = self.data_store.min_max_staging_buffer.clone() {
+            if self.data_store.gpu_buffer_ready {
+                // Buffer should be mapped and ready to read
+                let data = staging_buffer.slice(..).get_mapped_range();
+                let floats: &[f32] = bytemuck::cast_slice(&data);
+                if floats.len() >= 2 {
+                    log::debug!("[Renderer] Read GPU bounds: min={}, max={}", floats[0], floats[1]);
+                    self.data_store.set_gpu_y_bounds(floats[0], floats[1]);
+                    // Mark dirty to trigger re-render with updated labels
+                    self.data_store.mark_dirty();
+                    drop(data);
+                    staging_buffer.unmap();
+                    self.data_store.gpu_buffer_mapped = false;
+                    self.data_store.gpu_buffer_ready = false;
+                    return true; // Request re-render
+                }
+                drop(data);
+                staging_buffer.unmap();
+                self.data_store.gpu_buffer_mapped = false;
+                self.data_store.gpu_buffer_ready = false;
+            } else if !self.data_store.gpu_buffer_mapped {
+                // Request mapping for next frame
+                let buffer_slice = staging_buffer.slice(..);
+                
+                buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
+                    if result.is_ok() {
+                        log::debug!("[Renderer] GPU min/max buffer mapped successfully");
+                    } else {
+                        log::error!("[Renderer] Failed to map GPU min/max buffer");
+                    }
+                });
+                self.data_store.gpu_buffer_mapped = true;
+                
+                // Poll to start the mapping process
+                self.device.poll(wgpu::Maintain::Poll);
+            } else {
+                // Buffer mapping was requested, check if it's ready
+                // Poll more aggressively to check for completion
+                self.device.poll(wgpu::Maintain::Wait);
+                
+                // After polling, the buffer might be ready
+                // We'll mark it as ready and try to read on the next frame
+                self.data_store.gpu_buffer_ready = true;
+                // Mark dirty to trigger another render attempt
+                self.data_store.mark_dirty();
+            }
+        }
+        false
     }
 
     /// Create a multi-renderer pipeline for complex visualizations
@@ -435,47 +391,6 @@ impl Renderer {
             .build()
     }
 
-    /// Alternative render method using MultiRenderer
-    /// 
-    /// This demonstrates how MultiRenderer can replace the manual render orchestration
-    /// in the main render() method.
-    pub async fn render_with_multi(&mut self, multi_renderer: &mut MultiRenderer) -> RenderResult<()> {
-        // Check if rendering is needed
-        if !self.data_store.is_dirty() {
-            return Ok(());
-        }
-
-        // Update the shared bind group with current bounds
-        // This is needed for axis renderers to work properly
-        self.data_store.update_shared_bind_group(&self.device);
-
-        // Get current texture
-        let output = self.surface.get_current_texture()?;
-        let view = output
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
-
-        // Create command encoder
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Multi Render Encoder"),
-            });
-
-        // Let MultiRenderer handle all rendering
-        multi_renderer.render(&mut encoder, &view, &self.data_store)?;
-
-        // Submit commands
-        self.queue.submit(std::iter::once(encoder.finish()));
-
-        // Present the frame
-        output.present();
-
-        // Mark as clean after successful render
-        self.data_store.mark_clean();
-
-        Ok(())
-    }
 }
 
 /// Trait for chart-specific renderers
