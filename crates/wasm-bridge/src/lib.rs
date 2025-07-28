@@ -324,12 +324,7 @@ impl Chart {
                     has_changes: true,
                     symbol_changed: true,
                     time_range_changed: true,
-                    timeframe_changed: true,
-                    indicators_changed: true,
-                    metrics_changed: true,
-                    connection_changed: true,
-                    user_changed: false,
-                    market_data_changed: false,
+                    preset_changed: true,
                     requires_data_fetch: true,
                     requires_render: true,
                     change_summary: vec!["Initial state setup".to_string()],
@@ -355,9 +350,9 @@ impl Chart {
             // Step 4: Apply the state changes using smart detection
             match self.apply_smart_state_changes(&store_state, &change_detection, instance) {
                 Ok(changes_applied) => {
-                    // Step 4.5: Handle data fetching for metrics changes
-                    if change_detection.metrics_changed && change_detection.requires_data_fetch {
-                        log::info!("Triggering data fetch for metrics changes - should be handled by parent component");
+                    // Step 4.5: Handle data fetching for preset changes
+                    if change_detection.preset_changed && change_detection.requires_data_fetch {
+                        log::info!("Triggering data fetch for preset changes - should be handled by parent component");
                         // Note: Data fetching should be triggered by the parent component
                         // that has access to the DataManager instance
                     }
@@ -375,12 +370,7 @@ impl Chart {
                             "hasChanges": change_detection.has_changes,
                             "symbolChanged": change_detection.symbol_changed,
                             "timeRangeChanged": change_detection.time_range_changed,
-                            "timeframeChanged": change_detection.timeframe_changed,
-                            "indicatorsChanged": change_detection.indicators_changed,
-                            "metricsChanged": change_detection.metrics_changed,
-                            "connectionChanged": change_detection.connection_changed,
-                            "userChanged": change_detection.user_changed,
-                            "marketDataChanged": change_detection.market_data_changed,
+                            "presetChanged": change_detection.preset_changed,
                             "requiresDataFetch": change_detection.requires_data_fetch,
                             "requiresRender": change_detection.requires_render,
                             "summary": change_detection.change_summary
@@ -495,10 +485,10 @@ impl Chart {
                 "config": {
                     "enableSymbolChangeDetection": instance.change_detection_config.enable_symbol_change_detection,
                     "enableTimeRangeChangeDetection": instance.change_detection_config.enable_time_range_change_detection,
-                    "enableTimeframeChangeDetection": instance.change_detection_config.enable_timeframe_change_detection,
-                    "enableIndicatorChangeDetection": instance.change_detection_config.enable_indicator_change_detection,
-                    "symbolChangeTriggersF etch": instance.change_detection_config.symbol_change_triggers_fetch,
-                    "timeRangeChangeTriggersF etch": instance.change_detection_config.time_range_change_triggers_fetch,
+                    "enablePresetChangeDetection": instance.change_detection_config.enable_preset_change_detection,
+                    "symbolChangeTriggersFetch": instance.change_detection_config.symbol_change_triggers_fetch,
+                    "timeRangeChangeTriggersFetch": instance.change_detection_config.time_range_change_triggers_fetch,
+                    "presetChangeTriggersFetch": instance.change_detection_config.preset_change_triggers_fetch,
                     "minimumTimeRangeChangeSeconds": instance.change_detection_config.minimum_time_range_change_seconds
                 }
             });
@@ -514,12 +504,10 @@ impl Chart {
             let config_json = serde_json::json!({
                 "enableSymbolChangeDetection": instance.change_detection_config.enable_symbol_change_detection,
                 "enableTimeRangeChangeDetection": instance.change_detection_config.enable_time_range_change_detection,
-                "enableTimeframeChangeDetection": instance.change_detection_config.enable_timeframe_change_detection,
-                "enableIndicatorChangeDetection": instance.change_detection_config.enable_indicator_change_detection,
-                "symbolChangeTriggersF etch": instance.change_detection_config.symbol_change_triggers_fetch,
-                "timeRangeChangeTriggersF etch": instance.change_detection_config.time_range_change_triggers_fetch,
-                "timeframeChangeTriggersRender": instance.change_detection_config.timeframe_change_triggers_render,
-                "indicatorChangeTriggersRender": instance.change_detection_config.indicator_change_triggers_render,
+                "enablePresetChangeDetection": instance.change_detection_config.enable_preset_change_detection,
+                "symbolChangeTriggersFetch": instance.change_detection_config.symbol_change_triggers_fetch,
+                "timeRangeChangeTriggersFetch": instance.change_detection_config.time_range_change_triggers_fetch,
+                "presetChangeTriggersFetch": instance.change_detection_config.preset_change_triggers_fetch,
                 "minimumTimeRangeChangeSeconds": instance.change_detection_config.minimum_time_range_change_seconds
             });
             Ok(config_json.to_string())
@@ -552,12 +540,7 @@ impl Chart {
                     has_changes: true,
                     symbol_changed: true,
                     time_range_changed: true,
-                    timeframe_changed: true,
-                    indicators_changed: true,
-                    metrics_changed: true,
-                    connection_changed: true,
-                    user_changed: false,
-                    market_data_changed: false,
+                    preset_changed: true,
                     requires_data_fetch: true,
                     requires_render: true,
                     change_summary: vec!["No previous state for comparison".to_string()],
@@ -570,11 +553,7 @@ impl Chart {
                     "hasChanges": change_detection.has_changes,
                     "symbolChanged": change_detection.symbol_changed,
                     "timeRangeChanged": change_detection.time_range_changed,
-                    "timeframeChanged": change_detection.timeframe_changed,
-                    "indicatorsChanged": change_detection.indicators_changed,
-                    "connectionChanged": change_detection.connection_changed,
-                    "userChanged": change_detection.user_changed,
-                    "marketDataChanged": change_detection.market_data_changed,
+                    "presetChanged": change_detection.preset_changed,
                     "requiresDataFetch": change_detection.requires_data_fetch,
                     "requiresRender": change_detection.requires_render,
                     "summary": change_detection.change_summary
@@ -607,9 +586,9 @@ impl Chart {
         Ok(())
     }
 
-    /// Apply a rendering preset by name
+    /// Apply a rendering preset by name and fetch required data
     #[wasm_bindgen]
-    pub fn apply_preset(&self, preset_name: &str) -> Result<String, JsValue> {
+    pub async fn apply_preset(&self, preset_name: &str, symbol: &str, start_time: u64, end_time: u64) -> Result<String, JsValue> {
         log::info!(
             "🎨 [apply_preset] Starting preset application: '{}'",
             preset_name
@@ -852,13 +831,41 @@ impl Chart {
                 "preset_applied": preset_name,
                 "description": preset.description,
                 "data_requirements": data_requirements,
-                "renderer_count": instance.line_graph.multi_renderer.as_ref().map(|mr| mr.renderer_count()).unwrap_or(0)
+                "renderer_count": instance.line_graph.multi_renderer.as_ref().map(|mr| mr.renderer_count()).unwrap_or(0),
+                "needs_data_fetch": true
             });
 
             Ok(response.to_string())
         });
 
-        result.unwrap_or_else(|| Err(JsValue::from_str("Chart not initialized")))
+        let initial_result = result.unwrap_or_else(|| Err(JsValue::from_str("Chart not initialized")))?;
+        
+        // Parse the initial result to check if preset was applied successfully
+        let initial_response: serde_json::Value = serde_json::from_str(&initial_result)
+            .map_err(|e| JsValue::from_str(&format!("Failed to parse response: {}", e)))?;
+        
+        if initial_response["success"].as_bool().unwrap_or(false) {
+            // Now fetch the data for the preset
+            log::info!("📡 [apply_preset] Fetching data for preset");
+            let fetch_result = self.fetch_preset_data(symbol, start_time, end_time).await?;
+            
+            // Merge the results
+            let fetch_response: serde_json::Value = serde_json::from_str(&fetch_result)
+                .map_err(|e| JsValue::from_str(&format!("Failed to parse fetch response: {}", e)))?;
+            
+            let final_response = serde_json::json!({
+                "success": initial_response["success"],
+                "preset_applied": initial_response["preset_applied"],
+                "description": initial_response["description"],
+                "data_requirements": initial_response["data_requirements"],
+                "renderer_count": initial_response["renderer_count"],
+                "data_fetch": fetch_response
+            });
+            
+            Ok(final_response.to_string())
+        } else {
+            Ok(initial_result)
+        }
     }
 
     /// Get the currently active preset
@@ -990,19 +997,19 @@ impl Chart {
         result.unwrap_or_else(|| Err(JsValue::from_str("Chart not initialized")))
     }
 
-    /// Toggle visibility of a specific chart type within the active preset
+    /// Toggle visibility of a specific metric in the active preset
     #[wasm_bindgen]
-    pub fn toggle_preset_chart_type(&self, chart_label: &str) -> Result<String, JsValue> {
+    pub fn toggle_metric_visibility(&self, metric_id: &str) -> Result<String, JsValue> {
         log::info!(
-            "🔄 [toggle_preset_chart_type] Starting toggle for chart type: '{}'",
-            chart_label
+            "🔄 [toggle_metric_visibility] Starting toggle for metric: '{}'",
+            metric_id
         );
 
         let result = InstanceManager::with_instance_mut(&self.instance_id, |instance| {
             // Check if a preset is active
             let preset_name = match &instance.active_preset {
                 Some(name) => {
-                    log::info!("📌 [toggle_preset_chart_type] Active preset: '{}'", name);
+                    log::info!("📌 [toggle_metric_visibility] Active preset: '{}'", name);
                     name.clone()
                 }
                 None => {
@@ -1018,7 +1025,7 @@ impl Chart {
             let preset = match instance.line_graph.preset_manager.get_preset(&preset_name) {
                 Some(p) => {
                     log::info!(
-                        "✅ [toggle_preset_chart_type] Found preset with {} chart types",
+                        "✅ [toggle_metric_visibility] Found preset with {} chart types",
                         p.chart_types.len()
                     );
                     p
@@ -1036,8 +1043,8 @@ impl Chart {
             let mut preset_clone = preset.clone();
             let mut found = false;
             log::info!(
-                "🔍 [toggle_preset_chart_type] Searching for chart type '{}' in preset",
-                chart_label
+                "🔍 [toggle_metric_visibility] Searching for metric '{}' in preset",
+                metric_id
             );
 
             for (idx, chart_preset) in preset_clone.chart_types.iter_mut().enumerate() {
@@ -1049,12 +1056,12 @@ impl Chart {
                     chart_preset.render_type
                 );
 
-                if chart_preset.label == chart_label {
+                if chart_preset.label == metric_id {
                     let old_visibility = chart_preset.visible;
                     chart_preset.visible = !chart_preset.visible;
                     log::info!(
-                        "🎯 [toggle_preset_chart_type] Found match! Toggling '{}' from {} to {}",
-                        chart_label,
+                        "🎯 [toggle_metric_visibility] Found match! Toggling '{}' from {} to {}",
+                        metric_id,
                         old_visibility,
                         chart_preset.visible
                     );
@@ -1066,13 +1073,13 @@ impl Chart {
             if !found {
                 let error_response = serde_json::json!({
                     "success": false,
-                    "error": format!("Chart type '{}' not found in preset", chart_label)
+                    "error": format!("Metric '{}' not found in preset", metric_id)
                 });
                 return Ok(error_response.to_string());
             }
 
             // Save the updated preset state back to the PresetManager
-            log::info!("💾 [toggle_preset_chart_type] Saving updated preset state");
+            log::info!("💾 [toggle_metric_visibility] Saving updated preset state");
             instance
                 .line_graph
                 .preset_manager
@@ -1089,7 +1096,7 @@ impl Chart {
             // Add only visible renderers
             let mut visible_count = 0;
             log::info!(
-                "🏗️ [toggle_preset_chart_type] Rebuilding multi-renderer with visible components:"
+                "🏗️ [toggle_metric_visibility] Rebuilding multi-renderer with visible components:"
             );
 
             for (idx, chart_preset) in preset_clone.chart_types.iter().enumerate() {
@@ -1239,13 +1246,13 @@ impl Chart {
             multi_renderer.add_renderer(Box::new(y_axis));
 
             // Update the multi-renderer
-            log::info!("📦 [toggle_preset_chart_type] Setting new multi-renderer with {} visible components", visible_count);
+            log::info!("📦 [toggle_metric_visibility] Setting new multi-renderer with {} visible components", visible_count);
             instance.line_graph.multi_renderer = Some(multi_renderer);
 
             // Mark renderer as dirty
             instance.line_graph.renderer.data_store_mut().mark_dirty();
             log::info!(
-                "🚀 [toggle_preset_chart_type] Renderer marked as dirty, ready for re-render"
+                "🚀 [toggle_metric_visibility] Renderer marked as dirty, ready for re-render"
             );
 
             // Get the updated visibility state
@@ -1263,8 +1270,8 @@ impl Chart {
 
             let response = serde_json::json!({
                 "success": true,
-                "chart_label": chart_label,
-                "visible": preset_clone.chart_types.iter().find(|cp| cp.label == chart_label).map(|cp| cp.visible).unwrap_or(false),
+                "metric_id": metric_id,
+                "visible": preset_clone.chart_types.iter().find(|cp| cp.label == metric_id).map(|cp| cp.visible).unwrap_or(false),
                 "visible_count": visible_count,
                 "all_chart_states": visibility_states
             });
@@ -1819,9 +1826,9 @@ impl Chart {
 
         // Check if we need to update data (symbol or time range changed)
         let needs_data_update = if let Some(ref current_state) = instance.current_store_state {
-            store_state.chart_config.symbol != current_state.chart_config.symbol
-                || store_state.chart_config.start_time != current_state.chart_config.start_time
-                || store_state.chart_config.end_time != current_state.chart_config.end_time
+            store_state.current_symbol != current_state.current_symbol
+                || store_state.start_time != current_state.start_time
+                || store_state.end_time != current_state.end_time
         } else {
             true // First time, always need data
         };
@@ -1829,66 +1836,42 @@ impl Chart {
         if needs_data_update {
             // Update the data range in the data store
             instance.line_graph.renderer.data_store_mut().set_x_range(
-                store_state.chart_config.start_time as u32,
-                store_state.chart_config.end_time as u32,
+                store_state.start_time as u32,
+                store_state.end_time as u32,
             );
 
             // Note: In a full implementation, we would trigger data fetching here
             // For now, we just update the range
             changes_applied.push(format!(
                 "Updated time range: {} to {}",
-                store_state.chart_config.start_time, store_state.chart_config.end_time
+                store_state.start_time, store_state.end_time
             ));
 
             if let Some(ref current_state) = instance.current_store_state {
-                if store_state.chart_config.symbol != current_state.chart_config.symbol {
+                if store_state.current_symbol != current_state.current_symbol {
                     changes_applied.push(format!(
                         "Changed symbol: {} -> {}",
-                        current_state.chart_config.symbol, store_state.chart_config.symbol
+                        current_state.current_symbol, store_state.current_symbol
                     ));
                 }
             } else {
-                changes_applied.push(format!("Set symbol: {}", store_state.chart_config.symbol));
+                changes_applied.push(format!("Set symbol: {}", store_state.current_symbol));
             }
         }
 
-        // Check for timeframe changes
+        // Check for preset changes
         if let Some(ref current_state) = instance.current_store_state {
-            if store_state.chart_config.timeframe != current_state.chart_config.timeframe {
+            if store_state.preset != current_state.preset {
                 changes_applied.push(format!(
-                    "Changed timeframe: {} -> {}",
-                    current_state.chart_config.timeframe, store_state.chart_config.timeframe
-                ));
-            }
-
-            // Check for indicator changes
-            if store_state.chart_config.indicators != current_state.chart_config.indicators {
-                changes_applied.push(format!(
-                    "Updated indicators: {:?} -> {:?}",
-                    current_state.chart_config.indicators, store_state.chart_config.indicators
-                ));
-            }
-
-            // Check for connection status changes
-            if store_state.is_connected != current_state.is_connected {
-                changes_applied.push(format!(
-                    "Connection status: {} -> {}",
-                    current_state.is_connected, store_state.is_connected
+                    "Changed preset: {:?} -> {:?}",
+                    current_state.preset, store_state.preset
                 ));
             }
         } else {
             // First time setup
             changes_applied.push(format!(
-                "Set timeframe: {}",
-                store_state.chart_config.timeframe
-            ));
-            changes_applied.push(format!(
-                "Set indicators: {:?}",
-                store_state.chart_config.indicators
-            ));
-            changes_applied.push(format!(
-                "Set connection status: {}",
-                store_state.is_connected
+                "Set preset: {:?}",
+                store_state.preset
             ));
         }
 
@@ -1916,11 +1899,11 @@ impl Chart {
         if change_detection.symbol_changed {
             // Update topic in data store
             instance.line_graph.renderer.data_store_mut().topic =
-                Some(store_state.chart_config.symbol.clone());
+                Some(store_state.current_symbol.clone());
 
             changes_applied.push(format!(
                 "Symbol updated to: {}",
-                store_state.chart_config.symbol
+                store_state.current_symbol
             ));
 
             // Note: In full implementation, this would trigger async data fetching
@@ -1932,13 +1915,13 @@ impl Chart {
         // Handle time range changes
         if change_detection.time_range_changed {
             instance.line_graph.renderer.data_store_mut().set_x_range(
-                store_state.chart_config.start_time as u32,
-                store_state.chart_config.end_time as u32,
+                store_state.start_time as u32,
+                store_state.end_time as u32,
             );
 
             changes_applied.push(format!(
                 "Time range updated: {} to {}",
-                store_state.chart_config.start_time, store_state.chart_config.end_time
+                store_state.start_time, store_state.end_time
             ));
 
             if change_detection.requires_data_fetch {
@@ -1946,76 +1929,16 @@ impl Chart {
             }
         }
 
-        // Handle timeframe changes
-        if change_detection.timeframe_changed {
+        // Handle preset changes
+        if change_detection.preset_changed {
             changes_applied.push(format!(
-                "Timeframe updated to: {}",
-                store_state.chart_config.timeframe
+                "Preset updated to: {:?}",
+                store_state.preset
             ));
 
-            // Note: In full implementation, this would update aggregation logic
+            // Note: In full implementation, this would apply the preset
             if change_detection.requires_render {
-                changes_applied.push("Render triggered for timeframe change".to_string());
-            }
-        }
-
-        // Handle indicator changes
-        if change_detection.indicators_changed {
-            changes_applied.push(format!(
-                "Indicators updated: {:?}",
-                store_state.chart_config.indicators
-            ));
-
-            // Note: In full implementation, this would update indicator renderers
-            if change_detection.requires_render {
-                changes_applied.push("Render triggered for indicator changes".to_string());
-            }
-        }
-
-        // Handle metrics changes
-        if change_detection.metrics_changed {
-            changes_applied.push(format!(
-                "Metrics updated: {:?}",
-                store_state.chart_config.selected_metrics
-            ));
-
-            // This is the key change - metrics changes should trigger data fetching
-            if change_detection.requires_data_fetch {
-                changes_applied.push("Data fetch triggered for new metrics".to_string());
-
-                // Note: We skip the actual fetch here to avoid borrow conflicts
-                // The data fetching will be handled elsewhere or deferred
-            }
-
-            if change_detection.requires_render {
-                changes_applied.push("Render triggered for metrics changes".to_string());
-            }
-        }
-
-        // Handle connection status changes
-        if change_detection.connection_changed {
-            log::info!("Connection status changed");
-            changes_applied.push(format!("Connection status: {}", store_state.is_connected));
-
-            // Note: In full implementation, this might pause/resume data feeds
-        }
-
-        // Handle user changes
-        if change_detection.user_changed {
-            log::info!("User information changed");
-            if store_state.user.is_some() {
-                changes_applied.push("User session updated".to_string());
-            } else {
-                changes_applied.push("User logged out".to_string());
-            }
-        }
-
-        // Handle market data changes
-        if change_detection.market_data_changed {
-            changes_applied.push("Market data refreshed".to_string());
-
-            if change_detection.requires_render {
-                changes_applied.push("Render triggered for market data update".to_string());
+                changes_applied.push("Render triggered for preset change".to_string());
             }
         }
 

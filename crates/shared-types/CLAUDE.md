@@ -44,7 +44,7 @@ Provides winit-compatible event types for WebAssembly:
 ### Store State Module (`src/store_state.rs`)
 React store integration types:
 - `StoreState`: Complete application state structure
-- `ChartConfig`: Chart-specific configuration
+- `ChartStateConfig`: Chart-specific configuration
 - `MarketData`: Real-time market data structure
 - `User`: User session information
 - `ChangeDetectionConfig`: Smart change detection settings
@@ -63,7 +63,7 @@ React store integration types:
 2. **Follow Naming Conventions**:
    ```rust
    // Good: Clear, descriptive names
-   pub struct ChartConfig { ... }
+   pub struct ChartStateConfig { ... }
    pub enum ChartType { ... }
    
    // Avoid: Ambiguous or overly generic names
@@ -148,9 +148,9 @@ pub enum SharedError {
 
 ### Builder Pattern for Complex Types
 ```rust
-impl ChartConfig {
-    pub fn builder() -> ChartConfigBuilder {
-        ChartConfigBuilder::default()
+impl ChartStateConfig {
+    pub fn builder() -> ChartStateConfigBuilder {
+        ChartStateConfigBuilder::default()
     }
 }
 ```

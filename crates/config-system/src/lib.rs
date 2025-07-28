@@ -29,12 +29,14 @@ impl ConfigManager {
 
     /// Apply a quality preset
     pub fn apply_preset(&mut self, preset: QualityPreset) {
-        self.config.quality_preset = preset;
+        self.config.performance.quality_preset = preset;
 
         match preset {
             QualityPreset::Low => {
                 self.config.performance = PerformanceConfig {
+                    quality_preset: preset,
                     target_fps: 30,
+                    enable_adaptive_quality: true,
                     max_data_points: 100_000,
                     enable_culling: true,
                     enable_lod: true,
@@ -44,7 +46,9 @@ impl ConfigManager {
             }
             QualityPreset::Medium => {
                 self.config.performance = PerformanceConfig {
+                    quality_preset: preset,
                     target_fps: 60,
+                    enable_adaptive_quality: true,
                     max_data_points: 1_000_000,
                     enable_culling: true,
                     enable_lod: true,
@@ -54,7 +58,9 @@ impl ConfigManager {
             }
             QualityPreset::High => {
                 self.config.performance = PerformanceConfig {
+                    quality_preset: preset,
                     target_fps: 60,
+                    enable_adaptive_quality: true,
                     max_data_points: 10_000_000,
                     enable_culling: true,
                     enable_lod: false,
@@ -64,7 +70,9 @@ impl ConfigManager {
             }
             QualityPreset::Ultra => {
                 self.config.performance = PerformanceConfig {
+                    quality_preset: preset,
                     target_fps: 120,
+                    enable_adaptive_quality: false,
                     max_data_points: 100_000_000,
                     enable_culling: true,
                     enable_lod: false,
@@ -114,7 +122,7 @@ impl ConfigManager {
 
         // If we're significantly below target, reduce quality
         if current_fps < target_fps * 0.8 {
-            match self.config.quality_preset {
+            match self.config.performance.quality_preset {
                 QualityPreset::Ultra => self.apply_preset(QualityPreset::High),
                 QualityPreset::High => self.apply_preset(QualityPreset::Medium),
                 QualityPreset::Medium => self.apply_preset(QualityPreset::Low),
@@ -127,7 +135,7 @@ impl ConfigManager {
         } else if
         // If we're well above target, we could increase quality
         current_fps > target_fps * 1.5 && metrics.gpu_utilization < 0.7 {
-            match self.config.quality_preset {
+            match self.config.performance.quality_preset {
                 QualityPreset::Low => self.apply_preset(QualityPreset::Medium),
                 QualityPreset::Medium => self.apply_preset(QualityPreset::High),
                 QualityPreset::High => self.apply_preset(QualityPreset::Ultra),

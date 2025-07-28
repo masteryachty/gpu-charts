@@ -39,7 +39,7 @@ src/store/
 ```typescript
 Store State
 ├── currentSymbol: SymbolId
-├── chartConfig: ChartConfig
+├── ChartStateConfig: ChartStateConfig
 ├── marketData: Record<string, MarketData>
 ├── isConnected: boolean
 └── user?: User

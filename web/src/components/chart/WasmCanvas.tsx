@@ -11,16 +11,14 @@ interface WasmCanvasProps {
   /** Debounce delay for state changes in ms (default: 100) */
   debounceMs?: number;
 
-  /** Enable performance monitoring overlay (default: true) */
-  showPerformanceOverlay?: boolean;
 
   /** Enable debug information (default: false) */
   debugMode?: boolean;
 
   /** Callback when chart is ready with the chart instance */
   onChartReady?: (chart: any) => void;
-  
-  /** Currently active preset name */
+
+  /** Currently active preset name from React state */
   activePreset?: string | null;
 }
 
@@ -29,7 +27,6 @@ export default function WasmCanvas({
   height,
   enableAutoSync = true,
   debounceMs = 100,
-  showPerformanceOverlay = true,
   debugMode = false,
   onChartReady,
   activePreset
@@ -46,7 +43,7 @@ export default function WasmCanvas({
     enableAutoSync,
     debounceMs,
     enableDataFetching: true,
-    enablePerformanceMonitoring: true, // Re-enabled after fixing infinite loops
+    enablePerformanceMonitoring: false, // Disabled per user request
   });
 
   // Set canvas size to match container dimensions exactly
@@ -70,7 +67,7 @@ export default function WasmCanvas({
         containerSize: `${rect.width}x${rect.height}`,
         canvasSize: `${canvas.width}x${canvas.height}`
       });
-      
+
       // Notify the chart about the resize
       if (chartState.chart && chartState.isInitialized && chartState.chart.resize) {
         chartState.chart.resize(newWidth, newHeight);
@@ -322,38 +319,31 @@ export default function WasmCanvas({
           // Keep reference to actual WASM chart instance
           _wasmChart: chartState.chart,
           ...chartState.chart,
-          // Enhanced state access methods
+          // Enhanced state access methods - simplified for new architecture
           get_current_store_state: async () => {
             try {
-              // Return the current React store state for testing
+              // Return the simplified React store state
               const store = (window as any).__zustandStore || (window as any).__GET_STORE_STATE__;
               if (store) {
                 const state = typeof store === 'function' ? store() : store.getState();
                 return JSON.stringify({
-                  currentSymbol: state.currentSymbol,
-                  symbol: state.currentSymbol, // Alias for compatibility
-                  chartConfig: state.chartConfig,
-                  timeframe: state.chartConfig?.timeframe,
-                  marketData: state.marketData,
-                  isConnected: state.isConnected,
-                  connected: state.isConnected, // Alias for compatibility
-                  user: state.user,
-                  chartInitialized: true,
-                  startTime: state.chartConfig?.startTime,
-                  endTime: state.chartConfig?.endTime
+                  symbol: state.currentSymbol,
+                  startTime: state.ChartStateConfig?.startTime,
+                  endTime: state.ChartStateConfig?.endTime,
+                  metricPreset: state.ChartStateConfig?.metricPreset,
+                  chartInitialized: true
                 });
               }
               return JSON.stringify({
-                currentSymbol: 'BTC-USD',
                 symbol: 'BTC-USD',
                 chartInitialized: true,
-                connected: false,
-                timeframe: '1h'
+                metricPreset: null,
+                startTime: Math.floor(Date.now() / 1000) - 86400,
+                endTime: Math.floor(Date.now() / 1000)
               });
             } catch (error) {
               console.error('[WasmCanvas] Error getting store state:', error);
               return JSON.stringify({
-                currentSymbol: 'BTC-USD',
                 symbol: 'BTC-USD',
                 chartInitialized: true,
                 error: String(error)
@@ -367,30 +357,23 @@ export default function WasmCanvas({
               if (store) {
                 const state = typeof store === 'function' ? store() : store.getState();
                 return {
-                  currentSymbol: state.currentSymbol,
-                  symbol: state.currentSymbol, // Alias for compatibility
-                  chartConfig: state.chartConfig,
-                  timeframe: state.chartConfig?.timeframe,
-                  marketData: state.marketData,
-                  isConnected: state.isConnected,
-                  connected: state.isConnected, // Alias for compatibility
-                  user: state.user,
-                  chartInitialized: true,
-                  startTime: state.chartConfig?.startTime,
-                  endTime: state.chartConfig?.endTime
+                  symbol: state.currentSymbol,
+                  startTime: state.ChartStateConfig?.startTime,
+                  endTime: state.ChartStateConfig?.endTime,
+                  metricPreset: state.ChartStateConfig?.metricPreset,
+                  chartInitialized: true
                 };
               }
               return {
-                currentSymbol: 'BTC-USD',
                 symbol: 'BTC-USD',
                 chartInitialized: true,
-                connected: false,
-                timeframe: '1h'
+                metricPreset: null,
+                startTime: Math.floor(Date.now() / 1000) - 86400,
+                endTime: Math.floor(Date.now() / 1000)
               };
             } catch (error) {
               console.error('[WasmCanvas] Error getting state:', error);
               return {
-                currentSymbol: 'BTC-USD',
                 symbol: 'BTC-USD',
                 chartInitialized: true,
                 error: String(error)
@@ -447,7 +430,7 @@ export default function WasmCanvas({
     console.log('[React] handleMouseWheel called, deltaY:', event.deltaY);
     console.log('[React] chartState.chart exists:', !!chartState.chart);
     console.log('[React] chartState.isInitialized:', chartState.isInitialized);
-    
+
     if (chartState.chart && chartState.isInitialized) {
       event.preventDefault();
       const rect = canvasRef.current?.getBoundingClientRect();
@@ -456,7 +439,7 @@ export default function WasmCanvas({
         const y = event.clientY - rect.top;
         console.log('[React] Mouse position - x:', x, 'y:', y);
         console.log('[React] chart.handle_mouse_wheel exists:', !!chartState.chart.handle_mouse_wheel);
-        
+
         if (chartState.chart.handle_mouse_wheel) {
           console.log('[React] Calling WASM handle_mouse_wheel with deltaY:', event.deltaY);
           chartState.chart.handle_mouse_wheel(event.deltaY, x, y);
@@ -611,41 +594,6 @@ export default function WasmCanvas({
         </div>
       )}
 
-      {/* Enhanced Performance overlay */}
-      {showPerformanceOverlay && chartState.isInitialized && (
-        <div className="absolute top-4 right-4 bg-gray-800/90 text-white text-xs px-3 py-2 rounded backdrop-blur-sm space-y-1" data-testid="performance-overlay">
-          <div data-testid="fps-display" className="font-mono">
-            <span className={chartState.fps < 30 ? 'text-red-400' : chartState.fps < 45 ? 'text-yellow-400' : 'text-green-400'}>
-              {Math.round(chartState.fps || 60)} FPS
-            </span>
-          </div>
-          <div className="font-mono">Updates: <span className="text-blue-400">#{chartState.updateCount}</span></div>
-          {chartState.renderLatency > 0 && (
-            <div className="font-mono">
-              Latency: <span className={chartState.renderLatency > 50 ? 'text-red-400' : chartState.renderLatency > 25 ? 'text-yellow-400' : 'text-green-400'}>
-                {chartState.renderLatency.toFixed(1)}ms
-              </span>
-            </div>
-          )}
-          <div className="text-xs border-t border-gray-700 pt-1 mt-1">
-            <div>Memory: {(() => {
-              const browserMemory = (performance as any).memory;
-              const globalMetrics = (window as any).__PERFORMANCE_METRICS__;
-              const perfMonitor = (window as any).__PERFORMANCE_MONITOR_STATE__;
-
-              const memoryBytes = browserMemory?.usedJSHeapSize ||
-                globalMetrics?.totalMemoryUsage ||
-                perfMonitor?.metrics?.totalMemoryUsage ||
-                50 * 1024 * 1024;
-
-              return Math.round(memoryBytes / (1024 * 1024));
-            })()}MB</div>
-            {(((window as any).__PERFORMANCE_METRICS__?.cpuUsage || (window as any).__PERFORMANCE_MONITOR_STATE__?.metrics?.cpuUsage || 0) > 0) && (
-              <div>CPU: {(window as any).__PERFORMANCE_METRICS__?.cpuUsage || (window as any).__PERFORMANCE_MONITOR_STATE__?.metrics?.cpuUsage || 0}%</div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Debug information */}
       {debugMode && (

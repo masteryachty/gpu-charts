@@ -166,7 +166,7 @@ await chart.init('canvas-id', 800, 600);
 // Update state
 const storeState = {
     currentSymbol: 'BTC-USD',
-    chartConfig: {
+    ChartStateConfig: {
         symbol: 'BTC-USD',
         timeframe: '1h',
         startTime: Date.now() - 86400000,
@@ -313,7 +313,7 @@ console.log(wasmModule);
 mod tests {
     #[test]
     fn test_state_validation() {
-        let invalid_state = r#"{"chartConfig": {"startTime": 100, "endTime": 50}}"#;
+        let invalid_state = r#"{"ChartStateConfig": {"startTime": 100, "endTime": 50}}"#;
         let result = deserialize_and_validate_store_state(invalid_state);
         assert!(result.is_err());
     }

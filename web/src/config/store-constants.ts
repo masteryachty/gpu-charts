@@ -11,7 +11,6 @@ export const STORE_CONSTANTS = {
   MIN_TIME_RANGE_SECONDS: 60, // 1 minute
   MAX_SYMBOL_LENGTH: 20,
   MIN_SYMBOL_LENGTH: 3,
-  MAX_INDICATORS: 200,
   
   // Performance thresholds
   MAX_MARKET_DATA_ENTRIES: 1000,
@@ -25,7 +24,6 @@ export const STORE_CONSTANTS = {
   
   // Default values
   DEFAULT_SYMBOL: 'BTC-USD',
-  DEFAULT_TIMEFRAME: '1h',
   DEFAULT_TIME_RANGE_HOURS: 24,
   
   // State change detection
@@ -42,11 +40,9 @@ export const STORE_CONSTANTS = {
   
 } as const;
 
-export const VALID_TIMEFRAMES = ['1m', '5m', '15m', '1h', '4h', '1d'] as const;
 export const VALID_COLUMNS = ['time', 'best_bid', 'best_ask', 'price', 'volume', 'side'] as const;
 export const VALID_USER_PLANS = ['free', 'pro', 'enterprise'] as const;
 
-export type ValidTimeframe = typeof VALID_TIMEFRAMES[number];
 export type ValidColumn = typeof VALID_COLUMNS[number];
 export type ValidUserPlan = typeof VALID_USER_PLANS[number];
 
@@ -61,21 +57,12 @@ export const VALIDATION_RULES = {
     errorMessage: 'Symbol must be in format XXX-XXX or XXX/XXX (e.g., BTC-USD or BTC/USD)'
   },
   
-  timeframe: {
-    validValues: VALID_TIMEFRAMES,
-    errorMessage: `Timeframe must be one of: ${VALID_TIMEFRAMES.join(', ')}`
-  },
-  
   timeRange: {
     minDuration: STORE_CONSTANTS.MIN_TIME_RANGE_SECONDS,
     maxDuration: STORE_CONSTANTS.MAX_TIME_RANGE_SECONDS,
     errorMessage: `Time range must be between ${STORE_CONSTANTS.MIN_TIME_RANGE_SECONDS} seconds and ${STORE_CONSTANTS.MAX_TIME_RANGE_SECONDS} seconds`
   },
   
-  indicators: {
-    maxCount: STORE_CONSTANTS.MAX_INDICATORS,
-    errorMessage: `Maximum ${STORE_CONSTANTS.MAX_INDICATORS} indicators allowed`
-  }
 } as const;
 
 /**
@@ -105,11 +92,9 @@ export const DEFAULT_STORE_CONFIG = {
  */
 export const ERROR_SEVERITY_MAP = {
   'INVALID_SYMBOL': 'medium',
-  'INVALID_TIMEFRAME': 'medium', 
+ 
   'INVALID_TIME_RANGE': 'high',
   'SYMBOL_MISMATCH': 'low',
-  'EMPTY_INDICATOR': 'low',
-  'TOO_MANY_INDICATORS': 'medium',
   'MEMORY_LIMIT_EXCEEDED': 'critical',
   'PERFORMANCE_DEGRADED': 'medium',
   'STATE_CORRUPTION': 'critical',
@@ -157,12 +142,6 @@ export const FEATURE_FLAGS = {
   ENABLE_PROFILING: false, // Only enable for performance testing
 } as const;
 
-/**
- * Helper function to check if a value is a valid timeframe
- */
-export function isValidTimeframe(value: unknown): value is ValidTimeframe {
-  return typeof value === 'string' && VALID_TIMEFRAMES.includes(value as ValidTimeframe);
-}
 
 /**
  * Helper function to check if a value is a valid column

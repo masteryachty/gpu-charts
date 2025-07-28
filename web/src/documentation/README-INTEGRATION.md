@@ -472,12 +472,12 @@ if (isSymbolId(userInput)) {
 ### Runtime Validation
 
 ```typescript
-import { validateAndTransform, isChartConfig } from './types/type-guards';
+import { validateAndTransform, isChartStateConfig } from './types/type-guards';
 
 // Validate and transform data
 const config = validateAndTransform(
   userConfig,
-  isChartConfig,
+  isChartStateConfig,
   'Invalid chart configuration'
 );
 ```

@@ -9,6 +9,17 @@ use crate::controls::canvas_controller::CanvasController;
 use crate::line_graph::LineGraph;
 use shared_types::store_state::{ChangeDetectionConfig, StoreState};
 
+/// Data requirements for a preset
+#[derive(Clone, Debug)]
+pub struct PresetDataRequirements {
+    /// Map of data_type to set of columns needed
+    pub columns_by_type: std::collections::HashMap<String, std::collections::HashSet<String>>,
+    /// Map of metric_id to visibility state
+    pub visibility_states: std::collections::HashMap<String, bool>,
+    /// Map of metric_id to (data_type, column) for quick lookup
+    pub metric_mappings: std::collections::HashMap<String, (String, String)>,
+}
+
 /// Represents a single chart instance with all its associated state
 pub struct ChartInstance {
     pub line_graph: LineGraph,
@@ -16,6 +27,7 @@ pub struct ChartInstance {
     pub current_store_state: Option<StoreState>,
     pub change_detection_config: ChangeDetectionConfig,
     pub active_preset: Option<String>,
+    pub preset_data_requirements: Option<PresetDataRequirements>,
 }
 
 // Thread-local storage for chart instances
@@ -36,6 +48,7 @@ impl InstanceManager {
             current_store_state: None,
             change_detection_config: ChangeDetectionConfig::default(),
             active_preset: None,
+            preset_data_requirements: None,
         };
 
         CHART_INSTANCES.with(|instances| {

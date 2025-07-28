@@ -59,15 +59,15 @@ export function createValidator<T>(schema: TypeSchema<T>): TypeValidator<T> {
       if (typeof value !== 'object' || value === null) {
         return false;
       }
-      
+
       const obj = value as Record<string, unknown>;
-      
+
       for (const [key, validator] of Object.entries(schema)) {
         if (!validator.validate(obj[key])) {
           return false;
         }
       }
-      
+
       return true;
     },
     errorMessage: `Object must match schema with keys: ${Object.keys(schema).join(', ')}`
@@ -96,8 +96,6 @@ export function isPercentage(value: unknown): value is Percentage {
 }
 
 // Type-safe enum implementations
-export const TimeframeValues = ['1m', '5m', '15m', '1h', '4h', '1d'] as const;
-export type Timeframe = typeof TimeframeValues[number];
 
 export const ColumnValues = ['time', 'best_bid', 'best_ask', 'price', 'volume', 'side'] as const;
 export type Column = typeof ColumnValues[number];
@@ -111,7 +109,6 @@ export type ErrorCategory = typeof ErrorCategoryValues[number];
 // Type-safe configuration with defaults
 export interface TypedConfiguration {
   chart: {
-    defaultTimeframe: Timeframe;
     maxDataPoints: number;
     refreshInterval: number;
   };
@@ -134,7 +131,6 @@ export interface TypedConfiguration {
 
 export const defaultConfiguration: DeepReadonly<TypedConfiguration> = {
   chart: {
-    defaultTimeframe: '1h',
     maxDataPoints: 10000,
     refreshInterval: 1000
   },
@@ -176,9 +172,8 @@ export interface TypedEventEmitter {
 }
 
 // Type-safe state management with discriminated unions
-export type StoreAction = 
+export type StoreAction =
   | { type: 'SET_SYMBOL'; payload: { symbol: SymbolId } }
-  | { type: 'SET_TIMEFRAME'; payload: { timeframe: Timeframe } }
   | { type: 'SET_TIME_RANGE'; payload: { startTime: Timestamp; endTime: Timestamp } }
   | { type: 'UPDATE_MARKET_DATA'; payload: { symbol: SymbolId; data: any } }
   | { type: 'SET_CONNECTION_STATUS'; payload: { isConnected: boolean } }
@@ -186,7 +181,6 @@ export type StoreAction =
 
 export interface StoreActionCreators {
   setSymbol: (symbol: SymbolId) => StoreAction;
-  setTimeframe: (timeframe: Timeframe) => StoreAction;
   setTimeRange: (startTime: Timestamp, endTime: Timestamp) => StoreAction;
   updateMarketData: (symbol: SymbolId, data: any) => StoreAction;
   setConnectionStatus: (isConnected: boolean) => StoreAction;
@@ -199,15 +193,15 @@ export function storeReducer(state: any, action: StoreAction): any {
     case 'SET_SYMBOL':
       return { ...state, currentSymbol: action.payload.symbol };
     case 'SET_TIMEFRAME':
-      return { 
-        ...state, 
-        chartConfig: { ...state.chartConfig, timeframe: action.payload.timeframe }
+      return {
+        ...state,
+        ChartStateConfig: { ...state.ChartStateConfig, timeframe: action.payload.timeframe }
       };
     case 'SET_TIME_RANGE':
       return {
         ...state,
-        chartConfig: {
-          ...state.chartConfig,
+        ChartStateConfig: {
+          ...state.ChartStateConfig,
           startTime: action.payload.startTime,
           endTime: action.payload.endTime
         }
@@ -235,7 +229,7 @@ export function storeReducer(state: any, action: StoreAction): any {
 function createInitialState(): any {
   return {
     currentSymbol: 'BTC-USD' as SymbolId,
-    chartConfig: {
+    ChartStateConfig: {
       symbol: 'BTC-USD' as SymbolId,
       timeframe: '1h' as Timeframe,
       startTime: Date.now() - 3600000 as Timestamp,
@@ -251,17 +245,17 @@ function createInitialState(): any {
 export const actionCreators: StoreActionCreators = {
   setSymbol: (symbol: SymbolId) => ({ type: 'SET_SYMBOL', payload: { symbol } }),
   setTimeframe: (timeframe: Timeframe) => ({ type: 'SET_TIMEFRAME', payload: { timeframe } }),
-  setTimeRange: (startTime: Timestamp, endTime: Timestamp) => ({ 
-    type: 'SET_TIME_RANGE', 
-    payload: { startTime, endTime } 
+  setTimeRange: (startTime: Timestamp, endTime: Timestamp) => ({
+    type: 'SET_TIME_RANGE',
+    payload: { startTime, endTime }
   }),
-  updateMarketData: (symbol: SymbolId, data: any) => ({ 
-    type: 'UPDATE_MARKET_DATA', 
-    payload: { symbol, data } 
+  updateMarketData: (symbol: SymbolId, data: any) => ({
+    type: 'UPDATE_MARKET_DATA',
+    payload: { symbol, data }
   }),
-  setConnectionStatus: (isConnected: boolean) => ({ 
-    type: 'SET_CONNECTION_STATUS', 
-    payload: { isConnected } 
+  setConnectionStatus: (isConnected: boolean) => ({
+    type: 'SET_CONNECTION_STATUS',
+    payload: { isConnected }
   }),
   resetState: () => ({ type: 'RESET_STATE' })
 };
@@ -301,8 +295,8 @@ export const apiEndpoints = {
       symbol: { validate: isSymbolId, errorMessage: 'Invalid symbol format' },
       startTime: { validate: isTimestamp, errorMessage: 'Invalid start time' },
       endTime: { validate: isTimestamp, errorMessage: 'Invalid end time' },
-      columns: { 
-        validate: (value): value is Column[] => 
+      columns: {
+        validate: (value): value is Column[] =>
           Array.isArray(value) && value.every(col => ColumnValues.includes(col as Column)),
         errorMessage: 'Invalid columns array'
       }
@@ -321,33 +315,33 @@ export function validateConfiguration(config: unknown): config is TypedConfigura
   if (typeof config !== 'object' || config === null) {
     return false;
   }
-  
+
   const cfg = config as any;
-  
+
   // Validate chart config
   if (!cfg.chart || typeof cfg.chart !== 'object') return false;
   if (!TimeframeValues.includes(cfg.chart.defaultTimeframe)) return false;
   if (typeof cfg.chart.maxDataPoints !== 'number') return false;
   if (typeof cfg.chart.refreshInterval !== 'number') return false;
-  
+
   // Validate performance config
   if (!cfg.performance || typeof cfg.performance !== 'object') return false;
   if (typeof cfg.performance.fpsThreshold !== 'number') return false;
   if (typeof cfg.performance.memoryThreshold !== 'number') return false;
   if (typeof cfg.performance.enableOptimizations !== 'boolean') return false;
-  
+
   // Validate data config
   if (!cfg.data || typeof cfg.data !== 'object') return false;
   if (typeof cfg.data.cacheSize !== 'number') return false;
   if (typeof cfg.data.retryAttempts !== 'number') return false;
   if (typeof cfg.data.timeoutMs !== 'number') return false;
-  
+
   // Validate errors config
   if (!cfg.errors || typeof cfg.errors !== 'object') return false;
   if (typeof cfg.errors.enableReporting !== 'boolean') return false;
   if (typeof cfg.errors.maxErrorHistory !== 'number') return false;
   if (typeof cfg.errors.autoRecovery !== 'boolean') return false;
-  
+
   return true;
 }
 
@@ -357,12 +351,12 @@ export function deepMerge<T extends Record<string, any>>(
   source: DeepPartial<T>
 ): T {
   const result = { ...target };
-  
+
   for (const key in source) {
     if (source.hasOwnProperty(key)) {
       const sourceValue = source[key];
       const targetValue = result[key];
-      
+
       if (
         sourceValue &&
         typeof sourceValue === 'object' &&
@@ -377,7 +371,7 @@ export function deepMerge<T extends Record<string, any>>(
       }
     }
   }
-  
+
   return result;
 }
 
@@ -391,7 +385,7 @@ export interface EnvironmentConfig {
 
 export function parseEnvironmentConfig(): EnvironmentConfig {
   const env = process.env;
-  
+
   return {
     NODE_ENV: (env.NODE_ENV as any) || 'development',
     API_BASE_URL: env.REACT_APP_API_BASE_URL || 'https://api.rednax.io',
@@ -401,7 +395,7 @@ export function parseEnvironmentConfig(): EnvironmentConfig {
 }
 
 // Advanced type-safe hook return types
-export type AsyncState<T, E = Error> = 
+export type AsyncState<T, E = Error> =
   | { status: 'idle'; data: null; error: null }
   | { status: 'loading'; data: null; error: null }
   | { status: 'success'; data: T; error: null }

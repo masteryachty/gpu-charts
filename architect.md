@@ -179,7 +179,7 @@ Common data structures used across all crates.
 
 **Key Types:**
 ```rust
-pub struct ChartConfiguration {
+pub struct ChartStateConfiguration {
     pub chart_type: ChartType,
     pub data_handles: Vec<DataHandle>,
     pub visual_config: VisualConfig,

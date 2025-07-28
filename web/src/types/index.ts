@@ -8,16 +8,68 @@ export interface MarketData {
   timestamp: number;
 }
 
-// Chart configuration
-export interface ChartConfig {
-  symbol: string;
-  timeframe: string;
+// Chart render type enum matching Rust RenderType
+export enum ChartRenderType {
+  Line = 'Line',
+  Bar = 'Bar',
+  Candlestick = 'Candlestick',
+  Triangle = 'Triangle',
+  Area = 'Area'
+}
+
+// Simplified StoreState matching Rust expectations
+export interface SimpleStoreState {
+  preset: ChartPreset | null;
+  currentSymbol: string;
   startTime: number;
   endTime: number;
-  indicators: string[];
-  selectedMetrics: string[]; // Multiple metrics like ['best_bid', 'best_ask']
-  chartType: 'line' | 'candlestick';
-  candleTimeframe: number; // in seconds (60, 300, 900, 3600, etc.)
+}
+
+// Compute operation for calculated fields
+export interface ComputeOp {
+  type: 'Average' | 'Sum' | 'Difference' | 'Product' | 'Ratio' | 'Min' | 'Max' | 'WeightedAverage';
+  weights?: number[]; // For WeightedAverage
+}
+
+// Style configuration for rendering
+export interface RenderStyle {
+  color?: [number, number, number, number]; // RGBA
+  colorOptions?: Array<[number, number, number, number]>; // Multiple colors for trades
+  size: number; // Line width, triangle size, bar width, etc.
+}
+
+// Individual metric configuration
+export interface VisibleMetric {
+  renderType: ChartRenderType;
+  dataColumns: Array<[string, string]>; // [data_type, column_name]
+  additionalDataColumns?: Array<[string, string]>; // Additional columns not used for Y bounds
+  visible: boolean;
+  label: string;
+  style: RenderStyle;
+  computeOp?: ComputeOp; // For calculated fields like mid price
+}
+
+// Metric preset configuration
+export interface MetricPreset {
+  name: string;
+  description: string;
+  chartTypes: VisibleMetric[];
+}
+
+// Chart configuration
+export interface ChartState {
+  symbol: string;
+  startTime: number;
+  endTime: number;
+  metricPreset: string | null; // Just the preset name, WASM manages the rest
+}
+
+// Simplified chart state for Rust communication
+export interface SimpleChartState {
+  preset: string | null; // Just the preset name
+  symbol: string;
+  startTime: number;
+  endTime: number;
 }
 
 // WASM integration types
@@ -30,21 +82,19 @@ export interface WasmModule {
 export interface StoreSubscriptionCallbacks {
   onSymbolChange?: (newSymbol: string, oldSymbol: string) => void;
   onTimeRangeChange?: (newRange: { startTime: number; endTime: number }, oldRange: { startTime: number; endTime: number }) => void;
-  onTimeframeChange?: (newTimeframe: string, oldTimeframe: string) => void;
-  onIndicatorsChange?: (newIndicators: string[], oldIndicators: string[]) => void;
   onMetricsChange?: (newMetrics: string[], oldMetrics: string[]) => void;
   onConnectionChange?: (connected: boolean) => void;
   onMarketDataChange?: (symbol: string, data: MarketData) => void;
   onAnyChange?: (newState: AppState, oldState: AppState) => void;
 }
 
-// Application state (matches Rust StoreState)
+// Full application state for React
 export interface StoreState {
   currentSymbol: string;
-  chartConfig: ChartConfig;
+  ChartStateConfig: ChartState;
   marketData: Record<string, MarketData>;
   isConnected: boolean;
-  user?: User;
+  user?: any;
   // Subscription management for testing
   _subscriptions?: Map<string, StoreSubscriptionCallbacks>;
   _lastState?: StoreState | null;
@@ -53,48 +103,28 @@ export interface StoreState {
 // Keep AppState as alias for backward compatibility
 export type AppState = StoreState;
 
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  plan: UserPlan;
-}
-
-export enum UserPlan {
-  Free = 'free',
-  Pro = 'pro', 
-  Enterprise = 'enterprise'
-}
-
-// Navigation
-export interface NavItem {
-  label: string;
-  href: string;
-  icon?: React.ComponentType;
-}
-
-// Performance metrics
-export interface PerformanceMetrics {
-  fps: number;
-  frameTime: number;
-  latency: number;
-}
-
-// Preset types
+// Preset types matching Rust ChartPreset structure
 export interface ChartPreset {
-  render_type: 'Line' | 'Bar' | 'Dot' | 'Candle' | 'Area' | 'Step';
-  data_columns: Array<[string, string]>; // [data_type, column_name]
-  visible: boolean;
-  label: string;
-  style?: any; // RenderStyle - keeping flexible for now
-  compute_op?: string; // Optional compute operation
-}
-
-export interface RenderingPreset {
   name: string;
   description: string;
-  chart_types: ChartPreset[];
+  chart_types: RenderPreset[];
 }
+
+// Individual render preset matching Rust RenderPreset
+export interface RenderPreset {
+  render_type: ChartRenderType;
+  data_columns: Array<[string, string]>; // [data_type, column_name]
+  additional_data_columns?: Array<[string, string]>; // Additional columns not used for Y bounds
+  visible: boolean;
+  label: string;
+  color?: [number, number, number, number]; // RGBA
+  colorOptions?: Array<[number, number, number, number]>; // Multiple colors for trades
+  size: number; // Line width, triangle size, bar width, etc.
+  compute_op?: ComputeOp; // For calculated fields like mid price
+}
+
+// RenderingPreset is now an alias for ChartPreset for backward compatibility
+export type RenderingPreset = ChartPreset;
 
 export interface PresetGroup {
   name: string;
@@ -142,19 +172,17 @@ export interface ToggleChartTypeResponse {
 }
 
 // Import constants from centralized configuration
-import { 
-  STORE_CONSTANTS, 
-  VALID_TIMEFRAMES, 
-  VALID_COLUMNS, 
-  validateSymbol, 
-  validateTimeRange,
-  isValidTimeframe 
+import {
+  STORE_CONSTANTS,
+  VALID_COLUMNS,
+  validateSymbol,
+  validateTimeRange
 } from '../config/store-constants';
 
 // Re-export commonly used constants for backward compatibility
 export const MAX_TIME_RANGE_SECONDS = STORE_CONSTANTS.MAX_TIME_RANGE_SECONDS;
 export const MIN_TIME_RANGE_SECONDS = STORE_CONSTANTS.MIN_TIME_RANGE_SECONDS;
-export { VALID_TIMEFRAMES, VALID_COLUMNS };
+export { VALID_COLUMNS };
 
 // Validation types
 export interface ValidationResult {
@@ -182,19 +210,19 @@ export function validateStoreState(state: StoreState): ValidationResult {
   }
 
   // Validate chart config
-  const configValidation = validateChartConfig(state.chartConfig);
+  const configValidation = validateChartStateConfig(state.ChartStateConfig);
   errors.push(...configValidation.errors);
   warnings.push(...configValidation.warnings);
 
   // Check consistency
-  if (state.currentSymbol !== state.chartConfig.symbol) {
-    warnings.push(`Current symbol '${state.currentSymbol}' differs from chart config symbol '${state.chartConfig.symbol}'`);
+  if (state.currentSymbol !== state.ChartStateConfig.symbol) {
+    warnings.push(`Current symbol '${state.currentSymbol}' differs from chart config symbol '${state.ChartStateConfig.symbol}'`);
   }
 
   return { isValid: errors.length === 0, errors, warnings };
 }
 
-export function validateChartConfig(config: ChartConfig): ValidationResult {
+export function validateChartStateConfig(config: ChartState): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
@@ -205,10 +233,6 @@ export function validateChartConfig(config: ChartConfig): ValidationResult {
     errors.push(`Invalid symbol format: ${config.symbol}. Must be in format XXX-XXX (e.g., BTC-USD)`);
   }
 
-  // Validate timeframe using centralized validation
-  if (!isValidTimeframe(config.timeframe)) {
-    errors.push(`Invalid timeframe '${config.timeframe}'. Must be one of: ${VALID_TIMEFRAMES.join(', ')}`);
-  }
 
   // Validate time range using centralized validation
   if (!validateTimeRange(config.startTime, config.endTime)) {
@@ -225,16 +249,11 @@ export function validateChartConfig(config: ChartConfig): ValidationResult {
     }
   }
 
-  // Validate indicators count and content
-  if (config.indicators.length > STORE_CONSTANTS.MAX_INDICATORS) {
-    errors.push(`Too many indicators: ${config.indicators.length} (maximum: ${STORE_CONSTANTS.MAX_INDICATORS})`);
+
+  // Validate metric preset
+  if (!config.metricPreset) {
+    warnings.push('No metric preset selected');
   }
-  
-  config.indicators.forEach(indicator => {
-    if (!indicator || indicator.trim().length === 0) {
-      warnings.push('Empty indicator name found');
-    }
-  });
 
   return { isValid: errors.length === 0, errors, warnings };
 }
@@ -247,11 +266,3 @@ export function deserializeStoreState(json: string): StoreState {
   return JSON.parse(json);
 }
 
-export function extractFetchParams(state: StoreState): DataFetchParams {
-  return {
-    symbol: state.chartConfig.symbol,
-    startTime: state.chartConfig.startTime,
-    endTime: state.chartConfig.endTime,
-    columns: ['time', ...state.chartConfig.selectedMetrics] // Include selected metrics
-  };
-}

@@ -203,7 +203,7 @@ interface AppState {
   // UI state
   isConnected: boolean;
   sidebarOpen: boolean;
-  chartConfig: ChartConfig;
+  ChartStateConfig: ChartStateConfig;
   
   // Performance metrics
   fps: number;
@@ -218,7 +218,7 @@ interface AppActions {
   
   // UI actions
   toggleSidebar: () => void;
-  setChartConfig: (config: ChartConfig) => void;
+  setChartStateConfig: (config: ChartStateConfig) => void;
   
   // System actions
   setConnectionStatus: (connected: boolean) => void;
@@ -232,7 +232,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   marketData: {},
   isConnected: false,
   sidebarOpen: true,
-  chartConfig: defaultChartConfig,
+  ChartStateConfig: defaultChartStateConfig,
   fps: 0,
   latency: 0,
   
@@ -286,7 +286,7 @@ const Header: React.FC = () => {
 #### Sidebar Component (`components/layout/Sidebar.tsx`)
 ```typescript
 const Sidebar: React.FC = () => {
-  const { sidebarOpen, toggleSidebar, chartConfig, setChartConfig } = useAppStore();
+  const { sidebarOpen, toggleSidebar, ChartStateConfig, setChartStateConfig } = useAppStore();
   
   return (
     <motion.aside
@@ -298,8 +298,8 @@ const Sidebar: React.FC = () => {
         <IndicatorPanel />
         <DrawingTools />
         <ChartSettings 
-          config={chartConfig}
-          onChange={setChartConfig}
+          config={ChartStateConfig}
+          onChange={setChartStateConfig}
         />
       </div>
     </motion.aside>
@@ -399,7 +399,7 @@ interface MarketData {
 }
 
 // Chart configuration with defaults
-interface ChartConfig {
+interface ChartStateConfig {
   theme: 'dark' | 'light';
   timeframe: '1m' | '5m' | '15m' | '1h' | '4h' | '1d';
   indicators: IndicatorConfig[];

@@ -28,29 +28,36 @@ export default function PresetSection({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Handle preset selection
+  // Handle preset selection - simplified to use new WASM architecture
   const handlePresetSelect = useCallback(async (preset: RenderingPreset | null) => {
-    if (!chartInstance?.apply_preset || !chartInstance?.fetch_preset_data || !chartInstance?.clear_preset) {
+    if (!chartInstance?.apply_preset || !chartInstance?.clear_preset) {
       return;
     }
 
     setError(null);
+    setIsLoading(true);
 
     try {
       if (preset) {
-        // Apply the preset immediately (this shows the checkboxes)
-        const applyResult = chartInstance.apply_preset(preset.name);
+        // Apply preset with auto data fetching
+        // WASM apply_preset() now fetches data automatically
+        const applyResult = await chartInstance.apply_preset(
+          preset.name,
+          currentSymbol,
+          BigInt(startTime),
+          BigInt(endTime)
+        );
         const applyResponse = JSON.parse(applyResult);
 
         if (!applyResponse.success) {
           throw new Error(applyResponse.message || 'Failed to apply preset');
         }
 
-        // Update state immediately so checkboxes appear
+        // Update state
         setSelectedPreset(preset);
         onPresetChange?.(preset.name);
 
-        // Load chart states immediately after applying preset
+        // Load chart states to show checkboxes
         try {
           const statesJson = chartInstance.get_preset_chart_states();
           const response: PresetChartStatesResponse = JSON.parse(statesJson);
@@ -62,39 +69,9 @@ export default function PresetSection({
           console.error('[PresetSection] Failed to get chart states:', err);
         }
 
-        // Now fetch data in the background
-        const isDataLoaded = chartInstance.is_preset_data_loaded?.() ?? false;
-        
-        if (!isDataLoaded) {
-          // Show loading only for data fetching
-          setIsLoading(true);
-          
-          try {
-            // Fetch data if not already loaded
-            const dataResult = await chartInstance.fetch_preset_data(
-              currentSymbol,
-              BigInt(startTime),
-              BigInt(endTime)
-            );
-            
-            const dataResponse = JSON.parse(dataResult);
-            if (!dataResponse.success) {
-              throw new Error(dataResponse.error || 'Failed to fetch preset data');
-            }
-
-            // Trigger a render to display the data
-            if (chartInstance.render) {
-              await chartInstance.render();
-            }
-          } finally {
-            setIsLoading(false);
-          }
-        } else {
-          console.log('[PresetSection] Data already loaded, skipping fetch');
-          // Trigger a render to display the preset with existing data
-          if (chartInstance.render) {
-            await chartInstance.render();
-          }
+        // Trigger a render to display the data
+        if (chartInstance.render) {
+          await chartInstance.render();
         }
       } else {
         // Clear preset
@@ -156,34 +133,40 @@ export default function PresetSection({
 
   // This useEffect is no longer needed since we load chart states immediately in handlePresetSelect
 
-  // Toggle individual chart type visibility
+  // Toggle individual metric visibility - simplified to use new WASM architecture
   const handleChartTypeToggle = useCallback(async (chartLabel: string) => {
-    if (!chartInstance?.toggle_preset_chart_type) return;
+    if (!chartInstance?.toggle_metric_visibility) return;
 
-    console.log('[PresetSection] Toggling chart type:', chartLabel);
-    console.log('[PresetSection] Current chart states before toggle:', chartStates);
+    console.log('[PresetSection] Toggling metric visibility:', chartLabel);
 
     try {
-      const toggleResult = chartInstance.toggle_preset_chart_type(chartLabel);
-      const response: ToggleChartTypeResponse = JSON.parse(toggleResult);
+      // Use the new simplified toggle_metric_visibility method
+      const toggleResult = chartInstance.toggle_metric_visibility(chartLabel);
+      const response = JSON.parse(toggleResult);
       
       console.log('[PresetSection] Toggle response:', response);
       
-      if (response.success && response.all_chart_states) {
-        console.log('[PresetSection] Setting new chart states:', response.all_chart_states);
-        setChartStates(response.all_chart_states);
+      if (response.success) {
+        // Get updated visibility states from WASM
+        const statesJson = chartInstance.get_preset_chart_states();
+        const statesResponse: PresetChartStatesResponse = JSON.parse(statesJson);
+        
+        if (statesResponse.success && statesResponse.chart_states) {
+          setChartStates(statesResponse.chart_states);
+        }
+        
         // Trigger a render to update the display
         if (chartInstance.render) {
           await chartInstance.render();
         }
       } else {
-        throw new Error(response.error || 'Failed to toggle chart type');
+        throw new Error(response.error || 'Failed to toggle metric visibility');
       }
     } catch (err) {
-      console.error('[PresetSection] Error toggling chart type:', err);
-      setError(err instanceof Error ? err.message : 'Failed to toggle chart type');
+      console.error('[PresetSection] Error toggling metric visibility:', err);
+      setError(err instanceof Error ? err.message : 'Failed to toggle metric visibility');
     }
-  }, [chartInstance, chartStates]);
+  }, [chartInstance]);
 
   return (
     <div className="space-y-2">

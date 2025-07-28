@@ -15,7 +15,7 @@ pub mod shaders;
 
 use config_system::GpuChartsConfig;
 use data_manager::DataStore;
-use shared_types::{GpuChartsError, GpuChartsResult, RenderStats};
+use shared_types::{GpuChartsError, GpuChartsResult};
 use std::rc::Rc;
 use wgpu::{CommandEncoder, Device, Queue, TextureView};
 
@@ -218,16 +218,6 @@ impl Renderer {
         log::info!("Resized surface to {{ width: {width}, height: {height} }}");
     }
 
-    /// Get current statistics
-    pub fn get_stats(&self) -> RenderStats {
-        // Multi-renderer tracks its own stats
-        RenderStats {
-            frame_time_ms: 0.0,
-            draw_calls: 0, // Would be provided by multi-renderer
-            vertices_rendered: 0,
-            gpu_memory_used: 0,
-        }
-    }
 
     /// Get mutable access to data store
     pub fn data_store_mut(&mut self) -> &mut DataStore {

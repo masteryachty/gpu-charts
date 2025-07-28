@@ -4,14 +4,12 @@
  * Advanced type guards for runtime type safety across the React-Rust integration system.
  */
 
-import { 
-  SymbolId, 
-  Timestamp, 
-  Price, 
-  Volume, 
+import {
+  SymbolId,
+  Timestamp,
+  Price,
+  Volume,
   Percentage,
-  Timeframe,
-  TimeframeValues,
   Column,
   ColumnValues,
   ErrorSeverity,
@@ -86,9 +84,6 @@ export function isPercentage(value: unknown): value is Percentage {
   return isFiniteNumber(value) && value >= -100 && value <= 1000; // Reasonable percentage range
 }
 
-export function isTimeframe(value: unknown): value is Timeframe {
-  return isString(value) && TimeframeValues.includes(value as Timeframe);
-}
 
 export function isColumn(value: unknown): value is Column {
   return isString(value) && ColumnValues.includes(value as Column);
@@ -103,26 +98,22 @@ export function isErrorCategory(value: unknown): value is ErrorCategory {
 }
 
 // Complex object type guards
-export interface ChartConfig {
+export interface ChartStateConfig {
   symbol: SymbolId;
-  timeframe: Timeframe;
   startTime: Timestamp;
   endTime: Timestamp;
-  indicators: string[];
 }
 
-export function isChartConfig(value: unknown): value is ChartConfig {
+export function isChartStateConfig(value: unknown): value is ChartStateConfig {
   if (!isObject(value)) return false;
-  
+
   const config = value as any;
-  
+
   return (
     isSymbolId(config.symbol) &&
-    isTimeframe(config.timeframe) &&
     isTimestamp(config.startTime) &&
     isTimestamp(config.endTime) &&
-    config.startTime < config.endTime &&
-    isArray(config.indicators, isString)
+    config.startTime < config.endTime
   );
 }
 
@@ -137,9 +128,9 @@ export interface MarketData {
 
 export function isMarketData(value: unknown): value is MarketData {
   if (!isObject(value)) return false;
-  
+
   const data = value as any;
-  
+
   return (
     isSymbolId(data.symbol) &&
     isPrice(data.price) &&
@@ -152,7 +143,7 @@ export function isMarketData(value: unknown): value is MarketData {
 
 export interface StoreState {
   currentSymbol: SymbolId;
-  chartConfig: ChartConfig;
+  ChartStateConfig: ChartStateConfig;
   marketData: Record<string, MarketData>;
   isConnected: boolean;
   user?: {
@@ -164,12 +155,12 @@ export interface StoreState {
 
 export function isStoreState(value: unknown): value is StoreState {
   if (!isObject(value)) return false;
-  
+
   const state = value as any;
-  
+
   return (
     isSymbolId(state.currentSymbol) &&
-    isChartConfig(state.chartConfig) &&
+    isChartStateConfig(state.ChartStateConfig) &&
     isObject(state.marketData) &&
     Object.values(state.marketData).every(isMarketData) &&
     isBoolean(state.isConnected) &&
@@ -179,9 +170,9 @@ export function isStoreState(value: unknown): value is StoreState {
 
 function isUserObject(value: unknown): value is { id: string; name: string; email: string } {
   if (!isObject(value)) return false;
-  
+
   const user = value as any;
-  
+
   return (
     isNonEmptyString(user.id) &&
     isNonEmptyString(user.name) &&
@@ -207,9 +198,9 @@ export interface PerformanceMetrics {
 
 export function isPerformanceMetrics(value: unknown): value is PerformanceMetrics {
   if (!isObject(value)) return false;
-  
+
   const metrics = value as any;
-  
+
   return (
     isNonNegativeNumber(metrics.fps) &&
     isNonNegativeNumber(metrics.frameTime) &&
@@ -238,9 +229,9 @@ export interface AppError {
 
 export function isAppError(value: unknown): value is AppError {
   if (!isObject(value)) return false;
-  
+
   const error = value as any;
-  
+
   return (
     isNonEmptyString(error.code) &&
     isNonEmptyString(error.message) &&
@@ -256,7 +247,6 @@ export interface DataFetchRequest {
   symbol: SymbolId;
   startTime: Timestamp;
   endTime: Timestamp;
-  timeframe: Timeframe;
   columns: Column[];
   priority: 'low' | 'normal' | 'high' | 'critical';
   reason: 'user_action' | 'auto_sync' | 'prefetch' | 'real_time';
@@ -264,15 +254,14 @@ export interface DataFetchRequest {
 
 export function isDataFetchRequest(value: unknown): value is DataFetchRequest {
   if (!isObject(value)) return false;
-  
+
   const request = value as any;
-  
+
   return (
     isSymbolId(request.symbol) &&
     isTimestamp(request.startTime) &&
     isTimestamp(request.endTime) &&
     request.startTime < request.endTime &&
-    isTimeframe(request.timeframe) &&
     isArray(request.columns, isColumn) &&
     request.columns.length > 0 &&
     ['low', 'normal', 'high', 'critical'].includes(request.priority) &&
@@ -296,11 +285,11 @@ export interface DataFetchResponse {
 
 export function isDataFetchResponse(value: unknown): value is DataFetchResponse {
   if (!isObject(value)) return false;
-  
+
   const response = value as any;
-  
+
   if (!isBoolean(response.success)) return false;
-  
+
   if (response.success) {
     return (
       (response.data === undefined || response.data instanceof ArrayBuffer) &&
@@ -316,9 +305,9 @@ export function isDataFetchResponse(value: unknown): value is DataFetchResponse 
 
 function isDataFetchMetadata(value: unknown): value is DataFetchResponse['metadata'] {
   if (!isObject(value)) return false;
-  
+
   const metadata = value as any;
-  
+
   return (
     isSymbolId(metadata.symbol) &&
     isArray(metadata.timeRange) &&
@@ -335,7 +324,6 @@ function isDataFetchMetadata(value: unknown): value is DataFetchResponse['metada
 // Configuration type guards
 export interface ConfigurationObject {
   chart: {
-    defaultTimeframe: Timeframe;
     maxDataPoints: number;
     refreshInterval: number;
   };
@@ -358,24 +346,23 @@ export interface ConfigurationObject {
 
 export function isConfigurationObject(value: unknown): value is ConfigurationObject {
   if (!isObject(value)) return false;
-  
+
   const config = value as any;
-  
+
   return (
-    isChartConfigSection(config.chart) &&
+    isChartStateConfigSection(config.chart) &&
     isPerformanceConfigSection(config.performance) &&
     isDataConfigSection(config.data) &&
     isErrorsConfigSection(config.errors)
   );
 }
 
-function isChartConfigSection(value: unknown): boolean {
+function isChartStateConfigSection(value: unknown): boolean {
   if (!isObject(value)) return false;
-  
+
   const chart = value as any;
-  
+
   return (
-    isTimeframe(chart.defaultTimeframe) &&
     isPositiveNumber(chart.maxDataPoints) &&
     isPositiveNumber(chart.refreshInterval)
   );
@@ -383,9 +370,9 @@ function isChartConfigSection(value: unknown): boolean {
 
 function isPerformanceConfigSection(value: unknown): boolean {
   if (!isObject(value)) return false;
-  
+
   const perf = value as any;
-  
+
   return (
     isPositiveNumber(perf.fpsThreshold) &&
     isPositiveNumber(perf.memoryThreshold) &&
@@ -395,9 +382,9 @@ function isPerformanceConfigSection(value: unknown): boolean {
 
 function isDataConfigSection(value: unknown): boolean {
   if (!isObject(value)) return false;
-  
+
   const data = value as any;
-  
+
   return (
     isPositiveNumber(data.cacheSize) &&
     isPositiveNumber(data.retryAttempts) &&
@@ -407,9 +394,9 @@ function isDataConfigSection(value: unknown): boolean {
 
 function isErrorsConfigSection(value: unknown): boolean {
   if (!isObject(value)) return false;
-  
+
   const errors = value as any;
-  
+
   return (
     isBoolean(errors.enableReporting) &&
     isPositiveNumber(errors.maxErrorHistory) &&
@@ -437,7 +424,7 @@ export function validateArrayItems<T>(
   if (!Array.isArray(value)) {
     throw new Error(`Expected array, received: ${typeof value}`);
   }
-  
+
   return value.map((item, index) => {
     if (itemGuard(item)) {
       return item;
@@ -454,9 +441,9 @@ export function validateObjectProperties<T extends Record<string, unknown>>(
   if (!isObject(value)) {
     throw new Error(`Expected object, received: ${typeof value}`);
   }
-  
+
   const result: Partial<T> = {};
-  
+
   for (const [key, guard] of Object.entries(propertyGuards)) {
     const propertyValue = (value as any)[key];
     if (guard(propertyValue)) {
@@ -465,7 +452,7 @@ export function validateObjectProperties<T extends Record<string, unknown>>(
       throw new Error(`${errorMessage}: property '${key}' validation failed. Received: ${JSON.stringify(propertyValue)}`);
     }
   }
-  
+
   return result as T;
 }
 
@@ -473,17 +460,17 @@ export function validateObjectProperties<T extends Record<string, unknown>>(
 export function validateParams(...guards: Array<(value: unknown) => boolean>) {
   return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
     const originalMethod = descriptor.value;
-    
+
     descriptor.value = function (...args: any[]) {
       guards.forEach((guard, index) => {
         if (!guard(args[index])) {
           throw new Error(`Parameter ${index} validation failed in ${propertyKey}`);
         }
       });
-      
+
       return originalMethod.apply(this, args);
     };
-    
+
     return descriptor;
   };
 }
@@ -491,17 +478,17 @@ export function validateParams(...guards: Array<(value: unknown) => boolean>) {
 export function validateResult<T>(guard: (value: unknown) => value is T) {
   return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
     const originalMethod = descriptor.value;
-    
+
     descriptor.value = function (...args: any[]) {
       const result = originalMethod.apply(this, args);
-      
+
       if (!guard(result)) {
         throw new Error(`Return value validation failed in ${propertyKey}`);
       }
-      
+
       return result;
     };
-    
+
     return descriptor;
   };
 }
@@ -519,20 +506,19 @@ export const typeGuards = {
   isNonNegativeNumber,
   isInteger,
   isFiniteNumber,
-  
+
   // Domain types
   isSymbolId,
   isTimestamp,
   isPrice,
   isVolume,
   isPercentage,
-  isTimeframe,
   isColumn,
   isErrorSeverity,
   isErrorCategory,
-  
+
   // Complex objects
-  isChartConfig,
+  isChartStateConfig,
   isMarketData,
   isStoreState,
   isPerformanceMetrics,
@@ -540,7 +526,7 @@ export const typeGuards = {
   isDataFetchRequest,
   isDataFetchResponse,
   isConfigurationObject,
-  
+
   // Utilities
   validateAndTransform,
   validateArrayItems,
