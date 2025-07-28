@@ -169,9 +169,6 @@ npm run test:all
 # Run server unit and integration tests
 npm run test:server
 
-# Run server API integration tests (requires running server)
-npm run test:server:api
-
 # Run coinbase logger tests
 npm run test:logger
 
@@ -217,15 +214,6 @@ REACT_APP_API_BASE_URL=https://api.rednax.io
 
 # For local development
 REACT_APP_API_BASE_URL=https://localhost:8443
-```
-
-### Testing API Endpoints
-```bash
-# Test production API
-npm run test:server:api:production
-
-# Test local development API
-npm run test:server:api
 ```
 
 ## Server Architecture
@@ -281,7 +269,6 @@ cargo test --target x86_64-unknown-linux-gnu
 
 # Or using npm scripts from web directory
 npm run test:server          # Unit and integration tests
-npm run test:server:api      # Live API tests (requires running server)
 ```
 
 ## Key Technical Considerations

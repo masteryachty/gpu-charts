@@ -31,8 +31,6 @@
     "test": "npm run test:server",
     "test:all": "npm run test:server && npm run test:web",
     "test:server": "cd server && cargo test --target x86_64-unknown-linux-gnu",
-    "test:server:api": "cd server && ./test_api.sh",
-    "test:server:api:production": "cd server && ./test_api_production.sh",
     "test:logger": "cd logger && cargo test --target x86_64-unknown-linux-gnu",
     "test:web": "cd web && npm run test",
     "test:data": "cd web && npm run test:data",

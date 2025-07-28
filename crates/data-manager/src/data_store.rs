@@ -65,7 +65,7 @@ pub struct DataStore {
     pub screen_size: ScreenDimensions,
     pub topic: Option<String>,
     pub chart_type: ChartType,
-    pub candle_timeframe: u32,                             // in seconds
+    pub candle_timeframe: u32,                            // in seconds
     dirty: bool, // Track if data has changed and needs re-rendering
     excluded_columns_for_y_bounds: Vec<String>, // Columns to exclude from Y bounds calculation
     pub min_max_buffer: Option<Rc<wgpu::Buffer>>, // GPU-calculated min/max buffer
@@ -540,16 +540,12 @@ impl DataStore {
         }
 
         log::info!("[DataStore] ========== Y BOUNDS CALCULATION SUMMARY ==========");
-        log::info!(
-            "[DataStore] Total metrics: {total_metrics}, Visible: {visible_metrics}"
-        );
+        log::info!("[DataStore] Total metrics: {total_metrics}, Visible: {visible_metrics}");
         log::info!("[DataStore] Included metrics: {included_metrics:?}");
         log::info!("[DataStore] Skipped metrics: {skipped_metrics:?}");
 
         if found_data {
-            log::info!(
-                "[DataStore] Raw bounds: min={global_min}, max={global_max}"
-            );
+            log::info!("[DataStore] Raw bounds: min={global_min}, max={global_max}");
 
             // Add 10% margin
             let range = global_max - global_min;
