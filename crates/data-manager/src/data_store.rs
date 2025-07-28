@@ -1,6 +1,6 @@
 use js_sys::{ArrayBuffer, Uint32Array};
 use nalgebra_glm as glm;
-use std::sync::Arc;
+use std::rc::Rc;
 use wgpu::util::DeviceExt;
 use wgpu::{Buffer, Device};
 
@@ -68,8 +68,8 @@ pub struct DataStore {
     pub candle_timeframe: u32,                             // in seconds
     dirty: bool, // Track if data has changed and needs re-rendering
     excluded_columns_for_y_bounds: Vec<String>, // Columns to exclude from Y bounds calculation
-    pub min_max_buffer: Option<Arc<wgpu::Buffer>>, // GPU-calculated min/max buffer
-    pub min_max_staging_buffer: Option<Arc<wgpu::Buffer>>, // Staging buffer for CPU readback
+    pub min_max_buffer: Option<Rc<wgpu::Buffer>>, // GPU-calculated min/max buffer
+    pub min_max_staging_buffer: Option<Rc<wgpu::Buffer>>, // Staging buffer for CPU readback
     pub gpu_min_y: Option<f32>, // GPU-calculated min Y value
     pub gpu_max_y: Option<f32>, // GPU-calculated max Y value
     pub gpu_buffer_mapped: bool, // Flag to track if GPU buffer mapping is requested
@@ -541,18 +541,14 @@ impl DataStore {
 
         log::info!("[DataStore] ========== Y BOUNDS CALCULATION SUMMARY ==========");
         log::info!(
-            "[DataStore] Total metrics: {}, Visible: {}",
-            total_metrics,
-            visible_metrics
+            "[DataStore] Total metrics: {total_metrics}, Visible: {visible_metrics}"
         );
-        log::info!("[DataStore] Included metrics: {:?}", included_metrics);
-        log::info!("[DataStore] Skipped metrics: {:?}", skipped_metrics);
+        log::info!("[DataStore] Included metrics: {included_metrics:?}");
+        log::info!("[DataStore] Skipped metrics: {skipped_metrics:?}");
 
         if found_data {
             log::info!(
-                "[DataStore] Raw bounds: min={}, max={}",
-                global_min,
-                global_max
+                "[DataStore] Raw bounds: min={global_min}, max={global_max}"
             );
 
             // Add 10% margin
@@ -562,9 +558,7 @@ impl DataStore {
             global_max += margin;
 
             log::info!(
-                "[DataStore] Final Y bounds (with 10% margin): min={}, max={}",
-                global_min,
-                global_max
+                "[DataStore] Final Y bounds (with 10% margin): min={global_min}, max={global_max}"
             );
             self.update_min_max_y(global_min, global_max);
         } else {
@@ -598,7 +592,7 @@ impl DataStore {
             // Fallback to default values if GPU buffer not available
             let y_min_max = glm::vec2(0.0, 100.0);
             let y_min_max_bytes: &[u8] = unsafe { any_as_u8_slice(&y_min_max) };
-            Arc::new(
+            Rc::new(
                 device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("shared_y_range_buffer_fallback"),
                     contents: y_min_max_bytes,
@@ -680,7 +674,7 @@ impl DataStore {
     pub fn set_gpu_y_bounds(&mut self, min: f32, max: f32) {
         self.gpu_min_y = Some(min);
         self.gpu_max_y = Some(max);
-        log::debug!("[DataStore] GPU Y bounds updated: min={}, max={}", min, max);
+        log::debug!("[DataStore] GPU Y bounds updated: min={min}, max={max}");
     }
 
     /// Clear GPU bounds calculations (called when new data is loaded)

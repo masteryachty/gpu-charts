@@ -158,8 +158,8 @@ impl Renderer {
             );
 
             // Store both GPU min/max buffer and staging buffer
-            self.data_store.min_max_buffer = Some(std::sync::Arc::new(min_max_buffer));
-            self.data_store.min_max_staging_buffer = Some(std::sync::Arc::new(staging_buffer));
+            self.data_store.min_max_buffer = Some(std::rc::Rc::new(min_max_buffer));
+            self.data_store.min_max_staging_buffer = Some(std::rc::Rc::new(staging_buffer));
         }
 
         // Update the shared bind group with GPU-calculated bounds

@@ -1463,7 +1463,7 @@ impl Chart {
                                     );
                                     fetch_results.push((
                                         data_type.to_string(),
-                                        Err(format!("Processing failed: {:?}", e)),
+                                        Err(format!("Processing failed: {e:?}")),
                                     ));
                                 } else {
                                     log::info!(
@@ -1481,7 +1481,7 @@ impl Chart {
                                 );
                                 fetch_results.push((
                                     data_type.to_string(),
-                                    Err(format!("Fetch failed: {:?}", e)),
+                                    Err(format!("Fetch failed: {e:?}")),
                                 ));
                             }
                         }
@@ -1547,7 +1547,7 @@ impl Chart {
         data_handle: &shared_types::DataHandle,
         data_manager: &mut data_manager::DataManager,
         data_store: &mut data_manager::DataStore,
-        device: &wgpu::Device,
+        _device: &wgpu::Device,
     ) -> Result<(), shared_types::GpuChartsError> {
         // Get the GPU buffer set from the data manager
         let gpu_buffer_set = data_manager.get_buffers(data_handle).ok_or_else(|| {
@@ -1675,6 +1675,7 @@ impl Chart {
     }
 
     /// Compute derived metrics based on ComputeOp
+    #[allow(dead_code)]
     fn compute_derived_metrics(
         &self,
         columns: &[String],
@@ -1686,7 +1687,7 @@ impl Chart {
         // Validate we have the required columns
         for col in columns {
             if !buffers.contains_key(col) {
-                return Err(format!("Missing required column: {}", col));
+                return Err(format!("Missing required column: {col}"));
             }
         }
 
@@ -1696,7 +1697,7 @@ impl Chart {
         // Validate all columns have the same length
         for col in columns {
             if buffers[col].len() != length {
-                return Err(format!("Column {} has different length", col));
+                return Err(format!("Column {col} has different length"));
             }
         }
 

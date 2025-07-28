@@ -261,11 +261,12 @@ impl LineGraph {
             .set_candle_timeframe(timeframe_seconds);
     }
 
+    #[allow(dead_code)]
     fn process_data_handle(
         data_handle: &DataHandle,
         data_manager: &mut DataManager,
         data_store: &mut DataStore,
-        device: &Rc<wgpu::Device>,
+        _device: &Rc<wgpu::Device>,
     ) -> Result<(), shared_types::GpuChartsError> {
         // Get the GPU buffer set from the data manager
         let gpu_buffer_set = data_manager.get_buffers(data_handle).ok_or_else(|| {
@@ -363,6 +364,7 @@ impl LineGraph {
     }
 
     // Helper function to convert HSV to RGB
+    #[allow(dead_code)]
     fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (f32, f32, f32) {
         let c = v * s;
         let x = c * (1.0 - ((h / 60.0) % 2.0 - 1.0).abs());
