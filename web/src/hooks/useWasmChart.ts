@@ -936,7 +936,7 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
           // Force canvas update by triggering resize
           // This is the only reliable way to flush WebGPU's buffered frames
           const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
-          if (canvas && chartState.chart.resize) {
+          if (canvas && chartState.chart && chartState.chart.resize) {
             const width = canvas.width;
             const height = canvas.height;
             
@@ -945,7 +945,9 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
             
             // Resize back to original
             setTimeout(() => {
-              chartState.chart.resize(width, height);
+              if (chartState.chart && chartState.chart.resize) {
+                chartState.chart.resize(width, height);
+              }
             }, 0);
           }
         } else {

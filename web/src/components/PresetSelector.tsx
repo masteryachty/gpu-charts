@@ -135,7 +135,7 @@ export default function PresetSelector({
     
     // Find which group this preset belongs to
     const group = presetGroups.find(g => 
-      g.presets.some(p => p.name === preset.name)
+      g.presets.some((p: RenderingPreset) => p.name === preset.name)
     );
     
     return group ? `${group.name} - ${preset.name}` : preset.name;
@@ -189,7 +189,7 @@ export default function PresetSelector({
               <div className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
                 {group.name}
               </div>
-              {group.presets.map((preset) => (
+              {group.presets.map((preset: RenderingPreset) => (
                 <button
                   key={preset.name}
                   onClick={() => handlePresetSelect(preset)}

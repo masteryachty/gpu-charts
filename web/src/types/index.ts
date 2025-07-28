@@ -96,8 +96,14 @@ export interface RenderingPreset {
   chart_types: ChartPreset[];
 }
 
-export interface PresetListResponse {
+export interface PresetGroup {
+  name: string;
   presets: RenderingPreset[];
+}
+
+export interface PresetListResponse {
+  presets?: RenderingPreset[]; // For backward compatibility
+  groups?: PresetGroup[]; // New grouped structure
 }
 
 export interface PresetApplyResponse {
