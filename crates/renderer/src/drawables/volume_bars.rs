@@ -1,31 +1,27 @@
 //! Example volume bar renderer that can be used with MultiRenderer
-//! 
+//!
 //! This demonstrates how to create custom renderers that integrate with the MultiRenderer system.
 
 use std::rc::Rc;
-use wgpu::{CommandEncoder, Device, Queue, TextureFormat, TextureView};
 use wgpu::util::DeviceExt;
+use wgpu::{CommandEncoder, Device, Queue, TextureFormat, TextureView};
 
-use data_manager::DataStore;
 use crate::multi_renderer::MultiRenderable;
+use data_manager::DataStore;
 
 /// Renders volume bars for financial charts
-/// 
+///
 /// This is an example renderer that shows how to create custom visualizations
 /// that can be combined with other renderers using MultiRenderer.
 pub struct VolumeBarRenderer {
     pipeline: wgpu::RenderPipeline,
     bind_group_layout: wgpu::BindGroupLayout,
     device: Rc<wgpu::Device>,
-    format: TextureFormat,
+    _format: TextureFormat,
 }
 
 impl VolumeBarRenderer {
-    pub fn new(
-        device: Rc<wgpu::Device>,
-        _queue: Rc<wgpu::Queue>,
-        format: TextureFormat,
-    ) -> Self {
+    pub fn new(device: Rc<wgpu::Device>, _queue: Rc<wgpu::Queue>, format: TextureFormat) -> Self {
         // Create a simple shader for rendering volume bars
         let shader_source = r#"
 struct Uniforms {
@@ -163,7 +159,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             pipeline,
             bind_group_layout,
             device,
-            format,
+            _format: format,
         }
     }
 
@@ -177,7 +173,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         // 1. Extract volume data from the DataStore
         // 2. Create GPU buffers for the volume data
         // 3. Render the volume bars
-        
+
         let data_len = data_store.get_data_len();
         if data_len == 0 {
             return;
@@ -190,11 +186,13 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             [data_store.end_x as f32, 150.0],
         ];
 
-        let volume_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Volume Data Buffer"),
-            contents: bytemuck::cast_slice(&mock_volumes),
-            usage: wgpu::BufferUsages::STORAGE,
-        });
+        let volume_buffer = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Volume Data Buffer"),
+                contents: bytemuck::cast_slice(&mock_volumes),
+                usage: wgpu::BufferUsages::STORAGE,
+            });
 
         let uniforms = [
             data_store.start_x as f32,
@@ -205,11 +203,13 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             -0.8, // base y position in clip space
         ];
 
-        let uniform_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Volume Bar Uniforms"),
-            contents: bytemuck::cast_slice(&uniforms),
-            usage: wgpu::BufferUsages::UNIFORM,
-        });
+        let uniform_buffer = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Volume Bar Uniforms"),
+                contents: bytemuck::cast_slice(&uniforms),
+                usage: wgpu::BufferUsages::UNIFORM,
+            });
 
         let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Volume Bar Bind Group"),

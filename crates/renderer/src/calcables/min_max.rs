@@ -60,16 +60,22 @@ pub fn calculate_min_max_y(
     let mut all_y_buffers = Vec::new();
     for metric in &active_group.metrics {
         if metric.visible {
-            log::debug!("[calculate_min_max_y] Metric '{}' is visible, has {} y_buffers", 
-                metric.name, metric.y_buffers.len());
+            log::debug!(
+                "[calculate_min_max_y] Metric '{}' is visible, has {} y_buffers",
+                metric.name,
+                metric.y_buffers.len()
+            );
             all_y_buffers.extend(&metric.y_buffers);
         } else {
-            log::debug!("[calculate_min_max_y] Metric '{}' is not visible, skipping", metric.name);
+            log::debug!(
+                "[calculate_min_max_y] Metric '{}' is not visible, skipping",
+                metric.name
+            );
         }
     }
     let y_buffers = &all_y_buffers;
     let num_buffers = y_buffers.len();
-    
+
     // Early return if no visible buffers
     if num_buffers == 0 {
         // Return a buffer with default values
@@ -87,7 +93,9 @@ pub fn calculate_min_max_y(
     let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Staging Buffer"),
         size: staging_buffer_size,
-        usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::UNIFORM,
+        usage: wgpu::BufferUsages::COPY_DST
+            | wgpu::BufferUsages::STORAGE
+            | wgpu::BufferUsages::UNIFORM,
         mapped_at_creation: false,
     });
     let staging_buffer2 = device.create_buffer(&wgpu::BufferDescriptor {
@@ -97,12 +105,19 @@ pub fn calculate_min_max_y(
         mapped_at_creation: false,
     });
 
-    log::debug!("[calculate_min_max_y] Processing {} y_buffers, num_groups={}, chunk_size={}", 
-        y_buffers.len(), num_groups, chunk_size);
-    
+    log::debug!(
+        "[calculate_min_max_y] Processing {} y_buffers, num_groups={}, chunk_size={}",
+        y_buffers.len(),
+        num_groups,
+        chunk_size
+    );
+
     for (buffer_index, y_buffer) in y_buffers.iter().enumerate() {
-        log::debug!("[calculate_min_max_y] Processing y_buffer[{}]", buffer_index);
-        
+        log::debug!(
+            "[calculate_min_max_y] Processing y_buffer[{}]",
+            buffer_index
+        );
+
         // Create buffers for this y_buffer's first pass
         let partial_first_size = num_groups * 2;
         let partial_first_buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -228,29 +243,34 @@ pub fn calculate_min_max_y(
     }
 
     // Add a final compute pass to find overall min/max across all metrics
-    log::debug!("[calculate_min_max_y] Creating overall min/max compute pass for {} metrics", num_buffers);
-    
+    log::debug!(
+        "[calculate_min_max_y] Creating overall min/max compute pass for {} metrics",
+        num_buffers
+    );
+
     let overall_shader = include_str!("overall_min_max.wgsl");
     let overall_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("Overall Min/Max Shader"),
         source: wgpu::ShaderSource::Wgsl(overall_shader.into()),
     });
-    
+
     // Create buffer for overall min/max (2 floats)
     let overall_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Overall Min/Max Buffer"),
         size: 8, // 2 * f32
-        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_SRC,
+        usage: wgpu::BufferUsages::STORAGE
+            | wgpu::BufferUsages::UNIFORM
+            | wgpu::BufferUsages::COPY_SRC,
         mapped_at_creation: false,
     });
-    
+
     // Create uniform buffer for num_metrics
     let num_metrics_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("Num Metrics Buffer"),
         contents: bytemuck::cast_slice(&[num_buffers as u32]),
         usage: wgpu::BufferUsages::UNIFORM,
     });
-    
+
     let overall_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
         label: Some("Overall Min/Max Pipeline"),
         layout: None,
@@ -259,7 +279,7 @@ pub fn calculate_min_max_y(
         cache: None,
         compilation_options: Default::default(),
     });
-    
+
     let overall_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("Overall Min/Max Bind Group"),
         layout: &overall_pipeline.get_bind_group_layout(0),
@@ -278,7 +298,7 @@ pub fn calculate_min_max_y(
             },
         ],
     });
-    
+
     // Run the overall min/max computation
     {
         let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
@@ -289,7 +309,7 @@ pub fn calculate_min_max_y(
         cpass.set_bind_group(0, &overall_bind_group, &[]);
         cpass.dispatch_workgroups(1, 1, 1);
     }
-    
+
     // Create a staging buffer for reading back the overall min/max
     let overall_staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Overall Min/Max Staging Buffer"),
@@ -297,7 +317,7 @@ pub fn calculate_min_max_y(
         usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
-    
+
     // Copy overall min/max to staging buffer for CPU readback
     encoder.copy_buffer_to_buffer(
         &overall_buffer,

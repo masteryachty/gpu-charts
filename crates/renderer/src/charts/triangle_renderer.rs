@@ -1,11 +1,10 @@
 //! Triangle renderer for displaying trade markers
 //! Renders fixed-size triangles at trade positions with color based on trade side
 
+use crate::MultiRenderable;
+use data_manager::DataStore;
 use std::rc::Rc;
 use wgpu::{util::DeviceExt, TextureFormat};
-use data_manager::DataStore;
-use crate::MultiRenderable;
-
 
 /// Triangle renderer for trade markers
 pub struct TriangleRenderer {
@@ -25,7 +24,7 @@ impl TriangleRenderer {
         color_format: TextureFormat,
     ) -> Self {
         let shader = device.create_shader_module(wgpu::include_wgsl!("triangle.wgsl"));
-        
+
         // Bind group layout for uniforms and data buffers
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("triangle_bind_group_layout"),
@@ -149,7 +148,7 @@ impl TriangleRenderer {
         Self {
             pipeline,
             bind_group_layout,
-            triangle_size: 8.0, // 8 pixels default
+            triangle_size: 8.0,                    // 8 pixels default
             data_group_name: "trades".to_string(), // Default to trades data
         }
     }
@@ -164,12 +163,21 @@ impl TriangleRenderer {
         self.data_group_name = group_name;
     }
 
-
-    fn create_bind_group(&self, data_store: &DataStore, device: &wgpu::Device) -> Option<(wgpu::BindGroup, u32)> {
+    fn create_bind_group(
+        &self,
+        data_store: &DataStore,
+        device: &wgpu::Device,
+    ) -> Option<(wgpu::BindGroup, u32)> {
         use nalgebra_glm as glm;
 
-        log::info!("🔺 [TriangleRenderer] Looking for data group '{}'", self.data_group_name);
-        log::info!("🔺 [TriangleRenderer] Available data groups: {}", data_store.data_groups.len());
+        log::info!(
+            "🔺 [TriangleRenderer] Looking for data group '{}'",
+            self.data_group_name
+        );
+        log::info!(
+            "🔺 [TriangleRenderer] Available data groups: {}",
+            data_store.data_groups.len()
+        );
 
         // Find the data group with our name - look for a group that has both "price" and "side" metrics
         let (group_index, data_group) = data_store.data_groups.iter().enumerate()
@@ -179,34 +187,34 @@ impl TriangleRenderer {
                 for metric in &group.metrics {
                     log::debug!("    Metric: name='{}', visible={}", metric.name, metric.visible);
                 }
-                
+
                 // For trades, we need a group that has both "price" and "side" metrics
                 let has_price = group.metrics.iter().any(|m| m.name == "price");
                 let has_side = group.metrics.iter().any(|m| m.name == "side");
                 let is_trades_group = has_price && has_side;
-                
+
                 if is_trades_group {
                     log::info!("🔺 [TriangleRenderer] Found trades group at index {} (has price and side metrics)", idx);
                 }
                 is_trades_group
             })?;
 
-        log::info!("🔺 [TriangleRenderer] Found data group at index {}", group_index);
+        log::info!(
+            "🔺 [TriangleRenderer] Found data group at index {}",
+            group_index
+        );
 
         // Find the specific metrics we need
         let time_metric = data_store.data_groups.get(group_index)?;
-        let price_metric = data_group.metrics.iter()
-            .find(|m| m.name == "price")?;
-        let side_metric = data_group.metrics.iter()
-            .find(|m| m.name == "side")?;
-        
+        let price_metric = data_group.metrics.iter().find(|m| m.name == "price")?;
+        let side_metric = data_group.metrics.iter().find(|m| m.name == "side")?;
+
         log::info!("🔺 [TriangleRenderer] Found required metrics: price and side");
 
         // Get the first buffer from each metric (assuming single chunk for now)
         let time_buffer = time_metric.x_buffers.first()?;
         let price_buffer = price_metric.y_buffers.first()?;
         let side_buffer = side_metric.y_buffers.first()?;
-        
 
         // Calculate instance count from buffer size
         let instance_count = (time_buffer.size() / 4) as u32;
@@ -214,44 +222,40 @@ impl TriangleRenderer {
         // X range (timestamps) - keep as u32 for precision
         let x_min = data_store.start_x;
         let x_max = data_store.end_x;
-        let x_buffer = device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("triangle_x_min_max"),
-                contents: bytemuck::cast_slice(&[x_min, x_max]),
-                usage: wgpu::BufferUsages::UNIFORM,
-            });
+        let x_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("triangle_x_min_max"),
+            contents: bytemuck::cast_slice(&[x_min, x_max]),
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
 
         // Y range (prices)
         let y_min_max = glm::vec2(
             data_store.min_y.unwrap_or(0.0),
             data_store.max_y.unwrap_or(1.0),
         );
-        let y_buffer = device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("triangle_y_min_max"),
-                contents: bytemuck::cast_slice(&[y_min_max.x, y_min_max.y]),
-                usage: wgpu::BufferUsages::UNIFORM,
-            });
+        let y_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("triangle_y_min_max"),
+            contents: bytemuck::cast_slice(&[y_min_max.x, y_min_max.y]),
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
 
         // Screen size
         let screen_size = glm::vec2(
             data_store.screen_size.width as f32,
             data_store.screen_size.height as f32,
         );
-        let screen_buffer = device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("triangle_screen_size"),
-                contents: bytemuck::cast_slice(&[screen_size.x, screen_size.y]),
-                usage: wgpu::BufferUsages::UNIFORM,
-            });
+        let screen_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("triangle_screen_size"),
+            contents: bytemuck::cast_slice(&[screen_size.x, screen_size.y]),
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
 
         // Triangle size
-        let size_buffer = device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("triangle_size"),
-                contents: bytemuck::cast_slice(&[self.triangle_size]),
-                usage: wgpu::BufferUsages::UNIFORM,
-            });
+        let size_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("triangle_size"),
+            contents: bytemuck::cast_slice(&[self.triangle_size]),
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("triangle_bind_group"),
@@ -332,7 +336,7 @@ impl MultiRenderable for TriangleRenderer {
 
         render_pass.set_pipeline(&self.pipeline);
         render_pass.set_bind_group(0, &bind_group, &[]);
-        
+
         // 3 vertices per triangle, render for each instance
         render_pass.draw(0..3, 0..instance_count);
     }

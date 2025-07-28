@@ -11,8 +11,7 @@ use serde::Serialize;
 use serde_json::json;
 use url::form_urlencoded;
 
-// For mlock.
-use libc::{self};
+// For mlock - using fully qualified path libc:: in code
 
 // Added for multi–day date handling.
 use chrono::{TimeZone, Utc};

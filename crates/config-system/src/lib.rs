@@ -1,8 +1,8 @@
 //! Configuration system for GPU Charts
 //! Manages presets, quality settings, and performance tuning
 
-use serde::{ Deserialize, Serialize };
-use shared_types::{ PerformanceConfig, QualityPreset };
+use serde::{Deserialize, Serialize};
+use shared_types::{PerformanceConfig, QualityPreset};
 
 pub use shared_types::GpuChartsConfig;
 
@@ -120,16 +120,13 @@ impl ConfigManager {
                 QualityPreset::Medium => self.apply_preset(QualityPreset::Low),
                 QualityPreset::Low => {
                     // Already at lowest, reduce data points
-                    self.config.performance.max_data_points = ((
-                        self.config.performance.max_data_points as f32
-                    ) * 0.75) as usize;
+                    self.config.performance.max_data_points =
+                        ((self.config.performance.max_data_points as f32) * 0.75) as usize;
                 }
             }
         } else if
-            // If we're well above target, we could increase quality
-            current_fps > target_fps * 1.5 &&
-            metrics.gpu_utilization < 0.7
-        {
+        // If we're well above target, we could increase quality
+        current_fps > target_fps * 1.5 && metrics.gpu_utilization < 0.7 {
             match self.config.quality_preset {
                 QualityPreset::Low => self.apply_preset(QualityPreset::Medium),
                 QualityPreset::Medium => self.apply_preset(QualityPreset::High),
@@ -203,9 +200,7 @@ pub enum ComputeOp {
     /// Max value
     Max,
     /// Weighted average: (a * weight_a + b * weight_b) / (weight_a + weight_b)
-    WeightedAverage {
-        weights: Vec<f32>,
-    },
+    WeightedAverage { weights: Vec<f32> },
 }
 
 /// Chart-specific preset
@@ -268,10 +263,7 @@ impl PresetManager {
     }
 
     pub fn list_presets(&self) -> Vec<&str> {
-        self.presets
-            .iter()
-            .map(|p| p.name.as_str())
-            .collect()
+        self.presets.iter().map(|p| p.name.as_str()).collect()
     }
 
     /// Get all presets

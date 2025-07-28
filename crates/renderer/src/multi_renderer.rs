@@ -130,7 +130,7 @@ pub trait MultiRenderable {
 /// Wrapper to adapt existing renderers to the MultiRenderable trait
 pub struct RendererAdapter<T> {
     renderer: T,
-    name: String,
+    _name: String,
     priority: u32,
     should_clear: bool,
 }
@@ -139,7 +139,7 @@ impl<T> RendererAdapter<T> {
     pub fn new(renderer: T, name: impl Into<String>) -> Self {
         Self {
             renderer,
-            name: name.into(),
+            _name: name.into(),
             priority: 100,
             should_clear: false,
         }
@@ -172,22 +172,18 @@ pub struct MultiRenderer {
     queue: Rc<Queue>,
     renderers: Vec<Box<dyn MultiRenderable>>,
     render_order: RenderOrder,
-    format: wgpu::TextureFormat,
+    _format: wgpu::TextureFormat,
 }
 
 impl MultiRenderer {
     /// Create a new MultiRenderer
-    pub fn new(
-        device: Rc<Device>,
-        queue: Rc<Queue>,
-        format: wgpu::TextureFormat,
-    ) -> Self {
+    pub fn new(device: Rc<Device>, queue: Rc<Queue>, format: wgpu::TextureFormat) -> Self {
         Self {
             device,
             queue,
             renderers: Vec::new(),
             render_order: RenderOrder::Sequential,
-            format,
+            _format: format,
         }
     }
 
@@ -242,11 +238,17 @@ impl MultiRenderer {
         device: &Device,
         queue: &Queue,
     ) {
-        log::info!("[MultiRenderer] Running compute passes for {} renderers", self.renderers.len());
-        
+        log::info!(
+            "[MultiRenderer] Running compute passes for {} renderers",
+            self.renderers.len()
+        );
+
         for renderer in &mut self.renderers {
             if renderer.has_compute() {
-                log::info!("[MultiRenderer] Running compute pass for '{}'", renderer.name());
+                log::info!(
+                    "[MultiRenderer] Running compute pass for '{}'",
+                    renderer.name()
+                );
                 renderer.compute(encoder, data_store, device, queue);
             }
         }
@@ -266,7 +268,7 @@ impl MultiRenderer {
 
         // Check if any renderer should clear
         let needs_clear = self.renderers.iter().any(|r| r.should_clear());
-        
+
         // If no renderer wants to clear, we'll do it ourselves on the first render
         if needs_clear || !self.renderers.is_empty() {
             // Clear pass if needed
@@ -355,7 +357,7 @@ impl MultiRenderable for crate::PlotRenderer {
 pub struct ConfigurablePlotRenderer {
     renderer: crate::PlotRenderer,
     name: String,
-    data_columns: Vec<(String, String)>,
+    _data_columns: Vec<(String, String)>,
 }
 
 impl ConfigurablePlotRenderer {
@@ -368,11 +370,11 @@ impl ConfigurablePlotRenderer {
     ) -> Self {
         let mut renderer = crate::PlotRenderer::new(device, queue, format);
         renderer.set_data_filter(Some(data_columns.clone()));
-        
+
         Self {
             renderer,
             name,
-            data_columns,
+            _data_columns: data_columns,
         }
     }
 }
@@ -475,11 +477,7 @@ pub struct MultiRendererBuilder {
 }
 
 impl MultiRendererBuilder {
-    pub fn new(
-        device: Rc<Device>,
-        queue: Rc<Queue>,
-        format: wgpu::TextureFormat,
-    ) -> Self {
+    pub fn new(device: Rc<Device>, queue: Rc<Queue>, format: wgpu::TextureFormat) -> Self {
         Self {
             device,
             queue,
@@ -500,21 +498,15 @@ impl MultiRendererBuilder {
     }
 
     pub fn add_plot_renderer(mut self) -> Self {
-        let renderer = crate::PlotRenderer::new(
-            self.device.clone(),
-            self.queue.clone(),
-            self.format,
-        );
+        let renderer =
+            crate::PlotRenderer::new(self.device.clone(), self.queue.clone(), self.format);
         self.renderers.push(Box::new(renderer));
         self
     }
 
     pub fn add_candlestick_renderer(mut self) -> Self {
-        let renderer = crate::CandlestickRenderer::new(
-            self.device.clone(),
-            self.queue.clone(),
-            self.format,
-        );
+        let renderer =
+            crate::CandlestickRenderer::new(self.device.clone(), self.queue.clone(), self.format);
         self.renderers.push(Box::new(renderer));
         self
     }
@@ -598,8 +590,12 @@ mod tests {
     fn test_render_order_sorting() {
         // Create mock device and queue
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
-        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default())).unwrap();
-        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default(), None)).unwrap();
+        let adapter =
+            pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default()))
+                .unwrap();
+        let (device, queue) =
+            pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default(), None))
+                .unwrap();
         let device = Rc::new(device);
         let queue = Rc::new(queue);
 
@@ -629,7 +625,7 @@ mod tests {
             Rc::new(wgpu::Queue::default()),
             wgpu::TextureFormat::Bgra8UnormSrgb,
         );
-        
+
         let adapter = RendererAdapter::new(plot_renderer, "CustomPlot")
             .with_priority(75)
             .with_clear();

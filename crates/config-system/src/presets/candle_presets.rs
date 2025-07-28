@@ -2,7 +2,7 @@
 //!
 //! Presets for candlestick charts with optional volume panels
 
-use crate::{ RenderPreset, ChartPreset, RenderStyle, RenderType };
+use crate::{ChartPreset, RenderPreset, RenderStyle, RenderType};
 
 /// Create the candlestick preset
 pub fn create_candle_presets() -> ChartPreset {
@@ -20,7 +20,7 @@ fn candlestick_preset() -> ChartPreset {
                 ("ohlc".to_string(), "open".to_string()),
                 ("ohlc".to_string(), "high".to_string()),
                 ("ohlc".to_string(), "low".to_string()),
-                ("ohlc".to_string(), "close".to_string())
+                ("ohlc".to_string(), "close".to_string()),
             ],
             additional_data_columns: None,
             visible: true,

@@ -48,24 +48,34 @@ impl PlotRenderer {
 
                 // Get visible metrics and apply filter if set
                 let visible_metrics = data_store.get_all_visible_metrics();
-                log::debug!("PlotRenderer: Found {} visible metrics before filtering", visible_metrics.len());
+                log::debug!(
+                    "PlotRenderer: Found {} visible metrics before filtering",
+                    visible_metrics.len()
+                );
 
                 for (data_series, metric) in visible_metrics {
                     // Apply data filter if set
                     if let Some(ref filter) = self.data_filter {
                         let mut should_render = false;
-                        
+
                         // Check if this metric matches any of our filter criteria
                         for (_data_type, column_name) in filter {
                             if metric.name == *column_name {
-                                log::debug!("PlotRenderer: Metric '{}' matches filter column '{}'", metric.name, column_name);
+                                log::debug!(
+                                    "PlotRenderer: Metric '{}' matches filter column '{}'",
+                                    metric.name,
+                                    column_name
+                                );
                                 should_render = true;
                                 break;
                             }
                         }
-                        
+
                         if !should_render {
-                            log::debug!("PlotRenderer: Skipping metric '{}' (not in filter)", metric.name);
+                            log::debug!(
+                                "PlotRenderer: Skipping metric '{}' (not in filter)",
+                                metric.name
+                            );
                             continue;
                         }
                     }

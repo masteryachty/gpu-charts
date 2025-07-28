@@ -1,6 +1,8 @@
 //! Pure GPU rendering engine for GPU Charts
 //! Implements Phase 3 optimizations for extreme performance
 
+#![allow(clippy::uninlined_format_args)]
+
 pub mod calcables;
 pub mod charts;
 pub mod compute;
@@ -20,11 +22,12 @@ use wgpu::{CommandEncoder, Device, Queue, TextureView};
 pub use calcables::{candle_aggregator::CandleAggregator, min_max::calculate_min_max_y};
 pub use charts::TriangleRenderer;
 pub use drawables::{
-    candlestick::CandlestickRenderer, plot::PlotRenderer, 
-    x_axis::XAxisRenderer, y_axis::YAxisRenderer,
+    candlestick::CandlestickRenderer, plot::PlotRenderer, x_axis::XAxisRenderer,
+    y_axis::YAxisRenderer,
 };
 pub use multi_renderer::{
-    MultiRenderer, MultiRendererBuilder, MultiRenderable, RenderOrder, RendererAdapter, ConfigurablePlotRenderer,
+    ConfigurablePlotRenderer, MultiRenderable, MultiRenderer, MultiRendererBuilder, RenderOrder,
+    RendererAdapter,
 };
 
 /// Re-export error types
@@ -100,7 +103,7 @@ impl Renderer {
 
         // Create compute engine
         let compute_engine = compute_engine::ComputeEngine::new(device.clone(), queue.clone());
-        
+
         let renderer = Self {
             surface,
             device,
@@ -114,15 +117,13 @@ impl Renderer {
         Ok(renderer)
     }
 
-
     /// Render a frame using the provided multi-renderer
     pub async fn render(&mut self, multi_renderer: &mut MultiRenderer) -> RenderResult<()> {
         // Check if rendering is needed
         if !self.data_store.is_dirty() {
             return Ok(());
         }
-        
-        
+
         // Get current texture
         let output = self.surface.get_current_texture()?;
         let view = output
@@ -140,13 +141,14 @@ impl Renderer {
         // This must happen BEFORE calculating min/max bounds
         if self.data_store.min_max_buffer.is_none() {
             log::debug!("[Renderer] Running pre-render compute passes...");
-            self.compute_engine.run_compute_passes(&mut encoder, &mut self.data_store);
+            self.compute_engine
+                .run_compute_passes(&mut encoder, &mut self.data_store);
         }
 
         // Calculate Y bounds using GPU if not already calculated
         if self.data_store.min_max_buffer.is_none() {
             log::debug!("[Renderer] Calculating Y bounds using GPU min/max...");
-            
+
             let (x_min, x_max) = (self.data_store.start_x, self.data_store.end_x);
             let (min_max_buffer, staging_buffer) = calculate_min_max_y(
                 &self.device,
@@ -156,24 +158,25 @@ impl Renderer {
                 x_min,
                 x_max,
             );
-            
+
             // Store both GPU min/max buffer and staging buffer
-            self.data_store.min_max_buffer = Some(std::sync::Arc::new(min_max_buffer));
-            self.data_store.min_max_staging_buffer = Some(std::sync::Arc::new(staging_buffer));
+            self.data_store.min_max_buffer = Some(std::rc::Rc::new(min_max_buffer));
+            self.data_store.min_max_staging_buffer = Some(std::rc::Rc::new(staging_buffer));
         }
 
         // Update the shared bind group with GPU-calculated bounds
-        self.data_store.update_shared_bind_group_with_gpu_buffer(&self.device);
+        self.data_store
+            .update_shared_bind_group_with_gpu_buffer(&self.device);
 
         // Let MultiRenderer handle all rendering
         multi_renderer.render(&mut encoder, &view, &self.data_store)?;
 
         // Submit commands
         self.queue.submit(std::iter::once(encoder.finish()));
-        
+
         // Present the frame
         output.present();
-        
+
         // After presenting, try to read GPU bounds for next frame
         // This is non-blocking and will update the bounds when ready
         let needs_rerender = if self.data_store.gpu_min_y.is_none() {
@@ -242,15 +245,15 @@ impl Renderer {
         if self.data_store.is_dirty() {
             return true;
         }
-        
+
         // Check if we're waiting for GPU bounds to be read
         if self.data_store.gpu_min_y.is_none() && self.data_store.min_max_staging_buffer.is_some() {
             return true;
         }
-        
+
         false
     }
-    
+
     /// Try to read GPU-calculated bounds from the staging buffer
     /// Returns true if bounds were successfully read and a re-render is needed
     fn try_read_gpu_bounds(&mut self) -> bool {
@@ -258,14 +261,18 @@ impl Renderer {
         if self.data_store.gpu_min_y.is_some() {
             return false;
         }
-        
+
         if let Some(staging_buffer) = self.data_store.min_max_staging_buffer.clone() {
             if self.data_store.gpu_buffer_ready {
                 // Buffer should be mapped and ready to read
                 let data = staging_buffer.slice(..).get_mapped_range();
                 let floats: &[f32] = bytemuck::cast_slice(&data);
                 if floats.len() >= 2 {
-                    log::debug!("[Renderer] Read GPU bounds: min={}, max={}", floats[0], floats[1]);
+                    log::debug!(
+                        "[Renderer] Read GPU bounds: min={}, max={}",
+                        floats[0],
+                        floats[1]
+                    );
                     self.data_store.set_gpu_y_bounds(floats[0], floats[1]);
                     // Mark dirty to trigger re-render with updated labels
                     self.data_store.mark_dirty();
@@ -282,7 +289,7 @@ impl Renderer {
             } else if !self.data_store.gpu_buffer_mapped {
                 // Request mapping for next frame
                 let buffer_slice = staging_buffer.slice(..);
-                
+
                 buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
                     if result.is_ok() {
                         log::debug!("[Renderer] GPU min/max buffer mapped successfully");
@@ -291,14 +298,14 @@ impl Renderer {
                     }
                 });
                 self.data_store.gpu_buffer_mapped = true;
-                
+
                 // Poll to start the mapping process
                 self.device.poll(wgpu::Maintain::Poll);
             } else {
                 // Buffer mapping was requested, check if it's ready
                 // Poll more aggressively to check for completion
                 self.device.poll(wgpu::Maintain::Wait);
-                
+
                 // After polling, the buffer might be ready
                 // We'll mark it as ready and try to read on the next frame
                 self.data_store.gpu_buffer_ready = true;
@@ -310,7 +317,7 @@ impl Renderer {
     }
 
     /// Create a multi-renderer pipeline for complex visualizations
-    /// 
+    ///
     /// Example usage:
     /// ```rust,ignore
     /// let multi_renderer = renderer.create_multi_renderer()
@@ -322,11 +329,7 @@ impl Renderer {
     ///     .build();
     /// ```
     pub fn create_multi_renderer(&self) -> MultiRendererBuilder {
-        MultiRendererBuilder::new(
-            self.device.clone(),
-            self.queue.clone(),
-            self.config.format,
-        )
+        MultiRendererBuilder::new(self.device.clone(), self.queue.clone(), self.config.format)
     }
 
     /// Example: Create a multi-renderer with candles and volume bars
@@ -334,7 +337,8 @@ impl Renderer {
         let width = self.data_store.screen_size.width;
         let height = self.data_store.screen_size.height;
 
-        let mut multi_renderer = self.create_multi_renderer()
+        let mut multi_renderer = self
+            .create_multi_renderer()
             .with_render_order(RenderOrder::BackgroundToForeground)
             .build();
 
@@ -347,11 +351,8 @@ impl Renderer {
         multi_renderer.add_renderer(volume_renderer);
 
         // Add candlesticks
-        let candle_renderer = CandlestickRenderer::new(
-            self.device.clone(),
-            self.queue.clone(),
-            self.config.format,
-        );
+        let candle_renderer =
+            CandlestickRenderer::new(self.device.clone(), self.queue.clone(), self.config.format);
         multi_renderer.add_renderer(Box::new(candle_renderer));
 
         // Add axes on top
@@ -390,7 +391,6 @@ impl Renderer {
             .add_y_axis_renderer(width, height)
             .build()
     }
-
 }
 
 /// Trait for chart-specific renderers

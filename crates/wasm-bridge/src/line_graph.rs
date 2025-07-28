@@ -25,18 +25,32 @@ impl LineGraph {
     /// based on the active preset's additional_data_columns
     pub fn get_excluded_columns_from_preset(&self, preset_name: &str) -> Vec<String> {
         let mut excluded_columns = Vec::new();
-        
-        log::info!("[LineGraph] Getting excluded columns for preset '{}'", preset_name);
-        
+
+        log::info!(
+            "[LineGraph] Getting excluded columns for preset '{}'",
+            preset_name
+        );
+
         if let Some(preset) = self.preset_manager.get_preset(preset_name) {
-            log::info!("[LineGraph] Found preset with {} chart types", preset.chart_types.len());
-            
+            log::info!(
+                "[LineGraph] Found preset with {} chart types",
+                preset.chart_types.len()
+            );
+
             for (idx, chart_type) in preset.chart_types.iter().enumerate() {
-                log::info!("[LineGraph]   Chart type[{}]: '{}' - visible={}", idx, chart_type.label, chart_type.visible);
-                
+                log::info!(
+                    "[LineGraph]   Chart type[{}]: '{}' - visible={}",
+                    idx,
+                    chart_type.label,
+                    chart_type.visible
+                );
+
                 if let Some(additional_cols) = &chart_type.additional_data_columns {
-                    log::info!("[LineGraph]     Has {} additional columns", additional_cols.len());
-                    
+                    log::info!(
+                        "[LineGraph]     Has {} additional columns",
+                        additional_cols.len()
+                    );
+
                     for (_data_type, column_name) in additional_cols {
                         log::info!("[LineGraph]     Adding excluded column: '{}'", column_name);
                         if !excluded_columns.contains(column_name) {
@@ -50,16 +64,23 @@ impl LineGraph {
         } else {
             log::warn!("[LineGraph] Preset '{}' not found!", preset_name);
         }
-        
+
         // Always exclude "side" and "volume" as defaults
         for default_exclude in ["side", "volume"] {
             if !excluded_columns.contains(&default_exclude.to_string()) {
-                log::info!("[LineGraph] Adding default excluded column: '{}'", default_exclude);
+                log::info!(
+                    "[LineGraph] Adding default excluded column: '{}'",
+                    default_exclude
+                );
                 excluded_columns.push(default_exclude.to_string());
             }
         }
-        
-        log::info!("[LineGraph] Final excluded columns from preset '{}': {:?}", preset_name, excluded_columns);
+
+        log::info!(
+            "[LineGraph] Final excluded columns from preset '{}': {:?}",
+            preset_name,
+            excluded_columns
+        );
         excluded_columns
     }
     #[cfg(target_arch = "wasm32")]
@@ -142,12 +163,23 @@ impl LineGraph {
 
         // Set the time range BEFORE creating the renderer
         data_store.set_x_range(start as u32, end as u32);
-        
+
         // Log initial state before moving data_store
         log::info!("Initial DataStore state:");
-        log::info!("  - X range: {} to {}", data_store.start_x, data_store.end_x);
-        log::info!("  - Y bounds: min={:?}, max={:?}", data_store.min_y, data_store.max_y);
-        log::info!("  - Excluded columns: {:?}", data_store.get_excluded_columns());
+        log::info!(
+            "  - X range: {} to {}",
+            data_store.start_x,
+            data_store.end_x
+        );
+        log::info!(
+            "  - Y bounds: min={:?}, max={:?}",
+            data_store.min_y,
+            data_store.max_y
+        );
+        log::info!(
+            "  - Excluded columns: {:?}",
+            data_store.get_excluded_columns()
+        );
 
         // Create Renderer with modular approach
         let renderer = Renderer::new(canvas, device.clone(), queue.clone(), config, data_store)
@@ -159,13 +191,20 @@ impl LineGraph {
         // Data will be fetched when user selects a preset via fetch_preset_data
 
         log::info!("LineGraph initialization completed - no data loaded yet");
-        
+
         // Create a default multi-renderer with basic line plot and axes
-        let multi_renderer = renderer.create_multi_renderer()
+        let multi_renderer = renderer
+            .create_multi_renderer()
             .with_render_order(renderer::RenderOrder::BackgroundToForeground)
             .add_plot_renderer()
-            .add_x_axis_renderer(renderer.data_store().screen_size.width, renderer.data_store().screen_size.height)
-            .add_y_axis_renderer(renderer.data_store().screen_size.width, renderer.data_store().screen_size.height)
+            .add_x_axis_renderer(
+                renderer.data_store().screen_size.width,
+                renderer.data_store().screen_size.height,
+            )
+            .add_y_axis_renderer(
+                renderer.data_store().screen_size.width,
+                renderer.data_store().screen_size.height,
+            )
             .build();
 
         // Create the LineGraph instance
@@ -180,10 +219,13 @@ impl LineGraph {
     pub async fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         // Always use multi-renderer (we ensure it exists in new())
         if let Some(ref mut multi_renderer) = self.multi_renderer {
-            self.renderer.render(multi_renderer).await.map_err(|e| match e {
-                shared_types::GpuChartsError::Surface { .. } => wgpu::SurfaceError::Outdated,
-                _ => wgpu::SurfaceError::Outdated,
-            })
+            self.renderer
+                .render(multi_renderer)
+                .await
+                .map_err(|e| match e {
+                    shared_types::GpuChartsError::Surface { .. } => wgpu::SurfaceError::Outdated,
+                    _ => wgpu::SurfaceError::Outdated,
+                })
         } else {
             // This should never happen since we create a default multi-renderer in new()
             log::error!("No multi-renderer available!");
@@ -193,7 +235,7 @@ impl LineGraph {
 
     pub fn resized(&mut self, width: u32, height: u32) {
         self.renderer.resize(width, height);
-        
+
         // Also resize the multi-renderer if present
         if let Some(ref mut multi_renderer) = self.multi_renderer {
             multi_renderer.resize(width, height);
@@ -219,11 +261,12 @@ impl LineGraph {
             .set_candle_timeframe(timeframe_seconds);
     }
 
+    #[allow(dead_code)]
     fn process_data_handle(
         data_handle: &DataHandle,
         data_manager: &mut DataManager,
         data_store: &mut DataStore,
-        device: &Rc<wgpu::Device>,
+        _device: &Rc<wgpu::Device>,
     ) -> Result<(), shared_types::GpuChartsError> {
         // Get the GPU buffer set from the data manager
         let gpu_buffer_set = data_manager.get_buffers(data_handle).ok_or_else(|| {
@@ -294,16 +337,23 @@ impl LineGraph {
             "Successfully added {} columns to DataStore",
             gpu_buffer_set.metadata.columns.len()
         );
-        
+
         log::info!("[process_data_handle] Data loaded, before Y bounds calculation:");
-        log::info!("  - Excluded columns: {:?}", data_store.get_excluded_columns());
+        log::info!(
+            "  - Excluded columns: {:?}",
+            data_store.get_excluded_columns()
+        );
         log::info!("  - Total data groups: {}", data_store.data_groups.len());
-        
+
         // Log all metrics that were added
         for (idx, group) in data_store.data_groups.iter().enumerate() {
             log::info!("  - Data group[{}]: {} metrics", idx, group.metrics.len());
             for metric in &group.metrics {
-                log::info!("    - Metric: '{}' (visible={})", metric.name, metric.visible);
+                log::info!(
+                    "    - Metric: '{}' (visible={})",
+                    metric.name,
+                    metric.visible
+                );
             }
         }
 
@@ -314,6 +364,7 @@ impl LineGraph {
     }
 
     // Helper function to convert HSV to RGB
+    #[allow(dead_code)]
     fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (f32, f32, f32) {
         let c = v * s;
         let x = c * (1.0 - ((h / 60.0) % 2.0 - 1.0).abs());

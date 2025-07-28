@@ -3,7 +3,6 @@ resolver = "2"
 members = [
     "server", 
     "logger",
-    "file_server",
     "crates/shared-types",
     "crates/config-system",
     "crates/data-manager",

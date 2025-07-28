@@ -43,7 +43,6 @@ npm run test:basic      # Basic functionality tests
 
 # Server testing
 npm run test:server     # Server unit and integration tests
-npm run test:server:api # Live server API tests
 
 # Test utilities
 npm run test:report     # Open test results report
@@ -740,7 +739,6 @@ The development workflow includes sophisticated hot reload:
     "test:data": "playwright test tests/data-scenarios tests/data-visualization tests/simple-data-tests",
     "test:basic": "playwright test tests/basic tests/app",
     "test:server": "cd ../server && cargo test --target x86_64-unknown-linux-gnu",
-    "test:server:api": "cd ../server && ./test_api.sh",
     
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "type-check": "tsc --noEmit",

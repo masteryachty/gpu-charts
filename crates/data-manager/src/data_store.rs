@@ -1,8 +1,8 @@
 use js_sys::{ArrayBuffer, Uint32Array};
 use nalgebra_glm as glm;
+use std::rc::Rc;
 use wgpu::util::DeviceExt;
 use wgpu::{Buffer, Device};
-use std::sync::Arc;
 
 pub struct ScreenDimensions {
     pub width: u32,
@@ -15,7 +15,7 @@ pub struct MetricSeries {
     pub color: [f32; 3],
     pub visible: bool,
     pub name: String, // e.g., "best_bid", "best_ask", "mid_price"
-    
+
     // Computed metric fields
     pub is_computed: bool,
     pub compute_type: Option<ComputeType>,
@@ -32,9 +32,9 @@ pub struct MetricRef {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ComputeType {
-    Average,        // (bid + ask) / 2
+    Average, // (bid + ask) / 2
     Sum,
-    Difference,     // ask - bid (spread)
+    Difference, // ask - bid (spread)
     MovingAverage { period: u32 },
     RSI { period: u32 },
     BollingerBands { period: u32, std_dev: f32 },
@@ -65,11 +65,11 @@ pub struct DataStore {
     pub screen_size: ScreenDimensions,
     pub topic: Option<String>,
     pub chart_type: ChartType,
-    pub candle_timeframe: u32, // in seconds
-    dirty: bool,               // Track if data has changed and needs re-rendering
+    pub candle_timeframe: u32,                            // in seconds
+    dirty: bool, // Track if data has changed and needs re-rendering
     excluded_columns_for_y_bounds: Vec<String>, // Columns to exclude from Y bounds calculation
-    pub min_max_buffer: Option<Arc<wgpu::Buffer>>, // GPU-calculated min/max buffer
-    pub min_max_staging_buffer: Option<Arc<wgpu::Buffer>>, // Staging buffer for CPU readback
+    pub min_max_buffer: Option<Rc<wgpu::Buffer>>, // GPU-calculated min/max buffer
+    pub min_max_staging_buffer: Option<Rc<wgpu::Buffer>>, // Staging buffer for CPU readback
     pub gpu_min_y: Option<f32>, // GPU-calculated min Y value
     pub gpu_max_y: Option<f32>, // GPU-calculated max Y value
     pub gpu_buffer_mapped: bool, // Flag to track if GPU buffer mapping is requested
@@ -120,15 +120,18 @@ impl DataStore {
     pub fn mark_dirty(&mut self) {
         self.dirty = true;
     }
-    
+
     /// Set columns to exclude from Y bounds calculation
     pub fn set_excluded_columns(&mut self, columns: Vec<String>) {
-        log::info!("[DataStore] Setting excluded columns: {:?} (was: {:?})", 
-            columns, self.excluded_columns_for_y_bounds);
+        log::info!(
+            "[DataStore] Setting excluded columns: {:?} (was: {:?})",
+            columns,
+            self.excluded_columns_for_y_bounds
+        );
         self.excluded_columns_for_y_bounds = columns;
         self.mark_dirty();
     }
-    
+
     /// Get columns excluded from Y bounds calculation
     pub fn get_excluded_columns(&self) -> &[String] {
         &self.excluded_columns_for_y_bounds
@@ -168,17 +171,14 @@ impl DataStore {
         name: String,
     ) {
         if let Some(data_group) = self.data_groups.get_mut(group_index) {
-            data_group.metrics.push(MetricSeries::new(
-                y_series.1,
-                y_series.0,
-                color,
-                name,
-            ));
+            data_group
+                .metrics
+                .push(MetricSeries::new(y_series.1, y_series.0, color, name));
         }
 
         self.mark_dirty();
     }
-    
+
     /// Add a computed metric to a data group
     pub fn add_computed_metric_to_group(
         &mut self,
@@ -196,7 +196,7 @@ impl DataStore {
                 dependencies,
             ));
         }
-        
+
         self.mark_dirty();
     }
 
@@ -233,9 +233,14 @@ impl DataStore {
     }
 
     pub fn set_x_range(&mut self, min_x: u32, max_x: u32) {
-        log::info!("[DataStore] set_x_range called: min_x={}, max_x={} (current: {} to {})", 
-            min_x, max_x, self.start_x, self.end_x);
-        
+        log::info!(
+            "[DataStore] set_x_range called: min_x={}, max_x={} (current: {} to {})",
+            min_x,
+            max_x,
+            self.start_x,
+            self.end_x
+        );
+
         if self.start_x != min_x || self.end_x != max_x {
             self.start_x = min_x;
             self.end_x = max_x;
@@ -249,7 +254,7 @@ impl DataStore {
             self.gpu_buffer_ready = false;
             self.range_bind_group = None;
             self.mark_dirty();
-            
+
             log::info!("[DataStore] X range updated, cleared Y bounds and marked dirty");
         } else {
             log::info!("[DataStore] X range unchanged, skipping update");
@@ -410,79 +415,98 @@ impl DataStore {
             self.mark_dirty();
         }
     }
-    
+
     /// [DEPRECATED] CPU-side Y bounds calculation - use GPU calculation instead
     #[deprecated(note = "Use GPU min/max calculation instead")]
     pub fn recalculate_y_bounds(&mut self) {
         log::info!("[DataStore] ========== RECALCULATING Y BOUNDS ==========");
         log::info!("[DataStore] X range: {} to {}", self.start_x, self.end_x);
-        log::info!("[DataStore] Excluded columns: {:?}", self.excluded_columns_for_y_bounds);
-        
+        log::info!(
+            "[DataStore] Excluded columns: {:?}",
+            self.excluded_columns_for_y_bounds
+        );
+
         let mut global_min = f32::INFINITY;
         let mut global_max = f32::NEG_INFINITY;
         let mut found_data = false;
         let mut included_metrics = Vec::new();
         let mut skipped_metrics = Vec::new();
-        
+
         // Check if we have any data groups
         if self.data_groups.is_empty() {
             log::warn!("[DataStore] No data groups available for bounds calculation");
             return;
         }
-        
+
         // Clone the excluded columns to avoid borrow issues
         let excluded_columns = self.excluded_columns_for_y_bounds.clone();
-        
+
         log::info!("[DataStore] Total data groups: {}", self.data_groups.len());
-        log::info!("[DataStore] Active data group indices: {:?}", self.active_data_group_indices);
-        
+        log::info!(
+            "[DataStore] Active data group indices: {:?}",
+            self.active_data_group_indices
+        );
+
         // Get only metrics that are BOTH visible AND not in exclusion list
         let active_groups = self.get_active_data_groups();
         let mut total_metrics = 0;
         let mut visible_metrics = 0;
-        
+
         for data_series in active_groups {
             for metric in &data_series.metrics {
                 total_metrics += 1;
-                
+
                 // Skip if not visible
                 if !metric.visible {
-                    log::info!("[DataStore] ⏸️ HIDDEN: Skipping metric '{}' (visible=false)", metric.name);
+                    log::info!(
+                        "[DataStore] ⏸️ HIDDEN: Skipping metric '{}' (visible=false)",
+                        metric.name
+                    );
                     skipped_metrics.push(format!("{} (hidden)", metric.name));
                     continue;
                 }
-                
+
                 visible_metrics += 1;
-                
+
                 // Skip if in exclude list
                 if excluded_columns.contains(&metric.name) {
-                    log::info!("[DataStore] ❌ EXCLUDED: Skipping metric '{}' (in exclusion list)", metric.name);
+                    log::info!(
+                        "[DataStore] ❌ EXCLUDED: Skipping metric '{}' (in exclusion list)",
+                        metric.name
+                    );
                     skipped_metrics.push(format!("{} (excluded)", metric.name));
                     continue;
                 }
-                
+
                 // Skip computed fields that have empty raw buffers (GPU-only data)
                 let value_array = js_sys::Float32Array::new(&metric.y_raw);
                 if value_array.length() == 0 {
-                    log::debug!("[DataStore] Skipping metric '{}' (no CPU data - likely GPU-computed)", metric.name);
+                    log::debug!(
+                        "[DataStore] Skipping metric '{}' (no CPU data - likely GPU-computed)",
+                        metric.name
+                    );
                     skipped_metrics.push(format!("{} (empty buffer)", metric.name));
                     continue;
                 }
-                
+
                 included_metrics.push(metric.name.clone());
-                
+
                 // Get the time and value data
                 let time_array = js_sys::Uint32Array::new(&data_series.x_raw);
                 // Value array was already created above for empty check
                 let length = time_array.length().min(value_array.length());
-                
-                log::info!("[DataStore] ✅ INCLUDING: Processing metric '{}' with {} points", metric.name, length);
-                
+
+                log::info!(
+                    "[DataStore] ✅ INCLUDING: Processing metric '{}' with {} points",
+                    metric.name,
+                    length
+                );
+
                 // Find min/max within the visible time range
                 let mut points_in_range = 0;
                 let mut metric_min = f32::INFINITY;
                 let mut metric_max = f32::NEG_INFINITY;
-                
+
                 for i in 0..length {
                     let time = time_array.get_index(i);
                     if time >= self.start_x && time <= self.end_x {
@@ -497,34 +521,46 @@ impl DataStore {
                         }
                     }
                 }
-                
+
                 if points_in_range > 0 {
-                    log::info!("[DataStore]   → Found {} points in range for '{}': min={}, max={}", 
-                        points_in_range, metric.name, metric_min, metric_max);
+                    log::info!(
+                        "[DataStore]   → Found {} points in range for '{}': min={}, max={}",
+                        points_in_range,
+                        metric.name,
+                        metric_min,
+                        metric_max
+                    );
                 } else {
-                    log::warn!("[DataStore]   → No points in time range for '{}'", metric.name);
+                    log::warn!(
+                        "[DataStore]   → No points in time range for '{}'",
+                        metric.name
+                    );
                 }
             }
         }
-        
+
         log::info!("[DataStore] ========== Y BOUNDS CALCULATION SUMMARY ==========");
-        log::info!("[DataStore] Total metrics: {}, Visible: {}", total_metrics, visible_metrics);
-        log::info!("[DataStore] Included metrics: {:?}", included_metrics);
-        log::info!("[DataStore] Skipped metrics: {:?}", skipped_metrics);
-        
+        log::info!("[DataStore] Total metrics: {total_metrics}, Visible: {visible_metrics}");
+        log::info!("[DataStore] Included metrics: {included_metrics:?}");
+        log::info!("[DataStore] Skipped metrics: {skipped_metrics:?}");
+
         if found_data {
-            log::info!("[DataStore] Raw bounds: min={}, max={}", global_min, global_max);
-            
+            log::info!("[DataStore] Raw bounds: min={global_min}, max={global_max}");
+
             // Add 10% margin
             let range = global_max - global_min;
             let margin = range * 0.1;
             global_min -= margin;
             global_max += margin;
-            
-            log::info!("[DataStore] Final Y bounds (with 10% margin): min={}, max={}", global_min, global_max);
+
+            log::info!(
+                "[DataStore] Final Y bounds (with 10% margin): min={global_min}, max={global_max}"
+            );
             self.update_min_max_y(global_min, global_max);
         } else {
-            log::warn!("[DataStore] ⚠️ No valid data found in range, using defaults (0.0, 100000.0)");
+            log::warn!(
+                "[DataStore] ⚠️ No valid data found in range, using defaults (0.0, 100000.0)"
+            );
             self.update_min_max_y(0.0, 100000.0);
         }
         log::info!("[DataStore] ==========================================");
@@ -552,11 +588,13 @@ impl DataStore {
             // Fallback to default values if GPU buffer not available
             let y_min_max = glm::vec2(0.0, 100.0);
             let y_min_max_bytes: &[u8] = unsafe { any_as_u8_slice(&y_min_max) };
-            Arc::new(device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("shared_y_range_buffer_fallback"),
-                contents: y_min_max_bytes,
-                usage: wgpu::BufferUsages::UNIFORM,
-            }))
+            Rc::new(
+                device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("shared_y_range_buffer_fallback"),
+                    contents: y_min_max_bytes,
+                    usage: wgpu::BufferUsages::UNIFORM,
+                }),
+            )
         };
 
         // Create the bind group layout if it doesn't exist
@@ -618,8 +656,8 @@ impl DataStore {
             self.mark_dirty();
         }
     }
-    
-    /// Get the GPU-calculated min/max values 
+
+    /// Get the GPU-calculated min/max values
     /// These are updated after GPU calculation completes
     pub fn get_gpu_y_bounds(&self) -> Option<(f32, f32)> {
         match (self.gpu_min_y, self.gpu_max_y) {
@@ -627,14 +665,14 @@ impl DataStore {
             _ => None,
         }
     }
-    
+
     /// Update GPU-calculated Y bounds
     pub fn set_gpu_y_bounds(&mut self, min: f32, max: f32) {
         self.gpu_min_y = Some(min);
         self.gpu_max_y = Some(max);
-        log::debug!("[DataStore] GPU Y bounds updated: min={}, max={}", min, max);
+        log::debug!("[DataStore] GPU Y bounds updated: min={min}, max={max}");
     }
-    
+
     /// Clear GPU bounds calculations (called when new data is loaded)
     pub fn clear_gpu_bounds(&mut self) {
         self.min_max_buffer = None;
@@ -645,7 +683,7 @@ impl DataStore {
         self.gpu_buffer_ready = false;
         log::debug!("[DataStore] Cleared GPU bounds - will recalculate on next render");
     }
-    
+
     /// Get a metric by reference
     pub fn get_metric(&self, metric_ref: &MetricRef) -> Option<&MetricSeries> {
         self.data_groups
@@ -653,7 +691,7 @@ impl DataStore {
             .metrics
             .get(metric_ref.metric_index)
     }
-    
+
     /// Get a mutable metric by reference
     pub fn get_metric_mut(&mut self, metric_ref: &MetricRef) -> Option<&mut MetricSeries> {
         self.data_groups
@@ -661,7 +699,7 @@ impl DataStore {
             .metrics
             .get_mut(metric_ref.metric_index)
     }
-    
+
     /// Find a metric by name and return its reference
     pub fn find_metric(&self, name: &str) -> Option<MetricRef> {
         for (group_idx, group) in self.data_groups.iter().enumerate() {
@@ -676,7 +714,7 @@ impl DataStore {
         }
         None
     }
-    
+
     /// Check if dependencies for a computed metric are ready
     pub fn dependencies_ready(&self, metric: &MetricSeries) -> bool {
         for dep_ref in &metric.dependencies {
@@ -690,7 +728,7 @@ impl DataStore {
         }
         true
     }
-    
+
     /// Get dependency buffers for computation
     pub fn get_dependency_buffers(&self, metric: &MetricSeries) -> Option<Vec<&wgpu::Buffer>> {
         let mut buffers = Vec::new();
@@ -703,7 +741,7 @@ impl DataStore {
         }
         Some(buffers)
     }
-    
+
     /// Get all computed metrics that need computation
     pub fn get_metrics_needing_computation(&self) -> Vec<MetricRef> {
         let mut refs = Vec::new();
@@ -779,7 +817,7 @@ impl MetricSeries {
             compute_version: 0,
         }
     }
-    
+
     /// Create a computed metric placeholder
     pub fn new_computed(
         name: String,
@@ -800,29 +838,32 @@ impl MetricSeries {
             compute_version: 0,
         }
     }
-    
+
     /// Check if this metric needs computation
     pub fn needs_computation(&self) -> bool {
         self.is_computed && !self.is_computed_ready
     }
-    
+
     /// Set computed buffer and raw data
     pub fn set_computed_data(&mut self, buffer: wgpu::Buffer, computed_values: Vec<f32>) {
         self.y_buffers = vec![buffer];
         self.is_computed_ready = true;
         self.compute_version += 1;
-        
+
         // Convert to ArrayBuffer for CPU access
         let js_array = js_sys::Float32Array::new_with_length(computed_values.len() as u32);
         for (i, &value) in computed_values.iter().enumerate() {
             js_array.set_index(i as u32, value);
         }
         self.y_raw = js_array.buffer();
-        
-        log::debug!("[MetricSeries] Computed metric '{}' populated with {} values", 
-            self.name, computed_values.len());
+
+        log::debug!(
+            "[MetricSeries] Computed metric '{}' populated with {} values",
+            self.name,
+            computed_values.len()
+        );
     }
-    
+
     /// Invalidate computation (when dependencies change)
     pub fn invalidate_computation(&mut self) {
         self.y_buffers.clear();
