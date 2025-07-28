@@ -249,8 +249,10 @@ impl XAxisRenderer {
         let shader = device.create_shader_module(wgpu::include_wgsl!("x_axis.wgsl"));
 
         const ATTRIBUTES: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Float32x2];
+        
+        // Create the same bind group layout as used by DataStore for shared bind groups
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: None,
+            label: Some("shared_range_bind_group_layout"),
             entries: &[
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
