@@ -2,7 +2,7 @@
 //!
 //! Preset for market data visualization with bid/ask lines and trade triangles
 
-use crate::{ RenderPreset, ChartPreset, RenderStyle, RenderType, ComputeOp };
+use crate::{ChartPreset, ComputeOp, RenderPreset, RenderStyle, RenderType};
 
 /// Create all market data presets
 pub fn create_market_data_presets() -> ChartPreset {
@@ -46,22 +46,16 @@ fn market_data_preset() -> ChartPreset {
             // Trade triangles
             RenderPreset {
                 render_type: RenderType::Triangle,
-                data_columns: vec![
-                    ("trades".to_string(), "price".to_string()),
-                ],
-                additional_data_columns: Some(vec![
-                    ("trades".to_string(), "side".to_string())
-                ]),
+                data_columns: vec![("trades".to_string(), "price".to_string())],
+                additional_data_columns: Some(vec![("trades".to_string(), "side".to_string())]),
                 visible: true,
                 label: "Trades".to_string(),
                 style: RenderStyle {
                     color: None, // Use color_options instead
-                    color_options: Some(
-                        vec![
-                            [0.0, 0.6, 0.0, 1.0], // Green for buy
-                            [0.6, 0.0, 0.0, 1.0] // Red for sell
-                        ]
-                    ),
+                    color_options: Some(vec![
+                        [0.0, 0.6, 0.0, 1.0], // Green for buy
+                        [0.6, 0.0, 0.0, 1.0], // Red for sell
+                    ]),
                     size: 8.0, // Triangle size in pixels
                 },
                 compute_op: None,
@@ -71,7 +65,7 @@ fn market_data_preset() -> ChartPreset {
                 render_type: RenderType::Line,
                 data_columns: vec![
                     ("md".to_string(), "best_ask".to_string()),
-                    ("md".to_string(), "best_bid".to_string())
+                    ("md".to_string(), "best_bid".to_string()),
                 ],
                 additional_data_columns: None,
                 visible: true, // Now visible by default
@@ -82,7 +76,7 @@ fn market_data_preset() -> ChartPreset {
                     size: 1.5,
                 },
                 compute_op: Some(ComputeOp::Average), // (ask + bid) / 2
-            }
+            },
         ],
     }
 }

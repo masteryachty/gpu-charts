@@ -18,7 +18,7 @@ pub trait ComputeProcessor {
         queue: &wgpu::Queue,
         encoder: &mut wgpu::CommandEncoder,
     ) -> Result<ComputeResult, String>;
-    
+
     /// Get the name of this processor
     fn name(&self) -> &str;
 }
@@ -33,7 +33,7 @@ impl ComputeInfrastructure {
     pub fn new(device: Rc<wgpu::Device>, queue: Rc<wgpu::Queue>) -> Self {
         Self { device, queue }
     }
-    
+
     /// Create a compute pipeline from shader source
     pub fn create_compute_pipeline(
         &self,
@@ -41,29 +41,35 @@ impl ComputeInfrastructure {
         entry_point: &str,
         bind_group_layout: &wgpu::BindGroupLayout,
     ) -> Result<wgpu::ComputePipeline, String> {
-        let shader = self.device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Compute Shader"),
-            source: wgpu::ShaderSource::Wgsl(shader_source.into()),
-        });
-        
-        let pipeline_layout = self.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Compute Pipeline Layout"),
-            bind_group_layouts: &[bind_group_layout],
-            push_constant_ranges: &[],
-        });
-        
-        let pipeline = self.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("Compute Pipeline"),
-            layout: Some(&pipeline_layout),
-            module: &shader,
-            entry_point: Some(entry_point),
-            compilation_options: Default::default(),
-            cache: None,
-        });
-        
+        let shader = self
+            .device
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("Compute Shader"),
+                source: wgpu::ShaderSource::Wgsl(shader_source.into()),
+            });
+
+        let pipeline_layout = self
+            .device
+            .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Compute Pipeline Layout"),
+                bind_group_layouts: &[bind_group_layout],
+                push_constant_ranges: &[],
+            });
+
+        let pipeline = self
+            .device
+            .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some("Compute Pipeline"),
+                layout: Some(&pipeline_layout),
+                module: &shader,
+                entry_point: Some(entry_point),
+                compilation_options: Default::default(),
+                cache: None,
+            });
+
         Ok(pipeline)
     }
-    
+
     /// Execute a compute pass
     pub fn execute_compute(
         &self,
@@ -76,12 +82,12 @@ impl ComputeInfrastructure {
             label: Some("Compute Pass"),
             timestamp_writes: None,
         });
-        
+
         compute_pass.set_pipeline(pipeline);
         compute_pass.set_bind_group(0, bind_group, &[]);
         compute_pass.dispatch_workgroups(workgroup_count.0, workgroup_count.1, workgroup_count.2);
     }
-    
+
     /// Create a buffer for compute operations
     pub fn create_compute_buffer(
         &self,
@@ -96,9 +102,12 @@ impl ComputeInfrastructure {
             mapped_at_creation: false,
         })
     }
-    
+
     /// Create a buffer with initial data
-    pub fn create_buffer_init(&self, descriptor: &wgpu::util::BufferInitDescriptor) -> wgpu::Buffer {
+    pub fn create_buffer_init(
+        &self,
+        descriptor: &wgpu::util::BufferInitDescriptor,
+    ) -> wgpu::Buffer {
         self.device.create_buffer_init(descriptor)
     }
 }

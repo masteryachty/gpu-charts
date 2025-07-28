@@ -1,6 +1,6 @@
 //! Line renderer for computed data (e.g., mid price, moving averages)
 
-use crate::compute::{MidPriceCalculator, ComputeResult};
+use crate::compute::{ComputeResult, MidPriceCalculator};
 use data_manager::DataStore;
 use std::rc::Rc;
 use wgpu::util::DeviceExt;
@@ -11,14 +11,14 @@ pub struct ComputedLineRenderer {
     bind_group_layout: wgpu::BindGroupLayout,
     device: Rc<wgpu::Device>,
     queue: Rc<wgpu::Queue>,
-    
+
     // Compute infrastructure
     mid_price_calculator: Option<MidPriceCalculator>,
-    
+
     // Cached results
     cached_result: Option<ComputeResult>,
     cached_data_version: u64,
-    
+
     // Configuration
     name: String,
     color: [f32; 3],
@@ -42,7 +42,7 @@ impl ComputedLineRenderer {
     ) -> Self {
         // Create shader module
         let shader = device.create_shader_module(wgpu::include_wgsl!("computed_line.wgsl"));
-        
+
         // Create bind group layout
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Computed Line Bind Group Layout"),
@@ -104,14 +104,14 @@ impl ComputedLineRenderer {
                 },
             ],
         });
-        
+
         // Create pipeline layout
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Computed Line Pipeline Layout"),
             bind_group_layouts: &[&bind_group_layout],
             push_constant_ranges: &[],
         });
-        
+
         // Create render pipeline
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Computed Line Render Pipeline"),
@@ -142,10 +142,10 @@ impl ComputedLineRenderer {
             multiview: None,
             cache: None,
         });
-        
+
         // Create mid price calculator
         let mid_price_calculator = MidPriceCalculator::new(device.clone(), queue.clone()).ok();
-        
+
         Self {
             pipeline,
             bind_group_layout,
@@ -159,11 +159,11 @@ impl ComputedLineRenderer {
             line_style: LineStyle::Solid,
         }
     }
-    
+
     pub fn set_line_style(&mut self, style: LineStyle) {
         self.line_style = style;
     }
-    
+
     /// Compute mid price from bid/ask data
     fn compute_mid_price(
         &mut self,
@@ -174,7 +174,7 @@ impl ComputedLineRenderer {
         let mut bid_buffer = None;
         let mut ask_buffer = None;
         let mut element_count = 0u32;
-        
+
         for data_group in &data_store.data_groups {
             for metric in &data_group.metrics {
                 if metric.name == "best_bid" && !metric.y_buffers.is_empty() {
@@ -185,16 +185,24 @@ impl ComputedLineRenderer {
                 }
             }
         }
-        
+
         // If we have both bid and ask, compute mid price
-        if let (Some(bid), Some(ask), Some(calculator)) = (bid_buffer, ask_buffer, &self.mid_price_calculator) {
+        if let (Some(bid), Some(ask), Some(calculator)) =
+            (bid_buffer, ask_buffer, &self.mid_price_calculator)
+        {
             match calculator.calculate(bid, ask, element_count, encoder) {
                 Ok(result) => {
-                    log::info!("📊 [ComputedLineRenderer] Computed mid price for {} elements", element_count);
+                    log::info!(
+                        "📊 [ComputedLineRenderer] Computed mid price for {} elements",
+                        element_count
+                    );
                     Some(result)
                 }
                 Err(e) => {
-                    log::error!("❌ [ComputedLineRenderer] Failed to compute mid price: {}", e);
+                    log::error!(
+                        "❌ [ComputedLineRenderer] Failed to compute mid price: {}",
+                        e
+                    );
                     None
                 }
             }
@@ -225,33 +233,35 @@ impl crate::MultiRenderable for ComputedLineRenderer {
                 return; // Can't render without data
             }
         }
-        
+
         // Get computed result
         let computed_result = match &self.cached_result {
             Some(result) => result,
             None => return,
         };
-        
+
         // Find time buffer
-        let time_buffer = data_store.data_groups.first()
+        let time_buffer = data_store
+            .data_groups
+            .first()
             .and_then(|group| group.x_buffers.first());
-        
+
         if time_buffer.is_none() {
             return;
         }
-        
+
         let time_buffer = time_buffer.unwrap();
-        
+
         // Create uniforms
         use nalgebra_glm as glm;
-        
+
         let x_range = glm::vec2(data_store.start_x as f32, data_store.end_x as f32);
         let x_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("X Range Buffer"),
             contents: bytemuck::cast_slice(&[x_range.x, x_range.y]),
             usage: wgpu::BufferUsages::UNIFORM,
         });
-        
+
         let y_range = glm::vec2(
             data_store.min_y.unwrap_or(0.0),
             data_store.max_y.unwrap_or(100.0),
@@ -261,7 +271,7 @@ impl crate::MultiRenderable for ComputedLineRenderer {
             contents: bytemuck::cast_slice(&[y_range.x, y_range.y]),
             usage: wgpu::BufferUsages::UNIFORM,
         });
-        
+
         // Line parameters
         #[repr(C)]
         #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
@@ -269,7 +279,7 @@ impl crate::MultiRenderable for ComputedLineRenderer {
             color: [f32; 3],
             style: u32, // 0=solid, 1=dashed, 2=dotted
         }
-        
+
         let line_params = LineParams {
             color: self.color,
             style: match self.line_style {
@@ -278,13 +288,13 @@ impl crate::MultiRenderable for ComputedLineRenderer {
                 LineStyle::Dotted => 2,
             },
         };
-        
+
         let params_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Line Params Buffer"),
             contents: bytemuck::cast_slice(&[line_params]),
             usage: wgpu::BufferUsages::UNIFORM,
         });
-        
+
         // Create bind group
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Computed Line Bind Group"),
@@ -312,7 +322,7 @@ impl crate::MultiRenderable for ComputedLineRenderer {
                 },
             ],
         });
-        
+
         // Render
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Computed Line Render Pass"),
@@ -328,20 +338,20 @@ impl crate::MultiRenderable for ComputedLineRenderer {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
-        
+
         render_pass.set_pipeline(&self.pipeline);
         render_pass.set_bind_group(0, &bind_group, &[]);
         render_pass.draw(0..computed_result.element_count, 0..1);
     }
-    
+
     fn name(&self) -> &str {
         &self.name
     }
-    
+
     fn priority(&self) -> u32 {
         100 // Render after main data but before UI elements
     }
-    
+
     fn resize(&mut self, _width: u32, _height: u32) {
         // No special resize handling needed
     }
