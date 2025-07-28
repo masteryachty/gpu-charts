@@ -26,7 +26,7 @@ gpu-charts/
 │   └── wasm-bridge/      # JavaScript/React integration layer
 ├── web/                  # React frontend application
 ├── server/               # High-performance data server
-├── coinbase-logger/      # Real-time market data collector
+├── logger/      # Real-time market data collector
 └── file_server/          # Legacy development server
 ```
 
@@ -100,7 +100,7 @@ git commit -m "Your commit message"
 .git/hooks/pre-commit
 
 # Individual commands the pre-commit hook runs:
-cd coinbase-logger
+cd logger
 cargo fmt --all -- --check           # Rust formatting check
 cargo clippy --target x86_64-unknown-linux-gnu -- -D warnings  # Linting
 cargo audit                           # Security vulnerability scan
@@ -317,7 +317,7 @@ This project consists of four main components working together:
 - **Testing**: Comprehensive test suite with 26 total tests (18 unit + 8 integration)
 - **Development**: Must use `--target x86_64-unknown-linux-gnu` for all cargo operations
 
-### 4. Coinbase Logger (`/coinbase-logger`)
+### 4. Coinbase Logger (`/logger`)
 - **Purpose**: Real-time market data collection from Coinbase WebSocket feed
 - **Output**: Writes binary data files that the server memory-maps
 - **Technology**: Multi-threaded Rust application with WebSocket connections
@@ -338,7 +338,7 @@ This project consists of four main components working together:
 - `web/`: React frontend application
   - `web/pkg/`: Generated WASM modules from wasm-bridge crate
 - `server/`: High-performance data server with SSL certificates
-- `coinbase-logger/`: Real-time market data collection service
+- `logger/`: Real-time market data collection service
 - `file_server/`: Simple Actix-web development server (legacy mode)
 - `scripts/`: Build and development automation scripts
   - `dev-build.sh`: Automated WASM rebuilding with file watching (updated paths)

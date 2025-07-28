@@ -48,4 +48,4 @@ Once running, access the application at:
   - `shared-types` - Common types and interfaces
 - `/web` - React frontend application
 - `/server` - High-performance data server
-- `/coinbase-logger` - Real-time market data logger
+- `/logger` - Real-time market data logger

@@ -53,7 +53,7 @@ docker-compose -f docker-compose.prod.yml up -d
   - CORS enabled
 
 ### Coinbase Logger
-- **Image:** `masteryachty/coinbase-logger`
+- **Image:** `masteryachty/logger`
 - **Features:**
   - Real-time WebSocket data collection
   - Binary file output
