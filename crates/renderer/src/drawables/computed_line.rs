@@ -9,8 +9,8 @@ use wgpu::util::DeviceExt;
 pub struct ComputedLineRenderer {
     pipeline: wgpu::RenderPipeline,
     bind_group_layout: wgpu::BindGroupLayout,
-    device: Rc<wgpu::Device>,
-    queue: Rc<wgpu::Queue>,
+    _device: Rc<wgpu::Device>,
+    _queue: Rc<wgpu::Queue>,
 
     // Compute infrastructure
     mid_price_calculator: Option<MidPriceCalculator>,
@@ -149,8 +149,8 @@ impl ComputedLineRenderer {
         Self {
             pipeline,
             bind_group_layout,
-            device,
-            queue,
+            _device: device,
+            _queue: queue,
             mid_price_calculator,
             cached_result: None,
             cached_data_version: 0,

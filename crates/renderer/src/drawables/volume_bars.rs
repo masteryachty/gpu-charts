@@ -17,7 +17,7 @@ pub struct VolumeBarRenderer {
     pipeline: wgpu::RenderPipeline,
     bind_group_layout: wgpu::BindGroupLayout,
     device: Rc<wgpu::Device>,
-    format: TextureFormat,
+    _format: TextureFormat,
 }
 
 impl VolumeBarRenderer {
@@ -159,7 +159,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             pipeline,
             bind_group_layout,
             device,
-            format,
+            _format: format,
         }
     }
 

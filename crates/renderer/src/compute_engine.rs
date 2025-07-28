@@ -12,8 +12,8 @@ use wgpu::{CommandEncoder, Device, Queue};
 
 /// Manages all compute operations for metrics
 pub struct ComputeEngine {
-    device: Rc<Device>,
-    queue: Rc<Queue>,
+    _device: Rc<Device>,
+    _queue: Rc<Queue>,
 
     // Compute calculators
     mid_price_calculator: Option<MidPriceCalculator>,
@@ -28,8 +28,8 @@ impl ComputeEngine {
         let mid_price_calculator = MidPriceCalculator::new(device.clone(), queue.clone()).ok();
 
         Self {
-            device,
-            queue,
+            _device: device,
+            _queue: queue,
             mid_price_calculator,
             computed_metrics: HashMap::new(),
         }

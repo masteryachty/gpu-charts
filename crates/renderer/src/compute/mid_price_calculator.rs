@@ -165,7 +165,7 @@ impl MidPriceCalculator {
             });
 
         // Calculate workgroup count (256 threads per workgroup)
-        let workgroup_count = ((element_count + 255) / 256, 1, 1);
+        let workgroup_count = (element_count.div_ceil(256), 1, 1);
 
         // Execute compute pass
         self.infrastructure

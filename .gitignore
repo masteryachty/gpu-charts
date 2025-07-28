@@ -454,7 +454,6 @@ target
 **/pkg/*.wasm.d.ts
 web/public/pkg/
 md/
-coinbase-logger/data
 
 # SSL/TLS Certificates - NEVER commit these
 server/certs/*.key

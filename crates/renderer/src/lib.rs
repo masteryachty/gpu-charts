@@ -1,6 +1,8 @@
 //! Pure GPU rendering engine for GPU Charts
 //! Implements Phase 3 optimizations for extreme performance
 
+#![allow(clippy::uninlined_format_args)]
+
 pub mod calcables;
 pub mod charts;
 pub mod compute;

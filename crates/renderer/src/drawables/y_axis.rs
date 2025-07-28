@@ -30,7 +30,7 @@ impl YAxisRenderer {
         queue: &wgpu::Queue,
     ) {
         // Get bounds for display - prefer GPU bounds, fall back to reasonable defaults
-        let (min, max) = data_store.get_gpu_y_bounds().unwrap_or_else(|| {
+        let (min, max) = data_store.get_gpu_y_bounds().unwrap_or({
             // Use the actual data range from the shader's perspective
             // The shader will use the correct bounds, we just need values for labels
             match (data_store.min_y, data_store.max_y) {

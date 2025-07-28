@@ -130,7 +130,7 @@ pub trait MultiRenderable {
 /// Wrapper to adapt existing renderers to the MultiRenderable trait
 pub struct RendererAdapter<T> {
     renderer: T,
-    name: String,
+    _name: String,
     priority: u32,
     should_clear: bool,
 }
@@ -139,7 +139,7 @@ impl<T> RendererAdapter<T> {
     pub fn new(renderer: T, name: impl Into<String>) -> Self {
         Self {
             renderer,
-            name: name.into(),
+            _name: name.into(),
             priority: 100,
             should_clear: false,
         }
@@ -172,7 +172,7 @@ pub struct MultiRenderer {
     queue: Rc<Queue>,
     renderers: Vec<Box<dyn MultiRenderable>>,
     render_order: RenderOrder,
-    format: wgpu::TextureFormat,
+    _format: wgpu::TextureFormat,
 }
 
 impl MultiRenderer {
@@ -183,7 +183,7 @@ impl MultiRenderer {
             queue,
             renderers: Vec::new(),
             render_order: RenderOrder::Sequential,
-            format,
+            _format: format,
         }
     }
 
@@ -357,7 +357,7 @@ impl MultiRenderable for crate::PlotRenderer {
 pub struct ConfigurablePlotRenderer {
     renderer: crate::PlotRenderer,
     name: String,
-    data_columns: Vec<(String, String)>,
+    _data_columns: Vec<(String, String)>,
 }
 
 impl ConfigurablePlotRenderer {
@@ -374,7 +374,7 @@ impl ConfigurablePlotRenderer {
         Self {
             renderer,
             name,
-            data_columns,
+            _data_columns: data_columns,
         }
     }
 }

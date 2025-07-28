@@ -1,6 +1,8 @@
 //! WASM Bridge crate for GPU Charts
 //! Central orchestration layer that bridges JavaScript and Rust/WebGPU worlds
 
+#![allow(clippy::uninlined_format_args)]
+
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
@@ -1381,7 +1383,7 @@ impl Chart {
                             for (data_type, column) in &chart_preset.data_columns {
                                 log::info!("    Adding data requirement: type='{}', column='{}'", data_type, column);
                                 data_requirements.entry(data_type.clone())
-                                    .or_insert_with(std::collections::HashSet::new)
+                                    .or_default()
                                     .insert(column.clone());
                             }
 
@@ -1390,7 +1392,7 @@ impl Chart {
                                 for (data_type, column) in additional_cols {
                                     log::info!("    Adding additional data requirement: type='{}', column='{}'", data_type, column);
                                     data_requirements.entry(data_type.clone())
-                                        .or_insert_with(std::collections::HashSet::new)
+                                        .or_default()
                                         .insert(column.clone());
                                 }
                             }
