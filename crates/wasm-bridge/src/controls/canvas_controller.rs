@@ -1,4 +1,4 @@
-use crate::line_graph::unix_timestamp_to_string;
+use crate::chart_engine::unix_timestamp_to_string;
 use renderer::Renderer;
 use shared_types::events::{ElementState, MouseScrollDelta, WindowEvent};
 
@@ -28,10 +28,10 @@ impl CanvasController {
     }
 
     pub fn handle_cursor_event(&mut self, event: WindowEvent, renderer: &mut Renderer) {
-        log::info!(
-            "[CanvasController] handle_cursor_event called with event: {:?}",
-            event
-        );
+        // log::info!(
+        //     "[CanvasController] handle_cursor_event called with event: {:?}",
+        //     event
+        // );
 
         match event {
             WindowEvent::MouseWheel { delta, phase, .. } => {

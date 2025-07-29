@@ -25,8 +25,8 @@ pub struct DataHandle {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DataMetadata {
     pub symbol: String,
-    pub start_time: u64,
-    pub end_time: u64,
+    pub start_time: u32,
+    pub end_time: u32,
     pub columns: Vec<String>,
     pub row_count: usize,
 }

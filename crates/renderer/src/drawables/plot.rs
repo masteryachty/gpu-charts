@@ -88,6 +88,7 @@ impl PlotRenderer {
                             render_pass.set_vertex_buffer(0, x_buffer.slice(..));
                             render_pass.set_vertex_buffer(1, y_buffer.slice(..));
                             let vertex_count = (x_buffer.size() / 4) as u32;
+
                             render_pass.draw(0..vertex_count, 0..1);
                         }
                     }

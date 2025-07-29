@@ -114,13 +114,13 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
           throw initError;
         }
 
-        try {
-          await chart.render();
-          console.log('[useWasmChart] Chart.render() completed');
-        } catch (initError) {
-          console.error('[useWasmChart] Chart.render() failed:', initError);
-          throw initError;
-        }
+        // try {
+        //   await chart.render();
+        //   console.log('[useWasmChart] Chart.render() completed');
+        // } catch (initError) {
+        //   console.error('[useWasmChart] Chart.render() failed:', initError);
+        //   throw initError;
+        // }
 
       } catch (wasmImportError) {
         console.warn('[useWasmChart] WASM module not available', wasmImportError);

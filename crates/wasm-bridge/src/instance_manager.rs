@@ -1,6 +1,6 @@
 //! Safe instance management for Chart instances
 //! Replaces unsafe global state with a thread-local storage pattern
-use crate::line_graph::ChartEngine;
+use crate::chart_engine::ChartEngine;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -41,13 +41,14 @@ impl InstanceManager {
         let id = Uuid::new_v4();
 
         // Initialize the line graph directly with canvas
-        let line_graph = ChartEngine::new(width, height, canvas_id, start_x, end_x)
+        let mut chart_engine = ChartEngine::new(width, height, canvas_id, start_x, end_x)
             .await
             .map_err(|e| format!("Failed to create LineGraph: {e:?}"))?;
 
-        let instance = ChartInstance {
-            chart_engine: line_graph,
-        };
+        // Set the instance ID in the chart engine
+        chart_engine.set_instance_id(id);
+
+        let instance = ChartInstance { chart_engine };
 
         CHART_INSTANCES.with(|instances| {
             instances.borrow_mut().insert(id, instance);

@@ -8,6 +8,7 @@ pub mod multi_renderer;
 pub mod pipeline_builder;
 pub mod shaders;
 
+use config_system::ChartPreset;
 use data_manager::DataStore;
 use shared_types::{GpuChartsError, GpuChartsResult};
 use std::rc::Rc;
@@ -106,6 +107,82 @@ impl Renderer {
         Ok(renderer)
     }
 
+    /// Calculate bounds using GPU compute
+    pub async fn calculate_bounds(
+        &mut self,
+        mut encoder: wgpu::CommandEncoder,
+    ) -> RenderResult<()> {
+        log::info!("[Renderer] Calculating bounds using GPU");
+
+        // Run pre-render compute passes (e.g., compute mid price)
+        self.compute_engine
+            .run_compute_passes(&mut encoder, &mut self.data_store);
+
+        // Calculate Y bounds using GPU
+        let (x_min, x_max) = (self.data_store.start_x, self.data_store.end_x);
+        let (min_max_buffer, staging_buffer) = calculate_min_max_y(
+            &self.device,
+            &self.queue,
+            &mut encoder,
+            &self.data_store,
+            x_min,
+            x_max,
+        );
+
+        // Store both GPU min/max buffer and staging buffer
+        self.data_store.min_max_buffer = Some(std::rc::Rc::new(min_max_buffer));
+        self.data_store.min_max_staging_buffer = Some(std::rc::Rc::new(staging_buffer));
+
+        // Update the shared bind group with GPU-calculated bounds
+        self.data_store
+            .update_shared_bind_group_with_gpu_buffer(&self.device);
+
+        // Submit the command buffer
+        self.queue.submit(std::iter::once(encoder.finish()));
+
+        // Read back the staging buffer to get the actual min/max values
+        if let Some(staging_buffer) = &self.data_store.min_max_staging_buffer {
+            // Clone the buffer reference to avoid borrow issues
+            let staging_buffer = staging_buffer.clone();
+
+            // Map the buffer for reading
+            let buffer_slice = staging_buffer.slice(..);
+            let (sender, receiver) = futures::channel::oneshot::channel();
+            buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
+                let _ = sender.send(result);
+            });
+
+            // Wait for the GPU to finish
+            self.device.poll(wgpu::Maintain::Wait);
+
+            // Get the mapped data
+            if let Ok(Ok(())) = receiver.await {
+                let data = buffer_slice.get_mapped_range();
+                let min_max: &[f32] = bytemuck::cast_slice(&data);
+
+                if min_max.len() >= 2 {
+                    let min = min_max[0];
+                    let max = min_max[1];
+
+                    // Update the data store with the GPU-calculated bounds
+                    self.data_store.set_gpu_y_bounds(min, max);
+                    log::info!("[Renderer] GPU bounds read back: min={}, max={}", min, max);
+                } else {
+                    log::warn!("[Renderer] Staging buffer had insufficient data");
+                }
+
+                // Unmap the buffer
+                drop(data);
+                staging_buffer.unmap();
+            } else {
+                log::error!("[Renderer] Failed to map staging buffer for reading");
+            }
+        }
+
+        log::info!("[Renderer] Bounds calculation complete");
+        Ok(())
+    }
+
     /// Render a frame using the provided multi-renderer
     pub async fn render(&mut self, multi_renderer: &mut MultiRenderer) -> RenderResult<()> {
         // Check if rendering is needed
@@ -126,18 +203,15 @@ impl Renderer {
                 label: Some("Render Encoder"),
             });
 
-        // Run pre-render compute passes (e.g., compute mid price)
-        // This must happen BEFORE calculating min/max bounds
+        // Check if bounds calculation is needed (wasn't done in preprocessing)
         if self.data_store.min_max_buffer.is_none() {
-            log::debug!("[Renderer] Running pre-render compute passes...");
+            log::debug!("[Renderer] Bounds not calculated in preprocessing, calculating now...");
+
+            // Run pre-render compute passes (e.g., compute mid price)
             self.compute_engine
                 .run_compute_passes(&mut encoder, &mut self.data_store);
-        }
 
-        // Calculate Y bounds using GPU if not already calculated
-        if self.data_store.min_max_buffer.is_none() {
-            log::debug!("[Renderer] Calculating Y bounds using GPU min/max...");
-
+            // Calculate Y bounds using GPU
             let (x_min, x_max) = (self.data_store.start_x, self.data_store.end_x);
             let (min_max_buffer, staging_buffer) = calculate_min_max_y(
                 &self.device,
@@ -151,11 +225,13 @@ impl Renderer {
             // Store both GPU min/max buffer and staging buffer
             self.data_store.min_max_buffer = Some(std::rc::Rc::new(min_max_buffer));
             self.data_store.min_max_staging_buffer = Some(std::rc::Rc::new(staging_buffer));
-        }
 
-        // Update the shared bind group with GPU-calculated bounds
-        self.data_store
-            .update_shared_bind_group_with_gpu_buffer(&self.device);
+            // Update the shared bind group with GPU-calculated bounds
+            self.data_store
+                .update_shared_bind_group_with_gpu_buffer(&self.device);
+        } else {
+            log::debug!("[Renderer] Using pre-calculated bounds from preprocessing stage");
+        }
 
         // Let MultiRenderer handle all rendering
         multi_renderer.render(&mut encoder, &view, &self.data_store)?;
@@ -352,6 +428,15 @@ impl Renderer {
             .add_x_axis_renderer(width, height)
             .add_y_axis_renderer(width, height)
             .build()
+    }
+
+    pub fn set_preset_and_symbol(
+        &mut self,
+        preset: Option<&ChartPreset>,
+        symbol_name: Option<String>,
+    ) {
+        self.data_store_mut()
+            .set_preset_and_symbol(preset, symbol_name);
     }
 }
 

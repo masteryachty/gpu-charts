@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Chart } from '@pkg/wasm_bridge.js';
 import { useAppStore } from '../store/useAppStore';
+import { arrayBuffer } from 'stream/consumers';
 
 
 interface PresetSectionProps {
@@ -15,13 +16,14 @@ export default function PresetSection({
 
   const { setPreset } = useAppStore();
   const [presets, setPresets] = useState<string[]>([]);
+  const [metrics, setMetrics] = useState<{ label: string, visible: boolean }[]>([]);
 
   // // Handle preset selection - simplified to use new WASM architecture
   const handlePresetSelect = useCallback(async (preset?: string) => {
     if (preset) {
-      await chartInstance.apply_preset(
-        preset
-      );
+      // await chartInstance.apply_preset(
+      //   preset
+      // );
       setPreset(preset);
     }
 
@@ -29,17 +31,29 @@ export default function PresetSection({
 
   // Load available presets
   useEffect(() => {
-    const loadPresets = async () => {
-      try {
-        const loadedPresets = (await chartInstance.get_all_preset_names()) || [];
-        setPresets(loadedPresets);
-      } catch (err) {
-        console.error('[PresetSection] Failed to load presets:', err);
-      }
-    };
+    const loadedPresets = chartInstance.get_all_preset_names() || [];
+    setPresets(loadedPresets);
+    console.log('[PresetSection] Success to load presets:', loadedPresets);
+  }, [chartInstance]);
 
-    loadPresets();
+  // Load available metrics
+  useEffect(() => {
+    getMetrics()
   }, [chartInstance, preset]);
+
+  const getMetrics = () => {
+    console.log('[PresetSection] start to fetch metrics:', preset);
+
+    if (preset) {
+      const metricsArray = chartInstance.get_metrics_for_preset() || [];
+      const metrics = []
+      for (let i = 0; i < metricsArray.length; i += 2) {
+        metrics.push({ label: metricsArray[i], visible: metricsArray[i + 1] })
+      }
+      setMetrics(metrics);
+      console.log('[PresetSection] Success to fetch metrics:', metrics);
+    }
+  }
 
   // // Apply Market Data preset by default
   // useEffect(() => {
@@ -61,39 +75,13 @@ export default function PresetSection({
   // // This useEffect is no longer needed since we load chart states immediately in handlePresetSelect
 
   // // Toggle individual metric visibility - simplified to use new WASM architecture
-  // const handleChartTypeToggle = useCallback(async (chartLabel: string) => {
-  //   if (!chartInstance?.toggle_metric_visibility) return;
+  const handleMetricToggle = useCallback((chartLabel: string) => {
+    console.log('[PresetSection] Toggling metric visibility:', chartLabel);
+    // Use the new simplified toggle_metric_visibility method
+    chartInstance.toggle_metric_visibility(chartLabel);
+    getMetrics()
 
-  //   console.log('[PresetSection] Toggling metric visibility:', chartLabel);
-
-  //   try {
-  //     // Use the new simplified toggle_metric_visibility method
-  //     const toggleResult = chartInstance.toggle_metric_visibility(chartLabel);
-  //     const response = JSON.parse(toggleResult);
-
-  //     console.log('[PresetSection] Toggle response:', response);
-
-  //     if (response.success) {
-  //       // Get updated visibility states from WASM
-  //       const statesJson = chartInstance.get_preset_chart_states();
-  //       const statesResponse: PresetChartStatesResponse = JSON.parse(statesJson);
-
-  //       if (statesResponse.success && statesResponse.chart_states) {
-  //         setChartStates(statesResponse.chart_states);
-  //       }
-
-  //       // Trigger a render to update the display
-  //       if (chartInstance.render) {
-  //         await chartInstance.render();
-  //       }
-  //     } else {
-  //       throw new Error(response.error || 'Failed to toggle metric visibility');
-  //     }
-  //   } catch (err) {
-  //     console.error('[PresetSection] Error toggling metric visibility:', err);
-  //     setError(err instanceof Error ? err.message : 'Failed to toggle metric visibility');
-  //   }
-  // }, [chartInstance]);
+  }, [chartInstance, preset]);
 
   return (
     <div className="space-y-2">
@@ -115,28 +103,28 @@ export default function PresetSection({
         ))}
       </select>
 
-      {/* Chart type checkboxes when preset is active
-      {preset && chartStates.length > 0 && (
+      {/* Chart type checkboxes when preset is active */}
+      {preset && metrics.length > 0 && (
         <div className="mt-3 space-y-2">
           <div className="text-xs text-gray-400 mb-1">Chart Components:</div>
-          {chartStates.map((chartState) => (
+          {metrics.map((metric) => (
             <label
-              key={chartState.label}
+              key={metric.label}
               className="flex items-center space-x-2 cursor-pointer hover:bg-gray-700 p-1 rounded transition-colors"
             >
               <input
                 type="checkbox"
-                checked={chartState.visible}
-                onChange={() => handleChartTypeToggle(chartState.label)}
+                checked={metric.visible}
+                onChange={() => handleMetricToggle(metric.label)}
                 className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
               />
               <span className="text-sm text-gray-300 select-none">
-                {chartState.label}
+                {metric.label}
               </span>
             </label>
           ))}
         </div>
-      )} */}
+      )}
     </div>
   );
 }

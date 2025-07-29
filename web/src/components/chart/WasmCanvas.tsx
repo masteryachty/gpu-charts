@@ -7,15 +7,12 @@ interface WasmCanvasProps {
   height?: number;
   /** Callback when chart is ready with the chart instance */
   onChartReady?: (chart: any) => void;
-  /** Currently active preset name from React state */
-  activePreset?: string | null;
 }
 
 export default function WasmCanvas({
   width = 0,
   height = 0,
   onChartReady,
-  activePreset
 }: WasmCanvasProps) {
   const { startTime, endTime } = useAppStore();
 
@@ -44,20 +41,20 @@ export default function WasmCanvas({
 
     // CRITICAL: Only update canvas size if it actually changed
     // Setting width/height clears the canvas and breaks WebGPU rendering
-    if (canvas.width !== newWidth || canvas.height !== newHeight) {
-      canvas.width = newWidth;
-      canvas.height = newHeight;
+    // if (canvas.width !== newWidth || canvas.height !== newHeight) {
+    //   canvas.width = newWidth;
+    //   canvas.height = newHeight;
 
-      console.log('[WasmCanvas] Canvas size updated:', {
-        containerSize: `${rect.width}x${rect.height}`,
-        canvasSize: `${canvas.width}x${canvas.height}`
-      });
+    //   console.log('[WasmCanvas] Canvas size updated:', {
+    //     containerSize: `${rect.width}x${rect.height}`,
+    //     canvasSize: `${canvas.width}x${canvas.height}`
+    //   });
 
-      // Notify the chart about the resize
-      if (chartState.chart && chartState.isInitialized && chartState.chart.resize) {
-        chartState.chart.resize(newWidth, newHeight);
-      }
-    }
+    //   // Notify the chart about the resize
+    //   if (chartState.chart && chartState.isInitialized && chartState.chart.resize) {
+    //     chartState.chart.resize(newWidth, newHeight);
+    //   }
+    // }
   }, [chartState.chart, chartState.isInitialized]);
 
   // Initialize chart when canvas is ready with improved timing
@@ -188,43 +185,6 @@ export default function WasmCanvas({
     };
   }, [updateCanvasSize]);
 
-  // // On-demand render loop - only renders when chart state is dirty
-  // useEffect(() => {
-  //   if (!chartState.chart || !chartState.isInitialized) return;
-
-  //   let animationId: number;
-  //   let isRendering = false;
-
-  //   const checkAndRender = async () => {
-  //     if (!isRendering && chartState.chart && chartState.isInitialized) {
-  //       // Check if rendering is needed
-  //       const needsRender = chartState.chart.needs_render?.() ?? false;
-
-  //       if (needsRender) {
-  //         // console.log('[React] needs_render returned true, calling render()');
-  //         isRendering = true;
-  //         try {
-  //           await chartState.chart.render?.();
-  //         } catch (error) {
-  //           console.warn('[WasmCanvas] Render failed:', error);
-  //         } finally {
-  //           isRendering = false;
-  //         }
-  //       }
-  //     }
-
-  //     // Continue checking at 60fps rate
-  //     animationId = requestAnimationFrame(checkAndRender);
-  //   };
-
-  //   animationId = requestAnimationFrame(checkAndRender);
-
-  //   return () => {
-  //     if (animationId) {
-  //       cancelAnimationFrame(animationId);
-  //     }
-  //   };
-  // }, [chartState.chart, chartState.isInitialized]);
 
   // Note: If you need to force render on specific state changes,
   // you should pass those as props to this component and include them here

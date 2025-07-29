@@ -15,6 +15,9 @@ interface ChartControlsProps {
   /** WASM Chart instance */
   chartInstance?: Chart;
 
+  /** Applied preset name (after it's been set in WASM) */
+  appliedPreset?: string;
+
   /** Show detailed subscription information */
   showSubscriptionInfo?: boolean;
 
@@ -33,6 +36,7 @@ interface ChangeEvent {
 
 export default function ChartControls({
   chartInstance,
+  appliedPreset,
   onPresetChange
 }: ChartControlsProps) {
   const {
@@ -139,7 +143,7 @@ export default function ChartControls({
       {chartInstance && (
         <PresetSection
           chartInstance={chartInstance}
-          preset={preset}
+          preset={appliedPreset}
         />
       )}
 

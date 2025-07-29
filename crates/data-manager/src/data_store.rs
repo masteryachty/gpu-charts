@@ -1,4 +1,4 @@
-use config_system::{ChartPreset, PresetManager};
+use config_system::ChartPreset;
 use js_sys::{ArrayBuffer, Uint32Array};
 use nalgebra_glm as glm;
 use std::rc::Rc;
@@ -538,6 +538,26 @@ impl DataStore {
             }
         }
         refs
+    }
+
+    pub fn set_preset_and_symbol(
+        &mut self,
+        preset: Option<&ChartPreset>,
+        symbol_name: Option<String>,
+    ) {
+        if let Some(p) = preset {
+            self.preset = Some(p.clone());
+            log::info!(
+                "[DataStore] Preset set to: {} with {} chart types",
+                p.name,
+                p.chart_types.len()
+            );
+        } else {
+            self.preset = None;
+            log::warn!("[DataStore] Preset set to None");
+        }
+        self.symbol = symbol_name.clone();
+        log::info!("[DataStore] Symbol set to: {:?}", symbol_name);
     }
 }
 

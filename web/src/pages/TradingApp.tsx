@@ -11,10 +11,23 @@ import { Chart } from '@pkg/wasm_bridge.js';
 
 function ChartView() {
   const [chartInstance, setChartInstance] = useState<Chart | undefined>(undefined);
+  const [appliedPreset, setAppliedPreset] = useState<string | undefined>(undefined);
 
   // Get store state and actions
-  const { preset, setCurrentSymbol, setTimeRange, setPreset } = useAppStore();
+  const { symbol, preset, setCurrentSymbol, setTimeRange, setPreset } = useAppStore();
   const [activePreset, setActivePreset] = useState<string | undefined>(preset);
+
+
+  useEffect(() => {
+    if (preset && symbol && chartInstance) {
+      console.log('[TradingApp] Setting symbol and preset:', preset, symbol, chartInstance);
+      chartInstance.apply_preset_and_symbol(preset, symbol)
+      // After applying, update the appliedPreset to trigger metrics fetch
+      setAppliedPreset(preset);
+      // chartInstance.render()
+    }
+    setActivePreset(preset);
+  }, [chartInstance, preset, symbol]);
 
   // Sync activePreset with store's metricPreset
   useEffect(() => {
@@ -82,6 +95,7 @@ function ChartView() {
               <div className="w-full lg:w-80 flex-shrink-0 space-y-4">
                 <ChartControls
                   chartInstance={chartInstance}
+                  appliedPreset={appliedPreset}
                   onPresetChange={(preset) => {
                     setActivePreset(preset);
                     setPreset(preset);
@@ -94,7 +108,6 @@ function ChartView() {
               <div className="flex-1 flex flex-col">
                 <WasmCanvas
                   onChartReady={setChartInstance}
-                  activePreset={activePreset}
                 />
               </div>
             </div>

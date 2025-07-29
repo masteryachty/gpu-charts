@@ -1,13 +1,14 @@
 //! WASM Bridge crate for GPU Charts
 //! Central orchestration layer that bridges JavaScript and Rust/WebGPU worlds
 
-use config_system::{ChartPreset, PresetManager};
+use config_system::PresetManager;
 use wasm_bindgen::prelude::*;
 
 // Core modules
+pub mod chart_engine;
 pub mod controls;
 pub mod instance_manager;
-pub mod line_graph;
+pub mod render_loop;
 pub mod wrappers;
 
 use instance_manager::InstanceManager;
@@ -46,13 +47,114 @@ impl Chart {
     }
 
     #[wasm_bindgen]
-    pub fn apply_preset(&mut self, preset: &str) -> Result<(), JsValue> {
+    pub fn get_metrics_for_preset(&self) -> Result<js_sys::Array, JsValue> {
+        let metrics = js_sys::Array::new();
+
+        // Get the preset from the instance, return empty array if not available
+        if let Some(Some(chart_preset)) =
+            InstanceManager::with_instance(&self.instance_id, |instance| {
+                instance.chart_engine.renderer.data_store().preset.clone()
+            })
+        {
+            // Add each metric's label and visibility to the array
+            for metric in &chart_preset.chart_types {
+                metrics.push(&JsValue::from_str(&metric.label));
+                metrics.push(&JsValue::from_bool(metric.visible));
+            }
+        }
+
+        Ok(metrics)
+    }
+
+    #[wasm_bindgen]
+    pub fn toggle_metric_visibility(&self, metric_label: &str) -> Result<(), JsValue> {
         InstanceManager::with_instance_mut(&self.instance_id, |instance| {
-            instance.chart_engine.set_preset(Some(preset.to_string()));
-            // instance.markDirty()
+            // Get mutable access to the data store
+            let data_store = instance.chart_engine.renderer.data_store_mut();
+
+            // Check if preset exists
+            if let Some(preset) = &mut data_store.preset {
+                // Find and toggle the metric's visibility
+                if let Some(metric) = preset
+                    .chart_types
+                    .iter_mut()
+                    .find(|m| m.label == metric_label)
+                {
+                    metric.visible = !metric.visible;
+                    log::info!(
+                        "Toggled metric '{}' visibility to: {}",
+                        metric_label,
+                        metric.visible
+                    );
+                }
+            }
+
+            // Trigger metric visibility changed - render only
+            instance.chart_engine.on_metric_visibility_changed();
+        })
+        .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
+        Ok(())
+    }
+
+    #[wasm_bindgen]
+    pub fn apply_preset_and_symbol(&mut self, preset: &str, symbol: &str) -> Result<(), JsValue> {
+        log::info!("Active Preset set to : {preset}");
+
+        let instance_id = self.instance_id;
+
+        InstanceManager::with_instance_mut(&self.instance_id, |instance| {
+            instance
+                .chart_engine
+                .set_preset_and_symbol(Some(preset.to_string()), Some(symbol.to_string()));
             log::info!("Active Preset set to : {preset}");
         })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
+
+        // Spawn async task to fetch data and update render loop state
+        wasm_bindgen_futures::spawn_local(async move {
+            // Create a dedicated async function to handle the data fetching
+            async fn fetch_and_process_data(
+                instance_id: Uuid,
+            ) -> Result<(), shared_types::GpuChartsError> {
+                // Use InstanceManager to get a temporary mutable reference for the async operation
+                let instance_opt = InstanceManager::take_instance(&instance_id);
+
+                if let Some(mut instance) = instance_opt {
+                    let data_store = instance.chart_engine.renderer.data_store_mut();
+                    let result = instance
+                        .chart_engine
+                        .data_manager
+                        .fetch_data_for_preset(data_store)
+                        .await;
+
+                    // Put the instance back
+                    InstanceManager::put_instance(instance_id, instance);
+
+                    result
+                } else {
+                    Err(shared_types::GpuChartsError::DataNotFound {
+                        resource: "Chart instance".to_string(),
+                    })
+                }
+            }
+
+            // Execute the fetch
+            match fetch_and_process_data(instance_id).await {
+                Ok(_) => {
+                    log::info!("Data fetched successfully for preset");
+
+                    // Trigger render loop state change to preprocess
+                    InstanceManager::with_instance_mut(&instance_id, |instance| {
+                        let _ = instance.chart_engine.start_render_loop();
+                        instance.chart_engine.on_data_received();
+                    });
+                }
+                Err(e) => {
+                    log::error!("Failed to fetch data for preset: {:?}", e);
+                }
+            }
+        });
+
         Ok(())
     }
 
@@ -65,14 +167,14 @@ impl Chart {
         start_x: u32,
         end_x: u32,
     ) -> Result<(), JsValue> {
-        // // Only set panic hook if not already set
-        // use std::sync::Once;
-        // static INIT: Once = Once::new();
-        // INIT.call_once(|| {
-        //     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-        //     // Try to initialize logger, but don't panic if it fails (already initialized)
-        //     let _ = console_log::init_with_level(log::Level::Debug);
-        // });
+        // Only set panic hook if not already set
+        use std::sync::Once;
+        static INIT: Once = Once::new();
+        INIT.call_once(|| {
+            std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+            // Try to initialize logger, but don't panic if it fails (already initialized)
+            let _ = console_log::init_with_level(log::Level::Debug);
+        });
 
         // Store instance using the instance manager
         self.instance_id =
@@ -81,6 +183,34 @@ impl Chart {
                 .map_err(|e| JsValue::from_str(&e))?;
         Ok(())
     }
+
+    // #[wasm_bindgen]
+    // pub fn start_render_loop(&mut self) -> Result<(), JsValue> {
+    //     log::info!("Starting render loop");
+    //     InstanceManager::with_instance_mut(&self.instance_id, |instance| {
+    //         instance.chart_engine.start_render_loop()
+    //             .map_err(|e| JsValue::from_str(&format!("Failed to start render loop: {:?}", e)))
+    //     })
+    //     .ok_or_else(|| JsValue::from_str("Chart instance not found"))?
+    // }
+
+    // #[wasm_bindgen]
+    // pub fn stop_render_loop(&mut self) -> Result<(), JsValue> {
+    //     log::info!("Stopping render loop");
+    //     InstanceManager::with_instance_mut(&self.instance_id, |instance| {
+    //         instance.chart_engine.stop_render_loop()
+    //             .map_err(|e| JsValue::from_str(&format!("Failed to stop render loop: {:?}", e)))
+    //     })
+    //     .ok_or_else(|| JsValue::from_str("Chart instance not found"))?
+    // }
+
+    // #[wasm_bindgen]
+    // pub fn get_render_state(&self) -> String {
+    //     InstanceManager::with_instance(&self.instance_id, |instance| {
+    //         format!("{:?}", instance.chart_engine.get_render_state())
+    //     })
+    //     .unwrap_or_else(|| "Unknown".to_string())
+    // }
 
     #[wasm_bindgen]
     pub async fn render(&self) -> Result<(), JsValue> {
@@ -138,10 +268,10 @@ impl Chart {
     pub fn resize(&self, width: u32, height: u32) -> Result<(), JsValue> {
         log::info!("Resizing chart to: {width}x{height}");
 
-        InstanceManager::with_instance_mut(&self.instance_id, |instance| {
-            instance.chart_engine.resized(width, height);
-        })
-        .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
+        // InstanceManager::with_instance_mut(&self.instance_id, |instance| {
+        //     instance.chart_engine.resized(width, height);
+        // })
+        // .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
 
         Ok(())
     }
@@ -179,6 +309,9 @@ impl Chart {
                 data_store.gpu_min_y = None;
                 data_store.gpu_max_y = None;
                 log::info!("[WASM] Cleared Y bounds for recalculation");
+
+                // Trigger view changed in render loop
+                instance.chart_engine.on_view_changed();
             }
         })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
@@ -196,6 +329,9 @@ impl Chart {
                 .chart_engine
                 .canvas_controller
                 .handle_cursor_event(window_event, &mut instance.chart_engine.renderer);
+
+            // Mouse movement during drag should trigger view change
+            // instance.chart_engine.on_view_changed();
         })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
 
@@ -226,6 +362,9 @@ impl Chart {
                     // Force recalculation of Y bounds by clearing them
                     data_store.gpu_min_y = None;
                     data_store.gpu_max_y = None;
+
+                    // Trigger view changed for drag zoom
+                    instance.chart_engine.on_view_changed();
                 }
             }
         })

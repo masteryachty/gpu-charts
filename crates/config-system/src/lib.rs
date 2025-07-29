@@ -86,9 +86,9 @@ impl PresetManager {
         Self::default()
     }
 
-    pub fn get_preset(&self, name: &str) -> Option<&ChartPreset> {
-        self.presets.iter().find(|p| p.name == name)
-    }
+    // pub fn get_preset(&self, name: &str) -> Option<&ChartPreset> {
+    //     self.presets.iter().find(|p| p.name == name)
+    // }
 
     pub fn list_presets_by_name(&self) -> Vec<&str> {
         self.presets.iter().map(|p| p.name.as_str()).collect()
@@ -97,6 +97,20 @@ impl PresetManager {
     /// Get all presets
     pub fn get_all_presets(&self) -> &[ChartPreset] {
         &self.presets
+    }
+
+    pub fn find_preset(&self, name: &str) -> Option<&ChartPreset> {
+        self.presets.iter().find(|p| p.name == name)
+    }
+
+    pub fn get_metrics_for_preset(&self, name: &str) -> Vec<&str> {
+        let preset = self.presets.iter().find(|p| p.name == name);
+        preset
+            .unwrap()
+            .chart_types
+            .iter()
+            .map(|metric| metric.label.as_str())
+            .collect()
     }
 
     // /// Update a preset with new state

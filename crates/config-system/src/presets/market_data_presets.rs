@@ -68,7 +68,7 @@ fn market_data_preset() -> ChartPreset {
                     ("md".to_string(), "best_bid".to_string()),
                 ],
                 additional_data_columns: None,
-                visible: true, // Now visible by default
+                visible: false, // Now visible by default
                 label: "Mid".to_string(),
                 style: RenderStyle {
                     color: Some([0.7, 0.7, 1.0, 1.0]), // Light blue
