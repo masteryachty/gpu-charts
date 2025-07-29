@@ -20,6 +20,9 @@ pub struct LoggerConfig {
 pub struct ExchangesConfig {
     pub coinbase: ExchangeConfig,
     pub binance: ExchangeConfig,
+    pub okx: ExchangeConfig,
+    pub kraken: ExchangeConfig,
+    pub bitfinex: ExchangeConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -84,6 +87,39 @@ impl Default for Config {
                     reconnect_delay_secs: 1,
                     max_reconnect_delay_secs: 60,
                     ping_interval_secs: Some(20), // Binance requires pings every 20s
+                    symbols: None,
+                },
+                okx: ExchangeConfig {
+                    enabled: false,
+                    ws_endpoint: "wss://ws.okx.com:8443/ws/v5/public".to_string(),
+                    rest_endpoint: "https://www.okx.com/api/v5".to_string(),
+                    max_connections: 10,
+                    symbols_per_connection: 100,
+                    reconnect_delay_secs: 1,
+                    max_reconnect_delay_secs: 60,
+                    ping_interval_secs: Some(30), // OKX requires pings every 30s
+                    symbols: None,
+                },
+                kraken: ExchangeConfig {
+                    enabled: false,
+                    ws_endpoint: "wss://ws.kraken.com".to_string(),
+                    rest_endpoint: "https://api.kraken.com/0".to_string(),
+                    max_connections: 5,
+                    symbols_per_connection: 50,
+                    reconnect_delay_secs: 1,
+                    max_reconnect_delay_secs: 60,
+                    ping_interval_secs: Some(60), // Kraken heartbeat interval
+                    symbols: None,
+                },
+                bitfinex: ExchangeConfig {
+                    enabled: false,
+                    ws_endpoint: "wss://api-pub.bitfinex.com/ws/2".to_string(),
+                    rest_endpoint: "https://api-pub.bitfinex.com/v2".to_string(),
+                    max_connections: 5,
+                    symbols_per_connection: 30,
+                    reconnect_delay_secs: 1,
+                    max_reconnect_delay_secs: 60,
+                    ping_interval_secs: Some(15), // Bitfinex requires pings every 15s
                     symbols: None,
                 },
             },

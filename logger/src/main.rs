@@ -27,7 +27,7 @@ struct Cli {
 enum Commands {
     /// Run the logger
     Run {
-        /// Exchanges to enable (comma-separated: coinbase,binance)
+        /// Exchanges to enable (comma-separated: coinbase,binance,okx,kraken,bitfinex)
         #[arg(short, long)]
         exchanges: Option<String>,
     },
@@ -92,6 +92,9 @@ async fn run_logger(mut config: Config, exchanges: Option<String>) -> Result<()>
 
         config.exchanges.coinbase.enabled = exchanges.contains(&"coinbase");
         config.exchanges.binance.enabled = exchanges.contains(&"binance");
+        config.exchanges.okx.enabled = exchanges.contains(&"okx");
+        config.exchanges.kraken.enabled = exchanges.contains(&"kraken");
+        config.exchanges.bitfinex.enabled = exchanges.contains(&"bitfinex");
     }
 
     info!("Starting multi-exchange logger");
@@ -102,6 +105,15 @@ async fn run_logger(mut config: Config, exchanges: Option<String>) -> Result<()>
     if config.exchanges.binance.enabled {
         info!("  - Binance");
     }
+    if config.exchanges.okx.enabled {
+        info!("  - OKX");
+    }
+    if config.exchanges.kraken.enabled {
+        info!("  - Kraken");
+    }
+    // if config.exchanges.bitfinex.enabled {
+    //     info!("  - Bitfinex");
+    // }
 
     let logger = Logger::new(config.clone())?;
 
@@ -149,6 +161,15 @@ async fn test_exchange(exchange: &str, config: Config) -> Result<()> {
         "binance" => Box::new(logger::exchanges::binance::BinanceExchange::new(
             std::sync::Arc::new(config),
         )?),
+        "okx" => Box::new(logger::exchanges::okx::OkxExchange::new(
+            std::sync::Arc::new(config),
+        )?),
+        "kraken" => Box::new(logger::exchanges::kraken::KrakenExchange::new(
+            std::sync::Arc::new(config),
+        )?),
+        "bitfinex" => Box::new(logger::exchanges::bitfinex::BitfinexExchange::new(
+            std::sync::Arc::new(config),
+        )?),
         _ => {
             error!("Unknown exchange: {}", exchange);
             return Ok(());
@@ -182,6 +203,15 @@ async fn list_symbols(exchange: &str, config: Config) -> Result<()> {
             std::sync::Arc::new(config),
         )?),
         "binance" => Box::new(logger::exchanges::binance::BinanceExchange::new(
+            std::sync::Arc::new(config),
+        )?),
+        "okx" => Box::new(logger::exchanges::okx::OkxExchange::new(
+            std::sync::Arc::new(config),
+        )?),
+        "kraken" => Box::new(logger::exchanges::kraken::KrakenExchange::new(
+            std::sync::Arc::new(config),
+        )?),
+        "bitfinex" => Box::new(logger::exchanges::bitfinex::BitfinexExchange::new(
             std::sync::Arc::new(config),
         )?),
         _ => {

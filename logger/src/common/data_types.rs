@@ -9,6 +9,8 @@ pub enum ExchangeId {
     Binance,
     Kraken,
     Bybit,
+    OKX,
+    Bitfinex,
 }
 
 impl ExchangeId {
@@ -18,6 +20,8 @@ impl ExchangeId {
             ExchangeId::Binance => "binance",
             ExchangeId::Kraken => "kraken",
             ExchangeId::Bybit => "bybit",
+            ExchangeId::OKX => "okx",
+            ExchangeId::Bitfinex => "bitfinex",
         }
     }
 }
@@ -123,6 +127,12 @@ impl UnifiedMarketData {
         self.nanos = datetime.timestamp_subsec_nanos();
         self
     }
+
+    pub fn with_timestamp_parts(mut self, timestamp: u32, nanos: u32) -> Self {
+        self.timestamp = timestamp;
+        self.nanos = nanos;
+        self
+    }
 }
 
 impl UnifiedTradeData {
@@ -149,6 +159,12 @@ impl UnifiedTradeData {
     pub fn with_timestamp(mut self, datetime: DateTime<Utc>) -> Self {
         self.timestamp = datetime.timestamp() as u32;
         self.nanos = datetime.timestamp_subsec_nanos();
+        self
+    }
+
+    pub fn with_timestamp_parts(mut self, timestamp: u32, nanos: u32) -> Self {
+        self.timestamp = timestamp;
+        self.nanos = nanos;
         self
     }
 

@@ -32,6 +32,22 @@ impl Logger {
             )?));
         }
 
+        if config.exchanges.okx.enabled {
+            exchanges.push(Arc::new(exchanges::okx::OkxExchange::new(config.clone())?));
+        }
+
+        if config.exchanges.kraken.enabled {
+            exchanges.push(Arc::new(exchanges::kraken::KrakenExchange::new(
+                config.clone(),
+            )?));
+        }
+
+        if config.exchanges.bitfinex.enabled {
+            exchanges.push(Arc::new(exchanges::bitfinex::BitfinexExchange::new(
+                config.clone(),
+            )?));
+        }
+
         Ok(Self {
             _config: config,
             exchanges,

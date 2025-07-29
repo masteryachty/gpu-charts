@@ -87,6 +87,119 @@ pub fn denormalize_symbol_binance(normalized: &str) -> String {
     normalized.replace('-', "")
 }
 
+pub fn normalize_symbol_okx(symbol: &str) -> String {
+    // OKX uses format like "BTC-USDT"
+    symbol.to_uppercase()
+}
+
+pub fn denormalize_symbol_okx(normalized: &str) -> String {
+    // OKX already uses the normalized format
+    normalized.to_string()
+}
+
+pub fn normalize_symbol_kraken(symbol: &str) -> String {
+    // Kraken uses format like "XBT/USD" or "ETH/EUR"
+    // Also uses prefixes: X for crypto, Z for fiat
+    let symbol = symbol.to_uppercase();
+
+    // Split by slash
+    let parts: Vec<&str> = symbol.split('/').collect();
+    if parts.len() == 2 {
+        let base = normalize_kraken_asset_code(parts[0]);
+        let quote = normalize_kraken_asset_code(parts[1]);
+        format!("{}-{}", base, quote)
+    } else {
+        // Fallback for unexpected format
+        symbol.replace('/', "-")
+    }
+}
+
+fn normalize_kraken_asset_code(asset: &str) -> &str {
+    match asset {
+        // Special cases
+        "XBT" | "XXBT" => "BTC",
+        // Remove X prefix for crypto
+        s if s.starts_with("X") && s.len() > 1 => &s[1..],
+        // Remove Z prefix for fiat
+        s if s.starts_with("Z") && s.len() > 1 => &s[1..],
+        // Default
+        s => s,
+    }
+}
+
+pub fn denormalize_symbol_kraken(normalized: &str) -> String {
+    // Convert from "BTC-USD" to "XBT/USD"
+    // Note: This is a simplified version. In practice, you'd need the full mapping
+    // to know which assets need X/Z prefixes
+    let parts: Vec<&str> = normalized.split('-').collect();
+    if parts.len() == 2 {
+        let base = if parts[0] == "BTC" { "XBT" } else { parts[0] };
+        let quote = parts[1];
+        format!("{}/{}", base, quote)
+    } else {
+        normalized.replace('-', "/")
+    }
+}
+
+pub fn normalize_symbol_bitfinex(symbol: &str) -> String {
+    // Bitfinex uses format like "tBTCUSD" for trading pairs or "tAAVE:USD" with colon
+    // Remove 't' prefix and convert to normalized format "BTC-USD"
+    let symbol = if symbol.starts_with('t') || symbol.starts_with('f') {
+        &symbol[1..]
+    } else {
+        symbol
+    };
+
+    let symbol = symbol.to_uppercase();
+
+    // Handle colon-separated symbols first (e.g., "AAVE:USD")
+    if symbol.contains(':') {
+        return symbol.replace(':', "-");
+    }
+
+    // Common quote currencies for Bitfinex (ordered by length for proper matching)
+    let quotes = [
+        "USTF0", "USDT", "USDC", "EURT", "XAUT", "USD", "EUR", "GBP", "JPY", "BTC", "ETH", "EOS",
+        "XLM", "DAI", "UST",
+    ];
+
+    // Try to find the longest matching quote currency
+    let mut best_match = None;
+    let mut best_length = 0;
+
+    for quote in quotes {
+        if symbol.ends_with(quote) && quote.len() > best_length {
+            best_match = Some(quote);
+            best_length = quote.len();
+        }
+    }
+
+    if let Some(quote) = best_match {
+        let base = &symbol[..symbol.len() - quote.len()];
+        format!("{}-{}", base, quote)
+    } else {
+        // If no known quote currency found, assume last 3-4 chars are quote
+        if symbol.len() > 6 {
+            // Try 4-char quote first (like USDT, EURT)
+            let base = &symbol[..symbol.len() - 4];
+            let quote = &symbol[symbol.len() - 4..];
+            format!("{}-{}", base, quote)
+        } else if symbol.len() > 3 {
+            // Try 3-char quote (like USD, EUR)
+            let base = &symbol[..symbol.len() - 3];
+            let quote = &symbol[symbol.len() - 3..];
+            format!("{}-{}", base, quote)
+        } else {
+            symbol
+        }
+    }
+}
+
+pub fn denormalize_symbol_bitfinex(normalized: &str) -> String {
+    // Convert from "BTC-USD" to "tBTCUSD"
+    format!("t{}", normalized.replace('-', ""))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -143,5 +256,39 @@ mod tests {
 
         assert_eq!(denormalize_symbol_binance("BTC-USDT"), "BTCUSDT");
         assert_eq!(denormalize_symbol_binance("ETH-BUSD"), "ETHBUSD");
+
+        assert_eq!(normalize_symbol_okx("btc-usdt"), "BTC-USDT");
+        assert_eq!(normalize_symbol_okx("ETH-USDC"), "ETH-USDC");
+        assert_eq!(denormalize_symbol_okx("BTC-USDT"), "BTC-USDT");
+        assert_eq!(denormalize_symbol_okx("ETH-USDC"), "ETH-USDC");
+
+        // Test Kraken symbol normalization
+        assert_eq!(normalize_symbol_kraken("xbt/usd"), "BTC-USD");
+        assert_eq!(normalize_symbol_kraken("XBT/EUR"), "BTC-EUR");
+        assert_eq!(normalize_symbol_kraken("ETH/USD"), "ETH-USD");
+        assert_eq!(normalize_symbol_kraken("ada/btc"), "ADA-BTC");
+        assert_eq!(normalize_symbol_kraken("XXBT/ZUSD"), "BTC-USD");
+        assert_eq!(normalize_symbol_kraken("XETH/ZEUR"), "ETH-EUR");
+
+        assert_eq!(denormalize_symbol_kraken("BTC-USD"), "XBT/USD");
+        assert_eq!(denormalize_symbol_kraken("BTC-EUR"), "XBT/EUR");
+        assert_eq!(denormalize_symbol_kraken("ETH-USD"), "ETH/USD");
+        assert_eq!(denormalize_symbol_kraken("ADA-BTC"), "ADA/BTC");
+    }
+
+    #[test]
+    fn test_bitfinex_symbol_normalization() {
+        assert_eq!(normalize_symbol_bitfinex("tBTCUSD"), "BTC-USD");
+        assert_eq!(normalize_symbol_bitfinex("tETHUSD"), "ETH-USD");
+        assert_eq!(normalize_symbol_bitfinex("tBTCUSDT"), "BTC-USDT");
+        assert_eq!(normalize_symbol_bitfinex("tETHBTC"), "ETH-BTC");
+        assert_eq!(normalize_symbol_bitfinex("tXAUTUSD"), "XAUT-USD");
+        assert_eq!(normalize_symbol_bitfinex("tEURTUSD"), "EURT-USD");
+        assert_eq!(normalize_symbol_bitfinex("BTCUSD"), "BTC-USD"); // Without 't' prefix
+        assert_eq!(normalize_symbol_bitfinex("tAAVE:USD"), "AAVE-USD"); // Colon format
+        assert_eq!(normalize_symbol_bitfinex("tBTC:USDT"), "BTC-USDT"); // Colon format
+        assert_eq!(denormalize_symbol_bitfinex("BTC-USD"), "tBTCUSD");
+        assert_eq!(denormalize_symbol_bitfinex("ETH-USDT"), "tETHUSDT");
+        assert_eq!(denormalize_symbol_bitfinex("XRP-BTC"), "tXRPBTC");
     }
 }
