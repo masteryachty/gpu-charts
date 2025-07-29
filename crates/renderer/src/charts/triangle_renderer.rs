@@ -230,8 +230,8 @@ impl TriangleRenderer {
 
         // Y range (prices)
         let y_min_max = glm::vec2(
-            data_store.min_y.unwrap_or(0.0),
-            data_store.max_y.unwrap_or(1.0),
+            data_store.gpu_min_y.unwrap_or(0.0),
+            data_store.gpu_max_y.unwrap_or(1.0),
         );
         let y_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("triangle_y_min_max"),

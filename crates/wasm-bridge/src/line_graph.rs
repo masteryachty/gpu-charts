@@ -1,26 +1,25 @@
 use chrono::DateTime;
-use config_system::{GpuChartsConfig, PresetManager};
+use config_system::PresetManager;
 use data_manager::{ChartType, DataManager, DataStore};
 use renderer::{MultiRenderer, Renderer};
 use shared_types::DataHandle;
 use std::rc::Rc;
 
-#[cfg(target_arch = "wasm32")]
-use crate::wrappers::js::get_query_params;
-#[cfg(target_arch = "wasm32")]
-use js_sys::Error;
+use crate::{controls::canvas_controller::CanvasController, wrappers::js::get_query_params};
 
-#[cfg(target_arch = "wasm32")]
+use js_sys::Error;
+use wasm_bindgen::JsCast;
 use web_sys::HtmlCanvasElement;
 
-pub struct LineGraph {
+pub struct ChartEngine {
     pub renderer: Renderer,
+    pub canvas_controller: CanvasController,
     pub data_manager: DataManager,
     pub preset_manager: PresetManager,
     pub multi_renderer: Option<MultiRenderer>,
 }
 
-impl LineGraph {
+impl ChartEngine {
     /// Get list of column names that should be excluded from Y bounds calculation
     /// based on the active preset's additional_data_columns
     pub fn get_excluded_columns_from_preset(&self, preset_name: &str) -> Vec<String> {
@@ -83,37 +82,57 @@ impl LineGraph {
         );
         excluded_columns
     }
-    #[cfg(target_arch = "wasm32")]
+
     pub async fn new(
         width: u32,
         height: u32,
-        canvas: HtmlCanvasElement,
-    ) -> Result<LineGraph, Error> {
+        canvas_id: &str,
+        start_x: u32,
+        end_x: u32,
+    ) -> Result<ChartEngine, Error> {
+        log::info!("Initializing chart with canvas: {canvas_id}, size: {width}x{height}");
+        let window = web_sys::window().ok_or_else(|| Error::new(&format!("No Window")))?;
+        let document = window
+            .document()
+            .ok_or_else(|| Error::new(&format!("No document")))?;
+        let canvas = document
+            .get_element_by_id(canvas_id)
+            .ok_or_else(|| Error::new(&format!("Canvas not found")))?
+            .dyn_into::<HtmlCanvasElement>()
+            .map_err(|_| Error::new(&format!("Element is not a canvas")))?;
+
+        // Set canvas size
+        canvas.set_width(width);
+        canvas.set_height(height);
+
         let params = get_query_params();
 
-        // Handle missing query parameters gracefully (for React integration)
-        let topic = params
-            .get("topic")
-            .unwrap_or(&"default_topic".to_string())
-            .clone();
-        let start = params
-            .get("start")
-            .and_then(|s| s.parse().ok())
-            .unwrap_or_else(|| {
-                // Default to last hour if no start time provided
-                chrono::Utc::now().timestamp() - 3600
-            });
-        let end = params
-            .get("end")
-            .and_then(|s| s.parse().ok())
-            .unwrap_or_else(|| {
-                // Default to current time if no end time provided
-                chrono::Utc::now().timestamp()
-            });
+        // // // Handle missing query parameters gracefully (for React integration)
+        // let topic = params
+        //     .get("topic")
+        //     .unwrap_or(&"default_topic".to_string())
+        //     .clone();
+        // let start = params
+        //     .get("start")
+        //     .and_then(|s| s.parse().ok())
+        //     .unwrap_or_else(|| {
+        //         // Default to last hour if no start time provided
+        //         chrono::Utc::now().timestamp() - 3600
+        //     });
+        // let end = params
+        //     .get("end")
+        //     .and_then(|s| s.parse().ok())
+        //     .unwrap_or_else(|| {
+        //         // Default to current time if no end time provided
+        //         chrono::Utc::now().timestamp()
+        //     });
+
+        // Create canvas controller
+        let canvas_controller = CanvasController::new();
 
         // Create DataStore
-        let mut data_store = DataStore::new(width, height);
-        data_store.topic = Some(topic.clone());
+        let mut data_store = DataStore::new(width, height, start_x, end_x);
+        // data_store.topic = Some(topic.clone());
 
         // Create WebGPU instance and get device/queue
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
@@ -158,12 +177,6 @@ impl LineGraph {
             "https://api.rednax.io".to_string(),
         );
 
-        // Create config
-        let config = GpuChartsConfig::default();
-
-        // Set the time range BEFORE creating the renderer
-        data_store.set_x_range(start as u32, end as u32);
-
         // Log initial state before moving data_store
         log::info!("Initial DataStore state:");
         log::info!(
@@ -173,16 +186,12 @@ impl LineGraph {
         );
         log::info!(
             "  - Y bounds: min={:?}, max={:?}",
-            data_store.min_y,
-            data_store.max_y
-        );
-        log::info!(
-            "  - Excluded columns: {:?}",
-            data_store.get_excluded_columns()
+            data_store.gpu_min_y,
+            data_store.gpu_max_y
         );
 
         // Create Renderer with modular approach
-        let renderer = Renderer::new(canvas, device.clone(), queue.clone(), config, data_store)
+        let renderer = Renderer::new(canvas, device.clone(), queue.clone(), data_store)
             .await
             .map_err(|e| Error::new(&format!("Failed to create renderer: {e:?}")))?;
 
@@ -211,12 +220,15 @@ impl LineGraph {
         Ok(Self {
             renderer,
             data_manager,
+            canvas_controller,
             preset_manager: PresetManager::new(),
             multi_renderer: Some(multi_renderer),
         })
     }
 
     pub async fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
+        log::info!("RENDER !!!!!!!!");
+
         // Always use multi-renderer (we ensure it exists in new())
         if let Some(ref mut multi_renderer) = self.multi_renderer {
             self.renderer
@@ -242,150 +254,7 @@ impl LineGraph {
         }
     }
 
-    // Switch chart type
-    pub fn set_chart_type(&mut self, chart_type: &str) {
-        let new_type = match chart_type {
-            "candlestick" => ChartType::Candlestick,
-            _ => ChartType::Line,
-        };
-
-        log::info!("Setting chart type to {new_type:?}");
-        self.renderer.set_chart_type(new_type);
-        log::info!("Chart type changed - renderer should be marked dirty");
-    }
-
-    // Set candle timeframe (in seconds)
-    pub fn set_candle_timeframe(&mut self, timeframe_seconds: u32) {
-        self.renderer
-            .data_store_mut()
-            .set_candle_timeframe(timeframe_seconds);
-    }
-
-    #[allow(dead_code)]
-    fn process_data_handle(
-        data_handle: &DataHandle,
-        data_manager: &mut DataManager,
-        data_store: &mut DataStore,
-        _device: &Rc<wgpu::Device>,
-    ) -> Result<(), shared_types::GpuChartsError> {
-        // Get the GPU buffer set from the data manager
-        let gpu_buffer_set = data_manager.get_buffers(data_handle).ok_or_else(|| {
-            shared_types::GpuChartsError::DataNotFound {
-                resource: "GPU buffers for data handle".to_string(),
-            }
-        })?;
-
-        // Clear existing data groups before adding new data
-        data_store.data_groups.clear();
-        data_store.active_data_group_indices.clear();
-
-        // Extract the time column (shared x-axis for all metrics)
-        let time_buffer = gpu_buffer_set.raw_buffers.get("time").ok_or_else(|| {
-            shared_types::GpuChartsError::DataNotFound {
-                resource: "Time column in data".to_string(),
-            }
-        })?;
-
-        let time_gpu_buffers = gpu_buffer_set.buffers.get("time").ok_or_else(|| {
-            shared_types::GpuChartsError::DataNotFound {
-                resource: "Time GPU buffers".to_string(),
-            }
-        })?;
-
-        // Add the data group with time as x-axis
-        data_store.add_data_group((time_buffer.clone(), time_gpu_buffers.clone()), true);
-
-        let data_group_index = 0; // We just added the first group
-
-        // Mark the group as active
-        data_store.active_data_group_indices.push(data_group_index);
-
-        // Add each metric column
-        for (i, column_name) in gpu_buffer_set.metadata.columns.iter().enumerate() {
-            if column_name == "time" {
-                continue; // Skip time column as it's already the x-axis
-            }
-
-            if let (Some(raw_buffer), Some(gpu_buffers)) = (
-                gpu_buffer_set.raw_buffers.get(column_name),
-                gpu_buffer_set.buffers.get(column_name),
-            ) {
-                // Assign colors based on column name
-                let color = match column_name.as_str() {
-                    "best_bid" => [0.0, 0.5, 1.0], // Blue
-                    "best_ask" => [1.0, 0.2, 0.2], // Red
-                    "price" => [0.0, 1.0, 0.0],    // Green
-                    "volume" => [1.0, 1.0, 0.0],   // Yellow
-                    _ => {
-                        // Generate a color based on index
-                        let hue = (i as f32 * 137.5) % 360.0;
-                        let (r, g, b) = Self::hsv_to_rgb(hue, 0.8, 0.9);
-                        [r, g, b]
-                    }
-                };
-
-                data_store.add_metric_to_group(
-                    data_group_index,
-                    (raw_buffer.clone(), gpu_buffers.clone()),
-                    color,
-                    column_name.clone(),
-                );
-            }
-        }
-
-        log::info!(
-            "Successfully added {} columns to DataStore",
-            gpu_buffer_set.metadata.columns.len()
-        );
-
-        log::info!("[process_data_handle] Data loaded, before Y bounds calculation:");
-        log::info!(
-            "  - Excluded columns: {:?}",
-            data_store.get_excluded_columns()
-        );
-        log::info!("  - Total data groups: {}", data_store.data_groups.len());
-
-        // Log all metrics that were added
-        for (idx, group) in data_store.data_groups.iter().enumerate() {
-            log::info!("  - Data group[{}]: {} metrics", idx, group.metrics.len());
-            for metric in &group.metrics {
-                log::info!(
-                    "    - Metric: '{}' (visible={})",
-                    metric.name,
-                    metric.visible
-                );
-            }
-        }
-
-        // Mark as dirty so bounds will be calculated on next render
-        data_store.mark_dirty();
-
-        Ok(())
-    }
-
-    // Helper function to convert HSV to RGB
-    #[allow(dead_code)]
-    fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (f32, f32, f32) {
-        let c = v * s;
-        let x = c * (1.0 - ((h / 60.0) % 2.0 - 1.0).abs());
-        let m = v - c;
-
-        let (r_prime, g_prime, b_prime) = if h < 60.0 {
-            (c, x, 0.0)
-        } else if h < 120.0 {
-            (x, c, 0.0)
-        } else if h < 180.0 {
-            (0.0, c, x)
-        } else if h < 240.0 {
-            (0.0, x, c)
-        } else if h < 300.0 {
-            (x, 0.0, c)
-        } else {
-            (c, 0.0, x)
-        };
-
-        (r_prime + m, g_prime + m, b_prime + m)
-    }
+    pub fn set_preset(&mut self, preset_name: Option<String>) {}
 }
 
 pub fn unix_timestamp_to_string(timestamp: i64) -> String {

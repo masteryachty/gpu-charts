@@ -1,8 +1,7 @@
 use std::collections::HashMap;
-#[cfg(target_arch = "wasm32")]
+
 use web_sys::{window, UrlSearchParams};
 
-#[cfg(target_arch = "wasm32")]
 pub fn get_query_params() -> HashMap<String, String> {
     // Obtain the `Location` object
     let location = window().expect("should have a Window").location();

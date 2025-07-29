@@ -2,7 +2,6 @@
 //! Handles all data operations with focus on performance and GPU optimization
 
 pub mod binary_parser;
-pub mod cache;
 pub mod data_retriever;
 pub mod data_store;
 

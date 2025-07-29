@@ -6,19 +6,20 @@ import Sidebar from '../components/layout/Sidebar';
 import StatusBar from '../components/layout/StatusBar';
 import WasmCanvas from '../components/chart/WasmCanvas';
 import ChartControls from '../components/chart/ChartControls';
+import { Chart } from '@pkg/wasm_bridge.js';
 // import DataFetchingMonitor from '../components/monitoring/DataFetchingMonitor'; // Disabled temporarily
 
 function ChartView() {
-  const [chartInstance, setChartInstance] = useState<any>(null);
+  const [chartInstance, setChartInstance] = useState<Chart | undefined>(undefined);
 
   // Get store state and actions
-  const { ChartStateConfig, setCurrentSymbol, setTimeRange, setMetricPreset } = useAppStore();
-  const [activePreset, setActivePreset] = useState<string | null>(ChartStateConfig.metricPreset);
+  const { preset, setCurrentSymbol, setTimeRange, setPreset } = useAppStore();
+  const [activePreset, setActivePreset] = useState<string | undefined>(preset);
 
   // Sync activePreset with store's metricPreset
   useEffect(() => {
-    setActivePreset(ChartStateConfig.metricPreset);
-  }, [ChartStateConfig.metricPreset]);
+    setActivePreset(preset);
+  }, [preset]);
 
   // Parse URL parameters and update store
   useEffect(() => {
@@ -55,14 +56,9 @@ function ChartView() {
     }
   }, [setCurrentSymbol, setTimeRange]); // Include dependencies
 
-  // Check for debug mode in URL params
-  const urlParams = new URLSearchParams(window.location.search);
-  const debugFromUrl = urlParams.get('debug') === 'true';
-
   return (
     <div className="flex-1 flex">
       <Sidebar />
-
       <main className="flex-1 flex flex-col">
         <div className="flex-1 p-6">
           <div className="h-full flex flex-col">
@@ -88,24 +84,15 @@ function ChartView() {
                   chartInstance={chartInstance}
                   onPresetChange={(preset) => {
                     setActivePreset(preset);
-                    setMetricPreset(preset);
+                    setPreset(preset);
                   }}
                 />
 
-                {/* Data Fetching Monitor - Disabled temporarily
-                <DataFetchingMonitor 
-                  showDetailedInfo={debugMode}
-                  enableManualControls={true}
-                  showActivity={debugMode}
-                  compactMode={!debugMode}
-                />*/}
               </div>
 
               {/* Main Chart Area */}
               <div className="flex-1 flex flex-col">
                 <WasmCanvas
-                  enableAutoSync={true}
-                  debounceMs={100}
                   onChartReady={setChartInstance}
                   activePreset={activePreset}
                 />

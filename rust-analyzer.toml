@@ -1,0 +1,15 @@
+# Configuration for rust-analyzer
+# This prevents issues with WASM target when using rust-analyzer in VS Code
+
+[cargo]
+target = "x86_64-unknown-linux-gnu"
+allTargets = false
+
+[check]
+allTargets = false
+extraArgs = ["--target", "x86_64-unknown-linux-gnu"]
+
+# Ensure native dependencies are built correctly
+[cargo.extraEnv]
+CC = "clang"
+AR = "llvm-ar"

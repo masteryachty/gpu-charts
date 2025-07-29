@@ -1,13 +1,9 @@
 //! Safe instance management for Chart instances
 //! Replaces unsafe global state with a thread-local storage pattern
-
+use crate::line_graph::ChartEngine;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use uuid::Uuid;
-
-use crate::controls::canvas_controller::CanvasController;
-use crate::line_graph::LineGraph;
-use shared_types::store_state::{ChangeDetectionConfig, StoreState};
 
 /// Data requirements for a preset
 #[derive(Clone, Debug)]
@@ -22,12 +18,7 @@ pub struct PresetDataRequirements {
 
 /// Represents a single chart instance with all its associated state
 pub struct ChartInstance {
-    pub line_graph: LineGraph,
-    pub canvas_controller: CanvasController,
-    pub current_store_state: Option<StoreState>,
-    pub change_detection_config: ChangeDetectionConfig,
-    pub active_preset: Option<String>,
-    pub preset_data_requirements: Option<PresetDataRequirements>,
+    pub chart_engine: ChartEngine,
 }
 
 // Thread-local storage for chart instances
@@ -40,22 +31,29 @@ pub struct InstanceManager;
 
 impl InstanceManager {
     /// Create a new chart instance and return its ID
-    pub fn create_instance(line_graph: LineGraph, canvas_controller: CanvasController) -> Uuid {
+    pub async fn create_instance(
+        canvas_id: &str,
+        width: u32,
+        height: u32,
+        start_x: u32,
+        end_x: u32,
+    ) -> Result<Uuid, String> {
         let id = Uuid::new_v4();
+
+        // Initialize the line graph directly with canvas
+        let line_graph = ChartEngine::new(width, height, canvas_id, start_x, end_x)
+            .await
+            .map_err(|e| format!("Failed to create LineGraph: {e:?}"))?;
+
         let instance = ChartInstance {
-            line_graph,
-            canvas_controller,
-            current_store_state: None,
-            change_detection_config: ChangeDetectionConfig::default(),
-            active_preset: None,
-            preset_data_requirements: None,
+            chart_engine: line_graph,
         };
 
         CHART_INSTANCES.with(|instances| {
             instances.borrow_mut().insert(id, instance);
         });
 
-        id
+        Ok(id)
     }
 
     /// Get a reference to a chart instance

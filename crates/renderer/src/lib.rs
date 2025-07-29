@@ -1,8 +1,3 @@
-//! Pure GPU rendering engine for GPU Charts
-//! Implements Phase 3 optimizations for extreme performance
-
-#![allow(clippy::uninlined_format_args)]
-
 pub mod calcables;
 pub mod charts;
 pub mod compute;
@@ -13,7 +8,6 @@ pub mod multi_renderer;
 pub mod pipeline_builder;
 pub mod shaders;
 
-use config_system::GpuChartsConfig;
 use data_manager::DataStore;
 use shared_types::{GpuChartsError, GpuChartsResult};
 use std::rc::Rc;
@@ -41,21 +35,17 @@ pub struct Renderer {
     pub device: Rc<wgpu::Device>,
     pub queue: Rc<wgpu::Queue>,
     pub config: wgpu::SurfaceConfiguration,
-
-    #[allow(dead_code)] // Will be used for quality settings and performance tuning
-    settings: GpuChartsConfig,
     data_store: DataStore,
     compute_engine: compute_engine::ComputeEngine,
 }
 
 impl Renderer {
     /// Create a new renderer
-    #[cfg(target_arch = "wasm32")]
+
     pub async fn new(
         canvas: web_sys::HtmlCanvasElement,
         device: Rc<wgpu::Device>,
         queue: Rc<wgpu::Queue>,
-        config: GpuChartsConfig,
         data_store: DataStore,
     ) -> RenderResult<Self> {
         // Create WebGPU instance and surface
@@ -109,7 +99,6 @@ impl Renderer {
             device,
             queue,
             config: surface_config,
-            settings: config,
             data_store,
             compute_engine,
         };
@@ -193,22 +182,6 @@ impl Renderer {
         Ok(())
     }
 
-    /// Update chart type
-    pub fn set_chart_type(&mut self, chart_type: data_manager::ChartType) {
-        log::info!(
-            "set_chart_type called: {:?} -> {:?}",
-            self.data_store.chart_type,
-            chart_type
-        );
-        let old_type = self.data_store.chart_type;
-        self.data_store.chart_type = chart_type;
-
-        // Mark data store as dirty to trigger a render
-        self.data_store.mark_dirty();
-
-        log::info!("Chart type changed from {old_type:?} to {chart_type:?} - marked dirty");
-    }
-
     /// Resize the renderer
     pub fn resize(&mut self, width: u32, height: u32) {
         self.config.width = width;
@@ -217,7 +190,6 @@ impl Renderer {
         self.data_store.resized(width, height);
         log::info!("Resized surface to {{ width: {width}, height: {height} }}");
     }
-
 
     /// Get mutable access to data store
     pub fn data_store_mut(&mut self) -> &mut DataStore {

@@ -1,25 +1,39 @@
 import { create } from 'zustand';
-import { AppState, ChartState, MarketData, StoreSubscriptionCallbacks } from '../types';
 
-interface AppStore extends AppState {
+// Simplified StoreState matching Rust expectations
+export interface StoreState {
+  preset?: string;
+  symbol?: string;
+  startTime: number;
+  endTime: number;
+}
+
+// // WASM integration types
+// export interface WasmModule {
+//   memory: WebAssembly.Memory;
+//   // Add other WASM exports as needed
+// }
+
+// Store subscription callback interface
+export interface StoreSubscriptionCallbacks {
+  onSymbolChange?: (newSymbol?: string, oldSymbol?: string) => void;
+  onTimeRangeChange?: (newRange: { startTime: number; endTime: number }, oldRange: { startTime: number; endTime: number }) => void;
+  onPresetChange?: (newPreset?: string, oldPreset?: string) => void;
+  onAnyChange?: (newState: StoreState, oldState: StoreState) => void;
+}
+
+interface AppStore extends StoreState {
   // Store subscription management
   _subscriptions: Map<string, StoreSubscriptionCallbacks>;
-  _lastState: AppState | null;
+  _lastState: StoreState | null;
 
   // Core actions
   setCurrentSymbol: (symbol: string) => void;
-  setChartStateConfig: (config: ChartState) => void;
-  updateMarketData: (symbol: string, data: MarketData) => void;
-  setConnectionStatus: (connected: boolean) => void;
-
+  setPreset: (preset?: string) => void;
   // Enhanced actions with time range management
   setTimeRange: (startTime: number, endTime: number) => void;
-
-  // Metric preset actions (simplified - just preset name)
-  setMetricPreset: (presetName: string | null) => void;
-
   // Batch operations
-  updateChartState: (updates: Partial<ChartState>) => void;
+  updateChartState: (updates: Partial<StoreState>) => void;
   resetToDefaults: () => void;
 
   // Store subscription API
@@ -27,24 +41,23 @@ interface AppStore extends AppState {
   unsubscribe: (id: string) => void;
 
   // Internal subscription trigger
-  _triggerSubscriptions: (newState: AppState, oldState: AppState) => void;
+  _triggerSubscriptions: (newState: AppStore, oldState: AppStore) => void;
 }
 
 // Default configuration values
-const DEFAULT_CONFIG: ChartState = {
+const DEFAULT_CONFIG: StoreState = {
   symbol: 'BTC-USD',
   startTime: Math.floor(Date.now() / 1000) - 24 * 60 * 60, // 24 hours ago
   endTime: Math.floor(Date.now() / 1000), // Now
-  metricPreset: null, // No preset selected by default
+  preset: 'Market Data',
 };
 
 export const useAppStore = create<AppStore>((set, get) => ({
   // Initial state
-  currentSymbol: DEFAULT_CONFIG.symbol,
-  ChartStateConfig: DEFAULT_CONFIG,
-  marketData: {},
-  isConnected: false,
-  user: undefined,
+  symbol: DEFAULT_CONFIG.symbol,
+  preset: DEFAULT_CONFIG.preset,
+  startTime: DEFAULT_CONFIG.startTime,
+  endTime: DEFAULT_CONFIG.endTime,
 
   // Subscription management
   _subscriptions: new Map(),
@@ -53,73 +66,22 @@ export const useAppStore = create<AppStore>((set, get) => ({
   // Core actions with enhanced subscription triggering
   setCurrentSymbol: (symbol) => {
     const oldState = get();
-    set((state) => ({
-      currentSymbol: symbol,
-      ChartStateConfig: { ...state.ChartStateConfig, symbol },
-    }));
+    set({ symbol });
     const newState = get();
     newState._triggerSubscriptions(newState, oldState);
   },
 
-  setChartStateConfig: (config) => {
+  setPreset: (preset) => {
     const oldState = get();
-    // Use migration function to ensure all fields are present
-    const migratedConfig = migrateChartStateConfig(config);
-    set({ ChartStateConfig: migratedConfig });
+    set({ preset });
     const newState = get();
-    newState._triggerSubscriptions(newState, oldState);
-  },
-
-  updateMarketData: (symbol, data) => {
-    const oldState = get();
-    set((state) => ({
-      marketData: {
-        ...state.marketData,
-        [symbol]: data,
-      },
-    }));
-    const newState = get();
-
-    // Trigger market data specific callback
-    newState._subscriptions.forEach((callbacks) => {
-      callbacks.onMarketDataChange?.(symbol, data);
-    });
-
-    newState._triggerSubscriptions(newState, oldState);
-  },
-
-  setConnectionStatus: (connected) => {
-    const oldState = get();
-    set({ isConnected: connected });
-    const newState = get();
-
-    // Trigger connection specific callback
-    newState._subscriptions.forEach((callbacks) => {
-      callbacks.onConnectionChange?.(connected);
-    });
-
     newState._triggerSubscriptions(newState, oldState);
   },
 
   // Enhanced time range management
   setTimeRange: (startTime, endTime) => {
     const oldState = get();
-    set((state) => ({
-      ChartStateConfig: { ...state.ChartStateConfig, startTime, endTime },
-    }));
-    const newState = get();
-    newState._triggerSubscriptions(newState, oldState);
-  },
-
-  // Metric preset actions (simplified - just preset name)
-  setMetricPreset: (presetName) => {
-    const oldState = get();
-    set((state) => ({
-      ChartStateConfig: {
-        ...state.ChartStateConfig,
-        metricPreset: presetName,
-      },
-    }));
+    set({ startTime, endTime });
     const newState = get();
     newState._triggerSubscriptions(newState, oldState);
   },
@@ -127,22 +89,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
   // Batch operations
   updateChartState: (updates) => {
     const oldState = get();
-    set((state) => ({
-      ChartStateConfig: { ...state.ChartStateConfig, ...updates },
-    }));
+    set(updates);
     const newState = get();
     newState._triggerSubscriptions(newState, oldState);
   },
 
   resetToDefaults: () => {
     const oldState = get();
-    set({
-      currentSymbol: DEFAULT_CONFIG.symbol,
-      ChartStateConfig: { ...DEFAULT_CONFIG },
-      marketData: {},
-      isConnected: false,
-      user: undefined,
-    });
+    set({ ...DEFAULT_CONFIG });
     const newState = get();
     newState._triggerSubscriptions(newState, oldState);
   },
@@ -169,44 +123,62 @@ export const useAppStore = create<AppStore>((set, get) => ({
     if (!oldState || !newState._subscriptions || newState._subscriptions.size === 0) return;
 
     // Detect specific changes
-    const symbolChanged = newState.currentSymbol !== oldState.currentSymbol;
-    const timeRangeChanged = newState.ChartStateConfig.startTime !== oldState.ChartStateConfig.startTime ||
-      newState.ChartStateConfig.endTime !== oldState.ChartStateConfig.endTime;
-    const presetChanged = newState.ChartStateConfig.metricPreset !== oldState.ChartStateConfig.metricPreset;
+    const symbolChanged = newState.symbol !== oldState.symbol;
+    const timeRangeChanged = newState.startTime !== oldState.startTime ||
+      newState.endTime !== oldState.endTime;
+    const presetChanged = newState.preset !== oldState.preset;
 
     // Trigger specific callbacks
     newState._subscriptions?.forEach((callbacks: StoreSubscriptionCallbacks) => {
       if (symbolChanged && callbacks.onSymbolChange) {
-        callbacks.onSymbolChange(newState.currentSymbol, oldState.currentSymbol);
+        callbacks.onSymbolChange(newState.symbol, oldState.symbol);
       }
 
       if (timeRangeChanged && callbacks.onTimeRangeChange) {
         callbacks.onTimeRangeChange(
-          { startTime: newState.ChartStateConfig.startTime, endTime: newState.ChartStateConfig.endTime },
-          { startTime: oldState.ChartStateConfig.startTime, endTime: oldState.ChartStateConfig.endTime }
+          { startTime: newState.startTime, endTime: newState.endTime },
+          { startTime: oldState.startTime, endTime: oldState.endTime }
         );
       }
 
-
-      // Preset changes can be tracked if needed
-      if (presetChanged && callbacks.onMetricsChange) {
-        // Just notify that preset changed, WASM handles the details
-        callbacks.onMetricsChange([], []);
+      // Preset changes - note the callback expects string[] but we have string
+      if (presetChanged && callbacks.onPresetChange) {
+        callbacks.onPresetChange(newState.preset, oldState.preset);
       }
 
       // Always trigger general change callback
       if (callbacks.onAnyChange) {
-        callbacks.onAnyChange(newState, oldState);
+        const newStoreState: StoreState = {
+          symbol: newState.symbol,
+          preset: newState.preset,
+          startTime: newState.startTime,
+          endTime: newState.endTime
+        };
+        const oldStoreState: StoreState = {
+          symbol: oldState.symbol,
+          preset: oldState.preset,
+          startTime: oldState.startTime,
+          endTime: oldState.endTime
+        };
+        callbacks.onAnyChange(newStoreState, oldStoreState);
       }
     });
 
-    // Update last state reference
-    set({ _lastState: { ...newState } });
+    // Update last state reference using a partial update that only affects AppStore properties
+    set((state) => ({
+      ...state,
+      _lastState: {
+        symbol: newState.symbol,
+        preset: newState.preset,
+        startTime: newState.startTime,
+        endTime: newState.endTime
+      }
+    }));
   },
 }));
 
 // Export helper hooks for specific subscriptions
-export const useSymbolSubscription = (callback: (newSymbol: string, oldSymbol: string) => void) => {
+export const useSymbolSubscription = (callback: (newSymbol?: string, oldSymbol?: string) => void) => {
   const subscribe = useAppStore(state => state.subscribe);
   const unsubscribe = useAppStore(state => state.unsubscribe);
 
@@ -235,71 +207,3 @@ export const useChartSubscription = (callbacks: StoreSubscriptionCallbacks) => {
     unsubscribe: () => unsubscribe('chart-subscription'),
   };
 };
-
-// Expose store globally for testing
-if (typeof window !== 'undefined') {
-  (window as any).__zustandStore = useAppStore;
-  (window as any).__APP_STORE_STATE__ = useAppStore.getState();
-  (window as any).__STORE_READY__ = true;
-  (window as any).__DATA_SERVICE_READY__ = true;
-  (window as any).__ERROR_HANDLER_READY__ = true;
-  (window as any).__PERFORMANCE_MONITOR_READY__ = true;
-
-  // Initialize error tracking
-  if (!(window as any).wasmErrors) {
-    (window as any).wasmErrors = [];
-  }
-
-  // Add store accessor functions for tests
-  (window as any).__GET_STORE_STATE__ = () => {
-    const state = useAppStore.getState();
-    return {
-      currentSymbol: state.currentSymbol,
-      symbol: state.currentSymbol, // Alias for backward compatibility
-      ChartStateConfig: state.ChartStateConfig,
-      connected: state.isConnected,
-      chartInitialized: true, // Assume chart is initialized if store is accessible
-      marketData: state.marketData,
-      isConnected: state.isConnected,
-      user: state.user,
-      startTime: state.ChartStateConfig.startTime,
-      endTime: state.ChartStateConfig.endTime
-    };
-  };
-
-  // Store update function for tests
-  (window as any).__UPDATE_STORE_STATE__ = (updates: any) => {
-    const store = useAppStore.getState();
-    if (updates.currentSymbol) {
-      store.setCurrentSymbol(updates.currentSymbol);
-    }
-    if (updates.symbol) {
-      store.setCurrentSymbol(updates.symbol);
-    }
-    if (updates.startTime !== undefined && updates.endTime !== undefined) {
-      store.setTimeRange(updates.startTime, updates.endTime);
-    }
-    if (updates.connected !== undefined) {
-      store.setConnectionStatus(updates.connected);
-    }
-    return { success: true };
-  };
-
-  // Update global state on store changes
-  useAppStore.subscribe((state) => {
-    (window as any).__APP_STORE_STATE__ = state;
-  });
-}
-
-// Migration function to ensure backward compatibility
-export function migrateChartStateConfig(config: Partial<ChartState>): ChartState {
-  // Start with default config
-  const migratedConfig = { ...DEFAULT_CONFIG, ...config };
-
-  // Ensure metricPreset field exists
-  if (migratedConfig.metricPreset === undefined) {
-    migratedConfig.metricPreset = null;
-  }
-
-  return migratedConfig;
-}

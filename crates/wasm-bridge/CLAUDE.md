@@ -283,7 +283,7 @@ try {
 ### Enable Logging
 ```rust
 cfg_if::cfg_if! {
-    if #[cfg(target_arch = "wasm32")] {
+    if  {
         console_log::init_with_level(log::Level::Debug).expect("Couldn't initialize logger");
         std::panic::set_hook(Box::new(console_error_panic_hook::hook));
     }

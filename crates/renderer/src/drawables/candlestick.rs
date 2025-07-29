@@ -144,7 +144,7 @@ impl CandlestickRenderer {
         }
 
         // Update timeframe from DataStore
-        self.candle_timeframe = data_store.candle_timeframe;
+        self.candle_timeframe = 60;
 
         // Calculate cache key for current state
         let data_hash = self.calculate_data_hash(data_store);
@@ -221,7 +221,7 @@ impl CandlestickRenderer {
         active_groups.len().hash(&mut hasher);
 
         // Hash data bounds if available
-        if let (Some(min_y), Some(max_y)) = (ds.min_y, ds.max_y) {
+        if let (Some(min_y), Some(max_y)) = (ds.gpu_min_y, ds.gpu_max_y) {
             // Convert f32 to bits for hashing
             min_y.to_bits().hash(&mut hasher);
             max_y.to_bits().hash(&mut hasher);
@@ -539,8 +539,8 @@ impl CandlestickRenderer {
         });
 
         let y_min_max = glm::vec2(
-            data_store.min_y.unwrap_or(0.0),
-            data_store.max_y.unwrap_or(1.0),
+            data_store.gpu_min_y.unwrap_or(0.0),
+            data_store.gpu_max_y.unwrap_or(1.0),
         );
         let y_buffer = self
             .uniform_buffer_pool

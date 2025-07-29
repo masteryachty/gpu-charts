@@ -125,8 +125,8 @@ impl XAxisRenderer {
             let mut vertices = Vec::with_capacity(timestamps.len() * 4);
 
             // Get the Y range from data_store
-            let y_min = data_store.min_y.unwrap_or(0.0);
-            let y_max = data_store.max_y.unwrap_or(100.0);
+            let y_min = data_store.gpu_min_y.unwrap_or(0.0);
+            let y_max = data_store.gpu_max_y.unwrap_or(100.0);
 
             log::info!("X-axis: Creating vertical lines for {} timestamps within range [{}, {}], Y range: [{}, {}]", 
                 timestamps.len(), min, max, y_min, y_max);
@@ -249,7 +249,7 @@ impl XAxisRenderer {
         let shader = device.create_shader_module(wgpu::include_wgsl!("x_axis.wgsl"));
 
         const ATTRIBUTES: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Float32x2];
-        
+
         // Create the same bind group layout as used by DataStore for shared bind groups
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("shared_range_bind_group_layout"),

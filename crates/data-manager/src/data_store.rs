@@ -1,3 +1,4 @@
+use config_system::{ChartPreset, PresetManager};
 use js_sys::{ArrayBuffer, Uint32Array};
 use nalgebra_glm as glm;
 use std::rc::Rc;
@@ -54,20 +55,22 @@ pub enum ChartType {
     Candlestick,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct AppStoreState {
+    pub start_time: u64,
+    pub end_time: u64,
+}
+
 pub struct DataStore {
+    pub preset: Option<ChartPreset>,
+    pub symbol: Option<String>,
     pub start_x: u32,
     pub end_x: u32,
-    pub min_y: Option<f32>,
-    pub max_y: Option<f32>,
     pub data_groups: Vec<DataSeries>,
     pub active_data_group_indices: Vec<usize>, // Multiple active series
     pub range_bind_group: Option<wgpu::BindGroup>,
     pub screen_size: ScreenDimensions,
-    pub topic: Option<String>,
-    pub chart_type: ChartType,
-    pub candle_timeframe: u32,                            // in seconds
     dirty: bool, // Track if data has changed and needs re-rendering
-    excluded_columns_for_y_bounds: Vec<String>, // Columns to exclude from Y bounds calculation
     pub min_max_buffer: Option<Rc<wgpu::Buffer>>, // GPU-calculated min/max buffer
     pub min_max_staging_buffer: Option<Rc<wgpu::Buffer>>, // Staging buffer for CPU readback
     pub gpu_min_y: Option<f32>, // GPU-calculated min Y value
@@ -82,22 +85,18 @@ pub struct DataStore {
 // }
 
 impl DataStore {
-    pub fn new(width: u32, height: u32) -> DataStore {
+    pub fn new(width: u32, height: u32, start_x: u32, end_x: u32) -> DataStore {
         DataStore {
-            start_x: 0,
-            end_x: 100,         // Default to a reasonable range
-            min_y: Some(0.0),   // Default min Y value
-            max_y: Some(100.0), // Default max Y value
+            preset: None,
+            symbol: None,
+            start_x: start_x,
+            end_x: end_x,
             data_groups: Vec::new(),
             active_data_group_indices: Vec::new(),
             range_bind_group: None,
             screen_size: ScreenDimensions { width, height },
-            topic: None,
-            chart_type: ChartType::Candlestick,
-            candle_timeframe: 60, // Default 1 minute
-            dirty: true,          // Start dirty to ensure initial render
-            excluded_columns_for_y_bounds: vec!["side".to_string(), "volume".to_string()], // Default exclusions
-            min_max_buffer: None, // GPU buffer will be created during rendering
+            dirty: true,                  // Start dirty to ensure initial render
+            min_max_buffer: None,         // GPU buffer will be created during rendering
             min_max_staging_buffer: None, // Staging buffer for CPU readback
             gpu_min_y: None,
             gpu_max_y: None,
@@ -120,26 +119,6 @@ impl DataStore {
     pub fn mark_dirty(&mut self) {
         self.dirty = true;
     }
-
-    /// Set columns to exclude from Y bounds calculation
-    pub fn set_excluded_columns(&mut self, columns: Vec<String>) {
-        log::info!(
-            "[DataStore] Setting excluded columns: {:?} (was: {:?})",
-            columns,
-            self.excluded_columns_for_y_bounds
-        );
-        self.excluded_columns_for_y_bounds = columns;
-        self.mark_dirty();
-    }
-
-    /// Get columns excluded from Y bounds calculation
-    pub fn get_excluded_columns(&self) -> &[String] {
-        &self.excluded_columns_for_y_bounds
-    }
-
-    // pub fn add_data(&mut self, x: f32, y: f32) {
-    //     self.data.push(Coord { x, y });
-    // }
 
     pub fn add_data_group(&mut self, x_series: (ArrayBuffer, Vec<Buffer>), set_as_active: bool) {
         let f: Uint32Array = Uint32Array::new(&x_series.0);
@@ -232,6 +211,19 @@ impl DataStore {
             .collect()
     }
 
+    /// Clear GPU bounds calculations (called when new data is loaded)
+    pub fn clear_gpu_bounds(&mut self) {
+        self.min_max_buffer = None;
+        self.min_max_staging_buffer = None;
+        self.gpu_min_y = None;
+        self.gpu_max_y = None;
+        self.gpu_buffer_mapped = false;
+        self.gpu_buffer_ready = false;
+        self.range_bind_group = None;
+        self.mark_dirty();
+        log::debug!("[DataStore] Cleared GPU bounds - will recalculate on next render");
+    }
+
     pub fn set_x_range(&mut self, min_x: u32, max_x: u32) {
         log::info!(
             "[DataStore] set_x_range called: min_x={}, max_x={} (current: {} to {})",
@@ -244,16 +236,7 @@ impl DataStore {
         if self.start_x != min_x || self.end_x != max_x {
             self.start_x = min_x;
             self.end_x = max_x;
-            self.min_y = None;
-            self.max_y = None;
-            self.min_max_buffer = None; // Clear GPU buffer
-            self.min_max_staging_buffer = None; // Clear staging buffer
-            self.gpu_min_y = None;
-            self.gpu_max_y = None;
-            self.gpu_buffer_mapped = false;
-            self.gpu_buffer_ready = false;
-            self.range_bind_group = None;
-            self.mark_dirty();
+            self.clear_gpu_bounds();
 
             log::info!("[DataStore] X range updated, cleared Y bounds and marked dirty");
         } else {
@@ -268,27 +251,10 @@ impl DataStore {
         }
     }
 
-    // pub fn get_data(&self) -> Uint8Array {
-    //     self.data.cop
-    // }
-    // self.make_vertex_buffer(device, d)
-
-    // fn make_vertex_buffers(&self, device: &Device, data: Vec<&[u8]>) -> Vec<wgpu::Buffer> {
-    //     data.iter()
-    //         .map(|d| {
-    //             device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-    //                 label: Some("Data Buffer"),
-    //                 usage: wgpu::BufferUsages::VERTEX, // You can change this based on your needs
-    //                 contents: &d,
-    //             })
-    //         })
-    //         .collect()
-    // }
-
     pub fn world_to_screen_with_margin(&self, x: f32, y: f32) -> (f32, f32) {
         // Use default values if min/max Y are not set yet
-        let min_y = self.min_y.unwrap_or(0.0);
-        let max_y = self.max_y.unwrap_or(100.0);
+        let min_y = self.gpu_min_y.unwrap_or(0.0);
+        let max_y = self.gpu_max_y.unwrap_or(100.0);
         let y_range = max_y - min_y;
 
         let projection = glm::ortho_rh_zo(
@@ -317,8 +283,8 @@ impl DataStore {
 
         let min_x = self.start_x as f32;
         let max_x = self.end_x as f32;
-        let min_y = self.min_y.unwrap_or(0.0);
-        let max_y = self.max_y.unwrap_or(100.0);
+        let min_y = self.gpu_min_y.unwrap_or(0.0);
+        let max_y = self.gpu_max_y.unwrap_or(100.0);
 
         let y_margin = (max_y - min_y) * 0.1;
 
@@ -355,7 +321,7 @@ impl DataStore {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        // let projection = glm::ortho(self.min_x, self.max_x, self.min_y, self.max_y, -1., 1.);
+        // let projection = glm::ortho(self.min_x, self.max_x, self.gpu_min_y, self.gpu_max_y, -1., 1.);
         // let projection_bytes: &[u8] = unsafe { any_as_u8_slice(&projection) };
         // let projection_buffer_descriptor = wgpu::util::BufferInitDescriptor {
         //     label: Some("projection buffer"),
@@ -405,165 +371,6 @@ impl DataStore {
             ],
         });
         self.range_bind_group = Some(bind_group);
-    }
-
-    pub fn update_min_max_y(&mut self, min_y: f32, max_y: f32) {
-        let changed = self.min_y != Some(min_y) || self.max_y != Some(max_y);
-        if changed {
-            self.min_y = Some(min_y);
-            self.max_y = Some(max_y);
-            self.mark_dirty();
-        }
-    }
-
-    /// [DEPRECATED] CPU-side Y bounds calculation - use GPU calculation instead
-    #[deprecated(note = "Use GPU min/max calculation instead")]
-    pub fn recalculate_y_bounds(&mut self) {
-        log::info!("[DataStore] ========== RECALCULATING Y BOUNDS ==========");
-        log::info!("[DataStore] X range: {} to {}", self.start_x, self.end_x);
-        log::info!(
-            "[DataStore] Excluded columns: {:?}",
-            self.excluded_columns_for_y_bounds
-        );
-
-        let mut global_min = f32::INFINITY;
-        let mut global_max = f32::NEG_INFINITY;
-        let mut found_data = false;
-        let mut included_metrics = Vec::new();
-        let mut skipped_metrics = Vec::new();
-
-        // Check if we have any data groups
-        if self.data_groups.is_empty() {
-            log::warn!("[DataStore] No data groups available for bounds calculation");
-            return;
-        }
-
-        // Clone the excluded columns to avoid borrow issues
-        let excluded_columns = self.excluded_columns_for_y_bounds.clone();
-
-        log::info!("[DataStore] Total data groups: {}", self.data_groups.len());
-        log::info!(
-            "[DataStore] Active data group indices: {:?}",
-            self.active_data_group_indices
-        );
-
-        // Get only metrics that are BOTH visible AND not in exclusion list
-        let active_groups = self.get_active_data_groups();
-        let mut total_metrics = 0;
-        let mut visible_metrics = 0;
-
-        for data_series in active_groups {
-            for metric in &data_series.metrics {
-                total_metrics += 1;
-
-                // Skip if not visible
-                if !metric.visible {
-                    log::info!(
-                        "[DataStore] ⏸️ HIDDEN: Skipping metric '{}' (visible=false)",
-                        metric.name
-                    );
-                    skipped_metrics.push(format!("{} (hidden)", metric.name));
-                    continue;
-                }
-
-                visible_metrics += 1;
-
-                // Skip if in exclude list
-                if excluded_columns.contains(&metric.name) {
-                    log::info!(
-                        "[DataStore] ❌ EXCLUDED: Skipping metric '{}' (in exclusion list)",
-                        metric.name
-                    );
-                    skipped_metrics.push(format!("{} (excluded)", metric.name));
-                    continue;
-                }
-
-                // Skip computed fields that have empty raw buffers (GPU-only data)
-                let value_array = js_sys::Float32Array::new(&metric.y_raw);
-                if value_array.length() == 0 {
-                    log::debug!(
-                        "[DataStore] Skipping metric '{}' (no CPU data - likely GPU-computed)",
-                        metric.name
-                    );
-                    skipped_metrics.push(format!("{} (empty buffer)", metric.name));
-                    continue;
-                }
-
-                included_metrics.push(metric.name.clone());
-
-                // Get the time and value data
-                let time_array = js_sys::Uint32Array::new(&data_series.x_raw);
-                // Value array was already created above for empty check
-                let length = time_array.length().min(value_array.length());
-
-                log::info!(
-                    "[DataStore] ✅ INCLUDING: Processing metric '{}' with {} points",
-                    metric.name,
-                    length
-                );
-
-                // Find min/max within the visible time range
-                let mut points_in_range = 0;
-                let mut metric_min = f32::INFINITY;
-                let mut metric_max = f32::NEG_INFINITY;
-
-                for i in 0..length {
-                    let time = time_array.get_index(i);
-                    if time >= self.start_x && time <= self.end_x {
-                        let value = value_array.get_index(i);
-                        if value.is_finite() {
-                            metric_min = metric_min.min(value);
-                            metric_max = metric_max.max(value);
-                            global_min = global_min.min(value);
-                            global_max = global_max.max(value);
-                            found_data = true;
-                            points_in_range += 1;
-                        }
-                    }
-                }
-
-                if points_in_range > 0 {
-                    log::info!(
-                        "[DataStore]   → Found {} points in range for '{}': min={}, max={}",
-                        points_in_range,
-                        metric.name,
-                        metric_min,
-                        metric_max
-                    );
-                } else {
-                    log::warn!(
-                        "[DataStore]   → No points in time range for '{}'",
-                        metric.name
-                    );
-                }
-            }
-        }
-
-        log::info!("[DataStore] ========== Y BOUNDS CALCULATION SUMMARY ==========");
-        log::info!("[DataStore] Total metrics: {total_metrics}, Visible: {visible_metrics}");
-        log::info!("[DataStore] Included metrics: {included_metrics:?}");
-        log::info!("[DataStore] Skipped metrics: {skipped_metrics:?}");
-
-        if found_data {
-            log::info!("[DataStore] Raw bounds: min={global_min}, max={global_max}");
-
-            // Add 10% margin
-            let range = global_max - global_min;
-            let margin = range * 0.1;
-            global_min -= margin;
-            global_max += margin;
-
-            log::info!(
-                "[DataStore] Final Y bounds (with 10% margin): min={global_min}, max={global_max}"
-            );
-            self.update_min_max_y(global_min, global_max);
-        } else {
-            log::warn!(
-                "[DataStore] ⚠️ No valid data found in range, using defaults (0.0, 100000.0)"
-            );
-            self.update_min_max_y(0.0, 100000.0);
-        }
-        log::info!("[DataStore] ==========================================");
     }
 
     /// Update the shared range bind group with GPU-calculated min/max buffer
@@ -643,20 +450,6 @@ impl DataStore {
         self.range_bind_group = Some(bind_group);
     }
 
-    pub fn set_chart_type(&mut self, chart_type: ChartType) {
-        if self.chart_type != chart_type {
-            self.chart_type = chart_type;
-            self.mark_dirty();
-        }
-    }
-
-    pub fn set_candle_timeframe(&mut self, timeframe_seconds: u32) {
-        if self.candle_timeframe != timeframe_seconds {
-            self.candle_timeframe = timeframe_seconds;
-            self.mark_dirty();
-        }
-    }
-
     /// Get the GPU-calculated min/max values
     /// These are updated after GPU calculation completes
     pub fn get_gpu_y_bounds(&self) -> Option<(f32, f32)> {
@@ -671,17 +464,6 @@ impl DataStore {
         self.gpu_min_y = Some(min);
         self.gpu_max_y = Some(max);
         log::debug!("[DataStore] GPU Y bounds updated: min={min}, max={max}");
-    }
-
-    /// Clear GPU bounds calculations (called when new data is loaded)
-    pub fn clear_gpu_bounds(&mut self) {
-        self.min_max_buffer = None;
-        self.min_max_staging_buffer = None;
-        self.gpu_min_y = None;
-        self.gpu_max_y = None;
-        self.gpu_buffer_mapped = false;
-        self.gpu_buffer_ready = false;
-        log::debug!("[DataStore] Cleared GPU bounds - will recalculate on next render");
     }
 
     /// Get a metric by reference

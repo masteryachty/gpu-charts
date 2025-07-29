@@ -117,8 +117,8 @@ impl PlotRenderer {
             });
 
         let y_min_max = glm::vec2(
-            data_store.min_y.unwrap_or(0.0),
-            data_store.max_y.unwrap_or(1.0),
+            data_store.gpu_min_y.unwrap_or(0.0),
+            data_store.gpu_max_y.unwrap_or(1.0),
         );
         let y_min_max_bytes: &[u8] = unsafe { any_as_u8_slice(&y_min_max) };
         let y_buffer = self

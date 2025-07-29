@@ -33,7 +33,7 @@ impl YAxisRenderer {
         let (min, max) = data_store.get_gpu_y_bounds().unwrap_or({
             // Use the actual data range from the shader's perspective
             // The shader will use the correct bounds, we just need values for labels
-            match (data_store.min_y, data_store.max_y) {
+            match (data_store.gpu_min_y, data_store.gpu_max_y) {
                 (Some(min), Some(max)) => (min, max),
                 _ => {
                     // If no bounds yet, use the last known bounds or defaults
@@ -225,7 +225,7 @@ impl YAxisRenderer {
         let shader = device.create_shader_module(wgpu::include_wgsl!("y_axis.wgsl"));
 
         const ATTRIBUTES: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Float32x2];
-        
+
         // Create the same bind group layout as used by DataStore for shared bind groups
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("shared_range_bind_group_layout"),
