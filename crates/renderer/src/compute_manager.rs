@@ -31,17 +31,17 @@ impl ComputeManager {
         encoder: &mut CommandEncoder,
         data_store: &mut DataStore,
     ) {
-        log::info!("[ComputeManager] Running compute passes...");
+        log::debug!("[ComputeManager] Running compute passes...");
         
         // Get all metrics that need computation
         let metrics_to_compute = data_store.get_metrics_needing_computation();
         
         if metrics_to_compute.is_empty() {
-            log::info!("[ComputeManager] No metrics need computation");
+            log::debug!("[ComputeManager] No metrics need computation");
             return;
         }
         
-        log::info!("[ComputeManager] Found {} metrics needing computation", 
+        log::debug!("[ComputeManager] Found {} metrics needing computation", 
             metrics_to_compute.len());
         
         // Process each metric that needs computation
@@ -167,7 +167,7 @@ impl ComputeManager {
             return;
         }
         
-        log::info!("[ComputeManager] Computing mid price for {} elements", element_count);
+        log::debug!("[ComputeManager] Computing mid price for {} elements", element_count);
         
         // Use the calculator to compute mid price
         match calculator.calculate(dep_buffers[0], dep_buffers[1], element_count, encoder) {
@@ -199,7 +199,7 @@ impl ComputeManager {
                     // TODO: Schedule async readback to populate y_raw
                     // This would involve submitting the command buffer and mapping the staging buffer
                     
-                    log::info!("[ComputeManager] Successfully computed mid price and updated buffer");
+                    log::debug!("[ComputeManager] Successfully computed mid price and updated buffer");
                 }
             }
             Err(e) => {

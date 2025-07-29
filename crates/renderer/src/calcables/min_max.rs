@@ -48,7 +48,7 @@ pub fn calculate_min_max_y(
     let x_data = Float32Array::new(x_series);
     let max_index = x_data.length();
     let end_index = end_index.clamp(0, max_index);
-    log::info!("1.5 {start_index:?} {end_index:?}");
+    log::debug!("1.5 {start_index:?} {end_index:?}");
 
     let thread_mult = 32u32;
     let workgroup_size: u64 = 256;

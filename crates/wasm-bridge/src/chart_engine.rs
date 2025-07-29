@@ -206,11 +206,11 @@ impl ChartEngine {
 
         log::info!("LineGraph initialization completed - no data loaded yet");
 
-        // Create a default multi-renderer with basic line plot and axes
-        let mut multi_renderer = renderer
+        // Create a minimal multi-renderer with just axes
+        // Specific chart renderers will be added when a preset is selected
+        let multi_renderer = renderer
             .create_multi_renderer()
             .with_render_order(renderer::RenderOrder::BackgroundToForeground)
-            .add_plot_renderer()
             .add_x_axis_renderer(
                 renderer.data_store().screen_size.width,
                 renderer.data_store().screen_size.height,
@@ -221,15 +221,7 @@ impl ChartEngine {
             )
             .build();
 
-        // Add a TriangleRenderer for trades
-        // This will be used when the preset includes Triangle render types
-        let mut triangle_renderer = renderer::charts::TriangleRenderer::new(
-            renderer.device.clone(),
-            renderer.queue.clone(),
-            renderer.config.format,
-        );
-        triangle_renderer.set_data_group("trades".to_string());
-        multi_renderer.add_renderer(Box::new(triangle_renderer));
+        log::info!("ChartEngine initialized with minimal renderer configuration - waiting for preset selection");
 
         // Create render loop controller
         let render_loop = RenderLoopController::new();
@@ -294,15 +286,23 @@ impl ChartEngine {
     ) {
         if let Some(name) = preset_name {
             log::info!("[ChartEngine] Looking for preset: {}", name);
-            let preset = self.preset_manager.find_preset(&name);
-            if preset.is_some() {
+            let preset = self.preset_manager.find_preset(&name).cloned();
+            if let Some(preset) = preset {
                 log::info!("[ChartEngine] Found preset: {}", name);
+
+                // Update renderer with preset
+                self.renderer
+                    .set_preset_and_symbol(Some(&preset), symbol_name);
+
+                // Rebuild multi-renderer based on preset configuration
+                self.rebuild_multi_renderer_for_preset(&preset);
+
+                // Trigger data config changed when preset is set
+                self.on_data_config_changed();
             } else {
                 log::warn!("[ChartEngine] Preset not found: {}", name);
+                self.renderer.set_preset_and_symbol(None, symbol_name);
             }
-            self.renderer.set_preset_and_symbol(preset, symbol_name);
-            // Trigger data config changed when preset is set
-            self.on_data_config_changed();
         } else {
             log::warn!("[ChartEngine] No preset name provided");
             self.renderer.set_preset_and_symbol(None, symbol_name);
@@ -379,6 +379,98 @@ impl ChartEngine {
     /// Set instance ID (used by instance manager)
     pub fn set_instance_id(&mut self, id: Uuid) {
         self.instance_id = id;
+    }
+
+    /// Rebuild the multi-renderer based on preset configuration
+    fn rebuild_multi_renderer_for_preset(&mut self, preset: &config_system::ChartPreset) {
+        log::info!(
+            "[ChartEngine] Rebuilding multi-renderer for preset: {}",
+            preset.name
+        );
+
+        // Get current screen dimensions
+        let width = self.renderer.data_store().screen_size.width;
+        let height = self.renderer.data_store().screen_size.height;
+
+        // Create new multi-renderer
+        let mut builder = self
+            .renderer
+            .create_multi_renderer()
+            .with_render_order(renderer::RenderOrder::BackgroundToForeground);
+
+        // Add renderers based on preset chart types
+        for chart_type in &preset.chart_types {
+            if !chart_type.visible {
+                continue;
+            }
+
+            match chart_type.render_type {
+                config_system::RenderType::Line => {
+                    log::debug!(
+                        "[ChartEngine] Adding PlotRenderer for: {}",
+                        chart_type.label
+                    );
+
+                    // Create a configurable plot renderer with specific data columns
+                    let plot_renderer = renderer::ConfigurablePlotRenderer::new(
+                        self.renderer.device.clone(),
+                        self.renderer.queue.clone(),
+                        self.renderer.config.format,
+                        chart_type.label.clone(),
+                        chart_type.data_columns.clone(),
+                    );
+                    builder = builder.add_renderer(Box::new(plot_renderer));
+                }
+                config_system::RenderType::Triangle => {
+                    log::debug!(
+                        "[ChartEngine] Adding TriangleRenderer for: {}",
+                        chart_type.label
+                    );
+
+                    let triangle_renderer = renderer::charts::TriangleRenderer::new(
+                        self.renderer.device.clone(),
+                        self.renderer.queue.clone(),
+                        self.renderer.config.format,
+                    );
+
+                    // The TriangleRenderer automatically finds data groups with "price" and "side" metrics
+                    // So we don't need to set a specific data group name
+                    builder = builder.add_renderer(Box::new(triangle_renderer));
+                }
+                config_system::RenderType::Candlestick => {
+                    log::debug!(
+                        "[ChartEngine] Adding CandlestickRenderer for: {}",
+                        chart_type.label
+                    );
+                    builder = builder.add_candlestick_renderer();
+                }
+                config_system::RenderType::Bar => {
+                    log::warn!(
+                        "[ChartEngine] Bar renderer not yet implemented for: {}",
+                        chart_type.label
+                    );
+                    // TODO: Implement bar renderer
+                }
+                config_system::RenderType::Area => {
+                    log::warn!(
+                        "[ChartEngine] Area renderer not yet implemented for: {}",
+                        chart_type.label
+                    );
+                    // TODO: Implement area renderer
+                }
+            }
+        }
+
+        // Always add axes
+        builder = builder
+            .add_x_axis_renderer(width, height)
+            .add_y_axis_renderer(width, height);
+
+        // Build and replace the multi-renderer
+        let new_multi_renderer = builder.build();
+        self.multi_renderer = Some(new_multi_renderer);
+
+        log::info!("[ChartEngine] Multi-renderer rebuilt with renderers based on preset");
     }
 }
 

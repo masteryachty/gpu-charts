@@ -170,11 +170,11 @@ impl TriangleRenderer {
     ) -> Option<(wgpu::BindGroup, u32)> {
         use nalgebra_glm as glm;
 
-        log::info!(
+        log::debug!(
             "🔺 [TriangleRenderer] Looking for data group '{}'",
             self.data_group_name
         );
-        log::info!(
+        log::debug!(
             "🔺 [TriangleRenderer] Available data groups: {}",
             data_store.data_groups.len()
         );
@@ -194,12 +194,12 @@ impl TriangleRenderer {
                 let is_trades_group = has_price && has_side;
 
                 if is_trades_group {
-                    log::info!("🔺 [TriangleRenderer] Found trades group at index {} (has price and side metrics)", idx);
+                    log::debug!("🔺 [TriangleRenderer] Found trades group at index {} (has price and side metrics)", idx);
                 }
                 is_trades_group
             })?;
 
-        log::info!(
+        log::debug!(
             "🔺 [TriangleRenderer] Found data group at index {}",
             group_index
         );
@@ -209,7 +209,7 @@ impl TriangleRenderer {
         let price_metric = data_group.metrics.iter().find(|m| m.name == "price")?;
         let side_metric = data_group.metrics.iter().find(|m| m.name == "side")?;
 
-        log::info!("🔺 [TriangleRenderer] Found required metrics: price and side");
+        log::debug!("🔺 [TriangleRenderer] Found required metrics: price and side");
 
         // Get the first buffer from each metric (assuming single chunk for now)
         let time_buffer = time_metric.x_buffers.first()?;

@@ -3,6 +3,7 @@ use std::rc::Rc;
 use wgpu::TextureFormat;
 use wgpu_text::glyph_brush::ab_glyph::FontRef;
 
+use super::shared_utils::{create_shared_range_bind_group_layout, MIN_AXIS_LABEL_SPACING};
 use data_manager::{create_gpu_buffer_from_vec, DataStore};
 use wgpu_text::{
     glyph_brush::{Section as TextSection, Text},
@@ -65,7 +66,9 @@ impl XAxisRenderer {
             // Adjusted threshold from 150 to 100 pixels to get more grid lines
             let mut base_unit = 0;
             for i in LOGIC_TS_DURATIONS.iter() {
-                if base_unit == 0 && (*i as f32 / range as f32) * width as f32 > 100.0 {
+                if base_unit == 0
+                    && (*i as f32 / range as f32) * width as f32 > MIN_AXIS_LABEL_SPACING
+                {
                     base_unit = *i;
                     break;
                 }
@@ -75,7 +78,7 @@ impl XAxisRenderer {
                 base_unit = *LOGIC_TS_DURATIONS.last().unwrap();
             }
 
-            log::info!(
+            log::debug!(
                 "X-axis: Range={range} seconds, width={width} pixels, selected base_unit={base_unit} seconds"
             );
 
@@ -128,7 +131,7 @@ impl XAxisRenderer {
             let y_min = data_store.gpu_min_y.unwrap_or(0.0);
             let y_max = data_store.gpu_max_y.unwrap_or(100.0);
 
-            log::info!("X-axis: Creating vertical lines for {} timestamps within range [{}, {}], Y range: [{}, {}]", 
+            log::debug!("X-axis: Creating vertical lines for {} timestamps within range [{}, {}], Y range: [{}, {}]", 
                 timestamps.len(), min, max, y_min, y_max);
 
             for timestamp in &timestamps {
@@ -161,7 +164,9 @@ impl XAxisRenderer {
                 data_store.screen_size.height as f32,
                 queue,
             );
-            self.brush.queue(device, queue, labels).unwrap();
+            if let Err(e) = self.brush.queue(device, queue, labels) {
+                log::error!("X-axis: Failed to queue text labels: {:?}", e);
+            }
         } else {
             // If only the window size changed, update the text brush size
             // if self.brush.resize_view(size.0 as f32, size.1 as f32, queue) {
@@ -212,7 +217,7 @@ impl XAxisRenderer {
         if let Some(buffer) = &self.vertex_buffer {
             // Use the shared bind group from DataStore
             if let Some(bind_group) = data_store.range_bind_group.as_ref() {
-                log::info!(
+                log::debug!(
                     "X-axis: Drawing {} vertices for vertical lines",
                     self.vertex_count
                 );
@@ -241,41 +246,23 @@ impl XAxisRenderer {
         screen_height: u32,
     ) -> Self {
         // Create text brush
-        let brush = BrushBuilder::using_font_bytes(include_bytes!("Roboto.ttf"))
-            .unwrap()
-            .build(&device, screen_width, screen_height, color_format);
+        let brush = match BrushBuilder::using_font_bytes(include_bytes!("Roboto.ttf"))
+            .map(|builder| builder.build(&device, screen_width, screen_height, color_format))
+        {
+            Ok(brush) => brush,
+            Err(e) => {
+                log::error!("Failed to create text brush: {:?}", e);
+                panic!("Cannot create X-axis renderer without text rendering capability");
+            }
+        };
 
         // Create shader and pipeline
         let shader = device.create_shader_module(wgpu::include_wgsl!("x_axis.wgsl"));
 
         const ATTRIBUTES: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Float32x2];
 
-        // Create the same bind group layout as used by DataStore for shared bind groups
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("shared_range_bind_group_layout"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-            ],
-        });
+        // Use shared bind group layout
+        let bind_group_layout = create_shared_range_bind_group_layout(&device);
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("X-Axis Render Pipeline"),

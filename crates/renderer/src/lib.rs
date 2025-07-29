@@ -112,7 +112,7 @@ impl Renderer {
         &mut self,
         mut encoder: wgpu::CommandEncoder,
     ) -> RenderResult<()> {
-        log::info!("[Renderer] Calculating bounds using GPU");
+        log::debug!("[Renderer] Calculating bounds using GPU");
 
         // Run pre-render compute passes (e.g., compute mid price)
         self.compute_engine
@@ -166,7 +166,7 @@ impl Renderer {
 
                     // Update the data store with the GPU-calculated bounds
                     self.data_store.set_gpu_y_bounds(min, max);
-                    log::info!("[Renderer] GPU bounds read back: min={}, max={}", min, max);
+                    log::debug!("[Renderer] GPU bounds read back: min={}, max={}", min, max);
                 } else {
                     log::warn!("[Renderer] Staging buffer had insufficient data");
                 }
@@ -179,7 +179,7 @@ impl Renderer {
             }
         }
 
-        log::info!("[Renderer] Bounds calculation complete");
+        log::debug!("[Renderer] Bounds calculation complete");
         Ok(())
     }
 
@@ -264,7 +264,7 @@ impl Renderer {
         self.config.height = height;
         self.surface.configure(&self.device, &self.config);
         self.data_store.resized(width, height);
-        log::info!("Resized surface to {{ width: {width}, height: {height} }}");
+        log::debug!("Resized surface to {{ width: {width}, height: {height} }}");
     }
 
     /// Get mutable access to data store

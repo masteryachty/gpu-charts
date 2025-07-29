@@ -195,14 +195,14 @@ impl MultiRenderer {
 
     /// Add a renderer to the pipeline
     pub fn add_renderer(&mut self, renderer: Box<dyn MultiRenderable>) {
-        log::info!("MultiRenderer: Adding renderer '{}'", renderer.name());
+        log::debug!("MultiRenderer: Adding renderer '{}'", renderer.name());
         self.renderers.push(renderer);
         self.sort_renderers();
     }
 
     /// Remove all renderers
     pub fn clear_renderers(&mut self) {
-        log::info!("MultiRenderer: Clearing all renderers");
+        log::debug!("MultiRenderer: Clearing all renderers");
         self.renderers.clear();
     }
 
@@ -238,14 +238,14 @@ impl MultiRenderer {
         device: &Device,
         queue: &Queue,
     ) {
-        log::info!(
+        log::debug!(
             "[MultiRenderer] Running compute passes for {} renderers",
             self.renderers.len()
         );
 
         for renderer in &mut self.renderers {
             if renderer.has_compute() {
-                log::info!(
+                log::debug!(
                     "[MultiRenderer] Running compute pass for '{}'",
                     renderer.name()
                 );
@@ -323,7 +323,7 @@ impl MultiRenderer {
 
     /// Handle resize for all renderers
     pub fn resize(&mut self, width: u32, height: u32) {
-        log::info!("MultiRenderer: Resizing to {}x{}", width, height);
+        log::debug!("MultiRenderer: Resizing to {}x{}", width, height);
         for renderer in &mut self.renderers {
             renderer.resize(width, height);
         }

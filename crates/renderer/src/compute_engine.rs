@@ -38,17 +38,17 @@ impl ComputeEngine {
     /// Run all necessary compute passes before rendering
     /// This should be called BEFORE min/max calculation
     pub fn run_compute_passes(&mut self, encoder: &mut CommandEncoder, data_store: &mut DataStore) {
-        log::info!("[ComputeEngine] Starting compute passes...");
+        log::debug!("[ComputeEngine] Starting compute passes...");
 
         // Get all metrics that need computation
         let metrics_to_compute = data_store.get_metrics_needing_computation();
 
         if metrics_to_compute.is_empty() {
-            log::info!("[ComputeEngine] No metrics need computation");
+            log::debug!("[ComputeEngine] No metrics need computation");
             return;
         }
 
-        log::info!(
+        log::debug!(
             "[ComputeEngine] Found {} metrics needing computation",
             metrics_to_compute.len()
         );
@@ -61,7 +61,7 @@ impl ComputeEngine {
             self.compute_metric(encoder, data_store, &metric_ref);
         }
 
-        log::info!("[ComputeEngine] Compute passes complete");
+        log::debug!("[ComputeEngine] Compute passes complete");
     }
 
     /// Sort metrics by their dependencies to ensure correct computation order
@@ -161,7 +161,7 @@ impl ComputeEngine {
             }
         };
 
-        log::info!("[ComputeEngine] Computing metric: {}", name);
+        log::debug!("[ComputeEngine] Computing metric: {}", name);
 
         // Perform computation based on type
         match compute_type {
@@ -248,7 +248,7 @@ impl ComputeEngine {
             return;
         }
 
-        log::info!(
+        log::debug!(
             "[ComputeEngine] Computing mid price for {} elements",
             element_count
         );
@@ -268,7 +268,7 @@ impl ComputeEngine {
                     self.computed_metrics
                         .insert(*metric_ref, metric.compute_version);
 
-                    log::info!("[ComputeEngine] Successfully computed mid price");
+                    log::debug!("[ComputeEngine] Successfully computed mid price");
                 }
             }
             Err(e) => {

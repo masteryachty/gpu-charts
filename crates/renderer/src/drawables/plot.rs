@@ -17,7 +17,7 @@ impl PlotRenderer {
     /// Set the data filter to restrict which data columns this renderer will display
     pub fn set_data_filter(&mut self, filter: Option<Vec<(String, String)>>) {
         self.data_filter = filter;
-        log::info!("PlotRenderer: Data filter set to {:?}", self.data_filter);
+        log::debug!("PlotRenderer: Data filter set to {:?}", self.data_filter);
     }
 
     pub fn render(
