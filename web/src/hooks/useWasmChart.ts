@@ -143,7 +143,7 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
       console.error('[useWasmChart] Initialization failed:', error);
       return false;
     }
-  }, [canvasId, width, height, storeMetricPreset, storeStartTime, storeEndTime]);
+  }, [canvasId, width, height]);
 
 
   // API object

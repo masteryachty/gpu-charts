@@ -27,7 +27,7 @@ export default function PresetSection({
       setPreset(preset);
     }
 
-  }, [chartInstance, setPreset]);
+  }, [setPreset]);
 
   // Load available presets
   useEffect(() => {
@@ -36,12 +36,7 @@ export default function PresetSection({
     console.log('[PresetSection] Success to load presets:', loadedPresets);
   }, [chartInstance]);
 
-  // Load available metrics
-  useEffect(() => {
-    getMetrics()
-  }, [chartInstance, preset]);
-
-  const getMetrics = () => {
+  const getMetrics = useCallback(() => {
     console.log('[PresetSection] start to fetch metrics:', preset);
 
     if (preset) {
@@ -53,7 +48,12 @@ export default function PresetSection({
       setMetrics(metrics);
       console.log('[PresetSection] Success to fetch metrics:', metrics);
     }
-  }
+  }, [chartInstance, preset]);
+
+  // Load available metrics
+  useEffect(() => {
+    getMetrics()
+  }, [getMetrics]);
 
   // // Apply Market Data preset by default
   // useEffect(() => {
@@ -81,7 +81,7 @@ export default function PresetSection({
     chartInstance.toggle_metric_visibility(chartLabel);
     getMetrics()
 
-  }, [chartInstance, preset]);
+  }, [chartInstance, getMetrics]);
 
   return (
     <div className="space-y-2">

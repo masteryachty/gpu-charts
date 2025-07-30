@@ -55,7 +55,7 @@ export default function WasmCanvas({
     //     chartState.chart.resize(newWidth, newHeight);
     //   }
     // }
-  }, [chartState.chart, chartState.isInitialized]);
+  }, []);
 
   // Initialize chart when canvas is ready with improved timing
   useEffect(() => {
@@ -168,7 +168,7 @@ export default function WasmCanvas({
     return () => {
       clearTimeout(initTimeout);
     };
-  }, [chartAPI, chartState.isInitialized]); // Add missing dependencies
+  }, [chartAPI, chartState.isInitialized, startTime, endTime]); // Add missing dependencies
 
   // Handle resize events
   useEffect(() => {
