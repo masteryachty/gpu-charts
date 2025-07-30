@@ -3,10 +3,12 @@
 pub mod data_types;
 pub mod errors;
 pub mod events;
+pub mod unified_state;
 
 pub use data_types::*;
 pub use errors::*;
 pub use events::*;
+pub use unified_state::*;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

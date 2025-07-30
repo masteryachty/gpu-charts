@@ -3,15 +3,16 @@ pub mod charts;
 pub mod compute;
 pub mod compute_engine;
 pub mod drawables;
-pub mod mesh_builder;
 pub mod multi_renderer;
 pub mod pipeline_builder;
+pub mod resource_pool;
 pub mod shaders;
 
 use config_system::ChartPreset;
 use data_manager::DataStore;
 use shared_types::{GpuChartsError, GpuChartsResult};
 use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 use wgpu::{CommandEncoder, Device, Queue, TextureView};
 
 pub use calcables::{candle_aggregator::CandleAggregator, min_max::calculate_min_max_y};
@@ -38,6 +39,7 @@ pub struct Renderer {
     pub config: wgpu::SurfaceConfiguration,
     data_store: DataStore,
     compute_engine: compute_engine::ComputeEngine,
+    resource_pool: Arc<Mutex<()>>, // Temporarily disabled
 }
 
 impl Renderer {
@@ -48,12 +50,15 @@ impl Renderer {
         queue: Rc<wgpu::Queue>,
         data_store: DataStore,
     ) -> RenderResult<Self> {
+        log::info!("[Renderer::new] Starting renderer initialization");
+        
         // Create WebGPU instance and surface
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             backends: wgpu::Backends::BROWSER_WEBGPU,
             flags: wgpu::InstanceFlags::default(),
             ..Default::default()
         });
+        log::info!("[Renderer::new] WebGPU instance created");
 
         let surface = instance
             .create_surface(wgpu::SurfaceTarget::Canvas(canvas))
@@ -92,7 +97,13 @@ impl Renderer {
         surface.configure(&device, &surface_config);
 
         // Create compute engine
+        log::info!("[Renderer::new] About to create compute engine");
         let compute_engine = compute_engine::ComputeEngine::new(device.clone(), queue.clone());
+        log::info!("[Renderer::new] Compute engine created");
+
+        // Create resource pool manager - temporarily disabled due to WASM time issues
+        // TODO: Fix time issues in WASM
+        let resource_pool = Arc::new(Mutex::new(())); // Placeholder
 
         let renderer = Self {
             surface,
@@ -101,6 +112,7 @@ impl Renderer {
             config: surface_config,
             data_store,
             compute_engine,
+            resource_pool,
         };
 
         Ok(renderer)
@@ -353,6 +365,16 @@ impl Renderer {
         false
     }
 
+    // /// Get access to the resource pool
+    // pub fn resource_pool(&self) -> Arc<Mutex<resource_pool::ResourcePoolManager>> {
+    //     self.resource_pool.clone()
+    // }
+
+    /// Process a state diff for incremental updates
+    pub fn process_state_change(&mut self, _diff: &shared_types::StateDiff) {
+        // This method is kept for API compatibility but incremental updates were not implemented
+    }
+
     /// Create a multi-renderer pipeline for complex visualizations
     ///
     /// Example usage:
@@ -366,52 +388,12 @@ impl Renderer {
     ///     .build();
     /// ```
     pub fn create_multi_renderer(&self) -> MultiRendererBuilder {
-        MultiRendererBuilder::new(self.device.clone(), self.queue.clone(), self.config.format)
-    }
-
-    /// Example: Create a multi-renderer with candles and volume bars
-    pub fn create_candles_with_volume_renderer(&self) -> MultiRenderer {
-        let width = self.data_store.screen_size.width;
-        let height = self.data_store.screen_size.height;
-
-        let mut multi_renderer = self
-            .create_multi_renderer()
-            .with_render_order(RenderOrder::BackgroundToForeground)
-            .build();
-
-        // Add volume bars first (background)
-        let volume_renderer = drawables::volume_bars::create_custom_volume_renderer(
+        MultiRendererBuilder::new(
             self.device.clone(),
             self.queue.clone(),
             self.config.format,
-        );
-        multi_renderer.add_renderer(volume_renderer);
-
-        // Add candlesticks
-        let candle_renderer =
-            CandlestickRenderer::new(self.device.clone(), self.queue.clone(), self.config.format);
-        multi_renderer.add_renderer(Box::new(candle_renderer));
-
-        // Add axes on top
-        let x_axis = XAxisRenderer::new(
-            self.device.clone(),
-            self.queue.clone(),
-            self.config.format,
-            width,
-            height,
-        );
-        multi_renderer.add_renderer(Box::new(x_axis));
-
-        let y_axis = YAxisRenderer::new(
-            self.device.clone(),
-            self.queue.clone(),
-            self.config.format,
-            width,
-            height,
-        );
-        multi_renderer.add_renderer(Box::new(y_axis));
-
-        multi_renderer
+            None, // Temporarily disabled
+        )
     }
 
     /// Example: Create a multi-renderer with multiple line plots

@@ -3,65 +3,8 @@ pub mod min_max;
 
 pub use candle_aggregator::CandleAggregator;
 
-// Simple OHLC data structure used by candlestick renderer
-#[derive(Debug, Clone, Copy)]
-#[allow(dead_code)]
-pub struct OhlcData {
-    pub open: f32,
-    pub high: f32,
-    pub low: f32,
-    pub close: f32,
-}
-
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    #[test]
-    fn test_ohlc_data_creation() {
-        let ohlc = OhlcData {
-            open: 100.0,
-            high: 110.0,
-            low: 95.0,
-            close: 105.0,
-        };
-
-        assert_eq!(ohlc.open, 100.0);
-        assert_eq!(ohlc.high, 110.0);
-        assert_eq!(ohlc.low, 95.0);
-        assert_eq!(ohlc.close, 105.0);
-    }
-
-    #[test]
-    fn test_candle_type_detection() {
-        // Bullish candle
-        let bullish = OhlcData {
-            open: 100.0,
-            high: 110.0,
-            low: 95.0,
-            close: 105.0,
-        };
-        assert!(bullish.close > bullish.open, "Should be bullish");
-
-        // Bearish candle
-        let bearish = OhlcData {
-            open: 105.0,
-            high: 110.0,
-            low: 95.0,
-            close: 100.0,
-        };
-        assert!(bearish.close < bearish.open, "Should be bearish");
-
-        // Doji candle
-        let doji = OhlcData {
-            open: 100.0,
-            high: 105.0,
-            low: 95.0,
-            close: 100.0,
-        };
-        assert_eq!(doji.close, doji.open, "Should be doji");
-    }
-
     #[test]
     fn test_candle_boundary_calculations() {
         let view_start = 1030u32;

@@ -23,6 +23,18 @@ pub enum RenderType {
     Area,
 }
 
+impl std::fmt::Display for RenderType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RenderType::Line => write!(f, "Line"),
+            RenderType::Bar => write!(f, "Bar"),
+            RenderType::Candlestick => write!(f, "Candlestick"),
+            RenderType::Triangle => write!(f, "Triangle"),
+            RenderType::Area => write!(f, "Area"),
+        }
+    }
+}
+
 /// Style configuration for rendering
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RenderStyle {

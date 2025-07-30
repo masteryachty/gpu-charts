@@ -5,9 +5,10 @@
 //! between different renderer types.
 
 use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 use wgpu::{CommandEncoder, Device, Queue, TextureView};
 
-use crate::RenderResult;
+use crate::{resource_pool, RenderResult};
 use data_manager::DataStore;
 
 /// Configuration for how renderers should be combined
@@ -172,6 +173,7 @@ pub struct MultiRenderer {
     renderers: Vec<Box<dyn MultiRenderable>>,
     render_order: RenderOrder,
     _format: wgpu::TextureFormat,
+    resource_pool: Option<Arc<Mutex<resource_pool::ResourcePoolManager>>>,
 }
 
 impl MultiRenderer {
@@ -183,6 +185,24 @@ impl MultiRenderer {
             renderers: Vec::new(),
             render_order: RenderOrder::Sequential,
             _format: format,
+            resource_pool: None,
+        }
+    }
+
+    /// Create a new MultiRenderer with resource pool
+    pub fn with_resource_pool(
+        device: Rc<Device>,
+        queue: Rc<Queue>,
+        format: wgpu::TextureFormat,
+        resource_pool: Arc<Mutex<resource_pool::ResourcePoolManager>>,
+    ) -> Self {
+        Self {
+            device,
+            queue,
+            renderers: Vec::new(),
+            render_order: RenderOrder::Sequential,
+            _format: format,
+            resource_pool: Some(resource_pool),
         }
     }
 
@@ -473,16 +493,23 @@ pub struct MultiRendererBuilder {
     format: wgpu::TextureFormat,
     renderers: Vec<Box<dyn MultiRenderable>>,
     render_order: RenderOrder,
+    resource_pool: Option<Arc<Mutex<resource_pool::ResourcePoolManager>>>,
 }
 
 impl MultiRendererBuilder {
-    pub fn new(device: Rc<Device>, queue: Rc<Queue>, format: wgpu::TextureFormat) -> Self {
+    pub fn new(
+        device: Rc<Device>,
+        queue: Rc<Queue>,
+        format: wgpu::TextureFormat,
+        resource_pool: Option<Arc<Mutex<resource_pool::ResourcePoolManager>>>,
+    ) -> Self {
         Self {
             device,
             queue,
             format,
             renderers: Vec::new(),
             render_order: RenderOrder::Sequential,
+            resource_pool,
         }
     }
 
@@ -535,7 +562,11 @@ impl MultiRendererBuilder {
     }
 
     pub fn build(self) -> MultiRenderer {
-        let mut renderer = MultiRenderer::new(self.device, self.queue, self.format);
+        let mut renderer = if let Some(pool) = self.resource_pool {
+            MultiRenderer::with_resource_pool(self.device, self.queue, self.format, pool)
+        } else {
+            MultiRenderer::new(self.device, self.queue, self.format)
+        };
         renderer.render_order = self.render_order;
         for r in self.renderers {
             renderer.add_renderer(r);

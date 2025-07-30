@@ -34,7 +34,6 @@ pub struct GpuOhlcCandle {
 
 impl CandleAggregator {
     /// Creates a new GPU candle aggregator with compiled compute pipeline.
-    #[allow(dead_code)]
     pub fn new(device: &wgpu::Device) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Candle Aggregation Shader"),
@@ -300,12 +299,6 @@ impl CandleAggregator {
             candle_timeframe,
             num_candles,
         )
-    }
-
-    /// Returns the size of the output buffer in bytes.
-    #[allow(dead_code)]
-    pub fn get_output_buffer_size(&self) -> u64 {
-        (self.last_num_candles as usize * std::mem::size_of::<GpuOhlcCandle>()) as u64
     }
 }
 
