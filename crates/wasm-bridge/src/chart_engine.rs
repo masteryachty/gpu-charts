@@ -2,12 +2,13 @@ use chrono::DateTime;
 use config_system::PresetManager;
 use data_manager::{DataManager, DataStore};
 use renderer::{MultiRenderer, Renderer};
+use shared_types::{StateData, StateDiff, StateSection, UnifiedState};
 use std::rc::Rc;
 use uuid::Uuid;
 
 use crate::{
     controls::canvas_controller::CanvasController,
-    render_loop::{RenderLoopController, RenderLoopState, StateTransitionTrigger},
+    simplified_render_loop::{RenderState, SimplifiedRenderLoop, UpdateTrigger},
 };
 
 use js_sys::Error;
@@ -20,8 +21,9 @@ pub struct ChartEngine {
     pub data_manager: DataManager,
     pub preset_manager: PresetManager,
     pub multi_renderer: Option<MultiRenderer>,
-    render_loop: RenderLoopController,
+    render_loop: SimplifiedRenderLoop,
     instance_id: Uuid,
+    unified_state: UnifiedState,
 }
 
 impl ChartEngine {
@@ -107,28 +109,6 @@ impl ChartEngine {
         // Set canvas size
         canvas.set_width(width);
         canvas.set_height(height);
-
-        // let _params = get_query_params();
-
-        // // // Handle missing query parameters gracefully (for React integration)
-        // let topic = params
-        //     .get("topic")
-        //     .unwrap_or(&"default_topic".to_string())
-        //     .clone();
-        // let start = params
-        //     .get("start")
-        //     .and_then(|s| s.parse().ok())
-        //     .unwrap_or_else(|| {
-        //         // Default to last hour if no start time provided
-        //         chrono::Utc::now().timestamp() - 3600
-        //     });
-        // let end = params
-        //     .get("end")
-        //     .and_then(|s| s.parse().ok())
-        //     .unwrap_or_else(|| {
-        //         // Default to current time if no end time provided
-        //         chrono::Utc::now().timestamp()
-        //     });
 
         // Create canvas controller
         let canvas_controller = CanvasController::new();
@@ -222,13 +202,39 @@ impl ChartEngine {
         log::info!("ChartEngine initialized with minimal renderer configuration - waiting for preset selection");
 
         // Create render loop controller
-        let render_loop = RenderLoopController::new();
+        let render_loop = SimplifiedRenderLoop::new();
         let instance_id = Uuid::new_v4();
 
         // Add state change listener for debugging
         render_loop.add_state_listener(Rc::new(|old, new| {
             log::info!("ChartEngine state changed: {old:?} -> {new:?}");
         }));
+
+        // Initialize unified state with initial values
+        let mut unified_state = UnifiedState::new();
+
+        // Initialize with current viewport dimensions
+        unified_state.update_section(
+            StateSection::View,
+            StateData::View {
+                zoom_level: 1.0,
+                pan_offset: 0.0,
+                viewport_width: width,
+                viewport_height: height,
+            },
+        );
+
+        // Initialize with default data config
+        unified_state.update_section(
+            StateSection::Data,
+            StateData::Data {
+                symbol: "BTC-USD".to_string(),
+                start_time: start_x as i64,
+                end_time: end_x as i64,
+                timeframe: 60,
+                data_version: 0,
+            },
+        );
 
         // Create the ChartEngine instance
         Ok(Self {
@@ -239,6 +245,7 @@ impl ChartEngine {
             multi_renderer: Some(multi_renderer),
             render_loop,
             instance_id,
+            unified_state,
         })
     }
 
@@ -269,12 +276,28 @@ impl ChartEngine {
             multi_renderer.resize(width, height);
         }
 
-        // Trigger resize state transition
-        // Resize only needs re-render, no preprocessing needed because:
-        // - Data doesn't change
-        // - GPU buffers don't change
-        // - Only the viewport/surface size changes
-        self.on_resized(false);
+        // Update unified state with new viewport size
+        let diff = self.unified_state.update_section(
+            StateSection::View,
+            StateData::View {
+                zoom_level: 1.0, // TODO: Get actual zoom level from renderer
+                pan_offset: 0.0, // TODO: Get actual pan offset from renderer
+                viewport_width: width,
+                viewport_height: height,
+            },
+        );
+
+        // Pass state diff to renderer for incremental updates
+        self.renderer.process_state_change(&diff);
+
+        // Use state diff to determine required actions
+        let actions = diff.get_required_actions();
+
+        if actions.needs_pipeline_rebuild {
+            self.on_data_config_changed(); // Config update includes pipeline rebuild
+        } else if actions.needs_render {
+            self.on_view_changed();
+        }
     }
 
     pub fn set_preset_and_symbol(
@@ -282,7 +305,10 @@ impl ChartEngine {
         preset_name: Option<String>,
         symbol_name: Option<String>,
     ) {
-        if let Some(name) = preset_name {
+        let mut state_updates = Vec::new();
+
+        // Update config state if preset changed
+        if let Some(name) = preset_name.clone() {
             log::info!("[ChartEngine] Looking for preset: {name}");
             let preset = self.preset_manager.find_preset(&name).cloned();
             if let Some(preset) = preset {
@@ -290,20 +316,79 @@ impl ChartEngine {
 
                 // Update renderer with preset
                 self.renderer
-                    .set_preset_and_symbol(Some(&preset), symbol_name);
+                    .set_preset_and_symbol(Some(&preset), symbol_name.clone());
 
                 // Rebuild multi-renderer based on preset configuration
                 self.rebuild_multi_renderer_for_preset(&preset);
 
-                // Trigger data config changed when preset is set
-                self.on_data_config_changed();
+                // Update config state
+                state_updates.push((
+                    StateSection::Config,
+                    StateData::Config {
+                        preset_name: name,
+                        quality_level: shared_types::QualityLevel::Medium, // TODO: Get from preset
+                        chart_type: preset
+                            .chart_types
+                            .first()
+                            .map(|ct| ct.render_type.to_string())
+                            .unwrap_or_else(|| "line".to_string()),
+                        show_grid: true,
+                    },
+                ));
             } else {
                 log::warn!("[ChartEngine] Preset not found: {name}");
-                self.renderer.set_preset_and_symbol(None, symbol_name);
+                self.renderer
+                    .set_preset_and_symbol(None, symbol_name.clone());
             }
         } else {
             log::warn!("[ChartEngine] No preset name provided");
-            self.renderer.set_preset_and_symbol(None, symbol_name);
+            self.renderer
+                .set_preset_and_symbol(None, symbol_name.clone());
+        }
+
+        // Update data state if symbol changed
+        if let Some(symbol) = symbol_name {
+            // Get current data state and update symbol
+            if let Some(section_state) = self.unified_state.get_section(StateSection::Data) {
+                if let StateData::Data {
+                    start_time,
+                    end_time,
+                    timeframe,
+                    data_version,
+                    ..
+                } = &section_state.data
+                {
+                    state_updates.push((
+                        StateSection::Data,
+                        StateData::Data {
+                            symbol,
+                            start_time: *start_time,
+                            end_time: *end_time,
+                            timeframe: *timeframe,
+                            data_version: data_version + 1,
+                        },
+                    ));
+                }
+            }
+        }
+
+        // Apply all state updates
+        if !state_updates.is_empty() {
+            let diff = self.unified_state.batch_update(state_updates);
+
+            // Pass state diff to renderer for incremental updates
+            self.renderer.process_state_change(&diff);
+
+            let actions = diff.get_required_actions();
+
+            // Trigger appropriate actions based on state changes
+            if actions.needs_data_fetch {
+                self.on_data_config_changed();
+            } else if actions.needs_pipeline_rebuild {
+                self.on_data_config_changed();
+            } else if actions.needs_render {
+                self.on_visual_settings_changed();
+            }
         }
     }
 
@@ -314,69 +399,155 @@ impl ChartEngine {
     /// Start the render loop
     pub fn start_render_loop(&mut self) -> Result<(), Error> {
         self.render_loop
-            .trigger_transition(StateTransitionTrigger::Start, self.instance_id);
+            .trigger(UpdateTrigger::Start, self.instance_id);
         Ok(())
     }
 
     /// Stop the render loop
     pub fn stop_render_loop(&mut self) -> Result<(), Error> {
         self.render_loop
-            .trigger_transition(StateTransitionTrigger::Stop, self.instance_id);
+            .trigger(UpdateTrigger::Stop, self.instance_id);
         Ok(())
     }
 
     /// Called when new data is received
     pub fn on_data_received(&mut self) {
         self.render_loop
-            .trigger_transition(StateTransitionTrigger::DataReceived, self.instance_id);
+            .trigger(UpdateTrigger::DataRequested, self.instance_id);
     }
 
     /// Called when view changes (pan/zoom) - render only
     pub fn on_view_changed(&mut self) {
         self.render_loop
-            .trigger_transition(StateTransitionTrigger::ViewChanged, self.instance_id);
+            .trigger(UpdateTrigger::ViewChanged, self.instance_id);
     }
 
     /// Called when visual settings change - render only
     pub fn on_visual_settings_changed(&mut self) {
-        self.render_loop.trigger_transition(
-            StateTransitionTrigger::VisualSettingsChanged,
-            self.instance_id,
-        );
+        self.render_loop
+            .trigger(UpdateTrigger::VisualSettingsChanged, self.instance_id);
     }
 
     /// Called when metric visibility changes - render only
     pub fn on_metric_visibility_changed(&mut self) {
-        self.render_loop.trigger_transition(
-            StateTransitionTrigger::MetricVisibilityChanged,
-            self.instance_id,
-        );
+        self.render_loop
+            .trigger(UpdateTrigger::MetricVisibilityChanged, self.instance_id);
     }
 
     /// Called when data configuration changes - requires preprocessing
     pub fn on_data_config_changed(&mut self) {
         self.render_loop
-            .trigger_transition(StateTransitionTrigger::DataConfigChanged, self.instance_id);
+            .trigger(UpdateTrigger::ConfigChanged, self.instance_id);
     }
 
     /// Called when resized
-    pub fn on_resized(&mut self, requires_preprocessing: bool) {
-        self.render_loop.trigger_transition(
-            StateTransitionTrigger::Resized {
-                requires_preprocessing,
-            },
-            self.instance_id,
-        );
+    pub fn on_resized(&mut self, _requires_preprocessing: bool) {
+        self.render_loop
+            .trigger(UpdateTrigger::Resized, self.instance_id);
     }
 
     /// Get current render loop state
-    pub fn get_render_state(&self) -> RenderLoopState {
+    pub fn get_render_state(&self) -> RenderState {
         self.render_loop.get_state()
     }
 
     /// Set instance ID (used by instance manager)
     pub fn set_instance_id(&mut self, id: Uuid) {
         self.instance_id = id;
+    }
+
+    /// Update unified state from React store state
+    pub fn update_from_react_state(&mut self, store_state: &serde_json::Value) -> StateDiff {
+        let mut state_updates = Vec::new();
+
+        // Extract data state from React
+        if let Some(chart_config) = store_state.get("ChartStateConfig") {
+            if let Ok(symbol) = chart_config
+                .get("symbol")
+                .and_then(|v| v.as_str())
+                .ok_or("missing symbol")
+            {
+                let start_time = chart_config
+                    .get("startTime")
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(0);
+                let end_time = chart_config
+                    .get("endTime")
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(0);
+                let timeframe = chart_config
+                    .get("timeframe")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(60) as u32;
+
+                state_updates.push((
+                    StateSection::Data,
+                    StateData::Data {
+                        symbol: symbol.to_string(),
+                        start_time,
+                        end_time,
+                        timeframe,
+                        data_version: self.unified_state.generation + 1,
+                    },
+                ));
+            }
+        }
+
+        // Extract UI state from React
+        if let Some(metrics) = store_state.get("selectedMetrics") {
+            if let Some(metrics_array) = metrics.as_array() {
+                let visible_metrics: Vec<String> = metrics_array
+                    .iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect();
+
+                state_updates.push((
+                    StateSection::UI,
+                    StateData::UI {
+                        visible_metrics,
+                        theme: "dark".to_string(),
+                        layout_mode: "default".to_string(),
+                    },
+                ));
+            }
+        }
+
+        // Apply batch update and return diff
+        if !state_updates.is_empty() {
+            self.unified_state.batch_update(state_updates)
+        } else {
+            // Return empty diff if no updates
+            StateDiff {
+                changed_sections: Default::default(),
+                generation_delta: 0,
+                section_changes: Default::default(),
+            }
+        }
+    }
+
+    /// Get current unified state for React
+    pub fn get_unified_state(&self) -> &UnifiedState {
+        &self.unified_state
+    }
+
+    /// Get state changes since a given generation
+    pub fn get_state_changes_since(&self, generation: u64) -> Vec<StateSection> {
+        self.unified_state.get_changes_since(generation)
+    }
+
+    /// Set frame rate target
+    pub fn set_frame_rate_target(&self, target: crate::frame_pacing::FrameRateTarget) {
+        self.render_loop.set_frame_rate_target(target);
+    }
+
+    /// Enable or disable adaptive frame rate
+    pub fn set_adaptive_frame_rate(&self, enabled: bool) {
+        self.render_loop.set_adaptive_frame_rate(enabled);
+    }
+
+    /// Get frame statistics
+    pub fn get_frame_stats(&self) -> Option<crate::frame_pacing::FrameStats> {
+        self.render_loop.get_frame_stats()
     }
 
     /// Rebuild the multi-renderer based on preset configuration

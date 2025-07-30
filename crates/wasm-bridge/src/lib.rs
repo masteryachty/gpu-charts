@@ -7,8 +7,10 @@ use wasm_bindgen::prelude::*;
 // Core modules
 pub mod chart_engine;
 pub mod controls;
+pub mod frame_pacing;
 pub mod instance_manager;
-pub mod render_loop;
+pub mod simple_api;
+pub mod simplified_render_loop;
 pub mod wrappers;
 
 use instance_manager::InstanceManager;
@@ -343,6 +345,106 @@ impl Chart {
     }
 
     #[wasm_bindgen]
+    pub fn update_unified_state(&self, store_state_json: &str) -> Result<String, JsValue> {
+        log::info!("Updating unified state from React");
+
+        // Parse the JSON state
+        let store_state: serde_json::Value = serde_json::from_str(store_state_json)
+            .map_err(|e| JsValue::from_str(&format!("Failed to parse state JSON: {}", e)))?;
+
+        InstanceManager::with_instance_mut(&self.instance_id, |instance| {
+            // Update unified state and get diff
+            let diff = instance.chart_engine.update_from_react_state(&store_state);
+
+            // Get required actions
+            let actions = diff.get_required_actions();
+
+            // Trigger appropriate render loop updates based on actions
+            if actions.needs_data_fetch {
+                instance.chart_engine.on_data_config_changed();
+            } else if actions.needs_pipeline_rebuild {
+                instance.chart_engine.on_data_config_changed();
+            } else if actions.needs_render {
+                instance.chart_engine.on_view_changed();
+            }
+
+            // Return state diff as JSON
+            serde_json::to_string(&diff)
+                .map_err(|e| JsValue::from_str(&format!("Failed to serialize diff: {}", e)))
+        })
+        .ok_or_else(|| JsValue::from_str("Chart instance not found"))?
+    }
+
+    #[wasm_bindgen]
+    pub fn get_unified_state(&self) -> Result<String, JsValue> {
+        InstanceManager::with_instance(&self.instance_id, |instance| {
+            let state = instance.chart_engine.get_unified_state();
+            serde_json::to_string(state)
+                .map_err(|e| JsValue::from_str(&format!("Failed to serialize state: {}", e)))
+        })
+        .ok_or_else(|| JsValue::from_str("Chart instance not found"))?
+    }
+
+    #[wasm_bindgen]
+    pub fn get_state_generation(&self) -> Result<u64, JsValue> {
+        InstanceManager::with_instance(&self.instance_id, |instance| {
+            instance.chart_engine.get_unified_state().generation
+        })
+        .ok_or_else(|| JsValue::from_str("Chart instance not found"))
+    }
+
+    #[wasm_bindgen]
+    pub fn set_frame_rate(&self, fps: u32) -> Result<(), JsValue> {
+        log::info!("Setting frame rate to {} FPS", fps);
+
+        let target = match fps {
+            60 => frame_pacing::FrameRateTarget::Smooth,
+            30 => frame_pacing::FrameRateTarget::Balanced,
+            15 => frame_pacing::FrameRateTarget::PowerSaver,
+            _ => frame_pacing::FrameRateTarget::Custom(fps as f32),
+        };
+
+        InstanceManager::with_instance(&self.instance_id, |instance| {
+            instance.chart_engine.set_frame_rate_target(target);
+        })
+        .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
+
+        Ok(())
+    }
+
+    #[wasm_bindgen]
+    pub fn set_adaptive_frame_rate(&self, enabled: bool) -> Result<(), JsValue> {
+        log::info!("Setting adaptive frame rate: {}", enabled);
+
+        InstanceManager::with_instance(&self.instance_id, |instance| {
+            instance.chart_engine.set_adaptive_frame_rate(enabled);
+        })
+        .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
+
+        Ok(())
+    }
+
+    #[wasm_bindgen]
+    pub fn get_frame_stats(&self) -> Result<String, JsValue> {
+        InstanceManager::with_instance(&self.instance_id, |instance| {
+            if let Some(stats) = instance.chart_engine.get_frame_stats() {
+                serde_json::to_string(&serde_json::json!({
+                    "avgFrameTime": stats.avg_frame_time,
+                    "minFrameTime": stats.min_frame_time,
+                    "maxFrameTime": stats.max_frame_time,
+                    "currentFps": stats.current_fps,
+                    "droppedFrames": stats.dropped_frames,
+                    "totalFrames": stats.total_frames,
+                }))
+                .unwrap_or_else(|_| "{}".to_string())
+            } else {
+                "{}".to_string()
+            }
+        })
+        .ok_or_else(|| JsValue::from_str("Chart instance not found"))
+    }
+
+    #[wasm_bindgen]
     pub fn handle_mouse_click(&self, _x: f64, _y: f64, pressed: bool) -> Result<(), JsValue> {
         InstanceManager::with_instance_mut(&self.instance_id, |instance| {
             let window_event = WindowEvent::MouseInput {
@@ -388,3 +490,8 @@ extern "C" {
 macro_rules! console_log {
     ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
 }
+
+// Re-export simplified API for easy access
+pub use simple_api::{
+    create_chart, ChartBatch, ChartConfig, ChartFactory, ChartRegistry, SimpleChart,
+};

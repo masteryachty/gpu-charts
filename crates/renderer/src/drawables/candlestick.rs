@@ -33,91 +33,6 @@ pub struct CandlestickRenderer {
 
     // Cache key for performance optimization
     cache_key: Option<CacheKey>,
-
-    // Buffer pool for uniform buffers to avoid repeated allocations
-    uniform_buffer_pool: BufferPool,
-}
-
-/// Buffer pool for reusing uniform buffers to avoid repeated allocations
-#[allow(dead_code)]
-struct BufferPool {
-    x_range_buffers: Vec<wgpu::Buffer>,
-    y_range_buffers: Vec<wgpu::Buffer>,
-    timeframe_buffers: Vec<wgpu::Buffer>,
-}
-
-impl BufferPool {
-    fn new() -> Self {
-        Self {
-            x_range_buffers: Vec::new(),
-            y_range_buffers: Vec::new(),
-            timeframe_buffers: Vec::new(),
-        }
-    }
-
-    #[allow(dead_code)]
-    fn get_or_create_x_range_buffer(
-        &mut self,
-        device: &wgpu::Device,
-        data: &[f32],
-    ) -> wgpu::Buffer {
-        if let Some(buffer) = self.x_range_buffers.pop() {
-            // Reuse existing buffer - write new data to it
-            buffer
-        } else {
-            // Create new buffer
-            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Candlestick X Range Buffer (Pooled)"),
-                contents: bytemuck::cast_slice(data),
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            })
-        }
-    }
-
-    fn get_or_create_y_range_buffer(
-        &mut self,
-        device: &wgpu::Device,
-        data: &[f32],
-    ) -> wgpu::Buffer {
-        if let Some(buffer) = self.y_range_buffers.pop() {
-            buffer
-        } else {
-            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Candlestick Y Range Buffer (Pooled)"),
-                contents: bytemuck::cast_slice(data),
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            })
-        }
-    }
-
-    fn get_or_create_timeframe_buffer(
-        &mut self,
-        device: &wgpu::Device,
-        data: &[f32],
-    ) -> wgpu::Buffer {
-        if let Some(buffer) = self.timeframe_buffers.pop() {
-            buffer
-        } else {
-            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Candlestick Timeframe Buffer (Pooled)"),
-                contents: bytemuck::cast_slice(data),
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            })
-        }
-    }
-
-    #[allow(dead_code)]
-    fn return_buffers(
-        &mut self,
-        x_buffer: wgpu::Buffer,
-        y_buffer: wgpu::Buffer,
-        timeframe_buffer: wgpu::Buffer,
-    ) {
-        // Return buffers to pool for reuse (in a real implementation, we'd check buffer sizes)
-        self.x_range_buffers.push(x_buffer);
-        self.y_range_buffers.push(y_buffer);
-        self.timeframe_buffers.push(timeframe_buffer);
-    }
 }
 
 #[derive(PartialEq, Clone, Debug)]
@@ -376,7 +291,6 @@ impl CandlestickRenderer {
             gpu_candles_buffer: None,
             num_candles: 0,
             cache_key: None,
-            uniform_buffer_pool: BufferPool::new(),
         }
     }
 
@@ -542,13 +456,17 @@ impl CandlestickRenderer {
             data_store.gpu_min_y.unwrap_or(0.0),
             data_store.gpu_max_y.unwrap_or(1.0),
         );
-        let y_buffer = self
-            .uniform_buffer_pool
-            .get_or_create_y_range_buffer(device, &[y_min_max.x, y_min_max.y]);
+        let y_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Candlestick Y Range Buffer"),
+            contents: bytemuck::cast_slice(&[y_min_max.x, y_min_max.y]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
 
-        let timeframe_buffer = self
-            .uniform_buffer_pool
-            .get_or_create_timeframe_buffer(device, &[self.candle_timeframe as f32]);
+        let timeframe_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Candlestick Timeframe Buffer"),
+            contents: bytemuck::cast_slice(&[self.candle_timeframe as f32]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
 
         Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Candlestick Bind Group"),

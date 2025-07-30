@@ -5,11 +5,10 @@ pub mod binary_parser;
 pub mod data_retriever;
 pub mod data_store;
 
-use shared_types::{DataHandle, DataMetadata, GpuChartsError, GpuChartsResult, ParsedData};
+use shared_types::{DataHandle, DataMetadata, GpuChartsError, GpuChartsResult};
 use std::collections::HashMap;
 use std::rc::Rc;
 use uuid::Uuid;
-use wgpu::util::DeviceExt;
 use wgpu::{Device, Queue};
 
 pub use data_retriever::{
@@ -42,8 +41,6 @@ pub struct MultiDataHandle {
 /// Main data manager that coordinates all data operations
 pub struct DataManager {
     device: Rc<Device>,
-    #[allow(dead_code)] // Will be used for buffer operations in the future
-    queue: Rc<Queue>,
     base_url: String,
     cache: DataCache,
     active_handles: HashMap<Uuid, GpuBufferSet>,
@@ -51,10 +48,9 @@ pub struct DataManager {
 
 impl DataManager {
     /// Create a new data manager
-    pub fn new(device: Rc<Device>, queue: Rc<Queue>, base_url: String) -> Self {
+    pub fn new(device: Rc<Device>, _queue: Rc<Queue>, base_url: String) -> Self {
         Self {
             device,
-            queue,
             base_url,
             cache: DataCache::new(100 * 1024 * 1024), // 100MB default cache
             active_handles: HashMap::new(),
@@ -147,45 +143,6 @@ impl DataManager {
     /// Get GPU buffers for a data handle
     pub fn get_buffers(&self, handle: &DataHandle) -> Option<&GpuBufferSet> {
         self.active_handles.get(&handle.id)
-    }
-
-    /// Create GPU buffers from parsed data
-    #[allow(dead_code)] // Will be used when implementing local data parsing
-    fn create_gpu_buffers(&self, data: &ParsedData) -> GpuChartsResult<GpuBufferSet> {
-        let mut buffers = HashMap::new();
-
-        // Create time buffer
-        if !data.time_data.is_empty() {
-            let time_buffer = self
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Time Data Buffer"),
-                    contents: bytemuck::cast_slice(&data.time_data),
-                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                });
-            buffers.insert("time".to_string(), vec![time_buffer]);
-        }
-
-        // Create value buffers
-        for (column, values) in &data.value_data {
-            if !values.is_empty() {
-                let value_buffer =
-                    self.device
-                        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                            label: Some(&format!("{column} Data Buffer")),
-                            contents: bytemuck::cast_slice(values),
-                            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                        });
-                buffers.insert(column.clone(), vec![value_buffer]);
-            }
-        }
-
-        Ok(GpuBufferSet {
-            buffers,
-            raw_buffers: HashMap::new(), // Empty for locally created buffers
-            metadata: data.metadata.clone(),
-            data_type: "local".to_string(), // Default for locally created data
-        })
     }
 
     /// Update configuration
