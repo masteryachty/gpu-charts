@@ -150,7 +150,7 @@ impl BitfinexConnection {
                                 .unwrap_or("Unknown error");
                             error!("Bitfinex error (code {}): {}", code, msg);
                             self.data_sender
-                                .send(Message::Error(format!("Bitfinex error: {}", msg)))
+                                .send(Message::Error(format!("Bitfinex error: {msg}")))
                                 .await?;
                         }
                         "pong" => {

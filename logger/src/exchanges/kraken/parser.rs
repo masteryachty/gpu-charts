@@ -32,7 +32,7 @@ pub fn parse_kraken_ticker_array(
 
     // Parse last trade price and volume
     if let Some(c_arr) = obj.get("c").and_then(|v| v.as_array()) {
-        if let Some(price_str) = c_arr.get(0).and_then(|v| v.as_str()) {
+        if let Some(price_str) = c_arr.first().and_then(|v| v.as_str()) {
             market_data.price = price_str.parse().unwrap_or_else(|e| {
                 warn!("Failed to parse Kraken price '{}': {}", price_str, e);
                 0.0
@@ -48,7 +48,7 @@ pub fn parse_kraken_ticker_array(
 
     // Parse best ask
     if let Some(a_arr) = obj.get("a").and_then(|v| v.as_array()) {
-        if let Some(ask_str) = a_arr.get(0).and_then(|v| v.as_str()) {
+        if let Some(ask_str) = a_arr.first().and_then(|v| v.as_str()) {
             market_data.best_ask = ask_str.parse().unwrap_or_else(|e| {
                 warn!("Failed to parse Kraken ask price '{}': {}", ask_str, e);
                 0.0
@@ -58,7 +58,7 @@ pub fn parse_kraken_ticker_array(
 
     // Parse best bid
     if let Some(b_arr) = obj.get("b").and_then(|v| v.as_array()) {
-        if let Some(bid_str) = b_arr.get(0).and_then(|v| v.as_str()) {
+        if let Some(bid_str) = b_arr.first().and_then(|v| v.as_str()) {
             market_data.best_bid = bid_str.parse().unwrap_or_else(|e| {
                 warn!("Failed to parse Kraken bid price '{}': {}", bid_str, e);
                 0.0
@@ -72,7 +72,7 @@ pub fn parse_kraken_ticker_array(
         obj.get("o").and_then(|v| v.as_str()),
     ) {
         if let (Some(price_str), Ok(open)) =
-            (c_arr.get(0).and_then(|v| v.as_str()), o_str.parse::<f32>())
+            (c_arr.first().and_then(|v| v.as_str()), o_str.parse::<f32>())
         {
             if let Ok(price) = price_str.parse::<f32>() {
                 if price >= open {

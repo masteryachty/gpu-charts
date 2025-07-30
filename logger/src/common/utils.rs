@@ -107,7 +107,7 @@ pub fn normalize_symbol_kraken(symbol: &str) -> String {
     if parts.len() == 2 {
         let base = normalize_kraken_asset_code(parts[0]);
         let quote = normalize_kraken_asset_code(parts[1]);
-        format!("{}-{}", base, quote)
+        format!("{base}-{quote}")
     } else {
         // Fallback for unexpected format
         symbol.replace('/', "-")
@@ -135,7 +135,7 @@ pub fn denormalize_symbol_kraken(normalized: &str) -> String {
     if parts.len() == 2 {
         let base = if parts[0] == "BTC" { "XBT" } else { parts[0] };
         let quote = parts[1];
-        format!("{}/{}", base, quote)
+        format!("{base}/{quote}")
     } else {
         normalized.replace('-', "/")
     }
@@ -176,19 +176,19 @@ pub fn normalize_symbol_bitfinex(symbol: &str) -> String {
 
     if let Some(quote) = best_match {
         let base = &symbol[..symbol.len() - quote.len()];
-        format!("{}-{}", base, quote)
+        format!("{base}-{quote}")
     } else {
         // If no known quote currency found, assume last 3-4 chars are quote
         if symbol.len() > 6 {
             // Try 4-char quote first (like USDT, EURT)
             let base = &symbol[..symbol.len() - 4];
             let quote = &symbol[symbol.len() - 4..];
-            format!("{}-{}", base, quote)
+            format!("{base}-{quote}")
         } else if symbol.len() > 3 {
             // Try 3-char quote (like USD, EUR)
             let base = &symbol[..symbol.len() - 3];
             let quote = &symbol[symbol.len() - 3..];
-            format!("{}-{}", base, quote)
+            format!("{base}-{quote}")
         } else {
             symbol
         }

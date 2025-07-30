@@ -123,7 +123,7 @@ impl Exchange for BitfinexExchange {
             .unwrap_or_else(|| {
                 // Convert from "BTC-USD" to "tBTCUSD"
                 let without_dash = normalized_symbol.replace('-', "");
-                format!("t{}", without_dash)
+                format!("t{without_dash}")
             })
     }
 

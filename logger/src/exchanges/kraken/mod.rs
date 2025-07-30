@@ -102,7 +102,7 @@ impl Exchange for KrakenExchange {
                 let symbol = Symbol {
                     exchange: ExchangeId::Kraken,
                     exchange_symbol: ws_name,
-                    normalized: format!("{}-{}", normalized_base, normalized_quote),
+                    normalized: format!("{normalized_base}-{normalized_quote}"),
                     base_asset: base,
                     quote_asset: quote,
                     asset_class: crate::common::data_types::AssetClass::Spot,
