@@ -90,7 +90,7 @@ impl Default for Config {
                     symbols: None,
                 },
                 okx: ExchangeConfig {
-                    enabled: false,
+                    enabled: true,
                     ws_endpoint: "wss://ws.okx.com:8443/ws/v5/public".to_string(),
                     rest_endpoint: "https://www.okx.com/api/v5".to_string(),
                     max_connections: 10,
@@ -101,7 +101,7 @@ impl Default for Config {
                     symbols: None,
                 },
                 kraken: ExchangeConfig {
-                    enabled: false,
+                    enabled: true,
                     ws_endpoint: "wss://ws.kraken.com".to_string(),
                     rest_endpoint: "https://api.kraken.com/0".to_string(),
                     max_connections: 5,
@@ -112,7 +112,7 @@ impl Default for Config {
                     symbols: None,
                 },
                 bitfinex: ExchangeConfig {
-                    enabled: false,
+                    enabled: true,
                     ws_endpoint: "wss://api-pub.bitfinex.com/ws/2".to_string(),
                     rest_endpoint: "https://api-pub.bitfinex.com/v2".to_string(),
                     max_connections: 5,
@@ -155,10 +155,20 @@ impl Config {
     }
 
     pub fn from_env() -> anyhow::Result<Self> {
-        let settings = config::Config::builder()
-            .add_source(config::Config::try_from(&Config::default())?)
-            .add_source(config::Environment::with_prefix("LOGGER"))
-            .build()?;
+        // Try to load from default config file location first
+        let default_config_path = "/home/logger/config.yaml";
+        let settings = if std::path::Path::new(default_config_path).exists() {
+            config::Config::builder()
+                .add_source(config::File::with_name(default_config_path))
+                .add_source(config::Environment::with_prefix("LOGGER"))
+                .build()?
+        } else {
+            // Fall back to hardcoded defaults
+            config::Config::builder()
+                .add_source(config::Config::try_from(&Config::default())?)
+                .add_source(config::Environment::with_prefix("LOGGER"))
+                .build()?
+        };
 
         Ok(settings.try_deserialize()?)
     }

@@ -9,7 +9,7 @@ exchanges:
     enabled: true
     ws_endpoint: "wss://ws-feed.exchange.coinbase.com"
     rest_endpoint: "https://api.exchange.coinbase.com"
-    max_connections: 10
+    max_connections: 15
     symbols_per_connection: 50
     reconnect_delay_secs: 1
     max_reconnect_delay_secs: 60
@@ -22,7 +22,7 @@ exchanges:
     enabled: true
     ws_endpoint: "wss://stream.binance.com:9443"
     rest_endpoint: "https://api.binance.com"
-    max_connections: 5
+    max_connections: 10
     symbols_per_connection: 100
     reconnect_delay_secs: 1
     max_reconnect_delay_secs: 60
@@ -31,6 +31,48 @@ exchanges:
     # symbols:
     #   - "BTCUSDT"
     #   - "ETHUSDT"
+  
+  okx:
+    enabled: true
+    ws_endpoint: "wss://ws.okx.com:8443/ws/v5/public"
+    rest_endpoint: "https://www.okx.com/api/v5"
+    max_connections: 15
+    symbols_per_connection: 100
+    reconnect_delay_secs: 1
+    max_reconnect_delay_secs: 60
+    ping_interval_secs: 30
+    # Optional: specify specific symbols to monitor
+    # symbols:
+    #   - "BTC-USDT"
+    #   - "ETH-USDT"
+  
+  kraken:
+    enabled: true
+    ws_endpoint: "wss://ws.kraken.com"
+    rest_endpoint: "https://api.kraken.com/0"
+    max_connections: 10
+    symbols_per_connection: 50
+    reconnect_delay_secs: 1
+    max_reconnect_delay_secs: 60
+    ping_interval_secs: 60
+    # Optional: specify specific symbols to monitor
+    # symbols:
+    #   - "XBT/USD"
+    #   - "ETH/USD"
+  
+  bitfinex:
+    enabled: true
+    ws_endpoint: "wss://api-pub.bitfinex.com/ws/2"
+    rest_endpoint: "https://api-pub.bitfinex.com/v2"
+    max_connections: 10
+    symbols_per_connection: 30
+    reconnect_delay_secs: 1
+    max_reconnect_delay_secs: 60
+    ping_interval_secs: 15
+    # Optional: specify specific symbols to monitor
+    # symbols:
+    #   - "tBTCUSD"
+    #   - "tETHUSD"
 
 symbol_mappings:
   mappings_file: "symbol_mappings.yaml"

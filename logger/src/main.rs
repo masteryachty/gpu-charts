@@ -111,9 +111,9 @@ async fn run_logger(mut config: Config, exchanges: Option<String>) -> Result<()>
     if config.exchanges.kraken.enabled {
         info!("  - Kraken");
     }
-    // if config.exchanges.bitfinex.enabled {
-    //     info!("  - Bitfinex");
-    // }
+    if config.exchanges.bitfinex.enabled {
+        info!("  - Bitfinex");
+    }
 
     let logger = Logger::new(config.clone())?;
 
