@@ -1,26 +1,26 @@
 mod connection;
 mod parser;
 
-pub use connection::BinanceConnection;
+pub use connection::OkxConnection;
 
 use crate::common::{
     data_types::{ExchangeId, Symbol, UnifiedMarketData, UnifiedTradeData},
-    utils::{denormalize_symbol_binance, normalize_symbol_binance},
+    utils::{denormalize_symbol_okx, normalize_symbol_okx},
     AnalyticsEngine, DataBuffer, MarketMetrics,
 };
 use crate::config::Config;
 use crate::exchanges::{distribute_symbols, Channel, Exchange, ExchangeConnection, Message};
 use anyhow::Result;
 use async_trait::async_trait;
-use parser::{parse_binance_ticker, parse_binance_trade};
+use parser::{parse_okx_ticker, parse_okx_trade};
 use serde_json::Value;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::time::interval;
-use tracing::{debug, error, info, warn};
+use tracing::{error, info};
 
-pub struct BinanceExchange {
+pub struct OkxExchange {
     config: Arc<Config>,
     symbol_mapper: Arc<crate::common::SymbolMapper>,
     data_buffer: Arc<DataBuffer>,
@@ -28,7 +28,7 @@ pub struct BinanceExchange {
     metrics: Arc<MarketMetrics>,
 }
 
-impl BinanceExchange {
+impl OkxExchange {
     pub fn new(config: Arc<Config>) -> Result<Self> {
         let symbol_mapper = Arc::new(crate::common::SymbolMapper::new(
             config.symbol_mappings.clone(),
@@ -49,20 +49,20 @@ impl BinanceExchange {
 }
 
 #[async_trait]
-impl Exchange for BinanceExchange {
+impl Exchange for OkxExchange {
     fn name(&self) -> &'static str {
-        "Binance"
+        "OKX"
     }
 
     fn id(&self) -> ExchangeId {
-        ExchangeId::Binance
+        ExchangeId::OKX
     }
 
     async fn fetch_symbols(&self) -> Result<Vec<Symbol>> {
         let client = reqwest::Client::new();
         let url = format!(
-            "{}/api/v3/exchangeInfo",
-            self.config.exchanges.binance.rest_endpoint
+            "{}/public/instruments?instType=SPOT",
+            self.config.exchanges.okx.rest_endpoint
         );
 
         let response = client
@@ -74,27 +74,33 @@ impl Exchange for BinanceExchange {
 
         let mut symbols = Vec::new();
 
-        if let Some(symbols_array) = response["symbols"].as_array() {
-            for symbol_obj in symbols_array {
-                if let (Some(symbol), Some(base), Some(quote), Some(status)) = (
-                    symbol_obj["symbol"].as_str(),
-                    symbol_obj["baseAsset"].as_str(),
-                    symbol_obj["quoteAsset"].as_str(),
-                    symbol_obj["status"].as_str(),
-                ) {
-                    if status == "TRADING" {
-                        let normalized = normalize_symbol_binance(symbol);
+        // OKX API response format: {"code":"0","msg":"","data":[...]}
+        if let (Some(code), Some(data)) = (response["code"].as_str(), response["data"].as_array()) {
+            if code != "0" {
+                return Err(anyhow::anyhow!(
+                    "OKX API error: {}",
+                    response["msg"].as_str().unwrap_or("Unknown")
+                ));
+            }
 
+            for instrument in data {
+                if let (Some(inst_id), Some(base_ccy), Some(quote_ccy), Some(state)) = (
+                    instrument["instId"].as_str(),
+                    instrument["baseCcy"].as_str(),
+                    instrument["quoteCcy"].as_str(),
+                    instrument["state"].as_str(),
+                ) {
+                    if state == "live" {
                         let symbol = Symbol {
-                            exchange: ExchangeId::Binance,
-                            exchange_symbol: symbol.to_string(),
-                            normalized: normalized.clone(),
-                            base_asset: base.to_string(),
-                            quote_asset: quote.to_string(),
+                            exchange: ExchangeId::OKX,
+                            exchange_symbol: inst_id.to_string(),
+                            normalized: normalize_symbol_okx(inst_id),
+                            base_asset: base_ccy.to_string(),
+                            quote_asset: quote_ccy.to_string(),
                             asset_class: crate::common::data_types::AssetClass::Spot,
                             active: true,
-                            min_size: None,  // Could parse from filters
-                            tick_size: None, // Could parse from filters
+                            min_size: instrument["minSz"].as_str().and_then(|s| s.parse().ok()),
+                            tick_size: instrument["tickSz"].as_str().and_then(|s| s.parse().ok()),
                         };
 
                         // Add to symbol mapper
@@ -105,20 +111,20 @@ impl Exchange for BinanceExchange {
             }
         }
 
-        info!("Fetched {} active symbols from Binance", symbols.len());
+        info!("Fetched {} active symbols from OKX", symbols.len());
         Ok(symbols)
     }
 
     fn normalize_symbol(&self, exchange_symbol: &str) -> String {
         self.symbol_mapper
-            .normalize(ExchangeId::Binance, exchange_symbol)
-            .unwrap_or_else(|| normalize_symbol_binance(exchange_symbol))
+            .normalize(ExchangeId::OKX, exchange_symbol)
+            .unwrap_or_else(|| normalize_symbol_okx(exchange_symbol))
     }
 
     fn denormalize_symbol(&self, normalized_symbol: &str) -> String {
         self.symbol_mapper
-            .to_exchange(normalized_symbol, ExchangeId::Binance)
-            .unwrap_or_else(|| denormalize_symbol_binance(normalized_symbol))
+            .to_exchange(normalized_symbol, ExchangeId::OKX)
+            .unwrap_or_else(|| denormalize_symbol_okx(normalized_symbol))
     }
 
     async fn create_connection(
@@ -126,40 +132,35 @@ impl Exchange for BinanceExchange {
         symbols: Vec<String>,
         data_sender: mpsc::Sender<Message>,
     ) -> Result<Box<dyn ExchangeConnection>> {
-        Ok(Box::new(BinanceConnection::new(
-            self.config.exchanges.binance.ws_endpoint.clone(),
+        Ok(Box::new(OkxConnection::new(
+            self.config.exchanges.okx.ws_endpoint.clone(),
             symbols,
             data_sender,
-            self.config
-                .exchanges
-                .binance
-                .ping_interval_secs
-                .unwrap_or(20),
             self.symbol_mapper.clone(),
         )))
     }
 
     fn parse_market_data(&self, raw: &Value) -> Result<Option<UnifiedMarketData>> {
-        parse_binance_ticker(raw, &self.symbol_mapper)
+        parse_okx_ticker(raw, &self.symbol_mapper)
     }
 
     fn parse_trade_data(&self, raw: &Value) -> Result<Option<UnifiedTradeData>> {
-        parse_binance_trade(raw, &self.symbol_mapper)
+        parse_okx_trade(raw, &self.symbol_mapper)
     }
 
     fn max_symbols_per_connection(&self) -> usize {
-        self.config.exchanges.binance.symbols_per_connection
+        self.config.exchanges.okx.symbols_per_connection
     }
 
     fn max_connections(&self) -> usize {
-        self.config.exchanges.binance.max_connections
+        self.config.exchanges.okx.max_connections
     }
 
     async fn run(&self) -> Result<()> {
-        info!("Starting Binance exchange logger");
+        info!("Starting OKX exchange logger");
 
         // Fetch all symbols
-        let symbols = if let Some(ref configured_symbols) = self.config.exchanges.binance.symbols {
+        let symbols = if let Some(ref configured_symbols) = self.config.exchanges.okx.symbols {
             configured_symbols.clone()
         } else {
             self.fetch_symbols()
@@ -169,7 +170,7 @@ impl Exchange for BinanceExchange {
                 .collect()
         };
 
-        info!("Will monitor {} Binance symbols", symbols.len());
+        info!("Will monitor {} OKX symbols", symbols.len());
 
         // Distribute symbols across connections
         let symbol_batches = distribute_symbols(symbols, self.max_symbols_per_connection()).await;
@@ -182,93 +183,63 @@ impl Exchange for BinanceExchange {
             let data_tx = data_tx.clone();
             let config = self.config.clone();
             let metrics = self.metrics.clone();
-            let ping_interval = self
-                .config
-                .exchanges
-                .binance
-                .ping_interval_secs
-                .unwrap_or(20);
             let symbol_mapper = self.symbol_mapper.clone();
 
             let handle = tokio::spawn(async move {
-                let mut connection = BinanceConnection::new(
-                    config.exchanges.binance.ws_endpoint.clone(),
+                let mut connection = OkxConnection::new(
+                    config.exchanges.okx.ws_endpoint.clone(),
                     batch,
                     data_tx,
-                    ping_interval,
                     symbol_mapper,
                 );
 
                 loop {
-                    // For Binance, connect and subscribe are combined
-                    if let Err(e) = connection
-                        .subscribe(vec![Channel::Ticker, Channel::Trades])
-                        .await
-                    {
-                        error!("Connection {} failed to connect and subscribe: {}", idx, e);
-                        metrics.record_error("binance", e.to_string());
-                        metrics.record_connection_status("binance", false);
+                    metrics.record_connection_status("okx", true);
+
+                    if let Err(e) = connection.connect().await {
+                        error!("Connection {} failed to connect: {}", idx, e);
+                        metrics.record_error("okx", e.to_string());
+                        metrics.record_connection_status("okx", false);
                         tokio::time::sleep(Duration::from_secs(5)).await;
                         continue;
                     }
 
-                    metrics.record_connection_status("binance", true);
+                    if let Err(e) = connection
+                        .subscribe(vec![Channel::Ticker, Channel::Trades])
+                        .await
+                    {
+                        error!("Connection {} failed to subscribe: {}", idx, e);
+                        tokio::time::sleep(Duration::from_secs(5)).await;
+                        continue;
+                    }
 
-                    // Spawn ping task for Binance
-                    let mut ping_interval = interval(Duration::from_secs(ping_interval));
-                    let ping_task = {
-                        let mut conn_clone = connection.clone();
-                        tokio::spawn(async move {
-                            loop {
-                                ping_interval.tick().await;
-                                if let Err(e) = conn_clone.send_ping().await {
-                                    error!("Failed to send ping: {}", e);
-                                    break;
-                                }
-                            }
-                        })
-                    };
-
-                    // Read messages
-                    info!("Connection {} started reading messages", idx);
-                    let mut last_message_time = tokio::time::Instant::now();
-                    let timeout_duration = Duration::from_secs(60); // 60 second timeout
-
-                    loop {
-                        // Use timeout to avoid indefinite blocking
-                        let read_timeout = Duration::from_secs(30);
-                        let read_future =
-                            tokio::time::timeout(read_timeout, connection.read_message());
-
-                        match read_future.await {
-                            Ok(Ok(Some(_msg))) => {
-                                metrics.record_message("binance");
-                                last_message_time = tokio::time::Instant::now();
-                            }
-                            Ok(Ok(None)) => {
-                                // Some message types return None (ping/pong, etc.)
-                                // This is normal, just continue
-                                continue;
-                            }
-                            Ok(Err(e)) => {
-                                error!("Connection {} read error: {}", idx, e);
-                                metrics.record_error("binance", e.to_string());
+                    // Spawn ping task for OKX (required every 30 seconds)
+                    let mut ping_connection = connection.clone_for_ping();
+                    let ping_task = tokio::spawn(async move {
+                        let mut interval = interval(Duration::from_secs(25)); // Send ping every 25s to be safe
+                        loop {
+                            interval.tick().await;
+                            if let Err(e) = ping_connection.send_ping().await {
+                                error!("Failed to send ping: {}", e);
                                 break;
                             }
-                            Err(_) => {
-                                // Timeout reading message
-                                if last_message_time.elapsed() > timeout_duration {
-                                    warn!(
-                                        "Connection {} timed out - no messages for 60 seconds",
-                                        idx
-                                    );
-                                    break;
-                                }
-                                // Otherwise, just continue - Binance might be slow
-                                debug!(
-                                    "Connection {} read timeout, but within acceptable window",
-                                    idx
-                                );
+                        }
+                    });
+
+                    // Read messages
+                    loop {
+                        match connection.read_message().await {
+                            Ok(Some(_msg)) => {
+                                metrics.record_message("okx");
+                            }
+                            Ok(None) => {
+                                // Connection closed
+                                break;
+                            }
+                            Err(e) => {
+                                error!("Connection {} read error: {}", idx, e);
+                                metrics.record_error("okx", e.to_string());
+                                break;
                             }
                         }
                     }
@@ -276,7 +247,7 @@ impl Exchange for BinanceExchange {
                     // Cancel ping task
                     ping_task.abort();
 
-                    metrics.record_reconnect("binance");
+                    metrics.record_reconnect("okx");
                     tokio::time::sleep(Duration::from_secs(5)).await;
                 }
             });
@@ -320,13 +291,7 @@ impl Exchange for BinanceExchange {
                 interval.tick().await;
 
                 if let Err(e) = data_buffer_flush.flush_to_disk().await {
-                    // Log the error but continue running
                     error!("Failed to flush data: {}", e);
-
-                    // Check if it's an I/O error and provide more context
-                    if e.to_string().contains("Input/output error") {
-                        error!("I/O error detected - possible disk issues. Data may be buffered in memory.");
-                    }
                 }
 
                 if let Err(e) = data_buffer_flush.rotate_files_if_needed().await {

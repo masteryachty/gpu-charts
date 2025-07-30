@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::fs;
 use tokio::sync::Mutex;
-// use tracing::warn;
+use tracing::warn;
 
 const BUFFER_SIZE: usize = 64 * 1024; // 64KB buffer
 
@@ -243,24 +243,114 @@ impl FileHandlers {
     }
 
     pub async fn flush(&mut self) -> Result<()> {
+        use std::time::Duration;
+        use tokio::time::sleep;
+
+        const MAX_RETRIES: u32 = 3;
+        let mut retries = 0;
+        let mut delay = Duration::from_millis(100);
+
+        loop {
+            let result = self.flush_all_files();
+
+            match result {
+                Ok(_) => {
+                    if retries > 0 {
+                        warn!("File flush succeeded after {} retries", retries);
+                    }
+                    return Ok(());
+                }
+                Err(e) => {
+                    // Check if this is an I/O error (os error 5)
+                    let error_string = e.to_string();
+                    let is_io_error = error_string.contains("Input/output error")
+                        || error_string.contains("os error 5");
+
+                    if is_io_error && retries < MAX_RETRIES {
+                        warn!(
+                            "I/O error during flush (attempt {}/{}), retrying in {:?}: {}",
+                            retries + 1,
+                            MAX_RETRIES,
+                            delay,
+                            e
+                        );
+                        sleep(delay).await;
+                        delay = delay.saturating_mul(2); // Exponential backoff
+                        retries += 1;
+                    } else {
+                        // For non-I/O errors or after max retries, return the error
+                        return Err(anyhow::anyhow!(
+                            "Failed to flush files after {} attempts: {}",
+                            retries + 1,
+                            e
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    fn flush_all_files(&mut self) -> Result<()> {
+        let mut errors = Vec::new();
+        let mut successful = 0;
+
         // Flush market data files
-        self.md_files.time.flush()?;
-        self.md_files.nanos.flush()?;
-        self.md_files.price.flush()?;
-        self.md_files.volume.flush()?;
-        self.md_files.side.flush()?;
-        self.md_files.best_bid.flush()?;
-        self.md_files.best_ask.flush()?;
+        let md_flushes = [
+            (&mut self.md_files.time, "md_time"),
+            (&mut self.md_files.nanos, "md_nanos"),
+            (&mut self.md_files.price, "md_price"),
+            (&mut self.md_files.volume, "md_volume"),
+            (&mut self.md_files.side, "md_side"),
+            (&mut self.md_files.best_bid, "md_best_bid"),
+            (&mut self.md_files.best_ask, "md_best_ask"),
+        ];
+
+        for (file, name) in md_flushes {
+            match file.flush() {
+                Ok(_) => successful += 1,
+                Err(e) => {
+                    warn!("Failed to flush {}: {}", name, e);
+                    errors.push((name, e));
+                }
+            }
+        }
 
         // Flush trade files
-        self.trade_files.trade_id.flush()?;
-        self.trade_files.trade_time.flush()?;
-        self.trade_files.trade_nanos.flush()?;
-        self.trade_files.trade_price.flush()?;
-        self.trade_files.trade_size.flush()?;
-        self.trade_files.trade_side.flush()?;
-        self.trade_files.maker_order_id.flush()?;
-        self.trade_files.taker_order_id.flush()?;
+        let trade_flushes = [
+            (&mut self.trade_files.trade_id, "trade_id"),
+            (&mut self.trade_files.trade_time, "trade_time"),
+            (&mut self.trade_files.trade_nanos, "trade_nanos"),
+            (&mut self.trade_files.trade_price, "trade_price"),
+            (&mut self.trade_files.trade_size, "trade_size"),
+            (&mut self.trade_files.trade_side, "trade_side"),
+            (&mut self.trade_files.maker_order_id, "maker_order_id"),
+            (&mut self.trade_files.taker_order_id, "taker_order_id"),
+        ];
+
+        for (file, name) in trade_flushes {
+            match file.flush() {
+                Ok(_) => successful += 1,
+                Err(e) => {
+                    warn!("Failed to flush {}: {}", name, e);
+                    errors.push((name, e));
+                }
+            }
+        }
+
+        // If all files failed, return error
+        if successful == 0 && !errors.is_empty() {
+            return Err(anyhow::anyhow!("All flush operations failed"));
+        }
+
+        // If some succeeded, log warning but continue
+        if !errors.is_empty() {
+            warn!(
+                "Partial flush success: {}/{} files flushed. Failed: {:?}",
+                successful,
+                successful + errors.len(),
+                errors.iter().map(|(name, _)| name).collect::<Vec<_>>()
+            );
+        }
 
         Ok(())
     }

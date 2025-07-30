@@ -20,6 +20,9 @@ pub struct LoggerConfig {
 pub struct ExchangesConfig {
     pub coinbase: ExchangeConfig,
     pub binance: ExchangeConfig,
+    pub okx: ExchangeConfig,
+    pub kraken: ExchangeConfig,
+    pub bitfinex: ExchangeConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -86,6 +89,39 @@ impl Default for Config {
                     ping_interval_secs: Some(20), // Binance requires pings every 20s
                     symbols: None,
                 },
+                okx: ExchangeConfig {
+                    enabled: true,
+                    ws_endpoint: "wss://ws.okx.com:8443/ws/v5/public".to_string(),
+                    rest_endpoint: "https://www.okx.com/api/v5".to_string(),
+                    max_connections: 10,
+                    symbols_per_connection: 100,
+                    reconnect_delay_secs: 1,
+                    max_reconnect_delay_secs: 60,
+                    ping_interval_secs: Some(30), // OKX requires pings every 30s
+                    symbols: None,
+                },
+                kraken: ExchangeConfig {
+                    enabled: true,
+                    ws_endpoint: "wss://ws.kraken.com".to_string(),
+                    rest_endpoint: "https://api.kraken.com/0".to_string(),
+                    max_connections: 5,
+                    symbols_per_connection: 50,
+                    reconnect_delay_secs: 1,
+                    max_reconnect_delay_secs: 60,
+                    ping_interval_secs: Some(60), // Kraken heartbeat interval
+                    symbols: None,
+                },
+                bitfinex: ExchangeConfig {
+                    enabled: true,
+                    ws_endpoint: "wss://api-pub.bitfinex.com/ws/2".to_string(),
+                    rest_endpoint: "https://api-pub.bitfinex.com/v2".to_string(),
+                    max_connections: 10,
+                    symbols_per_connection: 15, // Bitfinex has a limit on subscriptions per connection
+                    reconnect_delay_secs: 1,
+                    max_reconnect_delay_secs: 60,
+                    ping_interval_secs: Some(15), // Bitfinex requires pings every 15s
+                    symbols: None,
+                },
             },
             symbol_mappings: SymbolMappingsConfig {
                 mappings_file: Some(PathBuf::from("symbol_mappings.yaml")),
@@ -119,10 +155,20 @@ impl Config {
     }
 
     pub fn from_env() -> anyhow::Result<Self> {
-        let settings = config::Config::builder()
-            .add_source(config::Config::try_from(&Config::default())?)
-            .add_source(config::Environment::with_prefix("LOGGER"))
-            .build()?;
+        // Try to load from default config file location first
+        let default_config_path = "/home/logger/config.yaml";
+        let settings = if std::path::Path::new(default_config_path).exists() {
+            config::Config::builder()
+                .add_source(config::File::with_name(default_config_path))
+                .add_source(config::Environment::with_prefix("LOGGER"))
+                .build()?
+        } else {
+            // Fall back to hardcoded defaults
+            config::Config::builder()
+                .add_source(config::Config::try_from(&Config::default())?)
+                .add_source(config::Environment::with_prefix("LOGGER"))
+                .build()?
+        };
 
         Ok(settings.try_deserialize()?)
     }

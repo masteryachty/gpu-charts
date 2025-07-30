@@ -5,6 +5,7 @@ use crate::common::{
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
+use tracing::warn;
 
 pub fn parse_coinbase_ticker(
     value: &Value,
@@ -33,20 +34,32 @@ pub fn parse_coinbase_ticker(
 
     // Parse price and volume from last trade
     if let Some(price_str) = value["price"].as_str() {
-        data.price = price_str.parse().unwrap_or(0.0);
+        data.price = price_str.parse().unwrap_or_else(|e| {
+            warn!("Failed to parse Coinbase price '{}': {}", price_str, e);
+            0.0
+        });
     }
 
     if let Some(volume_str) = value["last_size"].as_str() {
-        data.volume = volume_str.parse().unwrap_or(0.0);
+        data.volume = volume_str.parse().unwrap_or_else(|e| {
+            warn!("Failed to parse Coinbase volume '{}': {}", volume_str, e);
+            0.0
+        });
     }
 
     // Parse best bid/ask
     if let Some(bid_str) = value["best_bid"].as_str() {
-        data.best_bid = bid_str.parse().unwrap_or(0.0);
+        data.best_bid = bid_str.parse().unwrap_or_else(|e| {
+            warn!("Failed to parse Coinbase bid price '{}': {}", bid_str, e);
+            0.0
+        });
     }
 
     if let Some(ask_str) = value["best_ask"].as_str() {
-        data.best_ask = ask_str.parse().unwrap_or(0.0);
+        data.best_ask = ask_str.parse().unwrap_or_else(|e| {
+            warn!("Failed to parse Coinbase ask price '{}': {}", ask_str, e);
+            0.0
+        });
     }
 
     // Determine side from price movement or default to buy
@@ -101,11 +114,20 @@ pub fn parse_coinbase_trade(
 
     // Parse price and size
     if let Some(price_str) = value["price"].as_str() {
-        data.price = price_str.parse().unwrap_or(0.0);
+        data.price = price_str.parse().unwrap_or_else(|e| {
+            warn!(
+                "Failed to parse Coinbase trade price '{}': {}",
+                price_str, e
+            );
+            0.0
+        });
     }
 
     if let Some(size_str) = value["size"].as_str() {
-        data.size = size_str.parse().unwrap_or(0.0);
+        data.size = size_str.parse().unwrap_or_else(|e| {
+            warn!("Failed to parse Coinbase trade size '{}': {}", size_str, e);
+            0.0
+        });
     }
 
     // Parse side

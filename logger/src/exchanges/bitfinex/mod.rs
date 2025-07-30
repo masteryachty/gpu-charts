@@ -1,26 +1,26 @@
 mod connection;
 mod parser;
 
-pub use connection::BinanceConnection;
+pub use connection::BitfinexConnection;
 
 use crate::common::{
     data_types::{ExchangeId, Symbol, UnifiedMarketData, UnifiedTradeData},
-    utils::{denormalize_symbol_binance, normalize_symbol_binance},
+    utils::normalize_symbol_bitfinex,
     AnalyticsEngine, DataBuffer, MarketMetrics,
 };
 use crate::config::Config;
 use crate::exchanges::{distribute_symbols, Channel, Exchange, ExchangeConnection, Message};
 use anyhow::Result;
 use async_trait::async_trait;
-use parser::{parse_binance_ticker, parse_binance_trade};
+use parser::{parse_bitfinex_ticker, parse_bitfinex_trade};
 use serde_json::Value;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::time::interval;
-use tracing::{debug, error, info, warn};
+use tracing::{error, info};
 
-pub struct BinanceExchange {
+pub struct BitfinexExchange {
     config: Arc<Config>,
     symbol_mapper: Arc<crate::common::SymbolMapper>,
     data_buffer: Arc<DataBuffer>,
@@ -28,7 +28,7 @@ pub struct BinanceExchange {
     metrics: Arc<MarketMetrics>,
 }
 
-impl BinanceExchange {
+impl BitfinexExchange {
     pub fn new(config: Arc<Config>) -> Result<Self> {
         let symbol_mapper = Arc::new(crate::common::SymbolMapper::new(
             config.symbol_mappings.clone(),
@@ -49,76 +49,82 @@ impl BinanceExchange {
 }
 
 #[async_trait]
-impl Exchange for BinanceExchange {
+impl Exchange for BitfinexExchange {
     fn name(&self) -> &'static str {
-        "Binance"
+        "Bitfinex"
     }
 
     fn id(&self) -> ExchangeId {
-        ExchangeId::Binance
+        ExchangeId::Bitfinex
     }
 
     async fn fetch_symbols(&self) -> Result<Vec<Symbol>> {
         let client = reqwest::Client::new();
         let url = format!(
-            "{}/api/v3/exchangeInfo",
-            self.config.exchanges.binance.rest_endpoint
+            "{}/conf/pub:list:pair:exchange",
+            self.config.exchanges.bitfinex.rest_endpoint
         );
 
         let response = client
             .get(&url)
             .send()
             .await?
-            .json::<serde_json::Value>()
+            .json::<Vec<Vec<String>>>()
             .await?;
 
         let mut symbols = Vec::new();
 
-        if let Some(symbols_array) = response["symbols"].as_array() {
-            for symbol_obj in symbols_array {
-                if let (Some(symbol), Some(base), Some(quote), Some(status)) = (
-                    symbol_obj["symbol"].as_str(),
-                    symbol_obj["baseAsset"].as_str(),
-                    symbol_obj["quoteAsset"].as_str(),
-                    symbol_obj["status"].as_str(),
-                ) {
-                    if status == "TRADING" {
-                        let normalized = normalize_symbol_binance(symbol);
+        // Bitfinex returns array of arrays, first element is the list of symbols
+        if let Some(symbol_list) = response.first() {
+            for symbol_str in symbol_list {
+                // Skip funding pairs (starting with 'f')
+                if symbol_str.starts_with('f') {
+                    continue;
+                }
 
-                        let symbol = Symbol {
-                            exchange: ExchangeId::Binance,
-                            exchange_symbol: symbol.to_string(),
-                            normalized: normalized.clone(),
-                            base_asset: base.to_string(),
-                            quote_asset: quote.to_string(),
-                            asset_class: crate::common::data_types::AssetClass::Spot,
-                            active: true,
-                            min_size: None,  // Could parse from filters
-                            tick_size: None, // Could parse from filters
-                        };
+                // Parse base and quote from symbol
+                // Bitfinex uses format like "BTCUSD", "ETHUSD", "BTCUSDT", etc.
+                let normalized = normalize_symbol_bitfinex(symbol_str);
+                let parts: Vec<&str> = normalized.split('-').collect();
 
-                        // Add to symbol mapper
-                        self.symbol_mapper.add_symbol(symbol.clone());
-                        symbols.push(symbol);
-                    }
+                if parts.len() == 2 {
+                    let symbol = Symbol {
+                        exchange: ExchangeId::Bitfinex,
+                        exchange_symbol: format!("t{}", symbol_str.to_uppercase()),
+                        normalized: normalized.clone(),
+                        base_asset: parts[0].to_string(),
+                        quote_asset: parts[1].to_string(),
+                        asset_class: crate::common::data_types::AssetClass::Spot,
+                        active: true,
+                        min_size: None,
+                        tick_size: None,
+                    };
+
+                    // Add to symbol mapper
+                    self.symbol_mapper.add_symbol(symbol.clone());
+                    symbols.push(symbol);
                 }
             }
         }
 
-        info!("Fetched {} active symbols from Binance", symbols.len());
+        info!("Fetched {} active symbols from Bitfinex", symbols.len());
         Ok(symbols)
     }
 
     fn normalize_symbol(&self, exchange_symbol: &str) -> String {
         self.symbol_mapper
-            .normalize(ExchangeId::Binance, exchange_symbol)
-            .unwrap_or_else(|| normalize_symbol_binance(exchange_symbol))
+            .normalize(ExchangeId::Bitfinex, exchange_symbol)
+            .unwrap_or_else(|| normalize_symbol_bitfinex(exchange_symbol))
     }
 
     fn denormalize_symbol(&self, normalized_symbol: &str) -> String {
         self.symbol_mapper
-            .to_exchange(normalized_symbol, ExchangeId::Binance)
-            .unwrap_or_else(|| denormalize_symbol_binance(normalized_symbol))
+            .to_exchange(normalized_symbol, ExchangeId::Bitfinex)
+            .unwrap_or_else(|| {
+                // Convert from "BTC-USD" to "tBTCUSD"
+                let without_dash = normalized_symbol.replace('-', "");
+                format!("t{without_dash}")
+            })
     }
 
     async fn create_connection(
@@ -126,40 +132,36 @@ impl Exchange for BinanceExchange {
         symbols: Vec<String>,
         data_sender: mpsc::Sender<Message>,
     ) -> Result<Box<dyn ExchangeConnection>> {
-        Ok(Box::new(BinanceConnection::new(
-            self.config.exchanges.binance.ws_endpoint.clone(),
+        Ok(Box::new(BitfinexConnection::new(
+            self.config.exchanges.bitfinex.ws_endpoint.clone(),
             symbols,
             data_sender,
-            self.config
-                .exchanges
-                .binance
-                .ping_interval_secs
-                .unwrap_or(20),
             self.symbol_mapper.clone(),
+            self.config.exchanges.bitfinex.ping_interval_secs,
         )))
     }
 
     fn parse_market_data(&self, raw: &Value) -> Result<Option<UnifiedMarketData>> {
-        parse_binance_ticker(raw, &self.symbol_mapper)
+        parse_bitfinex_ticker(raw, &self.symbol_mapper)
     }
 
     fn parse_trade_data(&self, raw: &Value) -> Result<Option<UnifiedTradeData>> {
-        parse_binance_trade(raw, &self.symbol_mapper)
+        parse_bitfinex_trade(raw, &self.symbol_mapper)
     }
 
     fn max_symbols_per_connection(&self) -> usize {
-        self.config.exchanges.binance.symbols_per_connection
+        self.config.exchanges.bitfinex.symbols_per_connection
     }
 
     fn max_connections(&self) -> usize {
-        self.config.exchanges.binance.max_connections
+        self.config.exchanges.bitfinex.max_connections
     }
 
     async fn run(&self) -> Result<()> {
-        info!("Starting Binance exchange logger");
+        info!("Starting Bitfinex exchange logger");
 
         // Fetch all symbols
-        let symbols = if let Some(ref configured_symbols) = self.config.exchanges.binance.symbols {
+        let symbols = if let Some(ref configured_symbols) = self.config.exchanges.bitfinex.symbols {
             configured_symbols.clone()
         } else {
             self.fetch_symbols()
@@ -169,7 +171,7 @@ impl Exchange for BinanceExchange {
                 .collect()
         };
 
-        info!("Will monitor {} Binance symbols", symbols.len());
+        info!("Will monitor {} Bitfinex symbols", symbols.len());
 
         // Distribute symbols across connections
         let symbol_batches = distribute_symbols(symbols, self.max_symbols_per_connection()).await;
@@ -182,101 +184,81 @@ impl Exchange for BinanceExchange {
             let data_tx = data_tx.clone();
             let config = self.config.clone();
             let metrics = self.metrics.clone();
-            let ping_interval = self
-                .config
-                .exchanges
-                .binance
-                .ping_interval_secs
-                .unwrap_or(20);
             let symbol_mapper = self.symbol_mapper.clone();
 
             let handle = tokio::spawn(async move {
-                let mut connection = BinanceConnection::new(
-                    config.exchanges.binance.ws_endpoint.clone(),
+                let mut connection = BitfinexConnection::new(
+                    config.exchanges.bitfinex.ws_endpoint.clone(),
                     batch,
                     data_tx,
-                    ping_interval,
                     symbol_mapper,
+                    config.exchanges.bitfinex.ping_interval_secs,
                 );
 
                 loop {
-                    // For Binance, connect and subscribe are combined
-                    if let Err(e) = connection
-                        .subscribe(vec![Channel::Ticker, Channel::Trades])
-                        .await
-                    {
-                        error!("Connection {} failed to connect and subscribe: {}", idx, e);
-                        metrics.record_error("binance", e.to_string());
-                        metrics.record_connection_status("binance", false);
+                    metrics.record_connection_status("bitfinex", true);
+
+                    if let Err(e) = connection.connect().await {
+                        error!("Connection {} failed to connect: {}", idx, e);
+                        metrics.record_error("bitfinex", e.to_string());
+                        metrics.record_connection_status("bitfinex", false);
                         tokio::time::sleep(Duration::from_secs(5)).await;
                         continue;
                     }
 
-                    metrics.record_connection_status("binance", true);
+                    if let Err(e) = connection
+                        .subscribe(vec![Channel::Ticker, Channel::Trades])
+                        .await
+                    {
+                        error!("Connection {} failed to subscribe: {}", idx, e);
+                        tokio::time::sleep(Duration::from_secs(5)).await;
+                        continue;
+                    }
 
-                    // Spawn ping task for Binance
-                    let mut ping_interval = interval(Duration::from_secs(ping_interval));
-                    let ping_task = {
-                        let mut conn_clone = connection.clone();
-                        tokio::spawn(async move {
+                    // Spawn ping task for Bitfinex
+                    let ping_handle = if let Some(ping_interval_secs) =
+                        config.exchanges.bitfinex.ping_interval_secs
+                    {
+                        let ping_sender = connection.clone_for_ping();
+                        Some(tokio::spawn(async move {
+                            let mut interval = interval(Duration::from_secs(ping_interval_secs));
                             loop {
-                                ping_interval.tick().await;
-                                if let Err(e) = conn_clone.send_ping().await {
-                                    error!("Failed to send ping: {}", e);
+                                interval.tick().await;
+                                // Send a heartbeat message through the data channel
+                                if let Err(e) = ping_sender.send(Message::Heartbeat).await {
+                                    error!("Failed to send heartbeat: {}", e);
                                     break;
                                 }
                             }
-                        })
+                        }))
+                    } else {
+                        None
                     };
 
                     // Read messages
-                    info!("Connection {} started reading messages", idx);
-                    let mut last_message_time = tokio::time::Instant::now();
-                    let timeout_duration = Duration::from_secs(60); // 60 second timeout
-
                     loop {
-                        // Use timeout to avoid indefinite blocking
-                        let read_timeout = Duration::from_secs(30);
-                        let read_future =
-                            tokio::time::timeout(read_timeout, connection.read_message());
-
-                        match read_future.await {
-                            Ok(Ok(Some(_msg))) => {
-                                metrics.record_message("binance");
-                                last_message_time = tokio::time::Instant::now();
+                        match connection.read_message().await {
+                            Ok(Some(_msg)) => {
+                                metrics.record_message("bitfinex");
                             }
-                            Ok(Ok(None)) => {
-                                // Some message types return None (ping/pong, etc.)
-                                // This is normal, just continue
-                                continue;
-                            }
-                            Ok(Err(e)) => {
-                                error!("Connection {} read error: {}", idx, e);
-                                metrics.record_error("binance", e.to_string());
+                            Ok(None) => {
+                                // Connection closed
                                 break;
                             }
-                            Err(_) => {
-                                // Timeout reading message
-                                if last_message_time.elapsed() > timeout_duration {
-                                    warn!(
-                                        "Connection {} timed out - no messages for 60 seconds",
-                                        idx
-                                    );
-                                    break;
-                                }
-                                // Otherwise, just continue - Binance might be slow
-                                debug!(
-                                    "Connection {} read timeout, but within acceptable window",
-                                    idx
-                                );
+                            Err(e) => {
+                                error!("Connection {} read error: {}", idx, e);
+                                metrics.record_error("bitfinex", e.to_string());
+                                break;
                             }
                         }
                     }
 
-                    // Cancel ping task
-                    ping_task.abort();
+                    // Cancel ping task if it exists
+                    if let Some(handle) = ping_handle {
+                        handle.abort();
+                    }
 
-                    metrics.record_reconnect("binance");
+                    metrics.record_reconnect("bitfinex");
                     tokio::time::sleep(Duration::from_secs(5)).await;
                 }
             });
@@ -320,13 +302,7 @@ impl Exchange for BinanceExchange {
                 interval.tick().await;
 
                 if let Err(e) = data_buffer_flush.flush_to_disk().await {
-                    // Log the error but continue running
                     error!("Failed to flush data: {}", e);
-
-                    // Check if it's an I/O error and provide more context
-                    if e.to_string().contains("Input/output error") {
-                        error!("I/O error detected - possible disk issues. Data may be buffered in memory.");
-                    }
                 }
 
                 if let Err(e) = data_buffer_flush.rotate_files_if_needed().await {
