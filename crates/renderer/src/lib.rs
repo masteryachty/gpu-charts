@@ -1,8 +1,3 @@
-//! Pure GPU rendering engine for GPU Charts
-//! Implements Phase 3 optimizations for extreme performance
-
-#![allow(clippy::uninlined_format_args)]
-
 pub mod calcables;
 pub mod charts;
 pub mod compute;
@@ -13,9 +8,9 @@ pub mod multi_renderer;
 pub mod pipeline_builder;
 pub mod shaders;
 
-use config_system::GpuChartsConfig;
+use config_system::ChartPreset;
 use data_manager::DataStore;
-use shared_types::{GpuChartsError, GpuChartsResult, RenderStats};
+use shared_types::{GpuChartsError, GpuChartsResult};
 use std::rc::Rc;
 use wgpu::{CommandEncoder, Device, Queue, TextureView};
 
@@ -41,21 +36,16 @@ pub struct Renderer {
     pub device: Rc<wgpu::Device>,
     pub queue: Rc<wgpu::Queue>,
     pub config: wgpu::SurfaceConfiguration,
-
-    #[allow(dead_code)] // Will be used for quality settings and performance tuning
-    settings: GpuChartsConfig,
     data_store: DataStore,
     compute_engine: compute_engine::ComputeEngine,
 }
 
 impl Renderer {
     /// Create a new renderer
-    #[cfg(target_arch = "wasm32")]
     pub async fn new(
         canvas: web_sys::HtmlCanvasElement,
         device: Rc<wgpu::Device>,
         queue: Rc<wgpu::Queue>,
-        config: GpuChartsConfig,
         data_store: DataStore,
     ) -> RenderResult<Self> {
         // Create WebGPU instance and surface
@@ -109,12 +99,87 @@ impl Renderer {
             device,
             queue,
             config: surface_config,
-            settings: config,
             data_store,
             compute_engine,
         };
 
         Ok(renderer)
+    }
+
+    /// Calculate bounds using GPU compute
+    pub async fn calculate_bounds(
+        &mut self,
+        mut encoder: wgpu::CommandEncoder,
+    ) -> RenderResult<()> {
+        log::debug!("[Renderer] Calculating bounds using GPU");
+
+        // Run pre-render compute passes (e.g., compute mid price)
+        self.compute_engine
+            .run_compute_passes(&mut encoder, &mut self.data_store);
+
+        // Calculate Y bounds using GPU
+        let (x_min, x_max) = (self.data_store.start_x, self.data_store.end_x);
+        let (min_max_buffer, staging_buffer) = calculate_min_max_y(
+            &self.device,
+            &self.queue,
+            &mut encoder,
+            &self.data_store,
+            x_min,
+            x_max,
+        );
+
+        // Store both GPU min/max buffer and staging buffer
+        self.data_store.min_max_buffer = Some(std::rc::Rc::new(min_max_buffer));
+        self.data_store.min_max_staging_buffer = Some(std::rc::Rc::new(staging_buffer));
+
+        // Update the shared bind group with GPU-calculated bounds
+        self.data_store
+            .update_shared_bind_group_with_gpu_buffer(&self.device);
+
+        // Submit the command buffer
+        self.queue.submit(std::iter::once(encoder.finish()));
+
+        // Read back the staging buffer to get the actual min/max values
+        if let Some(staging_buffer) = &self.data_store.min_max_staging_buffer {
+            // Clone the buffer reference to avoid borrow issues
+            let staging_buffer = staging_buffer.clone();
+
+            // Map the buffer for reading
+            let buffer_slice = staging_buffer.slice(..);
+            let (sender, receiver) = futures::channel::oneshot::channel();
+            buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
+                let _ = sender.send(result);
+            });
+
+            // Wait for the GPU to finish
+            self.device.poll(wgpu::Maintain::Wait);
+
+            // Get the mapped data
+            if let Ok(Ok(())) = receiver.await {
+                let data = buffer_slice.get_mapped_range();
+                let min_max: &[f32] = bytemuck::cast_slice(&data);
+
+                if min_max.len() >= 2 {
+                    let min = min_max[0];
+                    let max = min_max[1];
+
+                    // Update the data store with the GPU-calculated bounds
+                    self.data_store.set_gpu_y_bounds(min, max);
+                    log::debug!("[Renderer] GPU bounds read back: min={min}, max={max}");
+                } else {
+                    log::warn!("[Renderer] Staging buffer had insufficient data");
+                }
+
+                // Unmap the buffer
+                drop(data);
+                staging_buffer.unmap();
+            } else {
+                log::error!("[Renderer] Failed to map staging buffer for reading");
+            }
+        }
+
+        log::debug!("[Renderer] Bounds calculation complete");
+        Ok(())
     }
 
     /// Render a frame using the provided multi-renderer
@@ -137,18 +202,15 @@ impl Renderer {
                 label: Some("Render Encoder"),
             });
 
-        // Run pre-render compute passes (e.g., compute mid price)
-        // This must happen BEFORE calculating min/max bounds
+        // Check if bounds calculation is needed (wasn't done in preprocessing)
         if self.data_store.min_max_buffer.is_none() {
-            log::debug!("[Renderer] Running pre-render compute passes...");
+            log::debug!("[Renderer] Bounds not calculated in preprocessing, calculating now...");
+
+            // Run pre-render compute passes (e.g., compute mid price)
             self.compute_engine
                 .run_compute_passes(&mut encoder, &mut self.data_store);
-        }
 
-        // Calculate Y bounds using GPU if not already calculated
-        if self.data_store.min_max_buffer.is_none() {
-            log::debug!("[Renderer] Calculating Y bounds using GPU min/max...");
-
+            // Calculate Y bounds using GPU
             let (x_min, x_max) = (self.data_store.start_x, self.data_store.end_x);
             let (min_max_buffer, staging_buffer) = calculate_min_max_y(
                 &self.device,
@@ -162,11 +224,13 @@ impl Renderer {
             // Store both GPU min/max buffer and staging buffer
             self.data_store.min_max_buffer = Some(std::rc::Rc::new(min_max_buffer));
             self.data_store.min_max_staging_buffer = Some(std::rc::Rc::new(staging_buffer));
-        }
 
-        // Update the shared bind group with GPU-calculated bounds
-        self.data_store
-            .update_shared_bind_group_with_gpu_buffer(&self.device);
+            // Update the shared bind group with GPU-calculated bounds
+            self.data_store
+                .update_shared_bind_group_with_gpu_buffer(&self.device);
+        } else {
+            log::debug!("[Renderer] Using pre-calculated bounds from preprocessing stage");
+        }
 
         // Let MultiRenderer handle all rendering
         multi_renderer.render(&mut encoder, &view, &self.data_store)?;
@@ -193,40 +257,13 @@ impl Renderer {
         Ok(())
     }
 
-    /// Update chart type
-    pub fn set_chart_type(&mut self, chart_type: data_manager::ChartType) {
-        log::info!(
-            "set_chart_type called: {:?} -> {:?}",
-            self.data_store.chart_type,
-            chart_type
-        );
-        let old_type = self.data_store.chart_type;
-        self.data_store.chart_type = chart_type;
-
-        // Mark data store as dirty to trigger a render
-        self.data_store.mark_dirty();
-
-        log::info!("Chart type changed from {old_type:?} to {chart_type:?} - marked dirty");
-    }
-
     /// Resize the renderer
     pub fn resize(&mut self, width: u32, height: u32) {
         self.config.width = width;
         self.config.height = height;
         self.surface.configure(&self.device, &self.config);
         self.data_store.resized(width, height);
-        log::info!("Resized surface to {{ width: {width}, height: {height} }}");
-    }
-
-    /// Get current statistics
-    pub fn get_stats(&self) -> RenderStats {
-        // Multi-renderer tracks its own stats
-        RenderStats {
-            frame_time_ms: 0.0,
-            draw_calls: 0, // Would be provided by multi-renderer
-            vertices_rendered: 0,
-            gpu_memory_used: 0,
-        }
+        log::debug!("Resized surface to {{ width: {width}, height: {height} }}");
     }
 
     /// Get mutable access to data store
@@ -390,6 +427,15 @@ impl Renderer {
             .add_x_axis_renderer(width, height)
             .add_y_axis_renderer(width, height)
             .build()
+    }
+
+    pub fn set_preset_and_symbol(
+        &mut self,
+        preset: Option<&ChartPreset>,
+        symbol_name: Option<String>,
+    ) {
+        self.data_store_mut()
+            .set_preset_and_symbol(preset, symbol_name);
     }
 }
 

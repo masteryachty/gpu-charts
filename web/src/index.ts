@@ -37,7 +37,7 @@ export { default as WasmCanvas } from './components/chart/WasmCanvas';
 // Re-export commonly used interfaces for convenience
 export type {
   StoreState,
-  ChartConfig,
+  ChartState as ChartStateConfig,
   MarketData,
   PerformanceMetrics
   // AppError,
@@ -74,7 +74,7 @@ export function initializeIntegrationSystem(config?: {
 
   // Log initialization
   console.log(`[IntegrationSystem] Initializing React Store → Rust Integration v${VERSION}`);
-  
+
   if (debugMode) {
     console.log('[IntegrationSystem] Debug mode enabled');
     (window as any).__INTEGRATION_DEBUG__ = true;

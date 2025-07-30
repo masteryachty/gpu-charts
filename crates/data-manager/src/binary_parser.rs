@@ -74,7 +74,6 @@ pub fn parse_binary_data(
 }
 
 /// SIMD-optimized binary search for sorted timestamp arrays
-#[cfg(target_arch = "wasm32")]
 pub fn binary_search_timestamp(data: &[u8], target: u32) -> Option<usize> {
     if data.len() < 4 {
         return None;
@@ -115,8 +114,8 @@ pub fn binary_search_timestamp(data: &[u8], target: u32) -> Option<usize> {
 pub struct DataResponseHeader {
     pub symbol: String,
     pub columns: Vec<String>,
-    pub start_time: u64,
-    pub end_time: u64,
+    pub start_time: u32,
+    pub end_time: u32,
     pub row_count: usize,
 }
 

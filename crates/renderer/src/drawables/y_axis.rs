@@ -3,6 +3,7 @@ use std::rc::Rc;
 use wgpu::TextureFormat;
 use wgpu_text::glyph_brush::ab_glyph::FontRef;
 
+use super::shared_utils::create_shared_range_bind_group_layout;
 use data_manager::{create_gpu_buffer_from_vec, DataStore};
 use wgpu_text::{
     glyph_brush::{Section as TextSection, Text},
@@ -33,7 +34,7 @@ impl YAxisRenderer {
         let (min, max) = data_store.get_gpu_y_bounds().unwrap_or({
             // Use the actual data range from the shader's perspective
             // The shader will use the correct bounds, we just need values for labels
-            match (data_store.min_y, data_store.max_y) {
+            match (data_store.gpu_min_y, data_store.gpu_max_y) {
                 (Some(min), Some(max)) => (min, max),
                 _ => {
                     // If no bounds yet, use the last known bounds or defaults
@@ -55,17 +56,9 @@ impl YAxisRenderer {
         if needs_recalculation {
             // Log when we update labels
             if data_store.get_gpu_y_bounds().is_some() {
-                log::debug!(
-                    "[YAxisRenderer] Rendering with GPU bounds: min={}, max={}",
-                    min,
-                    max
-                );
+                log::debug!("[YAxisRenderer] Rendering with GPU bounds: min={min}, max={max}");
             } else {
-                log::debug!(
-                    "[YAxisRenderer] Rendering with fallback bounds: min={}, max={}",
-                    min,
-                    max
-                );
+                log::debug!("[YAxisRenderer] Rendering with fallback bounds: min={min}, max={max}");
             }
 
             let (interval, start, end) = calculate_y_axis_interval(min, max);
@@ -100,7 +93,7 @@ impl YAxisRenderer {
 
             // Create vertex data for axis lines
             let mut vertices = Vec::with_capacity(y_values.len() * 4);
-            log::info!(
+            log::debug!(
                 "Y-axis: Creating horizontal lines from x={} to x={}",
                 data_store.start_x,
                 data_store.end_x
@@ -111,7 +104,7 @@ impl YAxisRenderer {
                 vertices.push(*y);
                 vertices.push(data_store.end_x as f32);
                 vertices.push(*y);
-                log::info!(
+                log::debug!(
                     "Y-axis: Line at y={} from ({}, {}) to ({}, {})",
                     y,
                     data_store.start_x,
@@ -137,7 +130,9 @@ impl YAxisRenderer {
             // Update text brush
             self.brush
                 .resize_view(data_store.screen_size.width as f32, height as f32, queue);
-            self.brush.queue(device, queue, labels).unwrap();
+            if let Err(e) = self.brush.queue(device, queue, labels) {
+                log::error!("Y-axis: Failed to queue text labels: {e:?}");
+            }
         } else {
             // If only the window size changed, update the text brush size
             // if self.brush.resize_view(size.0 as f32, size.1 as f32, queue) {
@@ -188,7 +183,7 @@ impl YAxisRenderer {
         if let Some(buffer) = &self.vertex_buffer {
             // Use the shared bind group from DataStore
             if let Some(bind_group) = data_store.range_bind_group.as_ref() {
-                log::info!(
+                log::debug!(
                     "Y-axis: Drawing {} vertices for horizontal lines",
                     self.vertex_count
                 );
@@ -217,39 +212,23 @@ impl YAxisRenderer {
         screen_height: u32,
     ) -> Self {
         // Create text brush
-        let brush = BrushBuilder::using_font_bytes(include_bytes!("Roboto.ttf"))
-            .unwrap()
-            .build(&device, screen_width, screen_height, color_format);
+        let brush = match BrushBuilder::using_font_bytes(include_bytes!("Roboto.ttf"))
+            .map(|builder| builder.build(&device, screen_width, screen_height, color_format))
+        {
+            Ok(brush) => brush,
+            Err(e) => {
+                log::error!("Failed to create text brush: {e:?}");
+                panic!("Cannot create Y-axis renderer without text rendering capability");
+            }
+        };
 
         // Create shader and pipeline
         let shader = device.create_shader_module(wgpu::include_wgsl!("y_axis.wgsl"));
 
         const ATTRIBUTES: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Float32x2];
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: None,
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-            ],
-        });
+
+        // Use shared bind group layout
+        let bind_group_layout = create_shared_range_bind_group_layout(&device);
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Y-Axis Render Pipeline"),

@@ -2,7 +2,6 @@
 //! Handles all data operations with focus on performance and GPU optimization
 
 pub mod binary_parser;
-pub mod cache;
 pub mod data_retriever;
 pub mod data_store;
 
@@ -67,8 +66,8 @@ impl DataManager {
         &mut self,
         symbol: &str,
         data_type: &str,
-        start_time: u64,
-        end_time: u64,
+        start_time: u32,
+        end_time: u32,
         columns: &[&str],
     ) -> GpuChartsResult<DataHandle> {
         // Check cache first
@@ -198,6 +197,135 @@ impl DataManager {
     pub fn clear_cache(&mut self) {
         self.cache.clear();
         self.active_handles.clear();
+    }
+
+    pub async fn fetch_data_for_preset(
+        &mut self,
+        data_store: &mut DataStore,
+    ) -> Result<(), shared_types::GpuChartsError> {
+        let symbol = data_store.symbol.as_ref().unwrap().to_string();
+        let preset = data_store.preset.clone().unwrap();
+        let start_time = data_store.start_x;
+        let end_time = data_store.end_x;
+        let mut data_requirements: std::collections::HashMap<
+            String,
+            std::collections::HashSet<String>,
+        > = std::collections::HashMap::new();
+        for chart_type in &preset.chart_types {
+            for (data_type, column) in &chart_type.data_columns {
+                data_requirements
+                    .entry(data_type.clone())
+                    .or_default()
+                    .insert(column.clone());
+            }
+            if let Some(additional_cols) = &chart_type.additional_data_columns {
+                for (data_type, column) in additional_cols {
+                    data_requirements
+                        .entry(data_type.clone())
+                        .or_default()
+                        .insert(column.clone());
+                }
+            }
+        }
+        // Removed unused fetch_results variable
+        for (data_type, columns) in data_requirements {
+            let mut all_columns = vec!["time"];
+            let columns_vec: Vec<String> = columns.into_iter().collect();
+            all_columns.extend(columns_vec.iter().map(|s| s.as_str()));
+            // let instance_opt = InstanceManager::take_instance(&instance_id);
+            let result = self
+                .fetch_data(
+                    &symbol,
+                    data_type.as_str(),
+                    start_time,
+                    end_time,
+                    &all_columns,
+                )
+                .await;
+            if let Ok(data_handle) = result {
+                let _ = self.process_data_handle(&data_handle, data_store);
+            }
+        }
+        Ok(())
+    }
+
+    fn process_data_handle(
+        &self,
+        data_handle: &DataHandle,
+        data_store: &mut DataStore,
+    ) -> Result<(), shared_types::GpuChartsError> {
+        // Get the GPU buffer set from the data manager
+        let gpu_buffer_set = self.get_buffers(data_handle).ok_or_else(|| {
+            shared_types::GpuChartsError::DataNotFound {
+                resource: "GPU buffers for data handle".to_string(),
+            }
+        })?;
+
+        // Extract the time column (shared x-axis for all metrics)
+        let time_buffer = gpu_buffer_set.raw_buffers.get("time").ok_or_else(|| {
+            shared_types::GpuChartsError::DataNotFound {
+                resource: "Time column in data".to_string(),
+            }
+        })?;
+
+        let time_gpu_buffers = gpu_buffer_set.buffers.get("time").ok_or_else(|| {
+            shared_types::GpuChartsError::DataNotFound {
+                resource: "Time GPU buffers".to_string(),
+            }
+        })?;
+
+        // Add a new data group for this data type
+        // Each data type has its own time series, so needs its own group
+        data_store.add_data_group((time_buffer.clone(), time_gpu_buffers.clone()), true);
+        let data_group_index = data_store.data_groups.len() - 1;
+
+        for column_name in &gpu_buffer_set.metadata.columns {
+            if column_name == "time" {
+                continue; // Skip time column as it's already the x-axis
+            }
+
+            if let (Some(raw_buffer), Some(gpu_buffers)) = (
+                gpu_buffer_set.raw_buffers.get(column_name),
+                gpu_buffer_set.buffers.get(column_name),
+            ) {
+                // Get color from preset if available
+                let color = if let Some(preset) = &data_store.preset {
+                    // Find the color for this metric in the preset
+                    preset
+                        .chart_types
+                        .iter()
+                        .find(|chart_type| {
+                            chart_type
+                                .data_columns
+                                .iter()
+                                .any(|(_, col)| col == column_name)
+                                || chart_type
+                                    .additional_data_columns
+                                    .as_ref()
+                                    .map(|cols| cols.iter().any(|(_, col)| col == column_name))
+                                    .unwrap_or(false)
+                        })
+                        .and_then(|chart_type| chart_type.style.color)
+                        .map(|c| [c[0], c[1], c[2]])
+                        .unwrap_or([0.0, 0.5, 1.0])
+                } else {
+                    [0.0, 0.5, 1.0] // Default blue
+                };
+
+                data_store.add_metric_to_group(
+                    data_group_index,
+                    (raw_buffer.clone(), gpu_buffers.clone()),
+                    color,
+                    column_name.clone(),
+                );
+            }
+        }
+
+        log::info!(
+            "Successfully added {} columns to DataStore for data type",
+            gpu_buffer_set.metadata.columns.len()
+        );
+        Ok(())
     }
 }
 

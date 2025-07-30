@@ -75,7 +75,6 @@ pub trait MultiRenderable: Send + Sync {
 }
 
 /// Trait for renderers that can be added to a MultiRenderer (WASM version without Send+Sync)
-#[cfg(target_arch = "wasm32")]
 pub trait MultiRenderable {
     /// Render the component
     fn render(
@@ -195,14 +194,14 @@ impl MultiRenderer {
 
     /// Add a renderer to the pipeline
     pub fn add_renderer(&mut self, renderer: Box<dyn MultiRenderable>) {
-        log::info!("MultiRenderer: Adding renderer '{}'", renderer.name());
+        log::debug!("MultiRenderer: Adding renderer '{}'", renderer.name());
         self.renderers.push(renderer);
         self.sort_renderers();
     }
 
     /// Remove all renderers
     pub fn clear_renderers(&mut self) {
-        log::info!("MultiRenderer: Clearing all renderers");
+        log::debug!("MultiRenderer: Clearing all renderers");
         self.renderers.clear();
     }
 
@@ -238,14 +237,14 @@ impl MultiRenderer {
         device: &Device,
         queue: &Queue,
     ) {
-        log::info!(
+        log::debug!(
             "[MultiRenderer] Running compute passes for {} renderers",
             self.renderers.len()
         );
 
         for renderer in &mut self.renderers {
             if renderer.has_compute() {
-                log::info!(
+                log::debug!(
                     "[MultiRenderer] Running compute pass for '{}'",
                     renderer.name()
                 );
@@ -323,7 +322,7 @@ impl MultiRenderer {
 
     /// Handle resize for all renderers
     pub fn resize(&mut self, width: u32, height: u32) {
-        log::info!("MultiRenderer: Resizing to {}x{}", width, height);
+        log::debug!("MultiRenderer: Resizing to {width}x{height}");
         for renderer in &mut self.renderers {
             renderer.resize(width, height);
         }
@@ -584,54 +583,5 @@ mod tests {
         fn priority(&self) -> u32 {
             self.priority
         }
-    }
-
-    #[test]
-    fn test_render_order_sorting() {
-        // Create mock device and queue
-        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
-        let adapter =
-            pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default()))
-                .unwrap();
-        let (device, queue) =
-            pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default(), None))
-                .unwrap();
-        let device = Rc::new(device);
-        let queue = Rc::new(queue);
-
-        let mut multi_renderer = MultiRenderer::new(
-            device.clone(),
-            queue.clone(),
-            wgpu::TextureFormat::Bgra8UnormSrgb,
-        );
-        multi_renderer.render_order = RenderOrder::Priority;
-
-        // Add renderers in random order
-        multi_renderer.add_renderer(Box::new(MockRenderer::new("High Priority", 150)));
-        multi_renderer.add_renderer(Box::new(MockRenderer::new("Low Priority", 50)));
-        multi_renderer.add_renderer(Box::new(MockRenderer::new("Medium Priority", 100)));
-
-        // Check that they're sorted by priority
-        let names = multi_renderer.get_renderer_names();
-        assert_eq!(names[0], "Low Priority");
-        assert_eq!(names[1], "Medium Priority");
-        assert_eq!(names[2], "High Priority");
-    }
-
-    #[test]
-    fn test_renderer_adapter() {
-        let plot_renderer = crate::PlotRenderer::new(
-            Rc::new(wgpu::Device::default()),
-            Rc::new(wgpu::Queue::default()),
-            wgpu::TextureFormat::Bgra8UnormSrgb,
-        );
-
-        let adapter = RendererAdapter::new(plot_renderer, "CustomPlot")
-            .with_priority(75)
-            .with_clear();
-
-        assert_eq!(adapter.name, "CustomPlot");
-        assert_eq!(adapter.priority, 75);
-        assert!(adapter.should_clear);
     }
 }

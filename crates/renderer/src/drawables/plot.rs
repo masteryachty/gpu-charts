@@ -17,7 +17,7 @@ impl PlotRenderer {
     /// Set the data filter to restrict which data columns this renderer will display
     pub fn set_data_filter(&mut self, filter: Option<Vec<(String, String)>>) {
         self.data_filter = filter;
-        log::info!("PlotRenderer: Data filter set to {:?}", self.data_filter);
+        log::debug!("PlotRenderer: Data filter set to {:?}", self.data_filter);
     }
 
     pub fn render(
@@ -88,6 +88,7 @@ impl PlotRenderer {
                             render_pass.set_vertex_buffer(0, x_buffer.slice(..));
                             render_pass.set_vertex_buffer(1, y_buffer.slice(..));
                             let vertex_count = (x_buffer.size() / 4) as u32;
+
                             render_pass.draw(0..vertex_count, 0..1);
                         }
                     }
@@ -117,8 +118,8 @@ impl PlotRenderer {
             });
 
         let y_min_max = glm::vec2(
-            data_store.min_y.unwrap_or(0.0),
-            data_store.max_y.unwrap_or(1.0),
+            data_store.gpu_min_y.unwrap_or(0.0),
+            data_store.gpu_max_y.unwrap_or(1.0),
         );
         let y_min_max_bytes: &[u8] = unsafe { any_as_u8_slice(&y_min_max) };
         let y_buffer = self

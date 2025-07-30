@@ -197,8 +197,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         let uniforms = [
             data_store.start_x as f32,
             data_store.end_x as f32,
-            data_store.min_y.unwrap_or(0.0),
-            data_store.max_y.unwrap_or(300.0),
+            data_store.gpu_min_y.unwrap_or(0.0),
+            data_store.gpu_max_y.unwrap_or(300.0),
             0.02, // bar width in clip space
             -0.8, // base y position in clip space
         ];

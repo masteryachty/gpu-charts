@@ -168,7 +168,6 @@ impl From<serde_json::Error> for GpuChartsError {
     }
 }
 
-#[cfg(target_arch = "wasm32")]
 impl From<wasm_bindgen::JsValue> for GpuChartsError {
     fn from(err: wasm_bindgen::JsValue) -> Self {
         GpuChartsError::JsInterop {

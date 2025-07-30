@@ -166,7 +166,7 @@ await chart.init('canvas-id', 800, 600);
 // Update state
 const storeState = {
     currentSymbol: 'BTC-USD',
-    chartConfig: {
+    ChartStateConfig: {
         symbol: 'BTC-USD',
         timeframe: '1h',
         startTime: Date.now() - 86400000,
@@ -283,7 +283,7 @@ try {
 ### Enable Logging
 ```rust
 cfg_if::cfg_if! {
-    if #[cfg(target_arch = "wasm32")] {
+    if  {
         console_log::init_with_level(log::Level::Debug).expect("Couldn't initialize logger");
         std::panic::set_hook(Box::new(console_error_panic_hook::hook));
     }
@@ -313,7 +313,7 @@ console.log(wasmModule);
 mod tests {
     #[test]
     fn test_state_validation() {
-        let invalid_state = r#"{"chartConfig": {"startTime": 100, "endTime": 50}}"#;
+        let invalid_state = r#"{"ChartStateConfig": {"startTime": 100, "endTime": 50}}"#;
         let result = deserialize_and_validate_store_state(invalid_state);
         assert!(result.is_err());
     }

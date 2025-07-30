@@ -193,16 +193,12 @@ impl ComputedLineRenderer {
             match calculator.calculate(bid, ask, element_count, encoder) {
                 Ok(result) => {
                     log::info!(
-                        "📊 [ComputedLineRenderer] Computed mid price for {} elements",
-                        element_count
+                        "📊 [ComputedLineRenderer] Computed mid price for {element_count} elements"
                     );
                     Some(result)
                 }
                 Err(e) => {
-                    log::error!(
-                        "❌ [ComputedLineRenderer] Failed to compute mid price: {}",
-                        e
-                    );
+                    log::error!("❌ [ComputedLineRenderer] Failed to compute mid price: {e}");
                     None
                 }
             }
@@ -263,8 +259,8 @@ impl crate::MultiRenderable for ComputedLineRenderer {
         });
 
         let y_range = glm::vec2(
-            data_store.min_y.unwrap_or(0.0),
-            data_store.max_y.unwrap_or(100.0),
+            data_store.gpu_min_y.unwrap_or(0.0),
+            data_store.gpu_max_y.unwrap_or(100.0),
         );
         let y_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Y Range Buffer"),

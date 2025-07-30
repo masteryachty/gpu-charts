@@ -38,17 +38,17 @@ impl ComputeEngine {
     /// Run all necessary compute passes before rendering
     /// This should be called BEFORE min/max calculation
     pub fn run_compute_passes(&mut self, encoder: &mut CommandEncoder, data_store: &mut DataStore) {
-        log::info!("[ComputeEngine] Starting compute passes...");
+        log::debug!("[ComputeEngine] Starting compute passes...");
 
         // Get all metrics that need computation
         let metrics_to_compute = data_store.get_metrics_needing_computation();
 
         if metrics_to_compute.is_empty() {
-            log::info!("[ComputeEngine] No metrics need computation");
+            log::debug!("[ComputeEngine] No metrics need computation");
             return;
         }
 
-        log::info!(
+        log::debug!(
             "[ComputeEngine] Found {} metrics needing computation",
             metrics_to_compute.len()
         );
@@ -61,7 +61,7 @@ impl ComputeEngine {
             self.compute_metric(encoder, data_store, &metric_ref);
         }
 
-        log::info!("[ComputeEngine] Compute passes complete");
+        log::debug!("[ComputeEngine] Compute passes complete");
     }
 
     /// Sort metrics by their dependencies to ensure correct computation order
@@ -155,13 +155,13 @@ impl ComputeEngine {
                     )
                 }
                 None => {
-                    log::error!("[ComputeEngine] Metric not found: {:?}", metric_ref);
+                    log::error!("[ComputeEngine] Metric not found: {metric_ref:?}");
                     return;
                 }
             }
         };
 
-        log::info!("[ComputeEngine] Computing metric: {}", name);
+        log::debug!("[ComputeEngine] Computing metric: {name}");
 
         // Perform computation based on type
         match compute_type {
@@ -169,10 +169,7 @@ impl ComputeEngine {
                 if name == "mid_price" && dependencies.len() == 2 {
                     self.compute_mid_price(encoder, data_store, metric_ref, &dependencies);
                 } else {
-                    log::warn!(
-                        "[ComputeEngine] Average computation for {} not implemented",
-                        name
-                    );
+                    log::warn!("[ComputeEngine] Average computation for {name} not implemented");
                 }
             }
             ComputeType::Sum => {
@@ -182,29 +179,18 @@ impl ComputeEngine {
                 log::warn!("[ComputeEngine] Difference computation not yet implemented");
             }
             ComputeType::MovingAverage { period } => {
-                log::warn!(
-                    "[ComputeEngine] Moving average (period: {}) not yet implemented",
-                    period
-                );
+                log::warn!("[ComputeEngine] Moving average (period: {period}) not yet implemented");
             }
             ComputeType::RSI { period } => {
-                log::warn!(
-                    "[ComputeEngine] RSI (period: {}) not yet implemented",
-                    period
-                );
+                log::warn!("[ComputeEngine] RSI (period: {period}) not yet implemented");
             }
             ComputeType::BollingerBands { period, std_dev } => {
                 log::warn!(
-                    "[ComputeEngine] Bollinger bands (period: {}, std: {}) not yet implemented",
-                    period,
-                    std_dev
+                    "[ComputeEngine] Bollinger bands (period: {period}, std: {std_dev}) not yet implemented"
                 );
             }
             ComputeType::Custom { shader_name } => {
-                log::warn!(
-                    "[ComputeEngine] Custom shader '{}' not yet implemented",
-                    shader_name
-                );
+                log::warn!("[ComputeEngine] Custom shader '{shader_name}' not yet implemented");
             }
         }
     }
@@ -248,10 +234,7 @@ impl ComputeEngine {
             return;
         }
 
-        log::info!(
-            "[ComputeEngine] Computing mid price for {} elements",
-            element_count
-        );
+        log::debug!("[ComputeEngine] Computing mid price for {element_count} elements");
 
         // Compute mid price
         match calculator.calculate(dep_buffers[0], dep_buffers[1], element_count, encoder) {
@@ -268,11 +251,11 @@ impl ComputeEngine {
                     self.computed_metrics
                         .insert(*metric_ref, metric.compute_version);
 
-                    log::info!("[ComputeEngine] Successfully computed mid price");
+                    log::debug!("[ComputeEngine] Successfully computed mid price");
                 }
             }
             Err(e) => {
-                log::error!("[ComputeEngine] Failed to compute mid price: {}", e);
+                log::error!("[ComputeEngine] Failed to compute mid price: {e}");
             }
         }
     }

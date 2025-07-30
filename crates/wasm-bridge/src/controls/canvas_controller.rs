@@ -1,4 +1,4 @@
-use crate::line_graph::unix_timestamp_to_string;
+use crate::chart_engine::unix_timestamp_to_string;
 use renderer::Renderer;
 use shared_types::events::{ElementState, MouseScrollDelta, WindowEvent};
 
@@ -28,10 +28,10 @@ impl CanvasController {
     }
 
     pub fn handle_cursor_event(&mut self, event: WindowEvent, renderer: &mut Renderer) {
-        log::info!(
-            "[CanvasController] handle_cursor_event called with event: {:?}",
-            event
-        );
+        // log::info!(
+        //     "[CanvasController] handle_cursor_event called with event: {:?}",
+        //     event
+        // );
 
         match event {
             WindowEvent::MouseWheel { delta, phase, .. } => {
@@ -140,21 +140,14 @@ impl CanvasController {
         let range = end_x - start_x;
 
         log::info!(
-            "[handle_cursor_wheel] Current range: start_x={}, end_x={}, range={}",
-            start_x,
-            end_x,
-            range
+            "[handle_cursor_wheel] Current range: start_x={start_x}, end_x={end_x}, range={range}"
         );
 
         // Zoom factor based on scroll amount
         let zoom_factor = 0.1; // 10% zoom per scroll
         let zoom_amount = (range as f32 * zoom_factor) as u32;
 
-        log::info!(
-            "[handle_cursor_wheel] Zoom factor={}, zoom_amount={}",
-            zoom_factor,
-            zoom_amount
-        );
+        log::info!("[handle_cursor_wheel] Zoom factor={zoom_factor}, zoom_amount={zoom_amount}");
 
         let (new_start, new_end) = if position.y < 0. {
             // Scrolling up = zoom in (shrink range)
@@ -164,9 +157,7 @@ impl CanvasController {
             // Ensure we don't zoom in too much (minimum range of 10 units)
             if new_end > new_start + 10 {
                 log::info!(
-                    "[handle_cursor_wheel] Zoom IN accepted: new_start={}, new_end={}",
-                    new_start,
-                    new_end
+                    "[handle_cursor_wheel] Zoom IN accepted: new_start={new_start}, new_end={new_end}"
                 );
                 (new_start, new_end)
             } else {
@@ -178,11 +169,7 @@ impl CanvasController {
             log::info!("[handle_cursor_wheel] Scrolling DOWN detected (zoom OUT)");
             let new_start = start_x.saturating_sub(zoom_amount);
             let new_end = end_x + zoom_amount;
-            log::info!(
-                "[handle_cursor_wheel] Zoom OUT: new_start={}, new_end={}",
-                new_start,
-                new_end
-            );
+            log::info!("[handle_cursor_wheel] Zoom OUT: new_start={new_start}, new_end={new_end}");
             (new_start, new_end)
         } else {
             log::info!("[handle_cursor_wheel] No Y delta - no zoom");
@@ -202,11 +189,7 @@ impl CanvasController {
             renderer.data_store_mut().mark_dirty();
 
             log::info!(
-                "[handle_cursor_wheel] COMPLETED - Zoom applied: {} to {} (was {} to {})",
-                new_start,
-                new_end,
-                start_x,
-                end_x
+                "[handle_cursor_wheel] COMPLETED - Zoom applied: {new_start} to {new_end} (was {start_x} to {end_x})"
             );
         } else {
             log::info!("[handle_cursor_wheel] No range change - skipping update");

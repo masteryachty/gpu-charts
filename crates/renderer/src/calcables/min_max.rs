@@ -48,7 +48,7 @@ pub fn calculate_min_max_y(
     let x_data = Float32Array::new(x_series);
     let max_index = x_data.length();
     let end_index = end_index.clamp(0, max_index);
-    log::info!("1.5 {start_index:?} {end_index:?}");
+    log::debug!("1.5 {start_index:?} {end_index:?}");
 
     let thread_mult = 32u32;
     let workgroup_size: u64 = 256;
@@ -57,9 +57,55 @@ pub fn calculate_min_max_y(
     let num_groups = sub_range_count.div_ceil(chunk_size);
 
     // Get y_buffers from all visible metrics in the active group
+    // Filter out metrics that are marked as additional_data_columns in the preset
     let mut all_y_buffers = Vec::new();
+
+    // Get the list of metrics that should be excluded from Y bounds calculation
+    // A metric should only be excluded if it ONLY appears in additional_data_columns
+    // and NOT in the main data_columns
+    let (_primary_metrics, additional_only_metrics) = if let Some(preset) = &data_store.preset {
+        let mut primary = std::collections::HashSet::new();
+        let mut additional_only = std::collections::HashSet::new();
+
+        // First, collect all primary data columns
+        for chart_type in &preset.chart_types {
+            for (_, column_name) in &chart_type.data_columns {
+                primary.insert(column_name.clone());
+            }
+        }
+
+        // Then, collect metrics that are ONLY in additional_data_columns
+        for chart_type in &preset.chart_types {
+            if let Some(additional_cols) = &chart_type.additional_data_columns {
+                for (_, column_name) in additional_cols {
+                    // Only exclude if it's NOT also a primary metric
+                    if !primary.contains(column_name) {
+                        additional_only.insert(column_name.clone());
+                    }
+                }
+            }
+        }
+
+        (primary, additional_only)
+    } else {
+        (
+            std::collections::HashSet::new(),
+            std::collections::HashSet::new(),
+        )
+    };
+
     for metric in &active_group.metrics {
         if metric.visible {
+            // Check if this metric should be excluded from bounds calculation
+            // Only exclude if it's ONLY an additional column and not a primary metric
+            if additional_only_metrics.contains(&metric.name) {
+                log::debug!(
+                    "[calculate_min_max_y] Metric '{}' is only in additional_data_columns (not a primary metric), excluding from Y bounds",
+                    metric.name
+                );
+                continue;
+            }
+
             log::debug!(
                 "[calculate_min_max_y] Metric '{}' is visible, has {} y_buffers",
                 metric.name,
@@ -113,10 +159,7 @@ pub fn calculate_min_max_y(
     );
 
     for (buffer_index, y_buffer) in y_buffers.iter().enumerate() {
-        log::debug!(
-            "[calculate_min_max_y] Processing y_buffer[{}]",
-            buffer_index
-        );
+        log::debug!("[calculate_min_max_y] Processing y_buffer[{buffer_index}]");
 
         // Create buffers for this y_buffer's first pass
         let partial_first_size = num_groups * 2;
@@ -244,8 +287,7 @@ pub fn calculate_min_max_y(
 
     // Add a final compute pass to find overall min/max across all metrics
     log::debug!(
-        "[calculate_min_max_y] Creating overall min/max compute pass for {} metrics",
-        num_buffers
+        "[calculate_min_max_y] Creating overall min/max compute pass for {num_buffers} metrics"
     );
 
     let overall_shader = include_str!("overall_min_max.wgsl");
