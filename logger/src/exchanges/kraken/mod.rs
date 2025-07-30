@@ -20,20 +20,6 @@ use tokio::sync::mpsc;
 use tokio::time::interval;
 use tracing::{error, info};
 
-// Kraken uses prefixes: X for crypto, Z for fiat
-fn normalize_kraken_asset(asset: &str) -> String {
-    match asset {
-        // Special cases
-        "XBT" | "XXBT" => "BTC".to_string(),
-        // Remove X prefix for crypto
-        s if s.starts_with("X") && s.len() > 1 => s[1..].to_string(),
-        // Remove Z prefix for fiat
-        s if s.starts_with("Z") && s.len() > 1 => s[1..].to_string(),
-        // Default
-        s => s.to_string(),
-    }
-}
-
 pub struct KrakenExchange {
     config: Arc<Config>,
     symbol_mapper: Arc<crate::common::SymbolMapper>,
@@ -109,9 +95,9 @@ impl Exchange for KrakenExchange {
                     continue;
                 }
 
-                // Normalize Kraken asset codes
-                let normalized_base = normalize_kraken_asset(&base);
-                let normalized_quote = normalize_kraken_asset(&quote);
+                // Normalize Kraken asset codes using the utils function
+                let normalized_base = crate::common::utils::normalize_kraken_asset_code(&base);
+                let normalized_quote = crate::common::utils::normalize_kraken_asset_code(&quote);
 
                 let symbol = Symbol {
                     exchange: ExchangeId::Kraken,

@@ -114,7 +114,7 @@ pub fn normalize_symbol_kraken(symbol: &str) -> String {
     }
 }
 
-fn normalize_kraken_asset_code(asset: &str) -> &str {
+pub fn normalize_kraken_asset_code(asset: &str) -> &str {
     match asset {
         // Special cases
         "XBT" | "XXBT" => "BTC",

@@ -5,6 +5,7 @@ use crate::common::{
 };
 use anyhow::Result;
 use serde_json::Value;
+use tracing::warn;
 
 pub fn parse_okx_ticker(value: &Value, mapper: &SymbolMapper) -> Result<Option<UnifiedMarketData>> {
     // OKX ticker format:
@@ -46,20 +47,32 @@ pub fn parse_okx_ticker(value: &Value, mapper: &SymbolMapper) -> Result<Option<U
 
     // Parse last trade price and size
     if let Some(last_str) = value["last"].as_str() {
-        data.price = last_str.parse().unwrap_or(0.0);
+        data.price = last_str.parse().unwrap_or_else(|e| {
+            warn!("Failed to parse OKX price '{}': {}", last_str, e);
+            0.0
+        });
     }
 
     if let Some(last_sz_str) = value["lastSz"].as_str() {
-        data.volume = last_sz_str.parse().unwrap_or(0.0);
+        data.volume = last_sz_str.parse().unwrap_or_else(|e| {
+            warn!("Failed to parse OKX volume '{}': {}", last_sz_str, e);
+            0.0
+        });
     }
 
     // Parse best bid/ask
     if let Some(bid_str) = value["bidPx"].as_str() {
-        data.best_bid = bid_str.parse().unwrap_or(0.0);
+        data.best_bid = bid_str.parse().unwrap_or_else(|e| {
+            warn!("Failed to parse OKX bid price '{}': {}", bid_str, e);
+            0.0
+        });
     }
 
     if let Some(ask_str) = value["askPx"].as_str() {
-        data.best_ask = ask_str.parse().unwrap_or(0.0);
+        data.best_ask = ask_str.parse().unwrap_or_else(|e| {
+            warn!("Failed to parse OKX ask price '{}': {}", ask_str, e);
+            0.0
+        });
     }
 
     // Determine side based on price movement
@@ -137,11 +150,17 @@ pub fn parse_okx_trade(value: &Value, mapper: &SymbolMapper) -> Result<Option<Un
 
     // Parse price and size
     if let Some(px_str) = value["px"].as_str() {
-        data.price = px_str.parse().unwrap_or(0.0);
+        data.price = px_str.parse().unwrap_or_else(|e| {
+            warn!("Failed to parse OKX trade price '{}': {}", px_str, e);
+            0.0
+        });
     }
 
     if let Some(sz_str) = value["sz"].as_str() {
-        data.size = sz_str.parse().unwrap_or(0.0);
+        data.size = sz_str.parse().unwrap_or_else(|e| {
+            warn!("Failed to parse OKX trade size '{}': {}", sz_str, e);
+            0.0
+        });
     }
 
     // Parse side

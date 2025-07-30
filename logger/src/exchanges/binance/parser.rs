@@ -5,6 +5,7 @@ use crate::common::{
 };
 use anyhow::Result;
 use serde_json::Value;
+use tracing::warn;
 
 pub fn parse_binance_ticker(
     value: &Value,
@@ -34,21 +35,33 @@ pub fn parse_binance_ticker(
 
     // Parse last price
     if let Some(price_str) = value["c"].as_str() {
-        data.price = price_str.parse().unwrap_or(0.0);
+        data.price = price_str.parse().unwrap_or_else(|e| {
+            warn!("Failed to parse Binance price '{}': {}", price_str, e);
+            0.0
+        });
     }
 
     // Parse volume (24hr volume in quote asset)
     if let Some(volume_str) = value["v"].as_str() {
-        data.volume = volume_str.parse().unwrap_or(0.0);
+        data.volume = volume_str.parse().unwrap_or_else(|e| {
+            warn!("Failed to parse Binance volume '{}': {}", volume_str, e);
+            0.0
+        });
     }
 
     // Parse best bid/ask
     if let Some(bid_str) = value["b"].as_str() {
-        data.best_bid = bid_str.parse().unwrap_or(0.0);
+        data.best_bid = bid_str.parse().unwrap_or_else(|e| {
+            warn!("Failed to parse Binance bid price '{}': {}", bid_str, e);
+            0.0
+        });
     }
 
     if let Some(ask_str) = value["a"].as_str() {
-        data.best_ask = ask_str.parse().unwrap_or(0.0);
+        data.best_ask = ask_str.parse().unwrap_or_else(|e| {
+            warn!("Failed to parse Binance ask price '{}': {}", ask_str, e);
+            0.0
+        });
     }
 
     // Determine side based on price change
@@ -102,12 +115,21 @@ pub fn parse_binance_trade(
 
     // Parse price
     if let Some(price_str) = value["p"].as_str() {
-        data.price = price_str.parse().unwrap_or(0.0);
+        data.price = price_str.parse().unwrap_or_else(|e| {
+            warn!("Failed to parse Binance trade price '{}': {}", price_str, e);
+            0.0
+        });
     }
 
     // Parse quantity
     if let Some(quantity_str) = value["q"].as_str() {
-        data.size = quantity_str.parse().unwrap_or(0.0);
+        data.size = quantity_str.parse().unwrap_or_else(|e| {
+            warn!(
+                "Failed to parse Binance trade quantity '{}': {}",
+                quantity_str, e
+            );
+            0.0
+        });
     }
 
     // Parse side (m = true means buyer is maker, so trade is a sell)

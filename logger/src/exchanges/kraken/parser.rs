@@ -5,6 +5,7 @@ use crate::common::{
 };
 use anyhow::Result;
 use serde_json::Value;
+use tracing::warn;
 
 /// Parse Kraken ticker data from array format
 /// Format: [channelID, data, "ticker", pair]
@@ -32,24 +33,36 @@ pub fn parse_kraken_ticker_array(
     // Parse last trade price and volume
     if let Some(c_arr) = obj.get("c").and_then(|v| v.as_array()) {
         if let Some(price_str) = c_arr.get(0).and_then(|v| v.as_str()) {
-            market_data.price = price_str.parse().unwrap_or(0.0);
+            market_data.price = price_str.parse().unwrap_or_else(|e| {
+                warn!("Failed to parse Kraken price '{}': {}", price_str, e);
+                0.0
+            });
         }
         if let Some(volume_str) = c_arr.get(1).and_then(|v| v.as_str()) {
-            market_data.volume = volume_str.parse().unwrap_or(0.0);
+            market_data.volume = volume_str.parse().unwrap_or_else(|e| {
+                warn!("Failed to parse Kraken volume '{}': {}", volume_str, e);
+                0.0
+            });
         }
     }
 
     // Parse best ask
     if let Some(a_arr) = obj.get("a").and_then(|v| v.as_array()) {
         if let Some(ask_str) = a_arr.get(0).and_then(|v| v.as_str()) {
-            market_data.best_ask = ask_str.parse().unwrap_or(0.0);
+            market_data.best_ask = ask_str.parse().unwrap_or_else(|e| {
+                warn!("Failed to parse Kraken ask price '{}': {}", ask_str, e);
+                0.0
+            });
         }
     }
 
     // Parse best bid
     if let Some(b_arr) = obj.get("b").and_then(|v| v.as_array()) {
         if let Some(bid_str) = b_arr.get(0).and_then(|v| v.as_str()) {
-            market_data.best_bid = bid_str.parse().unwrap_or(0.0);
+            market_data.best_bid = bid_str.parse().unwrap_or_else(|e| {
+                warn!("Failed to parse Kraken bid price '{}': {}", bid_str, e);
+                0.0
+            });
         }
     }
 
@@ -116,12 +129,21 @@ pub fn parse_kraken_trade_array(
 
     // Parse price
     if let Some(price_str) = arr[0].as_str() {
-        trade_data.price = price_str.parse().unwrap_or(0.0);
+        trade_data.price = price_str.parse().unwrap_or_else(|e| {
+            warn!("Failed to parse Kraken trade price '{}': {}", price_str, e);
+            0.0
+        });
     }
 
     // Parse volume
     if let Some(volume_str) = arr[1].as_str() {
-        trade_data.size = volume_str.parse().unwrap_or(0.0);
+        trade_data.size = volume_str.parse().unwrap_or_else(|e| {
+            warn!(
+                "Failed to parse Kraken trade volume '{}': {}",
+                volume_str, e
+            );
+            0.0
+        });
     }
 
     // Parse side (b = buy, s = sell)

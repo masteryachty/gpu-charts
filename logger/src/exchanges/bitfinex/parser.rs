@@ -5,6 +5,7 @@ use crate::common::{
 };
 use anyhow::Result;
 use serde_json::Value;
+use tracing::warn;
 
 pub fn parse_bitfinex_ticker(
     _value: &Value,
@@ -59,13 +60,28 @@ pub fn parse_bitfinex_ticker_update(
         data = data.with_timestamp_parts(timestamp, nanos);
 
         // Parse ticker data
-        data.best_bid = ticker_data[0].as_f64().unwrap_or(0.0) as f32;
-        data.best_ask = ticker_data[2].as_f64().unwrap_or(0.0) as f32;
-        data.price = ticker_data[6].as_f64().unwrap_or(0.0) as f32;
-        data.volume = ticker_data[7].as_f64().unwrap_or(0.0) as f32;
+        data.best_bid = ticker_data[0].as_f64().unwrap_or_else(|| {
+            warn!("Failed to parse Bitfinex bid price from ticker");
+            0.0
+        }) as f32;
+        data.best_ask = ticker_data[2].as_f64().unwrap_or_else(|| {
+            warn!("Failed to parse Bitfinex ask price from ticker");
+            0.0
+        }) as f32;
+        data.price = ticker_data[6].as_f64().unwrap_or_else(|| {
+            warn!("Failed to parse Bitfinex last price from ticker");
+            0.0
+        }) as f32;
+        data.volume = ticker_data[7].as_f64().unwrap_or_else(|| {
+            warn!("Failed to parse Bitfinex volume from ticker");
+            0.0
+        }) as f32;
 
         // Determine side based on daily change
-        let daily_change = ticker_data[4].as_f64().unwrap_or(0.0);
+        let daily_change = ticker_data[4].as_f64().unwrap_or_else(|| {
+            warn!("Failed to parse Bitfinex daily change from ticker");
+            0.0
+        });
         data.side = if daily_change >= 0.0 {
             TradeSide::Buy
         } else {
@@ -141,10 +157,22 @@ fn parse_single_trade(
         return Ok(None);
     }
 
-    let trade_id = trade_data[0].as_i64().unwrap_or(0) as u64;
-    let timestamp_ms = trade_data[1].as_i64().unwrap_or(0) as u64;
-    let amount = trade_data[2].as_f64().unwrap_or(0.0);
-    let price = trade_data[3].as_f64().unwrap_or(0.0);
+    let trade_id = trade_data[0].as_i64().unwrap_or_else(|| {
+        warn!("Failed to parse Bitfinex trade ID");
+        0
+    }) as u64;
+    let timestamp_ms = trade_data[1].as_i64().unwrap_or_else(|| {
+        warn!("Failed to parse Bitfinex trade timestamp");
+        0
+    }) as u64;
+    let amount = trade_data[2].as_f64().unwrap_or_else(|| {
+        warn!("Failed to parse Bitfinex trade amount");
+        0.0
+    });
+    let price = trade_data[3].as_f64().unwrap_or_else(|| {
+        warn!("Failed to parse Bitfinex trade price");
+        0.0
+    });
 
     let mut data = UnifiedTradeData::new(
         ExchangeId::Bitfinex,
