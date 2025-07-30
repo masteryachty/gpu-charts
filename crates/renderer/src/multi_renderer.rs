@@ -75,7 +75,6 @@ pub trait MultiRenderable: Send + Sync {
 }
 
 /// Trait for renderers that can be added to a MultiRenderer (WASM version without Send+Sync)
-
 pub trait MultiRenderable {
     /// Render the component
     fn render(
@@ -323,7 +322,7 @@ impl MultiRenderer {
 
     /// Handle resize for all renderers
     pub fn resize(&mut self, width: u32, height: u32) {
-        log::debug!("MultiRenderer: Resizing to {}x{}", width, height);
+        log::debug!("MultiRenderer: Resizing to {width}x{height}");
         for renderer in &mut self.renderers {
             renderer.resize(width, height);
         }

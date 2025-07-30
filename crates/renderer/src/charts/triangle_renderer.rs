@@ -194,15 +194,12 @@ impl TriangleRenderer {
                 let is_trades_group = has_price && has_side;
 
                 if is_trades_group {
-                    log::debug!("🔺 [TriangleRenderer] Found trades group at index {} (has price and side metrics)", idx);
+                    log::debug!("🔺 [TriangleRenderer] Found trades group at index {idx} (has price and side metrics)");
                 }
                 is_trades_group
             })?;
 
-        log::debug!(
-            "🔺 [TriangleRenderer] Found data group at index {}",
-            group_index
-        );
+        log::debug!("🔺 [TriangleRenderer] Found data group at index {group_index}");
 
         // Find the specific metrics we need
         let time_metric = data_store.data_groups.get(group_index)?;

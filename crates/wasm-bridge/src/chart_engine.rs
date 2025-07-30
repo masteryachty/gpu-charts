@@ -25,8 +25,8 @@ pub struct ChartEngine {
 }
 
 impl ChartEngine {
-    /// Get list of column names that should be excluded from Y bounds calculation
-    /// based on the active preset's additional_data_columns
+    // Get list of column names that should be excluded from Y bounds calculation
+    // based on the active preset's additional_data_columns
     // pub fn get_excluded_columns_from_preset(&self, preset_name: &str) -> Vec<String> {
     //     let mut excluded_columns = Vec::new();
 
@@ -96,15 +96,13 @@ impl ChartEngine {
         end_x: u32,
     ) -> Result<ChartEngine, Error> {
         log::info!("Initializing chart with canvas: {canvas_id}, size: {width}x{height}");
-        let window = web_sys::window().ok_or_else(|| Error::new(&format!("No Window")))?;
-        let document = window
-            .document()
-            .ok_or_else(|| Error::new(&format!("No document")))?;
+        let window = web_sys::window().ok_or_else(|| Error::new("No Window"))?;
+        let document = window.document().ok_or_else(|| Error::new("No document"))?;
         let canvas = document
             .get_element_by_id(canvas_id)
-            .ok_or_else(|| Error::new(&format!("Canvas not found")))?
+            .ok_or_else(|| Error::new("Canvas not found"))?
             .dyn_into::<HtmlCanvasElement>()
-            .map_err(|_| Error::new(&format!("Element is not a canvas")))?;
+            .map_err(|_| Error::new("Element is not a canvas"))?;
 
         // Set canvas size
         canvas.set_width(width);
@@ -229,7 +227,7 @@ impl ChartEngine {
 
         // Add state change listener for debugging
         render_loop.add_state_listener(Rc::new(|old, new| {
-            log::info!("ChartEngine state changed: {:?} -> {:?}", old, new);
+            log::info!("ChartEngine state changed: {old:?} -> {new:?}");
         }));
 
         // Create the ChartEngine instance
@@ -285,10 +283,10 @@ impl ChartEngine {
         symbol_name: Option<String>,
     ) {
         if let Some(name) = preset_name {
-            log::info!("[ChartEngine] Looking for preset: {}", name);
+            log::info!("[ChartEngine] Looking for preset: {name}");
             let preset = self.preset_manager.find_preset(&name).cloned();
             if let Some(preset) = preset {
-                log::info!("[ChartEngine] Found preset: {}", name);
+                log::info!("[ChartEngine] Found preset: {name}");
 
                 // Update renderer with preset
                 self.renderer
@@ -300,7 +298,7 @@ impl ChartEngine {
                 // Trigger data config changed when preset is set
                 self.on_data_config_changed();
             } else {
-                log::warn!("[ChartEngine] Preset not found: {}", name);
+                log::warn!("[ChartEngine] Preset not found: {name}");
                 self.renderer.set_preset_and_symbol(None, symbol_name);
             }
         } else {

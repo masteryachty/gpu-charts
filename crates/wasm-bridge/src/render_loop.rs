@@ -11,6 +11,10 @@ use wasm_bindgen::JsCast;
 
 use crate::instance_manager::InstanceManager;
 
+// Type aliases to simplify complex types
+type AnimationClosure = Rc<RefCell<Option<Closure<dyn FnMut(f64)>>>>;
+type StateChangeListeners = Rc<RefCell<Vec<Rc<dyn Fn(RenderLoopState, RenderLoopState)>>>>;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum RenderLoopState {
     /// Initial state - render loop is not running
@@ -99,7 +103,7 @@ pub struct RenderLoopController {
 
     // Animation frame handling
     animation_frame_id: Rc<RefCell<Option<i32>>>,
-    animation_closure: Rc<RefCell<Option<Closure<dyn FnMut(f64)>>>>,
+    animation_closure: AnimationClosure,
 
     // Async coordination
     processing_in_progress: Rc<Cell<bool>>,
@@ -109,7 +113,13 @@ pub struct RenderLoopController {
     preprocessing_tasks: Rc<RefCell<Vec<PreprocessingTask>>>,
 
     // State change callbacks
-    state_change_listeners: Rc<RefCell<Vec<Rc<dyn Fn(RenderLoopState, RenderLoopState)>>>>,
+    state_change_listeners: StateChangeListeners,
+}
+
+impl Default for RenderLoopController {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl RenderLoopController {
@@ -143,18 +153,10 @@ impl RenderLoopController {
     pub fn trigger_transition(&self, trigger: StateTransitionTrigger, instance_id: Uuid) {
         let current_state = self.state.get();
         let new_state = self.calculate_next_state(current_state, &trigger);
-        log::info!(
-            "99999, current_state: {:?}, {:?}, {:?}",
-            current_state,
-            new_state,
-            trigger
-        );
+        log::info!("99999, current_state: {current_state:?}, {new_state:?}, {trigger:?}");
         if new_state != current_state {
             log::info!(
-                "State transition: {:?} -> {:?} (trigger: {:?})",
-                current_state,
-                new_state,
-                trigger
+                "State transition: {current_state:?} -> {new_state:?} (trigger: {trigger:?})"
             );
 
             // Update state
@@ -365,7 +367,7 @@ impl RenderLoopController {
                 }
                 Err(e) => {
                     controller.trigger_transition(
-                        StateTransitionTrigger::ErrorOccurred(format!("{:?}", e)),
+                        StateTransitionTrigger::ErrorOccurred(format!("{e:?}")),
                         instance_id,
                     );
                 }
@@ -392,7 +394,7 @@ impl RenderLoopController {
                 }
                 Err(e) => {
                     controller.trigger_transition(
-                        StateTransitionTrigger::ErrorOccurred(format!("{:?}", e)),
+                        StateTransitionTrigger::ErrorOccurred(format!("{e:?}")),
                         instance_id,
                     );
                 }
@@ -418,7 +420,7 @@ impl RenderLoopController {
                     self.prepare_pipelines(instance_id).await?;
                 }
                 PreprocessingTask::Custom(name) => {
-                    log::info!("Executing custom preprocessing task: {}", name);
+                    log::info!("Executing custom preprocessing task: {name}");
                     // Custom task implementation would go here
                 }
             }
@@ -465,7 +467,7 @@ impl RenderLoopController {
                 // Put the instance back
                 InstanceManager::put_instance(instance_id, instance);
 
-                result.map_err(|e| JsValue::from_str(&format!("Bounds calculation error: {:?}", e)))
+                result.map_err(|e| JsValue::from_str(&format!("Bounds calculation error: {e:?}")))
             }
             None => Err(JsValue::from_str(
                 "Failed to take instance for bounds calculation",
@@ -518,7 +520,7 @@ impl RenderLoopController {
                 // Put the instance back
                 InstanceManager::put_instance(instance_id, instance);
 
-                result.map_err(|e| JsValue::from_str(&format!("Render error: {:?}", e)))
+                result.map_err(|e| JsValue::from_str(&format!("Render error: {e:?}")))
             }
             None => Err(JsValue::from_str("Failed to take instance for rendering")),
         }

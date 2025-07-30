@@ -193,16 +193,12 @@ impl ComputedLineRenderer {
             match calculator.calculate(bid, ask, element_count, encoder) {
                 Ok(result) => {
                     log::info!(
-                        "📊 [ComputedLineRenderer] Computed mid price for {} elements",
-                        element_count
+                        "📊 [ComputedLineRenderer] Computed mid price for {element_count} elements"
                     );
                     Some(result)
                 }
                 Err(e) => {
-                    log::error!(
-                        "❌ [ComputedLineRenderer] Failed to compute mid price: {}",
-                        e
-                    );
+                    log::error!("❌ [ComputedLineRenderer] Failed to compute mid price: {e}");
                     None
                 }
             }

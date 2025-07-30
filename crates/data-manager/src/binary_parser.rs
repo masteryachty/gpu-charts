@@ -74,7 +74,6 @@ pub fn parse_binary_data(
 }
 
 /// SIMD-optimized binary search for sorted timestamp arrays
-
 pub fn binary_search_timestamp(data: &[u8], target: u32) -> Option<usize> {
     if data.len() < 4 {
         return None;

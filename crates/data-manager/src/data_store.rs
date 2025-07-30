@@ -89,8 +89,8 @@ impl DataStore {
         DataStore {
             preset: None,
             symbol: None,
-            start_x: start_x,
-            end_x: end_x,
+            start_x,
+            end_x,
             data_groups: Vec::new(),
             active_data_group_indices: Vec::new(),
             range_bind_group: None,
@@ -557,7 +557,7 @@ impl DataStore {
             log::warn!("[DataStore] Preset set to None");
         }
         self.symbol = symbol_name.clone();
-        log::info!("[DataStore] Symbol set to: {:?}", symbol_name);
+        log::info!("[DataStore] Symbol set to: {symbol_name:?}");
     }
 }
 

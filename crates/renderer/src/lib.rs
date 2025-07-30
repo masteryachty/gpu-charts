@@ -42,7 +42,6 @@ pub struct Renderer {
 
 impl Renderer {
     /// Create a new renderer
-
     pub async fn new(
         canvas: web_sys::HtmlCanvasElement,
         device: Rc<wgpu::Device>,
@@ -166,7 +165,7 @@ impl Renderer {
 
                     // Update the data store with the GPU-calculated bounds
                     self.data_store.set_gpu_y_bounds(min, max);
-                    log::debug!("[Renderer] GPU bounds read back: min={}, max={}", min, max);
+                    log::debug!("[Renderer] GPU bounds read back: min={min}, max={max}");
                 } else {
                     log::warn!("[Renderer] Staging buffer had insufficient data");
                 }

@@ -165,7 +165,7 @@ impl XAxisRenderer {
                 queue,
             );
             if let Err(e) = self.brush.queue(device, queue, labels) {
-                log::error!("X-axis: Failed to queue text labels: {:?}", e);
+                log::error!("X-axis: Failed to queue text labels: {e:?}");
             }
         } else {
             // If only the window size changed, update the text brush size
@@ -251,7 +251,7 @@ impl XAxisRenderer {
         {
             Ok(brush) => brush,
             Err(e) => {
-                log::error!("Failed to create text brush: {:?}", e);
+                log::error!("Failed to create text brush: {e:?}");
                 panic!("Cannot create X-axis renderer without text rendering capability");
             }
         };

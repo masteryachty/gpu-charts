@@ -25,6 +25,12 @@ pub struct Chart {
     instance_id: Uuid,
 }
 
+impl Default for Chart {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[wasm_bindgen]
 impl Chart {
     #[wasm_bindgen(constructor)]
@@ -150,7 +156,7 @@ impl Chart {
                     });
                 }
                 Err(e) => {
-                    log::error!("Failed to fetch data for preset: {:?}", e);
+                    log::error!("Failed to fetch data for preset: {e:?}");
                 }
             }
         });
@@ -278,11 +284,7 @@ impl Chart {
 
     #[wasm_bindgen]
     pub fn handle_mouse_wheel(&self, delta_y: f64, x: f64, _y: f64) -> Result<(), JsValue> {
-        log::info!(
-            "[WASM] handle_mouse_wheel called with delta_y={}, x={}",
-            delta_y,
-            x
-        );
+        log::info!("[WASM] handle_mouse_wheel called with delta_y={delta_y}, x={x}");
 
         InstanceManager::with_instance_mut(&self.instance_id, |instance| {
             let window_event = WindowEvent::MouseWheel {
@@ -301,8 +303,10 @@ impl Chart {
             let renderer = &mut instance.chart_engine.renderer;
             let data_store = renderer.data_store_mut();
 
-            log::info!("[WASM] After handle_cursor_event - data_store is_dirty: {}, min_y: {:?}, max_y: {:?}", 
-                data_store.is_dirty(), data_store.gpu_min_y, data_store.gpu_max_y);
+            let is_dirty = data_store.is_dirty();
+            let gpu_min_y = data_store.gpu_min_y;
+            let gpu_max_y = data_store.gpu_max_y;
+            log::info!("[WASM] After handle_cursor_event - data_store is_dirty: {is_dirty}, min_y: {gpu_min_y:?}, max_y: {gpu_max_y:?}");
 
             if data_store.is_dirty() {
                 // Force recalculation of Y bounds by clearing them

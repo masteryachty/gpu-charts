@@ -56,17 +56,9 @@ impl YAxisRenderer {
         if needs_recalculation {
             // Log when we update labels
             if data_store.get_gpu_y_bounds().is_some() {
-                log::debug!(
-                    "[YAxisRenderer] Rendering with GPU bounds: min={}, max={}",
-                    min,
-                    max
-                );
+                log::debug!("[YAxisRenderer] Rendering with GPU bounds: min={min}, max={max}");
             } else {
-                log::debug!(
-                    "[YAxisRenderer] Rendering with fallback bounds: min={}, max={}",
-                    min,
-                    max
-                );
+                log::debug!("[YAxisRenderer] Rendering with fallback bounds: min={min}, max={max}");
             }
 
             let (interval, start, end) = calculate_y_axis_interval(min, max);
@@ -139,7 +131,7 @@ impl YAxisRenderer {
             self.brush
                 .resize_view(data_store.screen_size.width as f32, height as f32, queue);
             if let Err(e) = self.brush.queue(device, queue, labels) {
-                log::error!("Y-axis: Failed to queue text labels: {:?}", e);
+                log::error!("Y-axis: Failed to queue text labels: {e:?}");
             }
         } else {
             // If only the window size changed, update the text brush size
@@ -225,7 +217,7 @@ impl YAxisRenderer {
         {
             Ok(brush) => brush,
             Err(e) => {
-                log::error!("Failed to create text brush: {:?}", e);
+                log::error!("Failed to create text brush: {e:?}");
                 panic!("Cannot create Y-axis renderer without text rendering capability");
             }
         };

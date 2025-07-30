@@ -159,10 +159,7 @@ pub fn calculate_min_max_y(
     );
 
     for (buffer_index, y_buffer) in y_buffers.iter().enumerate() {
-        log::debug!(
-            "[calculate_min_max_y] Processing y_buffer[{}]",
-            buffer_index
-        );
+        log::debug!("[calculate_min_max_y] Processing y_buffer[{buffer_index}]");
 
         // Create buffers for this y_buffer's first pass
         let partial_first_size = num_groups * 2;
@@ -290,8 +287,7 @@ pub fn calculate_min_max_y(
 
     // Add a final compute pass to find overall min/max across all metrics
     log::debug!(
-        "[calculate_min_max_y] Creating overall min/max compute pass for {} metrics",
-        num_buffers
+        "[calculate_min_max_y] Creating overall min/max compute pass for {num_buffers} metrics"
     );
 
     let overall_shader = include_str!("overall_min_max.wgsl");
