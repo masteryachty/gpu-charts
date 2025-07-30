@@ -7,6 +7,9 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use wgpu::{Buffer, BufferUsages, Device, Queue, Texture, TextureFormat, TextureUsages};
 
+// Use web-time for WebAssembly compatibility
+use web_time::{Instant, Duration};
+
 /// A unique identifier for a resource type
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ResourceTypeId {
@@ -53,7 +56,7 @@ pub struct TextureDescriptor {
 pub struct PooledResource<T> {
     pub resource: T,
     pub descriptor: ResourceDescriptor,
-    pub last_used: std::time::Instant,
+    pub last_used: Instant,
     pub use_count: u64,
 }
 
@@ -105,7 +108,7 @@ impl BufferPool {
             }) {
                 // Remove from available and add to in_use
                 let mut pooled = available_buffers.remove(pos).unwrap();
-                pooled.last_used = std::time::Instant::now();
+                pooled.last_used = Instant::now();
                 pooled.use_count += 1;
 
                 let buffer = Arc::new(pooled.resource);
@@ -147,7 +150,7 @@ impl BufferPool {
             .push(PooledResource {
                 resource: (*buffer).clone(),
                 descriptor: ResourceDescriptor::Buffer(descriptor),
-                last_used: std::time::Instant::now(),
+                last_used: Instant::now(),
                 use_count: 1,
             });
 
@@ -187,8 +190,8 @@ impl BufferPool {
 
     /// Clean up old unused buffers
     pub fn cleanup_unused(&mut self, max_age_secs: u64) {
-        let now = std::time::Instant::now();
-        let max_age = std::time::Duration::from_secs(max_age_secs);
+        let now = Instant::now();
+        let max_age = Duration::from_secs(max_age_secs);
 
         for (type_id, buffers) in self.available.iter_mut() {
             let mut removed_size = 0u64;
@@ -291,7 +294,7 @@ impl TexturePool {
             }) {
                 // Remove from available and add to in_use
                 let mut pooled = available_textures.remove(pos).unwrap();
-                pooled.last_used = std::time::Instant::now();
+                pooled.last_used = Instant::now();
                 pooled.use_count += 1;
 
                 let texture = Arc::new(pooled.resource);
@@ -331,7 +334,7 @@ impl TexturePool {
             .push(PooledResource {
                 resource: (*texture).clone(),
                 descriptor: ResourceDescriptor::Texture(descriptor),
-                last_used: std::time::Instant::now(),
+                last_used: Instant::now(),
                 use_count: 1,
             });
 
@@ -353,8 +356,8 @@ pub struct PoolStats {
 pub struct ResourcePoolManager {
     buffer_pool: BufferPool,
     texture_pool: TexturePool,
-    cleanup_interval: std::time::Duration,
-    last_cleanup: std::time::Instant,
+    cleanup_interval: Duration,
+    last_cleanup: Instant,
 }
 
 impl ResourcePoolManager {
@@ -368,8 +371,8 @@ impl ResourcePoolManager {
         Self {
             buffer_pool: BufferPool::new(device.clone(), queue, buffer_pool_size),
             texture_pool: TexturePool::new(device, texture_pool_size),
-            cleanup_interval: std::time::Duration::from_secs(30),
-            last_cleanup: std::time::Instant::now(),
+            cleanup_interval: Duration::from_secs(30),
+            last_cleanup: Instant::now(),
         }
     }
 
@@ -400,7 +403,7 @@ impl ResourcePoolManager {
 
     /// Perform cleanup if needed
     fn maybe_cleanup(&mut self) {
-        let now = std::time::Instant::now();
+        let now = Instant::now();
         if now.duration_since(self.last_cleanup) > self.cleanup_interval {
             self.buffer_pool.cleanup_unused(60); // Clean up buffers older than 60 seconds
             self.last_cleanup = now;
@@ -415,6 +418,6 @@ impl ResourcePoolManager {
     /// Force cleanup of all unused resources
     pub fn force_cleanup(&mut self) {
         self.buffer_pool.cleanup_unused(0);
-        self.last_cleanup = std::time::Instant::now();
+        self.last_cleanup = Instant::now();
     }
 }

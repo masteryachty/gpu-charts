@@ -39,7 +39,7 @@ pub struct Renderer {
     pub config: wgpu::SurfaceConfiguration,
     data_store: DataStore,
     compute_engine: compute_engine::ComputeEngine,
-    resource_pool: Arc<Mutex<resource_pool::ResourcePoolManager>>,
+    resource_pool: Arc<Mutex<()>>, // Temporarily disabled
 }
 
 impl Renderer {
@@ -50,12 +50,15 @@ impl Renderer {
         queue: Rc<wgpu::Queue>,
         data_store: DataStore,
     ) -> RenderResult<Self> {
+        log::info!("[Renderer::new] Starting renderer initialization");
+        
         // Create WebGPU instance and surface
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             backends: wgpu::Backends::BROWSER_WEBGPU,
             flags: wgpu::InstanceFlags::default(),
             ..Default::default()
         });
+        log::info!("[Renderer::new] WebGPU instance created");
 
         let surface = instance
             .create_surface(wgpu::SurfaceTarget::Canvas(canvas))
@@ -94,15 +97,13 @@ impl Renderer {
         surface.configure(&device, &surface_config);
 
         // Create compute engine
+        log::info!("[Renderer::new] About to create compute engine");
         let compute_engine = compute_engine::ComputeEngine::new(device.clone(), queue.clone());
+        log::info!("[Renderer::new] Compute engine created");
 
-        // Create resource pool manager
-        let resource_pool = Arc::new(Mutex::new(resource_pool::ResourcePoolManager::new(
-            Arc::new((*device).clone()),
-            Arc::new((*queue).clone()),
-            50, // Buffer pool size
-            20, // Texture pool size
-        )));
+        // Create resource pool manager - temporarily disabled due to WASM time issues
+        // TODO: Fix time issues in WASM
+        let resource_pool = Arc::new(Mutex::new(())); // Placeholder
 
         let renderer = Self {
             surface,
@@ -364,10 +365,10 @@ impl Renderer {
         false
     }
 
-    /// Get access to the resource pool
-    pub fn resource_pool(&self) -> Arc<Mutex<resource_pool::ResourcePoolManager>> {
-        self.resource_pool.clone()
-    }
+    // /// Get access to the resource pool
+    // pub fn resource_pool(&self) -> Arc<Mutex<resource_pool::ResourcePoolManager>> {
+    //     self.resource_pool.clone()
+    // }
 
     /// Process a state diff for incremental updates
     pub fn process_state_change(&mut self, _diff: &shared_types::StateDiff) {
@@ -391,7 +392,7 @@ impl Renderer {
             self.device.clone(),
             self.queue.clone(),
             self.config.format,
-            Some(self.resource_pool.clone()),
+            None, // Temporarily disabled
         )
     }
 

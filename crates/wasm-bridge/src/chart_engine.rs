@@ -174,9 +174,11 @@ impl ChartEngine {
         );
 
         // Create Renderer with modular approach
+        log::info!("[ChartEngine] About to create Renderer...");
         let renderer = Renderer::new(canvas, device.clone(), queue.clone(), data_store)
             .await
             .map_err(|e| Error::new(&format!("Failed to create renderer: {e:?}")))?;
+        log::info!("[ChartEngine] Renderer created successfully");
 
         // Skip initial data fetch - wait for user to select a preset
         log::info!("Skipping initial data fetch - waiting for preset selection");
