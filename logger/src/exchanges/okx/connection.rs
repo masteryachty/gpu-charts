@@ -67,6 +67,9 @@ impl OkxConnection {
             return Ok(());
         }
 
+        // Log the raw message for debugging
+        debug!("OKX raw message: {}", text);
+
         let value: Value = match serde_json::from_str(text) {
             Ok(v) => v,
             Err(_) => {
@@ -83,7 +86,7 @@ impl OkxConnection {
         if let Some(event) = value["event"].as_str() {
             match event {
                 "subscribe" => {
-                    info!("Subscribed to channel: {}", value["arg"]);
+                    debug!("Subscribed to channel: {}", value["arg"]);
                 }
                 "error" => {
                     let error_msg = format!(
@@ -187,16 +190,16 @@ impl ExchangeConnection for OkxConnection {
 
             match ws.next().await {
                 Some(Ok(WsMessage::Text(text))) => {
-                    // Process message in a separate task to avoid holding the lock
-                    let text_clone = text.clone();
-                    let self_clone = self.clone_for_ping();
-                    tokio::spawn(async move {
-                        if let Err(e) = self_clone.process_message(&text_clone).await {
-                            error!("Error processing message: {}", e);
-                        }
-                    });
+                    // Drop the lock before processing
+                    drop(ws);
 
-                    Ok(Some(serde_json::from_str(&text)?))
+                    // Process message directly
+                    if let Err(e) = self.process_message(&text).await {
+                        error!("Error processing message: {}", e);
+                    }
+
+                    // Return a dummy value to indicate message was processed
+                    Ok(Some(serde_json::json!({"processed": true})))
                 }
                 Some(Ok(WsMessage::Ping(data))) => {
                     ws.send(WsMessage::Pong(data)).await?;

@@ -106,7 +106,7 @@ impl KrakenConnection {
                             .unwrap_or("");
 
                         if status == "subscribed" {
-                            info!("Subscribed to Kraken channel: {}", channel);
+                            debug!("Subscribed to Kraken channel: {}", channel);
                         } else if status == "error" {
                             let error_msg = obj
                                 .get("errorMessage")

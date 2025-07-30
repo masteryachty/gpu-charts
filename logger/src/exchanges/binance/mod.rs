@@ -320,7 +320,13 @@ impl Exchange for BinanceExchange {
                 interval.tick().await;
 
                 if let Err(e) = data_buffer_flush.flush_to_disk().await {
+                    // Log the error but continue running
                     error!("Failed to flush data: {}", e);
+
+                    // Check if it's an I/O error and provide more context
+                    if e.to_string().contains("Input/output error") {
+                        error!("I/O error detected - possible disk issues. Data may be buffered in memory.");
+                    }
                 }
 
                 if let Err(e) = data_buffer_flush.rotate_files_if_needed().await {

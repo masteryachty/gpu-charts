@@ -67,7 +67,7 @@ impl CoinbaseConnection {
                 }
             }
             Some("subscriptions") => {
-                info!("Subscribed to channels: {}", value["channels"]);
+                debug!("Subscribed to channels: {}", value["channels"]);
             }
             Some("error") => {
                 let error_msg = value["message"].as_str().unwrap_or("Unknown error");

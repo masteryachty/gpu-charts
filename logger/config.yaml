@@ -65,7 +65,7 @@ exchanges:
     ws_endpoint: "wss://api-pub.bitfinex.com/ws/2"
     rest_endpoint: "https://api-pub.bitfinex.com/v2"
     max_connections: 10
-    symbols_per_connection: 30
+    symbols_per_connection: 15
     reconnect_delay_secs: 1
     max_reconnect_delay_secs: 60
     ping_interval_secs: 15

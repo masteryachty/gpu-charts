@@ -118,10 +118,19 @@ pub fn parse_binance_trade(
     };
 
     // Binance doesn't provide order IDs in trade stream
-    // We'll use trade ID as a placeholder
+    // We'll create synthetic UUIDs using trade ID and timestamp
     let trade_id_bytes = trade_id.to_le_bytes();
+    let timestamp_bytes = data.timestamp.to_le_bytes();
+
+    // Fill maker_order_id: first 8 bytes = trade_id, next 4 bytes = timestamp, rest = 0
     data.maker_order_id[..8].copy_from_slice(&trade_id_bytes);
-    data.taker_order_id[8..16].copy_from_slice(&trade_id_bytes);
+    data.maker_order_id[8..12].copy_from_slice(&timestamp_bytes);
+    // bytes 12-16 are already initialized to 0
+
+    // Fill taker_order_id: first 4 bytes = timestamp, next 8 bytes = trade_id, rest = 0
+    data.taker_order_id[..4].copy_from_slice(&timestamp_bytes);
+    data.taker_order_id[4..12].copy_from_slice(&trade_id_bytes);
+    // bytes 12-16 are already initialized to 0
 
     Ok(Some(data))
 }

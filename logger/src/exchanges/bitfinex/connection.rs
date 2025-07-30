@@ -136,7 +136,7 @@ impl BitfinexConnection {
                                         symbol: symbol.to_string(),
                                     },
                                 );
-                                info!(
+                                debug!(
                                     "Subscribed to {} {} with channel ID {}",
                                     channel, symbol, chan_id
                                 );

@@ -115,8 +115,8 @@ impl Default for Config {
                     enabled: true,
                     ws_endpoint: "wss://api-pub.bitfinex.com/ws/2".to_string(),
                     rest_endpoint: "https://api-pub.bitfinex.com/v2".to_string(),
-                    max_connections: 5,
-                    symbols_per_connection: 30,
+                    max_connections: 10,
+                    symbols_per_connection: 15, // Bitfinex has a limit on subscriptions per connection
                     reconnect_delay_secs: 1,
                     max_reconnect_delay_secs: 60,
                     ping_interval_secs: Some(15), // Bitfinex requires pings every 15s
