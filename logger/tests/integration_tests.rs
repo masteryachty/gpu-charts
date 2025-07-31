@@ -1,71 +1,15 @@
 use logger::{
     common::{
         data_types::{ExchangeId, TradeSide, UnifiedMarketData, UnifiedTradeData},
-        AnalyticsEngine, DataBuffer, SymbolMapper,
+        AnalyticsEngine, DataBuffer,
     },
-    config::{AssetGroup, Config, EquivalenceRules, SymbolMappingsConfig},
+    config::Config,
     exchanges::Message,
 };
 use std::time::Duration;
 use tempfile::TempDir;
 use tokio::sync::mpsc;
 
-#[tokio::test]
-async fn test_symbol_mapper_integration() {
-    let config = SymbolMappingsConfig {
-        mappings_file: None,
-        auto_discover: true,
-        equivalence_rules: EquivalenceRules {
-            quote_assets: vec![AssetGroup {
-                group: "USD_EQUIVALENT".to_string(),
-                members: vec!["USD".to_string(), "USDT".to_string()],
-                primary: "USD".to_string(),
-            }],
-        },
-    };
-
-    let mapper = SymbolMapper::new(config).unwrap();
-
-    // Add symbols from different exchanges
-    mapper.add_symbol(logger::common::data_types::Symbol {
-        exchange: ExchangeId::Coinbase,
-        exchange_symbol: "BTC-USD".to_string(),
-        normalized: "BTC-USD".to_string(),
-        base_asset: "BTC".to_string(),
-        quote_asset: "USD".to_string(),
-        asset_class: logger::common::data_types::AssetClass::Spot,
-        active: true,
-        min_size: None,
-        tick_size: None,
-    });
-
-    mapper.add_symbol(logger::common::data_types::Symbol {
-        exchange: ExchangeId::Binance,
-        exchange_symbol: "BTCUSDT".to_string(),
-        normalized: "BTC-USDT".to_string(),
-        base_asset: "BTC".to_string(),
-        quote_asset: "USDT".to_string(),
-        asset_class: logger::common::data_types::AssetClass::Spot,
-        active: true,
-        min_size: None,
-        tick_size: None,
-    });
-
-    // Test normalization
-    assert_eq!(
-        mapper.normalize(ExchangeId::Coinbase, "BTC-USD"),
-        Some("BTC-USD".to_string())
-    );
-    assert_eq!(
-        mapper.normalize(ExchangeId::Binance, "BTCUSDT"),
-        Some("BTC-USDT".to_string())
-    );
-
-    // Test finding related symbols
-    let btc_usd_pairs = mapper.find_related("BTC", "USD");
-    assert_eq!(btc_usd_pairs.len(), 1);
-    assert_eq!(btc_usd_pairs[0].symbol, "BTC-USD");
-}
 
 #[tokio::test]
 async fn test_data_buffer_integration() {

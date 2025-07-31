@@ -1,4 +1,3 @@
-use crate::common::SymbolMapper;
 use crate::exchanges::{Channel, ExchangeConnection, Message};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -21,7 +20,6 @@ pub struct BinanceConnection {
     data_sender: mpsc::Sender<Message>,
     ws_stream: Arc<Mutex<Option<WsStream>>>,
     _ping_interval_secs: u64,
-    symbol_mapper: Arc<SymbolMapper>,
 }
 
 impl BinanceConnection {
@@ -30,7 +28,6 @@ impl BinanceConnection {
         symbols: Vec<String>,
         data_sender: mpsc::Sender<Message>,
         ping_interval_secs: u64,
-        symbol_mapper: Arc<SymbolMapper>,
     ) -> Self {
         Self {
             base_url,
@@ -38,7 +35,6 @@ impl BinanceConnection {
             data_sender,
             ws_stream: Arc::new(Mutex::new(None)),
             _ping_interval_secs: ping_interval_secs,
-            symbol_mapper,
         }
     }
 
@@ -81,18 +77,14 @@ impl BinanceConnection {
             if let Some(event_type) = data["e"].as_str() {
                 match event_type {
                     "24hrTicker" => {
-                        if let Some(market_data) =
-                            super::parser::parse_binance_ticker(data, &self.symbol_mapper)?
-                        {
+                        if let Some(market_data) = super::parser::parse_binance_ticker(data)? {
                             self.data_sender
                                 .send(Message::MarketData(market_data))
                                 .await?;
                         }
                     }
                     "trade" => {
-                        if let Some(trade_data) =
-                            super::parser::parse_binance_trade(data, &self.symbol_mapper)?
-                        {
+                        if let Some(trade_data) = super::parser::parse_binance_trade(data)? {
                             self.data_sender.send(Message::Trade(trade_data)).await?;
                         }
                     }
@@ -229,28 +221,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_connection_creation() {
-        use crate::config::{AssetGroup, EquivalenceRules, SymbolMappingsConfig};
-
-        let config = SymbolMappingsConfig {
-            mappings_file: None,
-            auto_discover: true,
-            equivalence_rules: EquivalenceRules {
-                quote_assets: vec![AssetGroup {
-                    group: "USD_EQUIVALENT".to_string(),
-                    members: vec!["USDT".to_string()],
-                    primary: "USD".to_string(),
-                }],
-            },
-        };
-
-        let mapper = Arc::new(crate::common::SymbolMapper::new(config).unwrap());
         let (tx, _rx) = mpsc::channel(100);
         let conn = BinanceConnection::new(
             "wss://stream.binance.com:9443".to_string(),
             vec!["BTCUSDT".to_string()],
             tx,
             20,
-            mapper,
         );
 
         assert_eq!(conn.symbols(), &["BTCUSDT"]);
@@ -259,28 +235,12 @@ mod tests {
 
     #[test]
     fn test_stream_url_building() {
-        use crate::config::{AssetGroup, EquivalenceRules, SymbolMappingsConfig};
-
-        let config = SymbolMappingsConfig {
-            mappings_file: None,
-            auto_discover: true,
-            equivalence_rules: EquivalenceRules {
-                quote_assets: vec![AssetGroup {
-                    group: "USD_EQUIVALENT".to_string(),
-                    members: vec!["USDT".to_string()],
-                    primary: "USD".to_string(),
-                }],
-            },
-        };
-
-        let mapper = Arc::new(crate::common::SymbolMapper::new(config).unwrap());
         let (tx, _rx) = mpsc::channel(100);
         let conn = BinanceConnection::new(
             "wss://stream.binance.com:9443".to_string(),
             vec!["BTCUSDT".to_string(), "ETHUSDT".to_string()],
             tx,
             20,
-            mapper,
         );
 
         let url = conn.build_stream_url(&[Channel::Ticker, Channel::Trades]);

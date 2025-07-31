@@ -1,10 +1,8 @@
-use crate::common::SymbolMapper;
 use crate::exchanges::{Channel, ExchangeConnection, Message};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use futures_util::{SinkExt, StreamExt};
 use serde_json::{json, Value};
-use std::sync::Arc;
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 use tokio_tungstenite::{
@@ -19,7 +17,6 @@ pub struct CoinbaseConnection {
     symbols: Vec<String>,
     data_sender: mpsc::Sender<Message>,
     ws_stream: Option<WsStream>,
-    symbol_mapper: Arc<SymbolMapper>,
 }
 
 impl CoinbaseConnection {
@@ -27,14 +24,12 @@ impl CoinbaseConnection {
         url: String,
         symbols: Vec<String>,
         data_sender: mpsc::Sender<Message>,
-        symbol_mapper: Arc<SymbolMapper>,
     ) -> Self {
         Self {
             url,
             symbols,
             data_sender,
             ws_stream: None,
-            symbol_mapper,
         }
     }
 
@@ -53,16 +48,12 @@ impl CoinbaseConnection {
 
         match value["type"].as_str() {
             Some("ticker") => {
-                if let Some(data) =
-                    super::parser::parse_coinbase_ticker(&value, &self.symbol_mapper)?
-                {
+                if let Some(data) = super::parser::parse_coinbase_ticker(&value)? {
                     self.data_sender.send(Message::MarketData(data)).await?;
                 }
             }
             Some("match") => {
-                if let Some(data) =
-                    super::parser::parse_coinbase_trade(&value, &self.symbol_mapper)?
-                {
+                if let Some(data) = super::parser::parse_coinbase_trade(&value)? {
                     self.data_sender.send(Message::Trade(data)).await?;
                 }
             }
@@ -110,10 +101,14 @@ impl ExchangeConnection for CoinbaseConnection {
             })
             .collect();
 
+        // Always include heartbeat channel to keep connection alive
+        let mut all_channels = channel_names;
+        all_channels.push("heartbeat");
+        
         let subscribe_msg = json!({
             "type": "subscribe",
             "product_ids": &self.symbols,
-            "channels": channel_names
+            "channels": all_channels
         });
 
         self.send_json(subscribe_msg).await?;
@@ -155,7 +150,8 @@ impl ExchangeConnection for CoinbaseConnection {
     }
 
     async fn send_ping(&mut self) -> Result<()> {
-        // Coinbase doesn't require client-initiated pings
+        // Coinbase uses subscription-based heartbeats, not ping/pong
+        // The heartbeat channel subscription keeps the connection alive
         Ok(())
     }
 
@@ -180,27 +176,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_connection_creation() {
-        use crate::config::{AssetGroup, EquivalenceRules, SymbolMappingsConfig};
-
-        let config = SymbolMappingsConfig {
-            mappings_file: None,
-            auto_discover: true,
-            equivalence_rules: EquivalenceRules {
-                quote_assets: vec![AssetGroup {
-                    group: "USD_EQUIVALENT".to_string(),
-                    members: vec!["USD".to_string()],
-                    primary: "USD".to_string(),
-                }],
-            },
-        };
-
-        let mapper = Arc::new(crate::common::SymbolMapper::new(config).unwrap());
         let (tx, _rx) = mpsc::channel(100);
         let conn = CoinbaseConnection::new(
             "wss://ws-feed.exchange.coinbase.com".to_string(),
             vec!["BTC-USD".to_string()],
             tx,
-            mapper,
         );
 
         assert_eq!(conn.symbols(), &["BTC-USD"]);

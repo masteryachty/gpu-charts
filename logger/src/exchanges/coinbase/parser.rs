@@ -1,16 +1,10 @@
-use crate::common::{
-    data_types::{ExchangeId, TradeSide, UnifiedMarketData, UnifiedTradeData},
-    symbol_mapper::SymbolMapper,
-};
+use crate::common::data_types::{ExchangeId, TradeSide, UnifiedMarketData, UnifiedTradeData};
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 use tracing::warn;
 
-pub fn parse_coinbase_ticker(
-    value: &Value,
-    mapper: &SymbolMapper,
-) -> Result<Option<UnifiedMarketData>> {
+pub fn parse_coinbase_ticker(value: &Value) -> Result<Option<UnifiedMarketData>> {
     if value["type"].as_str() != Some("ticker") {
         return Ok(None);
     }
@@ -19,9 +13,7 @@ pub fn parse_coinbase_ticker(
         .as_str()
         .ok_or_else(|| anyhow::anyhow!("Missing product_id"))?;
 
-    let normalized_symbol = mapper
-        .normalize(ExchangeId::Coinbase, product_id)
-        .unwrap_or_else(|| product_id.to_string());
+    let normalized_symbol = product_id.to_string();
 
     let mut data = UnifiedMarketData::new(ExchangeId::Coinbase, normalized_symbol);
 
@@ -82,10 +74,7 @@ pub fn parse_coinbase_ticker(
     Ok(Some(data))
 }
 
-pub fn parse_coinbase_trade(
-    value: &Value,
-    mapper: &SymbolMapper,
-) -> Result<Option<UnifiedTradeData>> {
+pub fn parse_coinbase_trade(value: &Value) -> Result<Option<UnifiedTradeData>> {
     if value["type"].as_str() != Some("match") && value["type"].as_str() != Some("last_match") {
         return Ok(None);
     }
@@ -94,9 +83,7 @@ pub fn parse_coinbase_trade(
         .as_str()
         .ok_or_else(|| anyhow::anyhow!("Missing product_id"))?;
 
-    let normalized_symbol = mapper
-        .normalize(ExchangeId::Coinbase, product_id)
-        .unwrap_or_else(|| product_id.to_string());
+    let normalized_symbol = product_id.to_string();
 
     let trade_id = value["trade_id"]
         .as_u64()
@@ -152,29 +139,10 @@ pub fn parse_coinbase_trade(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{AssetGroup, EquivalenceRules, SymbolMappingsConfig};
     use serde_json::json;
-
-    fn create_test_mapper() -> SymbolMapper {
-        let config = SymbolMappingsConfig {
-            mappings_file: None,
-            auto_discover: true,
-            equivalence_rules: EquivalenceRules {
-                quote_assets: vec![AssetGroup {
-                    group: "USD_EQUIVALENT".to_string(),
-                    members: vec!["USD".to_string()],
-                    primary: "USD".to_string(),
-                }],
-            },
-        };
-
-        SymbolMapper::new(config).unwrap()
-    }
 
     #[test]
     fn test_parse_ticker() {
-        let mapper = create_test_mapper();
-
         let ticker_json = json!({
             "type": "ticker",
             "product_id": "BTC-USD",
@@ -186,9 +154,7 @@ mod tests {
             "open_24h": "49000.00"
         });
 
-        let result = parse_coinbase_ticker(&ticker_json, &mapper)
-            .unwrap()
-            .unwrap();
+        let result = parse_coinbase_ticker(&ticker_json).unwrap().unwrap();
 
         assert_eq!(result.exchange, ExchangeId::Coinbase);
         assert_eq!(result.symbol, "BTC-USD");
@@ -201,8 +167,6 @@ mod tests {
 
     #[test]
     fn test_parse_trade() {
-        let mapper = create_test_mapper();
-
         let trade_json = json!({
             "type": "match",
             "trade_id": 123456,
@@ -215,7 +179,7 @@ mod tests {
             "taker_order_id": "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
         });
 
-        let result = parse_coinbase_trade(&trade_json, &mapper).unwrap().unwrap();
+        let result = parse_coinbase_trade(&trade_json).unwrap().unwrap();
 
         assert_eq!(result.exchange, ExchangeId::Coinbase);
         assert_eq!(result.symbol, "ETH-USD");

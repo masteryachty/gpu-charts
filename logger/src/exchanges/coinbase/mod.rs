@@ -5,7 +5,6 @@ pub use connection::CoinbaseConnection;
 
 use crate::common::{
     data_types::{ExchangeId, Symbol, UnifiedMarketData, UnifiedTradeData},
-    utils::normalize_symbol_coinbase,
     AnalyticsEngine, DataBuffer, MarketMetrics,
 };
 use crate::config::Config;
@@ -22,7 +21,6 @@ use tracing::{error, info};
 
 pub struct CoinbaseExchange {
     config: Arc<Config>,
-    symbol_mapper: Arc<crate::common::SymbolMapper>,
     data_buffer: Arc<DataBuffer>,
     analytics: Arc<AnalyticsEngine>,
     metrics: Arc<MarketMetrics>,
@@ -30,17 +28,12 @@ pub struct CoinbaseExchange {
 
 impl CoinbaseExchange {
     pub fn new(config: Arc<Config>) -> Result<Self> {
-        let symbol_mapper = Arc::new(crate::common::SymbolMapper::new(
-            config.symbol_mappings.clone(),
-        )?);
-
         let data_buffer = Arc::new(DataBuffer::new(config.logger.data_path.clone()));
         let analytics = Arc::new(AnalyticsEngine::new(10000.0, Duration::from_secs(30)));
         let metrics = Arc::new(MarketMetrics::new());
 
         Ok(Self {
             config,
-            symbol_mapper,
             data_buffer,
             analytics,
             metrics,
@@ -81,8 +74,7 @@ impl Exchange for CoinbaseExchange {
                 if status == "online" {
                     let symbol = Symbol {
                         exchange: ExchangeId::Coinbase,
-                        exchange_symbol: id.to_string(),
-                        normalized: normalize_symbol_coinbase(id),
+                        symbol: id.to_string(),
                         base_asset: base.to_string(),
                         quote_asset: quote.to_string(),
                         asset_class: crate::common::data_types::AssetClass::Spot,
@@ -95,8 +87,6 @@ impl Exchange for CoinbaseExchange {
                             .and_then(|s| s.parse().ok()),
                     };
 
-                    // Add to symbol mapper
-                    self.symbol_mapper.add_symbol(symbol.clone());
                     symbols.push(symbol);
                 }
             }
@@ -107,15 +97,11 @@ impl Exchange for CoinbaseExchange {
     }
 
     fn normalize_symbol(&self, exchange_symbol: &str) -> String {
-        self.symbol_mapper
-            .normalize(ExchangeId::Coinbase, exchange_symbol)
-            .unwrap_or_else(|| normalize_symbol_coinbase(exchange_symbol))
+        exchange_symbol.to_string()
     }
 
     fn denormalize_symbol(&self, normalized_symbol: &str) -> String {
-        self.symbol_mapper
-            .to_exchange(normalized_symbol, ExchangeId::Coinbase)
-            .unwrap_or_else(|| normalized_symbol.to_string())
+        normalized_symbol.to_string()
     }
 
     async fn create_connection(
@@ -127,16 +113,15 @@ impl Exchange for CoinbaseExchange {
             self.config.exchanges.coinbase.ws_endpoint.clone(),
             symbols,
             data_sender,
-            self.symbol_mapper.clone(),
         )))
     }
 
     fn parse_market_data(&self, raw: &Value) -> Result<Option<UnifiedMarketData>> {
-        parse_coinbase_ticker(raw, &self.symbol_mapper)
+        parse_coinbase_ticker(raw)
     }
 
     fn parse_trade_data(&self, raw: &Value) -> Result<Option<UnifiedTradeData>> {
-        parse_coinbase_trade(raw, &self.symbol_mapper)
+        parse_coinbase_trade(raw)
     }
 
     fn max_symbols_per_connection(&self) -> usize {
@@ -157,7 +142,7 @@ impl Exchange for CoinbaseExchange {
             self.fetch_symbols()
                 .await?
                 .into_iter()
-                .map(|s| s.exchange_symbol)
+                .map(|s| s.symbol)
                 .collect()
         };
 
@@ -174,14 +159,12 @@ impl Exchange for CoinbaseExchange {
             let data_tx = data_tx.clone();
             let config = self.config.clone();
             let metrics = self.metrics.clone();
-            let symbol_mapper = self.symbol_mapper.clone();
 
             let handle = tokio::spawn(async move {
                 let mut connection = CoinbaseConnection::new(
                     config.exchanges.coinbase.ws_endpoint.clone(),
                     batch,
                     data_tx,
-                    symbol_mapper,
                 );
 
                 loop {

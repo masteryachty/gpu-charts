@@ -5,7 +5,6 @@ pub use connection::OkxConnection;
 
 use crate::common::{
     data_types::{ExchangeId, Symbol, UnifiedMarketData, UnifiedTradeData},
-    utils::{denormalize_symbol_okx, normalize_symbol_okx},
     AnalyticsEngine, DataBuffer, MarketMetrics,
 };
 use crate::config::Config;
@@ -22,7 +21,6 @@ use tracing::{error, info};
 
 pub struct OkxExchange {
     config: Arc<Config>,
-    symbol_mapper: Arc<crate::common::SymbolMapper>,
     data_buffer: Arc<DataBuffer>,
     analytics: Arc<AnalyticsEngine>,
     metrics: Arc<MarketMetrics>,
@@ -30,17 +28,12 @@ pub struct OkxExchange {
 
 impl OkxExchange {
     pub fn new(config: Arc<Config>) -> Result<Self> {
-        let symbol_mapper = Arc::new(crate::common::SymbolMapper::new(
-            config.symbol_mappings.clone(),
-        )?);
-
         let data_buffer = Arc::new(DataBuffer::new(config.logger.data_path.clone()));
         let analytics = Arc::new(AnalyticsEngine::new(10000.0, Duration::from_secs(30)));
         let metrics = Arc::new(MarketMetrics::new());
 
         Ok(Self {
             config,
-            symbol_mapper,
             data_buffer,
             analytics,
             metrics,
@@ -93,8 +86,7 @@ impl Exchange for OkxExchange {
                     if state == "live" {
                         let symbol = Symbol {
                             exchange: ExchangeId::OKX,
-                            exchange_symbol: inst_id.to_string(),
-                            normalized: normalize_symbol_okx(inst_id),
+                            symbol: inst_id.to_string(),
                             base_asset: base_ccy.to_string(),
                             quote_asset: quote_ccy.to_string(),
                             asset_class: crate::common::data_types::AssetClass::Spot,
@@ -103,8 +95,6 @@ impl Exchange for OkxExchange {
                             tick_size: instrument["tickSz"].as_str().and_then(|s| s.parse().ok()),
                         };
 
-                        // Add to symbol mapper
-                        self.symbol_mapper.add_symbol(symbol.clone());
                         symbols.push(symbol);
                     }
                 }
@@ -116,15 +106,11 @@ impl Exchange for OkxExchange {
     }
 
     fn normalize_symbol(&self, exchange_symbol: &str) -> String {
-        self.symbol_mapper
-            .normalize(ExchangeId::OKX, exchange_symbol)
-            .unwrap_or_else(|| normalize_symbol_okx(exchange_symbol))
+        exchange_symbol.to_string()
     }
 
     fn denormalize_symbol(&self, normalized_symbol: &str) -> String {
-        self.symbol_mapper
-            .to_exchange(normalized_symbol, ExchangeId::OKX)
-            .unwrap_or_else(|| denormalize_symbol_okx(normalized_symbol))
+        normalized_symbol.to_string()
     }
 
     async fn create_connection(
@@ -136,16 +122,15 @@ impl Exchange for OkxExchange {
             self.config.exchanges.okx.ws_endpoint.clone(),
             symbols,
             data_sender,
-            self.symbol_mapper.clone(),
         )))
     }
 
     fn parse_market_data(&self, raw: &Value) -> Result<Option<UnifiedMarketData>> {
-        parse_okx_ticker(raw, &self.symbol_mapper)
+        parse_okx_ticker(raw)
     }
 
     fn parse_trade_data(&self, raw: &Value) -> Result<Option<UnifiedTradeData>> {
-        parse_okx_trade(raw, &self.symbol_mapper)
+        parse_okx_trade(raw)
     }
 
     fn max_symbols_per_connection(&self) -> usize {
@@ -166,7 +151,7 @@ impl Exchange for OkxExchange {
             self.fetch_symbols()
                 .await?
                 .into_iter()
-                .map(|s| s.exchange_symbol)
+                .map(|s| s.symbol)
                 .collect()
         };
 
@@ -183,14 +168,12 @@ impl Exchange for OkxExchange {
             let data_tx = data_tx.clone();
             let config = self.config.clone();
             let metrics = self.metrics.clone();
-            let symbol_mapper = self.symbol_mapper.clone();
 
             let handle = tokio::spawn(async move {
                 let mut connection = OkxConnection::new(
                     config.exchanges.okx.ws_endpoint.clone(),
                     batch,
                     data_tx,
-                    symbol_mapper,
                 );
 
                 loop {

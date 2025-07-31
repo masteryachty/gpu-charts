@@ -48,9 +48,6 @@ USER logger
 # Set working directory
 WORKDIR /home/logger
 
-# Copy configuration files
-COPY --chown=logger:logger config.yaml symbol_mappings.yaml /home/logger/
-
 # Volume for data persistence
 VOLUME ["/mnt/md/data"]
 

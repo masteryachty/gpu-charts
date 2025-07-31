@@ -73,17 +73,3 @@ exchanges:
     # symbols:
     #   - "tBTCUSD"
     #   - "tETHUSD"
-
-symbol_mappings:
-  mappings_file: "symbol_mappings.yaml"
-  auto_discover: true
-  equivalence_rules:
-    quote_assets:
-      - group: "USD_EQUIVALENT"
-        members:
-          - "USD"
-          - "USDT"
-          - "USDC"
-          - "BUSD"
-          - "DAI"
-        primary: "USD"

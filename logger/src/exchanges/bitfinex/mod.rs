@@ -5,7 +5,6 @@ pub use connection::BitfinexConnection;
 
 use crate::common::{
     data_types::{ExchangeId, Symbol, UnifiedMarketData, UnifiedTradeData},
-    utils::normalize_symbol_bitfinex,
     AnalyticsEngine, DataBuffer, MarketMetrics,
 };
 use crate::config::Config;
@@ -22,7 +21,6 @@ use tracing::{error, info};
 
 pub struct BitfinexExchange {
     config: Arc<Config>,
-    symbol_mapper: Arc<crate::common::SymbolMapper>,
     data_buffer: Arc<DataBuffer>,
     analytics: Arc<AnalyticsEngine>,
     metrics: Arc<MarketMetrics>,
@@ -30,17 +28,12 @@ pub struct BitfinexExchange {
 
 impl BitfinexExchange {
     pub fn new(config: Arc<Config>) -> Result<Self> {
-        let symbol_mapper = Arc::new(crate::common::SymbolMapper::new(
-            config.symbol_mappings.clone(),
-        )?);
-
         let data_buffer = Arc::new(DataBuffer::new(config.logger.data_path.clone()));
         let analytics = Arc::new(AnalyticsEngine::new(10000.0, Duration::from_secs(30)));
         let metrics = Arc::new(MarketMetrics::new());
 
         Ok(Self {
             config,
-            symbol_mapper,
             data_buffer,
             analytics,
             metrics,
@@ -82,28 +75,18 @@ impl Exchange for BitfinexExchange {
                     continue;
                 }
 
-                // Parse base and quote from symbol
-                // Bitfinex uses format like "BTCUSD", "ETHUSD", "BTCUSDT", etc.
-                let normalized = normalize_symbol_bitfinex(symbol_str);
-                let parts: Vec<&str> = normalized.split('-').collect();
+                let symbol = Symbol {
+                    exchange: ExchangeId::Bitfinex,
+                    symbol: format!("t{}", symbol_str.to_uppercase()),
+                    base_asset: String::new(), // We'll store empty for now as we're not parsing
+                    quote_asset: String::new(), // We'll store empty for now as we're not parsing
+                    asset_class: crate::common::data_types::AssetClass::Spot,
+                    active: true,
+                    min_size: None,
+                    tick_size: None,
+                };
 
-                if parts.len() == 2 {
-                    let symbol = Symbol {
-                        exchange: ExchangeId::Bitfinex,
-                        exchange_symbol: format!("t{}", symbol_str.to_uppercase()),
-                        normalized: normalized.clone(),
-                        base_asset: parts[0].to_string(),
-                        quote_asset: parts[1].to_string(),
-                        asset_class: crate::common::data_types::AssetClass::Spot,
-                        active: true,
-                        min_size: None,
-                        tick_size: None,
-                    };
-
-                    // Add to symbol mapper
-                    self.symbol_mapper.add_symbol(symbol.clone());
-                    symbols.push(symbol);
-                }
+                symbols.push(symbol);
             }
         }
 
@@ -112,19 +95,13 @@ impl Exchange for BitfinexExchange {
     }
 
     fn normalize_symbol(&self, exchange_symbol: &str) -> String {
-        self.symbol_mapper
-            .normalize(ExchangeId::Bitfinex, exchange_symbol)
-            .unwrap_or_else(|| normalize_symbol_bitfinex(exchange_symbol))
+        // Return as-is, no normalization
+        exchange_symbol.to_string()
     }
 
     fn denormalize_symbol(&self, normalized_symbol: &str) -> String {
-        self.symbol_mapper
-            .to_exchange(normalized_symbol, ExchangeId::Bitfinex)
-            .unwrap_or_else(|| {
-                // Convert from "BTC-USD" to "tBTCUSD"
-                let without_dash = normalized_symbol.replace('-', "");
-                format!("t{without_dash}")
-            })
+        // Return as-is, no denormalization
+        normalized_symbol.to_string()
     }
 
     async fn create_connection(
@@ -136,17 +113,16 @@ impl Exchange for BitfinexExchange {
             self.config.exchanges.bitfinex.ws_endpoint.clone(),
             symbols,
             data_sender,
-            self.symbol_mapper.clone(),
             self.config.exchanges.bitfinex.ping_interval_secs,
         )))
     }
 
     fn parse_market_data(&self, raw: &Value) -> Result<Option<UnifiedMarketData>> {
-        parse_bitfinex_ticker(raw, &self.symbol_mapper)
+        parse_bitfinex_ticker(raw)
     }
 
     fn parse_trade_data(&self, raw: &Value) -> Result<Option<UnifiedTradeData>> {
-        parse_bitfinex_trade(raw, &self.symbol_mapper)
+        parse_bitfinex_trade(raw)
     }
 
     fn max_symbols_per_connection(&self) -> usize {
@@ -167,7 +143,7 @@ impl Exchange for BitfinexExchange {
             self.fetch_symbols()
                 .await?
                 .into_iter()
-                .map(|s| s.exchange_symbol)
+                .map(|s| s.symbol)
                 .collect()
         };
 
@@ -184,14 +160,11 @@ impl Exchange for BitfinexExchange {
             let data_tx = data_tx.clone();
             let config = self.config.clone();
             let metrics = self.metrics.clone();
-            let symbol_mapper = self.symbol_mapper.clone();
-
             let handle = tokio::spawn(async move {
                 let mut connection = BitfinexConnection::new(
                     config.exchanges.bitfinex.ws_endpoint.clone(),
                     batch,
                     data_tx,
-                    symbol_mapper,
                     config.exchanges.bitfinex.ping_interval_secs,
                 );
 
@@ -215,47 +188,56 @@ impl Exchange for BitfinexExchange {
                         continue;
                     }
 
-                    // Spawn ping task for Bitfinex
-                    let ping_handle = if let Some(ping_interval_secs) =
-                        config.exchanges.bitfinex.ping_interval_secs
-                    {
-                        let ping_sender = connection.clone_for_ping();
-                        Some(tokio::spawn(async move {
-                            let mut interval = interval(Duration::from_secs(ping_interval_secs));
-                            loop {
-                                interval.tick().await;
-                                // Send a heartbeat message through the data channel
-                                if let Err(e) = ping_sender.send(Message::Heartbeat).await {
-                                    error!("Failed to send heartbeat: {}", e);
+                    // Create ping interval if configured
+                    let mut ping_interval = config
+                        .exchanges
+                        .bitfinex
+                        .ping_interval_secs
+                        .map(|secs| interval(Duration::from_secs(secs)));
+
+                    // Read messages with ping handling
+                    loop {
+                        if let Some(ref mut ping_int) = ping_interval {
+                            tokio::select! {
+                                _ = ping_int.tick() => {
+                                    if let Err(e) = connection.send_ping().await {
+                                        error!("Failed to send ping: {}", e);
+                                        break;
+                                    }
+                                }
+                                result = connection.read_message() => {
+                                    match result {
+                                        Ok(Some(_msg)) => {
+                                            metrics.record_message("bitfinex");
+                                        }
+                                        Ok(None) => {
+                                            // Connection closed
+                                            break;
+                                        }
+                                        Err(e) => {
+                                            error!("Connection {} read error: {}", idx, e);
+                                            metrics.record_error("bitfinex", e.to_string());
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            match connection.read_message().await {
+                                Ok(Some(_msg)) => {
+                                    metrics.record_message("bitfinex");
+                                }
+                                Ok(None) => {
+                                    // Connection closed
+                                    break;
+                                }
+                                Err(e) => {
+                                    error!("Connection {} read error: {}", idx, e);
+                                    metrics.record_error("bitfinex", e.to_string());
                                     break;
                                 }
                             }
-                        }))
-                    } else {
-                        None
-                    };
-
-                    // Read messages
-                    loop {
-                        match connection.read_message().await {
-                            Ok(Some(_msg)) => {
-                                metrics.record_message("bitfinex");
-                            }
-                            Ok(None) => {
-                                // Connection closed
-                                break;
-                            }
-                            Err(e) => {
-                                error!("Connection {} read error: {}", idx, e);
-                                metrics.record_error("bitfinex", e.to_string());
-                                break;
-                            }
                         }
-                    }
-
-                    // Cancel ping task if it exists
-                    if let Some(handle) = ping_handle {
-                        handle.abort();
                     }
 
                     metrics.record_reconnect("bitfinex");

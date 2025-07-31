@@ -5,7 +5,6 @@ pub use connection::KrakenConnection;
 
 use crate::common::{
     data_types::{ExchangeId, Symbol, UnifiedMarketData, UnifiedTradeData},
-    utils::{denormalize_symbol_kraken, normalize_symbol_kraken},
     AnalyticsEngine, DataBuffer, MarketMetrics,
 };
 use crate::config::Config;
@@ -22,7 +21,6 @@ use tracing::{error, info};
 
 pub struct KrakenExchange {
     config: Arc<Config>,
-    symbol_mapper: Arc<crate::common::SymbolMapper>,
     data_buffer: Arc<DataBuffer>,
     analytics: Arc<AnalyticsEngine>,
     metrics: Arc<MarketMetrics>,
@@ -30,17 +28,12 @@ pub struct KrakenExchange {
 
 impl KrakenExchange {
     pub fn new(config: Arc<Config>) -> Result<Self> {
-        let symbol_mapper = Arc::new(crate::common::SymbolMapper::new(
-            config.symbol_mappings.clone(),
-        )?);
-
         let data_buffer = Arc::new(DataBuffer::new(config.logger.data_path.clone()));
         let analytics = Arc::new(AnalyticsEngine::new(10000.0, Duration::from_secs(30)));
         let metrics = Arc::new(MarketMetrics::new());
 
         Ok(Self {
             config,
-            symbol_mapper,
             data_buffer,
             analytics,
             metrics,
@@ -95,14 +88,9 @@ impl Exchange for KrakenExchange {
                     continue;
                 }
 
-                // Normalize Kraken asset codes using the utils function
-                let normalized_base = crate::common::utils::normalize_kraken_asset_code(&base);
-                let normalized_quote = crate::common::utils::normalize_kraken_asset_code(&quote);
-
                 let symbol = Symbol {
                     exchange: ExchangeId::Kraken,
-                    exchange_symbol: ws_name,
-                    normalized: format!("{normalized_base}-{normalized_quote}"),
+                    symbol: ws_name,
                     base_asset: base,
                     quote_asset: quote,
                     asset_class: crate::common::data_types::AssetClass::Spot,
@@ -111,8 +99,6 @@ impl Exchange for KrakenExchange {
                     tick_size: pair_info["tick_size"].as_str().and_then(|s| s.parse().ok()),
                 };
 
-                // Add to symbol mapper
-                self.symbol_mapper.add_symbol(symbol.clone());
                 symbols.push(symbol);
             }
         }
@@ -122,15 +108,11 @@ impl Exchange for KrakenExchange {
     }
 
     fn normalize_symbol(&self, exchange_symbol: &str) -> String {
-        self.symbol_mapper
-            .normalize(ExchangeId::Kraken, exchange_symbol)
-            .unwrap_or_else(|| normalize_symbol_kraken(exchange_symbol))
+        exchange_symbol.to_string()
     }
 
     fn denormalize_symbol(&self, normalized_symbol: &str) -> String {
-        self.symbol_mapper
-            .to_exchange(normalized_symbol, ExchangeId::Kraken)
-            .unwrap_or_else(|| denormalize_symbol_kraken(normalized_symbol))
+        normalized_symbol.to_string()
     }
 
     async fn create_connection(
@@ -142,16 +124,15 @@ impl Exchange for KrakenExchange {
             self.config.exchanges.kraken.ws_endpoint.clone(),
             symbols,
             data_sender,
-            self.symbol_mapper.clone(),
         )))
     }
 
     fn parse_market_data(&self, raw: &Value) -> Result<Option<UnifiedMarketData>> {
-        parse_kraken_ticker(raw, &self.symbol_mapper)
+        parse_kraken_ticker(raw)
     }
 
     fn parse_trade_data(&self, raw: &Value) -> Result<Option<UnifiedTradeData>> {
-        parse_kraken_trade(raw, &self.symbol_mapper)
+        parse_kraken_trade(raw)
     }
 
     fn max_symbols_per_connection(&self) -> usize {
@@ -172,7 +153,7 @@ impl Exchange for KrakenExchange {
             self.fetch_symbols()
                 .await?
                 .into_iter()
-                .map(|s| s.exchange_symbol)
+                .map(|s| s.symbol)
                 .collect()
         };
 
@@ -189,14 +170,12 @@ impl Exchange for KrakenExchange {
             let data_tx = data_tx.clone();
             let config = self.config.clone();
             let metrics = self.metrics.clone();
-            let symbol_mapper = self.symbol_mapper.clone();
 
             let handle = tokio::spawn(async move {
                 let mut connection = KrakenConnection::new(
                     config.exchanges.kraken.ws_endpoint.clone(),
                     batch,
                     data_tx,
-                    symbol_mapper,
                 );
 
                 let mut interval = interval(Duration::from_secs(

@@ -5,7 +5,6 @@ pub use connection::BinanceConnection;
 
 use crate::common::{
     data_types::{ExchangeId, Symbol, UnifiedMarketData, UnifiedTradeData},
-    utils::{denormalize_symbol_binance, normalize_symbol_binance},
     AnalyticsEngine, DataBuffer, MarketMetrics,
 };
 use crate::config::Config;
@@ -22,7 +21,6 @@ use tracing::{debug, error, info, warn};
 
 pub struct BinanceExchange {
     config: Arc<Config>,
-    symbol_mapper: Arc<crate::common::SymbolMapper>,
     data_buffer: Arc<DataBuffer>,
     analytics: Arc<AnalyticsEngine>,
     metrics: Arc<MarketMetrics>,
@@ -30,17 +28,12 @@ pub struct BinanceExchange {
 
 impl BinanceExchange {
     pub fn new(config: Arc<Config>) -> Result<Self> {
-        let symbol_mapper = Arc::new(crate::common::SymbolMapper::new(
-            config.symbol_mappings.clone(),
-        )?);
-
         let data_buffer = Arc::new(DataBuffer::new(config.logger.data_path.clone()));
         let analytics = Arc::new(AnalyticsEngine::new(10000.0, Duration::from_secs(30)));
         let metrics = Arc::new(MarketMetrics::new());
 
         Ok(Self {
             config,
-            symbol_mapper,
             data_buffer,
             analytics,
             metrics,
@@ -83,12 +76,9 @@ impl Exchange for BinanceExchange {
                     symbol_obj["status"].as_str(),
                 ) {
                     if status == "TRADING" {
-                        let normalized = normalize_symbol_binance(symbol);
-
                         let symbol = Symbol {
                             exchange: ExchangeId::Binance,
-                            exchange_symbol: symbol.to_string(),
-                            normalized: normalized.clone(),
+                            symbol: symbol.to_string(),
                             base_asset: base.to_string(),
                             quote_asset: quote.to_string(),
                             asset_class: crate::common::data_types::AssetClass::Spot,
@@ -97,8 +87,6 @@ impl Exchange for BinanceExchange {
                             tick_size: None, // Could parse from filters
                         };
 
-                        // Add to symbol mapper
-                        self.symbol_mapper.add_symbol(symbol.clone());
                         symbols.push(symbol);
                     }
                 }
@@ -110,15 +98,11 @@ impl Exchange for BinanceExchange {
     }
 
     fn normalize_symbol(&self, exchange_symbol: &str) -> String {
-        self.symbol_mapper
-            .normalize(ExchangeId::Binance, exchange_symbol)
-            .unwrap_or_else(|| normalize_symbol_binance(exchange_symbol))
+        exchange_symbol.to_string()
     }
 
     fn denormalize_symbol(&self, normalized_symbol: &str) -> String {
-        self.symbol_mapper
-            .to_exchange(normalized_symbol, ExchangeId::Binance)
-            .unwrap_or_else(|| denormalize_symbol_binance(normalized_symbol))
+        normalized_symbol.to_string()
     }
 
     async fn create_connection(
@@ -135,16 +119,15 @@ impl Exchange for BinanceExchange {
                 .binance
                 .ping_interval_secs
                 .unwrap_or(20),
-            self.symbol_mapper.clone(),
         )))
     }
 
     fn parse_market_data(&self, raw: &Value) -> Result<Option<UnifiedMarketData>> {
-        parse_binance_ticker(raw, &self.symbol_mapper)
+        parse_binance_ticker(raw)
     }
 
     fn parse_trade_data(&self, raw: &Value) -> Result<Option<UnifiedTradeData>> {
-        parse_binance_trade(raw, &self.symbol_mapper)
+        parse_binance_trade(raw)
     }
 
     fn max_symbols_per_connection(&self) -> usize {
@@ -165,7 +148,7 @@ impl Exchange for BinanceExchange {
             self.fetch_symbols()
                 .await?
                 .into_iter()
-                .map(|s| s.exchange_symbol)
+                .map(|s| s.symbol)
                 .collect()
         };
 
@@ -188,7 +171,6 @@ impl Exchange for BinanceExchange {
                 .binance
                 .ping_interval_secs
                 .unwrap_or(20);
-            let symbol_mapper = self.symbol_mapper.clone();
 
             let handle = tokio::spawn(async move {
                 let mut connection = BinanceConnection::new(
@@ -196,7 +178,6 @@ impl Exchange for BinanceExchange {
                     batch,
                     data_tx,
                     ping_interval,
-                    symbol_mapper,
                 );
 
                 loop {

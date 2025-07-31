@@ -184,7 +184,7 @@ async fn test_exchange(exchange: &str, config: Config) -> Result<()> {
             info!("Successfully fetched {} symbols", symbols.len());
             info!("Sample symbols:");
             for symbol in symbols.iter().take(5) {
-                info!("  {} -> {}", symbol.exchange_symbol, symbol.normalized);
+                info!("  {}", symbol.symbol);
             }
         }
         Err(e) => {
@@ -224,13 +224,12 @@ async fn list_symbols(exchange: &str, config: Config) -> Result<()> {
 
     let symbols = exchange_impl.fetch_symbols().await?;
 
-    println!("Exchange,Symbol,Normalized,Base,Quote,Status");
+    println!("Exchange,Symbol,Base,Quote,Status");
     for symbol in &symbols {
         println!(
-            "{},{},{},{},{},{}",
+            "{},{},{},{},{}",
             exchange,
-            symbol.exchange_symbol,
-            symbol.normalized,
+            symbol.symbol,
             symbol.base_asset,
             symbol.quote_asset,
             if symbol.active { "active" } else { "inactive" }
