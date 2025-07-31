@@ -7,10 +7,8 @@ use wasm_bindgen::prelude::*;
 // Core modules
 pub mod chart_engine;
 pub mod controls;
-pub mod frame_pacing;
+pub mod immediate_update;
 pub mod instance_manager;
-pub mod simple_api;
-pub mod simplified_render_loop;
 pub mod wrappers;
 
 use instance_manager::InstanceManager;
@@ -244,7 +242,7 @@ impl Chart {
                 match instance_opt {
                     Some(mut instance) => {
                         // Perform the render
-                        let result = instance.chart_engine.render().await;
+                        let result = instance.chart_engine.render();
 
                         // Put the instance back
                         InstanceManager::put_instance(instance_id, instance);
@@ -389,57 +387,6 @@ impl Chart {
     pub fn get_state_generation(&self) -> Result<u64, JsValue> {
         InstanceManager::with_instance(&self.instance_id, |instance| {
             instance.chart_engine.get_unified_state().generation
-        })
-        .ok_or_else(|| JsValue::from_str("Chart instance not found"))
-    }
-
-    #[wasm_bindgen]
-    pub fn set_frame_rate(&self, fps: u32) -> Result<(), JsValue> {
-        log::info!("Setting frame rate to {} FPS", fps);
-
-        let target = match fps {
-            60 => frame_pacing::FrameRateTarget::Smooth,
-            30 => frame_pacing::FrameRateTarget::Balanced,
-            15 => frame_pacing::FrameRateTarget::PowerSaver,
-            _ => frame_pacing::FrameRateTarget::Custom(fps as f32),
-        };
-
-        InstanceManager::with_instance(&self.instance_id, |instance| {
-            instance.chart_engine.set_frame_rate_target(target);
-        })
-        .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
-
-        Ok(())
-    }
-
-    #[wasm_bindgen]
-    pub fn set_adaptive_frame_rate(&self, enabled: bool) -> Result<(), JsValue> {
-        log::info!("Setting adaptive frame rate: {}", enabled);
-
-        InstanceManager::with_instance(&self.instance_id, |instance| {
-            instance.chart_engine.set_adaptive_frame_rate(enabled);
-        })
-        .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
-
-        Ok(())
-    }
-
-    #[wasm_bindgen]
-    pub fn get_frame_stats(&self) -> Result<String, JsValue> {
-        InstanceManager::with_instance(&self.instance_id, |instance| {
-            if let Some(stats) = instance.chart_engine.get_frame_stats() {
-                serde_json::to_string(&serde_json::json!({
-                    "avgFrameTime": stats.avg_frame_time,
-                    "minFrameTime": stats.min_frame_time,
-                    "maxFrameTime": stats.max_frame_time,
-                    "currentFps": stats.current_fps,
-                    "droppedFrames": stats.dropped_frames,
-                    "totalFrames": stats.total_frames,
-                }))
-                .unwrap_or_else(|_| "{}".to_string())
-            } else {
-                "{}".to_string()
-            }
         })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))
     }

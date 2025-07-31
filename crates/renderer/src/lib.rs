@@ -5,7 +5,6 @@ pub mod compute_engine;
 pub mod drawables;
 pub mod multi_renderer;
 pub mod pipeline_builder;
-pub mod resource_pool;
 pub mod shaders;
 
 use config_system::ChartPreset;
@@ -39,7 +38,13 @@ pub struct Renderer {
     pub config: wgpu::SurfaceConfiguration,
     data_store: DataStore,
     compute_engine: compute_engine::ComputeEngine,
-    resource_pool: Arc<Mutex<resource_pool::ResourcePoolManager>>,
+    // Track pending GPU readback
+    pending_readback: Option<PendingReadback>,
+}
+
+struct PendingReadback {
+    buffer: Rc<wgpu::Buffer>,
+    mapping_completed: Arc<Mutex<bool>>,
 }
 
 impl Renderer {
@@ -96,14 +101,6 @@ impl Renderer {
         // Create compute engine
         let compute_engine = compute_engine::ComputeEngine::new(device.clone(), queue.clone());
 
-        // Create resource pool manager
-        let resource_pool = Arc::new(Mutex::new(resource_pool::ResourcePoolManager::new(
-            Arc::new((*device).clone()),
-            Arc::new((*queue).clone()),
-            50, // Buffer pool size
-            20, // Texture pool size
-        )));
-
         let renderer = Self {
             surface,
             device,
@@ -111,17 +108,14 @@ impl Renderer {
             config: surface_config,
             data_store,
             compute_engine,
-            resource_pool,
+            pending_readback: None,
         };
 
         Ok(renderer)
     }
 
     /// Calculate bounds using GPU compute
-    pub async fn calculate_bounds(
-        &mut self,
-        mut encoder: wgpu::CommandEncoder,
-    ) -> RenderResult<()> {
+    pub fn calculate_bounds(&mut self, mut encoder: wgpu::CommandEncoder) -> RenderResult<()> {
         log::debug!("[Renderer] Calculating bounds using GPU");
 
         // Run pre-render compute passes (e.g., compute mid price)
@@ -139,9 +133,8 @@ impl Renderer {
             x_max,
         );
 
-        // Store both GPU min/max buffer and staging buffer
+        // Store GPU min/max buffer
         self.data_store.min_max_buffer = Some(std::rc::Rc::new(min_max_buffer));
-        self.data_store.min_max_staging_buffer = Some(std::rc::Rc::new(staging_buffer));
 
         // Update the shared bind group with GPU-calculated bounds
         self.data_store
@@ -150,53 +143,17 @@ impl Renderer {
         // Submit the command buffer
         self.queue.submit(std::iter::once(encoder.finish()));
 
-        // Read back the staging buffer to get the actual min/max values
-        if let Some(staging_buffer) = &self.data_store.min_max_staging_buffer {
-            // Clone the buffer reference to avoid borrow issues
-            let staging_buffer = staging_buffer.clone();
-
-            // Map the buffer for reading
-            let buffer_slice = staging_buffer.slice(..);
-            let (sender, receiver) = futures::channel::oneshot::channel();
-            buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
-                let _ = sender.send(result);
-            });
-
-            // Wait for the GPU to finish
-            self.device.poll(wgpu::Maintain::Wait);
-
-            // Get the mapped data
-            if let Ok(Ok(())) = receiver.await {
-                let data = buffer_slice.get_mapped_range();
-                let min_max: &[f32] = bytemuck::cast_slice(&data);
-
-                if min_max.len() >= 2 {
-                    let min = min_max[0];
-                    let max = min_max[1];
-
-                    // Update the data store with the GPU-calculated bounds
-                    self.data_store.set_gpu_y_bounds(min, max);
-                    log::debug!("[Renderer] GPU bounds read back: min={min}, max={max}");
-                } else {
-                    log::warn!("[Renderer] Staging buffer had insufficient data");
-                }
-
-                // Unmap the buffer
-                drop(data);
-                staging_buffer.unmap();
-            } else {
-                log::error!("[Renderer] Failed to map staging buffer for reading");
-            }
-        }
+        // Queue non-blocking readback
+        self.queue_bounds_readback(std::rc::Rc::new(staging_buffer));
 
         log::debug!("[Renderer] Bounds calculation complete");
         Ok(())
     }
 
     /// Render a frame using the provided multi-renderer
-    pub async fn render(&mut self, multi_renderer: &mut MultiRenderer) -> RenderResult<()> {
+    pub fn render(&mut self, multi_renderer: &mut MultiRenderer) -> RenderResult<()> {
         // Check if rendering is needed
-        if !self.data_store.is_dirty() {
+        if !self.data_store.is_dirty() && self.pending_readback.is_none() {
             return Ok(());
         }
 
@@ -213,9 +170,9 @@ impl Renderer {
                 label: Some("Render Encoder"),
             });
 
-        // Check if bounds calculation is needed (wasn't done in preprocessing)
-        if self.data_store.min_max_buffer.is_none() {
-            log::debug!("[Renderer] Bounds not calculated in preprocessing, calculating now...");
+        // Start GPU bounds calculation if needed
+        if self.data_store.gpu_min_y.is_none() && self.data_store.min_max_buffer.is_none() {
+            log::debug!("[Renderer] Starting GPU bounds calculation");
 
             // Run pre-render compute passes (e.g., compute mid price)
             self.compute_engine
@@ -232,15 +189,13 @@ impl Renderer {
                 x_max,
             );
 
-            // Store both GPU min/max buffer and staging buffer
-            self.data_store.min_max_buffer = Some(std::rc::Rc::new(min_max_buffer));
-            self.data_store.min_max_staging_buffer = Some(std::rc::Rc::new(staging_buffer));
-
-            // Update the shared bind group with GPU-calculated bounds
+            // Store buffers
+            self.data_store.min_max_buffer = Some(Rc::new(min_max_buffer));
             self.data_store
                 .update_shared_bind_group_with_gpu_buffer(&self.device);
-        } else {
-            log::debug!("[Renderer] Using pre-calculated bounds from preprocessing stage");
+
+            // Queue non-blocking readback
+            self.queue_bounds_readback(Rc::new(staging_buffer));
         }
 
         // Let MultiRenderer handle all rendering
@@ -252,18 +207,11 @@ impl Renderer {
         // Present the frame
         output.present();
 
-        // After presenting, try to read GPU bounds for next frame
-        // This is non-blocking and will update the bounds when ready
-        let needs_rerender = if self.data_store.gpu_min_y.is_none() {
-            self.try_read_gpu_bounds()
-        } else {
-            false
-        };
+        // Process any pending readback
+        self.process_pending_readback();
 
-        // Mark as clean after successful render unless we need another render for GPU bounds
-        if !needs_rerender {
-            self.data_store.mark_clean();
-        }
+        // Clear dirty flag
+        self.data_store.mark_clean();
 
         Ok(())
     }
@@ -295,78 +243,74 @@ impl Renderer {
         }
 
         // Check if we're waiting for GPU bounds to be read
-        if self.data_store.gpu_min_y.is_none() && self.data_store.min_max_staging_buffer.is_some() {
+        if self.data_store.gpu_min_y.is_none() && self.pending_readback.is_some() {
             return true;
         }
 
         false
     }
 
-    /// Try to read GPU-calculated bounds from the staging buffer
-    /// Returns true if bounds were successfully read and a re-render is needed
-    fn try_read_gpu_bounds(&mut self) -> bool {
-        // Skip if we already have the bounds
-        if self.data_store.gpu_min_y.is_some() {
-            return false;
-        }
+    /// Queue a non-blocking readback of GPU bounds
+    fn queue_bounds_readback(&mut self, staging_buffer: Rc<wgpu::Buffer>) {
+        let mapping_completed = Arc::new(Mutex::new(false));
+        let mapping_completed_clone = mapping_completed.clone();
 
-        if let Some(staging_buffer) = self.data_store.min_max_staging_buffer.clone() {
-            if self.data_store.gpu_buffer_ready {
-                // Buffer should be mapped and ready to read
-                let data = staging_buffer.slice(..).get_mapped_range();
-                let floats: &[f32] = bytemuck::cast_slice(&data);
-                if floats.len() >= 2 {
-                    log::debug!(
-                        "[Renderer] Read GPU bounds: min={}, max={}",
-                        floats[0],
-                        floats[1]
-                    );
-                    self.data_store.set_gpu_y_bounds(floats[0], floats[1]);
-                    // Mark dirty to trigger re-render with updated labels
-                    self.data_store.mark_dirty();
-                    drop(data);
-                    staging_buffer.unmap();
-                    self.data_store.gpu_buffer_mapped = false;
-                    self.data_store.gpu_buffer_ready = false;
-                    return true; // Request re-render
-                }
-                drop(data);
-                staging_buffer.unmap();
-                self.data_store.gpu_buffer_mapped = false;
-                self.data_store.gpu_buffer_ready = false;
-            } else if !self.data_store.gpu_buffer_mapped {
-                // Request mapping for next frame
-                let buffer_slice = staging_buffer.slice(..);
-
-                buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
-                    if result.is_ok() {
-                        log::debug!("[Renderer] GPU min/max buffer mapped successfully");
-                    } else {
-                        log::error!("[Renderer] Failed to map GPU min/max buffer");
-                    }
-                });
-                self.data_store.gpu_buffer_mapped = true;
-
-                // Poll to start the mapping process
-                self.device.poll(wgpu::Maintain::Poll);
-            } else {
-                // Buffer mapping was requested, check if it's ready
-                // Poll more aggressively to check for completion
-                self.device.poll(wgpu::Maintain::Wait);
-
-                // After polling, the buffer might be ready
-                // We'll mark it as ready and try to read on the next frame
-                self.data_store.gpu_buffer_ready = true;
-                // Mark dirty to trigger another render attempt
-                self.data_store.mark_dirty();
+        // Start the async mapping immediately
+        let buffer_slice = staging_buffer.slice(..);
+        buffer_slice.map_async(wgpu::MapMode::Read, move |result| match result {
+            Ok(()) => {
+                *mapping_completed_clone.lock().unwrap() = true;
+                log::trace!("[Renderer] GPU bounds buffer mapped successfully");
             }
-        }
-        false
+            Err(e) => {
+                log::error!("[Renderer] Failed to map buffer: {:?}", e);
+            }
+        });
+
+        self.pending_readback = Some(PendingReadback {
+            buffer: staging_buffer,
+            mapping_completed,
+        });
+        log::debug!("[Renderer] Queued non-blocking GPU bounds readback");
     }
 
-    /// Get access to the resource pool
-    pub fn resource_pool(&self) -> Arc<Mutex<resource_pool::ResourcePoolManager>> {
-        self.resource_pool.clone()
+    /// Process pending readback (non-blocking)
+    fn process_pending_readback(&mut self) {
+        if let Some(pending) = &self.pending_readback {
+            // Poll to make progress on async operations
+            self.device.poll(wgpu::Maintain::Poll);
+
+            // Check if mapping is complete
+            if *pending.mapping_completed.lock().unwrap() {
+                // Take ownership to read the buffer
+                if let Some(pending) = self.pending_readback.take() {
+                    let buffer_slice = pending.buffer.slice(..);
+                    let mapped = buffer_slice.get_mapped_range();
+                    let data: &[f32] = bytemuck::cast_slice(&mapped);
+
+                    if data.len() >= 2 {
+                        // Update bounds
+                        self.data_store.set_gpu_y_bounds(data[0], data[1]);
+                        log::debug!(
+                            "[Renderer] GPU bounds ready: min={}, max={}",
+                            data[0],
+                            data[1]
+                        );
+
+                        // Trigger re-render to show Y-axis
+                        self.data_store.mark_dirty();
+
+                        // Clean up
+                        drop(mapped);
+                        pending.buffer.unmap();
+                    } else {
+                        log::warn!("[Renderer] Insufficient data in bounds buffer");
+                        drop(mapped);
+                        pending.buffer.unmap();
+                    }
+                }
+            }
+        }
     }
 
     /// Process a state diff for incremental updates
@@ -387,12 +331,7 @@ impl Renderer {
     ///     .build();
     /// ```
     pub fn create_multi_renderer(&self) -> MultiRendererBuilder {
-        MultiRendererBuilder::new(
-            self.device.clone(),
-            self.queue.clone(),
-            self.config.format,
-            Some(self.resource_pool.clone()),
-        )
+        MultiRendererBuilder::new(self.device.clone(), self.queue.clone(), self.config.format)
     }
 
     /// Example: Create a multi-renderer with multiple line plots

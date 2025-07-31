@@ -30,6 +30,12 @@ impl YAxisRenderer {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
     ) {
+        // Skip rendering if bounds not ready
+        if !data_store.has_y_bounds() {
+            log::trace!("[YAxisRenderer] Skipping - bounds not ready");
+            return;
+        }
+
         // Get bounds for display - prefer GPU bounds, fall back to reasonable defaults
         let (min, max) = data_store.get_gpu_y_bounds().unwrap_or({
             // Use the actual data range from the shader's perspective

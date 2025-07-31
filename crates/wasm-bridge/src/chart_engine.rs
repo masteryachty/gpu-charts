@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use crate::{
     controls::canvas_controller::CanvasController,
-    simplified_render_loop::{RenderState, SimplifiedRenderLoop, UpdateTrigger},
+    immediate_update::{ImmediateUpdater, UpdateAction, UpdateEvent},
 };
 
 use js_sys::Error;
@@ -21,7 +21,7 @@ pub struct ChartEngine {
     pub data_manager: DataManager,
     pub preset_manager: PresetManager,
     pub multi_renderer: Option<MultiRenderer>,
-    render_loop: SimplifiedRenderLoop,
+    updater: ImmediateUpdater,
     instance_id: Uuid,
     unified_state: UnifiedState,
 }
@@ -201,14 +201,9 @@ impl ChartEngine {
 
         log::info!("ChartEngine initialized with minimal renderer configuration - waiting for preset selection");
 
-        // Create render loop controller
-        let render_loop = SimplifiedRenderLoop::new();
+        // Create immediate updater
+        let updater = ImmediateUpdater::new();
         let instance_id = Uuid::new_v4();
-
-        // Add state change listener for debugging
-        render_loop.add_state_listener(Rc::new(|old, new| {
-            log::info!("ChartEngine state changed: {old:?} -> {new:?}");
-        }));
 
         // Initialize unified state with initial values
         let mut unified_state = UnifiedState::new();
@@ -243,24 +238,21 @@ impl ChartEngine {
             canvas_controller,
             preset_manager: PresetManager::new(),
             multi_renderer: Some(multi_renderer),
-            render_loop,
+            updater,
             instance_id,
             unified_state,
         })
     }
 
-    pub async fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
+    pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         log::info!("RENDER !!!!!!!!");
 
         // Always use multi-renderer (we ensure it exists in new())
         if let Some(ref mut multi_renderer) = self.multi_renderer {
-            self.renderer
-                .render(multi_renderer)
-                .await
-                .map_err(|e| match e {
-                    shared_types::GpuChartsError::Surface { .. } => wgpu::SurfaceError::Outdated,
-                    _ => wgpu::SurfaceError::Outdated,
-                })
+            self.renderer.render(multi_renderer).map_err(|e| match e {
+                shared_types::GpuChartsError::Surface { .. } => wgpu::SurfaceError::Outdated,
+                _ => wgpu::SurfaceError::Outdated,
+            })
         } else {
             // This should never happen since we create a default multi-renderer in new()
             log::error!("No multi-renderer available!");
@@ -294,7 +286,7 @@ impl ChartEngine {
         let actions = diff.get_required_actions();
 
         if actions.needs_pipeline_rebuild {
-            self.on_data_config_changed(); // Config update includes pipeline rebuild
+            self.on_resized(width, height); // Resizing requires pipeline rebuild
         } else if actions.needs_render {
             self.on_view_changed();
         }
@@ -396,59 +388,98 @@ impl ChartEngine {
     //     let result self.render().await;
     // }
 
-    /// Start the render loop
+    /// Start the render loop (now just marks as ready)
     pub fn start_render_loop(&mut self) -> Result<(), Error> {
-        self.render_loop
-            .trigger(UpdateTrigger::Start, self.instance_id);
+        self.updater.set_ready();
         Ok(())
     }
 
-    /// Stop the render loop
+    /// Stop the render loop (no-op with immediate mode)
     pub fn stop_render_loop(&mut self) -> Result<(), Error> {
-        self.render_loop
-            .trigger(UpdateTrigger::Stop, self.instance_id);
+        // No-op in immediate mode
         Ok(())
     }
 
     /// Called when new data is received
     pub fn on_data_received(&mut self) {
-        self.render_loop
-            .trigger(UpdateTrigger::DataRequested, self.instance_id);
+        let action = self.updater.process_update(UpdateEvent::DataChanged);
+        self.handle_update_action(action);
     }
 
     /// Called when view changes (pan/zoom) - render only
     pub fn on_view_changed(&mut self) {
-        self.render_loop
-            .trigger(UpdateTrigger::ViewChanged, self.instance_id);
+        let action = self.updater.process_update(UpdateEvent::ViewChanged {
+            zoom: true,
+            pan: true,
+        });
+        self.handle_update_action(action);
     }
 
     /// Called when visual settings change - render only
     pub fn on_visual_settings_changed(&mut self) {
-        self.render_loop
-            .trigger(UpdateTrigger::VisualSettingsChanged, self.instance_id);
+        let action = self.updater.process_update(UpdateEvent::ViewChanged {
+            zoom: false,
+            pan: false,
+        });
+        self.handle_update_action(action);
     }
 
     /// Called when metric visibility changes - render only
     pub fn on_metric_visibility_changed(&mut self) {
-        self.render_loop
-            .trigger(UpdateTrigger::MetricVisibilityChanged, self.instance_id);
+        let action = self
+            .updater
+            .process_update(UpdateEvent::MetricVisibilityChanged);
+        self.handle_update_action(action);
     }
 
     /// Called when data configuration changes - requires preprocessing
     pub fn on_data_config_changed(&mut self) {
-        self.render_loop
-            .trigger(UpdateTrigger::ConfigChanged, self.instance_id);
+        let action = self.updater.process_update(UpdateEvent::ConfigChanged);
+        self.handle_update_action(action);
     }
 
     /// Called when resized
-    pub fn on_resized(&mut self, _requires_preprocessing: bool) {
-        self.render_loop
-            .trigger(UpdateTrigger::Resized, self.instance_id);
+    pub fn on_resized(&mut self, width: u32, height: u32) {
+        let action = self
+            .updater
+            .process_update(UpdateEvent::Resized(width, height));
+        self.handle_update_action(action);
     }
 
-    /// Get current render loop state
-    pub fn get_render_state(&self) -> RenderState {
-        self.render_loop.get_state()
+    /// Get current render state
+    pub fn get_render_state(&self) -> crate::immediate_update::RenderState {
+        self.updater.get_state()
+    }
+
+    /// Handle update action from the immediate updater
+    fn handle_update_action(&mut self, action: UpdateAction) {
+        match action {
+            UpdateAction::RenderOnly => {
+                // Mark data as dirty to trigger render
+                self.renderer.data_store_mut().mark_dirty();
+            }
+            UpdateAction::FetchAndRender => {
+                // Clear bounds for recalculation
+                {
+                    let data_store = self.renderer.data_store_mut();
+                    data_store.min_max_buffer = None;
+                    data_store.gpu_min_y = None;
+                    data_store.gpu_max_y = None;
+                    data_store.mark_dirty();
+                }
+
+                // In immediate mode, we don't spawn async tasks here
+                // The actual data fetch happens in apply_preset_and_symbol
+            }
+            UpdateAction::RebuildAndRender => {
+                // Rebuild multi-renderer if we have a preset
+                let preset_clone = self.renderer.data_store().preset.clone();
+                if let Some(preset) = preset_clone {
+                    self.rebuild_multi_renderer_for_preset(&preset);
+                }
+                self.renderer.data_store_mut().mark_dirty();
+            }
+        }
     }
 
     /// Set instance ID (used by instance manager)
@@ -533,21 +564,6 @@ impl ChartEngine {
     /// Get state changes since a given generation
     pub fn get_state_changes_since(&self, generation: u64) -> Vec<StateSection> {
         self.unified_state.get_changes_since(generation)
-    }
-
-    /// Set frame rate target
-    pub fn set_frame_rate_target(&self, target: crate::frame_pacing::FrameRateTarget) {
-        self.render_loop.set_frame_rate_target(target);
-    }
-
-    /// Enable or disable adaptive frame rate
-    pub fn set_adaptive_frame_rate(&self, enabled: bool) {
-        self.render_loop.set_adaptive_frame_rate(enabled);
-    }
-
-    /// Get frame statistics
-    pub fn get_frame_stats(&self) -> Option<crate::frame_pacing::FrameStats> {
-        self.render_loop.get_frame_stats()
     }
 
     /// Rebuild the multi-renderer based on preset configuration

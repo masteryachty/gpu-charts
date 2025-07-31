@@ -72,11 +72,8 @@ pub struct DataStore {
     pub screen_size: ScreenDimensions,
     dirty: bool, // Track if data has changed and needs re-rendering
     pub min_max_buffer: Option<Rc<wgpu::Buffer>>, // GPU-calculated min/max buffer
-    pub min_max_staging_buffer: Option<Rc<wgpu::Buffer>>, // Staging buffer for CPU readback
     pub gpu_min_y: Option<f32>, // GPU-calculated min Y value
     pub gpu_max_y: Option<f32>, // GPU-calculated max Y value
-    pub gpu_buffer_mapped: bool, // Flag to track if GPU buffer mapping is requested
-    pub gpu_buffer_ready: bool, // Flag to track if GPU buffer is ready to read
 }
 
 // pub struct Coord {
@@ -95,13 +92,10 @@ impl DataStore {
             active_data_group_indices: Vec::new(),
             range_bind_group: None,
             screen_size: ScreenDimensions { width, height },
-            dirty: true,                  // Start dirty to ensure initial render
-            min_max_buffer: None,         // GPU buffer will be created during rendering
-            min_max_staging_buffer: None, // Staging buffer for CPU readback
+            dirty: true,          // Start dirty to ensure initial render
+            min_max_buffer: None, // GPU buffer will be created during rendering
             gpu_min_y: None,
             gpu_max_y: None,
-            gpu_buffer_mapped: false,
-            gpu_buffer_ready: false,
         }
     }
 
@@ -214,11 +208,8 @@ impl DataStore {
     /// Clear GPU bounds calculations (called when new data is loaded)
     pub fn clear_gpu_bounds(&mut self) {
         self.min_max_buffer = None;
-        self.min_max_staging_buffer = None;
         self.gpu_min_y = None;
         self.gpu_max_y = None;
-        self.gpu_buffer_mapped = false;
-        self.gpu_buffer_ready = false;
         self.range_bind_group = None;
         self.mark_dirty();
         log::debug!("[DataStore] Cleared GPU bounds - will recalculate on next render");
@@ -241,6 +232,19 @@ impl DataStore {
             log::info!("[DataStore] X range updated, cleared Y bounds and marked dirty");
         } else {
             log::info!("[DataStore] X range unchanged, skipping update");
+        }
+    }
+
+    /// Check if Y bounds are available
+    pub fn has_y_bounds(&self) -> bool {
+        self.gpu_min_y.is_some() && self.gpu_max_y.is_some()
+    }
+
+    /// Get Y bounds if available
+    pub fn get_y_bounds(&self) -> Option<(f32, f32)> {
+        match (self.gpu_min_y, self.gpu_max_y) {
+            (Some(min), Some(max)) => Some((min, max)),
+            _ => None,
         }
     }
 
