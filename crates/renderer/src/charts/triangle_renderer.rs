@@ -40,12 +40,12 @@ impl TriangleRenderer {
                     },
                     count: None,
                 },
-                // y_min_max (f32 prices)
+                // y_min_max (f32 prices) - from GPU compute shader
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStages::VERTEX,
                     ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
                         has_dynamic_offset: false,
                         min_binding_size: None,
                     },
@@ -236,21 +236,11 @@ impl TriangleRenderer {
             usage: wgpu::BufferUsages::UNIFORM,
         });
 
-        // Y range (prices) - use same fallback as PlotRenderer
-        let (y_min, y_max) = if let (Some(min), Some(max)) = (data_store.gpu_min_y, data_store.gpu_max_y) {
-            (min, max)
-        } else {
-            // Fallback for BTC prices around $118,000
-            (110000.0, 125000.0)
+        // Y range - use the GPU-computed min/max buffer
+        let y_buffer = match &data_store.min_max_buffer {
+            Some(buffer) => buffer.clone(),
+            None => return None, // Skip rendering if no min/max buffer available
         };
-        let y_min_max = glm::vec2(y_min, y_max);
-        
-        
-        let y_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("triangle_y_min_max"),
-            contents: bytemuck::cast_slice(&[y_min_max.x, y_min_max.y]),
-            usage: wgpu::BufferUsages::UNIFORM,
-        });
 
         // Screen size
         let screen_size = glm::vec2(
