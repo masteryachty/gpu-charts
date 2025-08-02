@@ -30,11 +30,7 @@ impl YAxisRenderer {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
     ) {
-        // Skip rendering if bounds not ready
-        if !data_store.has_y_bounds() {
-            log::trace!("[YAxisRenderer] Skipping - bounds not ready");
-            return;
-        }
+        // Don't skip if no bounds - we'll use fallbacks
 
         // Get bounds for display - prefer GPU bounds, fall back to reasonable defaults
         let (min, max) = data_store.get_gpu_y_bounds().unwrap_or({
@@ -43,15 +39,17 @@ impl YAxisRenderer {
             match (data_store.gpu_min_y, data_store.gpu_max_y) {
                 (Some(min), Some(max)) => (min, max),
                 _ => {
-                    // If no bounds yet, use the last known bounds or defaults
+                    // If no bounds yet, use the last known bounds or reasonable defaults for BTC
                     if self.last_min_y != 0.0 || self.last_max_y != 0.0 {
                         (self.last_min_y, self.last_max_y)
                     } else {
-                        (0.0, 100.0)
+                        // Use reasonable defaults for BTC prices
+                        (110000.0, 125000.0)
                     }
                 }
             }
         });
+
 
         let height = data_store.screen_size.height as i32;
 
@@ -59,12 +57,11 @@ impl YAxisRenderer {
         let needs_recalculation =
             self.last_min_y != min || self.last_max_y != max || self.last_height != height;
 
+
         if needs_recalculation {
             // Log when we update labels
             if data_store.get_gpu_y_bounds().is_some() {
-                log::debug!("[YAxisRenderer] Rendering with GPU bounds: min={min}, max={max}");
             } else {
-                log::debug!("[YAxisRenderer] Rendering with fallback bounds: min={min}, max={max}");
             }
 
             let (interval, start, end) = calculate_y_axis_interval(min, max);
@@ -87,37 +84,24 @@ impl YAxisRenderer {
             // Create text sections
             labels.reserve(label_strings.len());
             for (y_string, y) in &label_strings {
-                let coord = data_store.world_to_screen_with_margin(0., *y);
+                let screen_y = data_store.y_to_screen_position(*y) - 8.0; // Offset by 8 pixels to center text
                 let section = TextSection::default()
                     .add_text(Text::new(y_string).with_color([1.0, 1.0, 1.0, 1.0]))
                     .with_screen_position((
-                        (5) as f32,
-                        (((coord.1 + 1.) / 2.) * (height as f32) - 15.),
+                        5.0,
+                        screen_y,
                     ));
                 labels.push(section);
             }
 
             // Create vertex data for axis lines
             let mut vertices = Vec::with_capacity(y_values.len() * 4);
-            log::debug!(
-                "Y-axis: Creating horizontal lines from x={} to x={}",
-                data_store.start_x,
-                data_store.end_x
-            );
             for y in &y_values {
                 // Use the actual X range from the data store
                 vertices.push(data_store.start_x as f32);
                 vertices.push(*y);
                 vertices.push(data_store.end_x as f32);
                 vertices.push(*y);
-                log::debug!(
-                    "Y-axis: Line at y={} from ({}, {}) to ({}, {})",
-                    y,
-                    data_store.start_x,
-                    y,
-                    data_store.end_x,
-                    y
-                );
             }
 
             // Create or update buffer
@@ -137,7 +121,6 @@ impl YAxisRenderer {
             self.brush
                 .resize_view(data_store.screen_size.width as f32, height as f32, queue);
             if let Err(e) = self.brush.queue(device, queue, labels) {
-                log::error!("Y-axis: Failed to queue text labels: {e:?}");
             }
         } else {
             // If only the window size changed, update the text brush size
@@ -189,19 +172,13 @@ impl YAxisRenderer {
         if let Some(buffer) = &self.vertex_buffer {
             // Use the shared bind group from DataStore
             if let Some(bind_group) = data_store.range_bind_group.as_ref() {
-                log::debug!(
-                    "Y-axis: Drawing {} vertices for horizontal lines",
-                    self.vertex_count
-                );
                 render_pass.set_pipeline(&self.pipeline);
                 render_pass.set_bind_group(0, bind_group, &[]);
                 render_pass.set_vertex_buffer(0, buffer.slice(..));
                 render_pass.draw(0..self.vertex_count, 0..1);
             } else {
-                log::warn!("Y-axis: No shared bind group available, skipping horizontal lines");
             }
         } else {
-            log::warn!("Y-axis: No vertex buffer available");
         }
 
         // Draw text labels
@@ -223,7 +200,6 @@ impl YAxisRenderer {
         {
             Ok(brush) => brush,
             Err(e) => {
-                log::error!("Failed to create text brush: {e:?}");
                 panic!("Cannot create Y-axis renderer without text rendering capability");
             }
         };

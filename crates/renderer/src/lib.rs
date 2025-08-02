@@ -44,6 +44,7 @@ pub struct Renderer {
 
 struct PendingReadback {
     buffer: Rc<wgpu::Buffer>,
+    mapping_started: bool,
     mapping_completed: Arc<Mutex<bool>>,
 }
 
@@ -116,7 +117,6 @@ impl Renderer {
 
     /// Calculate bounds using GPU compute
     pub fn calculate_bounds(&mut self, mut encoder: wgpu::CommandEncoder) -> RenderResult<()> {
-        log::debug!("[Renderer] Calculating bounds using GPU");
 
         // Run pre-render compute passes (e.g., compute mid price)
         self.compute_engine
@@ -146,7 +146,6 @@ impl Renderer {
         // Queue non-blocking readback
         self.queue_bounds_readback(std::rc::Rc::new(staging_buffer));
 
-        log::debug!("[Renderer] Bounds calculation complete");
         Ok(())
     }
 
@@ -172,7 +171,6 @@ impl Renderer {
 
         // Start GPU bounds calculation if needed
         if self.data_store.gpu_min_y.is_none() && self.data_store.min_max_buffer.is_none() {
-            log::debug!("[Renderer] Starting GPU bounds calculation");
 
             // Run pre-render compute passes (e.g., compute mid price)
             self.compute_engine
@@ -207,11 +205,12 @@ impl Renderer {
         // Present the frame
         output.present();
 
+        // Clear dirty flag before processing readback
+        // This ensures that if readback marks the store dirty, it stays dirty for next frame
+        self.data_store.mark_clean();
+
         // Process any pending readback
         self.process_pending_readback();
-
-        // Clear dirty flag
-        self.data_store.mark_clean();
 
         Ok(())
     }
@@ -222,7 +221,6 @@ impl Renderer {
         self.config.height = height;
         self.surface.configure(&self.device, &self.config);
         self.data_store.resized(width, height);
-        log::debug!("Resized surface to {{ width: {width}, height: {height} }}");
     }
 
     /// Get mutable access to data store
@@ -252,36 +250,56 @@ impl Renderer {
 
     /// Queue a non-blocking readback of GPU bounds
     fn queue_bounds_readback(&mut self, staging_buffer: Rc<wgpu::Buffer>) {
-        let mapping_completed = Arc::new(Mutex::new(false));
-        let mapping_completed_clone = mapping_completed.clone();
-
-        // Start the async mapping immediately
-        let buffer_slice = staging_buffer.slice(..);
-        buffer_slice.map_async(wgpu::MapMode::Read, move |result| match result {
-            Ok(()) => {
-                *mapping_completed_clone.lock().unwrap() = true;
-                log::trace!("[Renderer] GPU bounds buffer mapped successfully");
-            }
-            Err(e) => {
-                log::error!("[Renderer] Failed to map buffer: {:?}", e);
-            }
-        });
-
+        // Store the buffer for later mapping
+        // We'll initiate the mapping in process_pending_readback after device.poll()
         self.pending_readback = Some(PendingReadback {
             buffer: staging_buffer,
-            mapping_completed,
+            mapping_started: false,
+            mapping_completed: Arc::new(Mutex::new(false)),
         });
-        log::debug!("[Renderer] Queued non-blocking GPU bounds readback");
     }
 
     /// Process pending readback (non-blocking)
     fn process_pending_readback(&mut self) {
-        if let Some(pending) = &self.pending_readback {
+        if let Some(pending) = &mut self.pending_readback {
             // Poll to make progress on async operations
             self.device.poll(wgpu::Maintain::Poll);
+            
+            let mut mapping_completed = pending.mapping_completed.lock().unwrap();
+            
+            // Check if we need to initiate the mapping
+            if !pending.mapping_started && !*mapping_completed {
+                // Mark that we've started mapping to avoid double mapping
+                pending.mapping_started = true;
+                
+                // Drop the lock before initiating mapping to avoid holding it during async operation
+                drop(mapping_completed);
+                
+                // Clone what we need for the closure
+                let mapping_completed_clone = pending.mapping_completed.clone();
+                let buffer_slice = pending.buffer.slice(..);
+                
+                // Now initiate the mapping
+                buffer_slice.map_async(wgpu::MapMode::Read, move |result| match result {
+                    Ok(()) => {
+                        *mapping_completed_clone.lock().unwrap() = true;
+                    }
+                    Err(e) => {
+                    }
+                });
+                
+                // Poll again to potentially complete the mapping immediately
+                self.device.poll(wgpu::Maintain::Poll);
+                
+                // Re-acquire the lock to check if mapping completed
+                mapping_completed = pending.mapping_completed.lock().unwrap();
+            }
 
             // Check if mapping is complete
-            if *pending.mapping_completed.lock().unwrap() {
+            if *mapping_completed {
+                // Drop the lock before processing
+                drop(mapping_completed);
+                
                 // Take ownership to read the buffer
                 if let Some(pending) = self.pending_readback.take() {
                     let buffer_slice = pending.buffer.slice(..);
@@ -290,21 +308,22 @@ impl Renderer {
 
                     if data.len() >= 2 {
                         // Update bounds
-                        self.data_store.set_gpu_y_bounds(data[0], data[1]);
-                        log::debug!(
-                            "[Renderer] GPU bounds ready: min={}, max={}",
-                            data[0],
-                            data[1]
-                        );
-
-                        // Trigger re-render to show Y-axis
-                        self.data_store.mark_dirty();
+                        let min_val = data[0];
+                        let max_val = data[1];
+                        
+                        
+                        // Check if we got valid bounds
+                        if min_val >= max_val || (min_val == 0.0 && max_val == 1.0) {
+                            // Use sensible defaults if GPU bounds are invalid
+                            self.data_store.set_gpu_y_bounds(0.0, 100.0);
+                        } else {
+                            self.data_store.set_gpu_y_bounds(min_val, max_val);
+                        }
 
                         // Clean up
                         drop(mapped);
                         pending.buffer.unmap();
                     } else {
-                        log::warn!("[Renderer] Insufficient data in bounds buffer");
                         drop(mapped);
                         pending.buffer.unmap();
                     }

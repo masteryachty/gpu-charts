@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
 // import { useAutonomousDataFetching } from './useAutonomousDataFetching'; // TEMPORARILY DISABLED
 // import { useErrorHandler } from './useErrorHandler'; // TEMPORARILY DISABLED
@@ -57,6 +57,8 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
 
   // Refs for cleanup and performance
   const mountedRef = useRef(true);
+  const chartRef = useRef<Chart | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
 
   /**
    * Initialize the WASM chart instance
@@ -65,7 +67,6 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
     if (!mountedRef.current) return false;
 
     try {
-      console.log(`[useWasmChart] Initializing chart for canvas: ${canvasId}`);
 
       // Wait for canvas to be available with retry logic
       let canvas: HTMLElement | null = document.getElementById(canvasId);
@@ -75,7 +76,6 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
 
       const canvasElement = canvas as HTMLCanvasElement;
       if (canvasElement.clientWidth === 0 || canvasElement.clientHeight === 0) {
-        console.log(`[useWasmChart] Canvas has no dimensions, setting defaults`);
         canvasElement.style.width = '100%';
         canvasElement.style.height = '100%';
         // Wait for layout to update
@@ -86,49 +86,54 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
       let chart: Chart;
 
       try {
-        console.log('[useWasmChart] Loading WASM module...');
         const wasmModule = await import('@pkg/wasm_bridge.js');
-        console.log('[useWasmChart] WASM module imported, initializing...');
         await wasmModule.default();
-        console.log('[useWasmChart] WASM module initialized');
         if (!mountedRef.current) {
-          console.log('[useWasmChart] Component unmounted during WASM init');
           return false;
         }
 
         // Create Chart instance 
-        console.log('[useWasmChart] Creating Chart instance...');
         chart = new wasmModule.Chart();
-        console.log('[useWasmChart] Chart instance created');
 
         // Initialize with canvas ID and actual canvas dimensions
         const actualWidth = width || canvasElement.clientWidth || 800;
         const actualHeight = height || canvasElement.clientHeight || 600;
-        console.log(`[useWasmChart] Initializing chart with canvas: ${canvasId}, size: ${actualWidth}x${actualHeight}`);
 
         try {
           await chart.init(canvasId, actualWidth, actualHeight, startTime, endTime);
-          console.log('[useWasmChart] Chart.init() completed');
         } catch (initError) {
-          console.error('[useWasmChart] Chart.init() failed:', initError);
           throw initError;
         }
 
-        // try {
-        //   await chart.render();
-        //   console.log('[useWasmChart] Chart.render() completed');
-        // } catch (initError) {
-        //   console.error('[useWasmChart] Chart.render() failed:', initError);
-        //   throw initError;
-        // }
+        try {
+          await chart.render();
+          
+          // Store chart ref
+          chartRef.current = chart;
+          
+          // Start render loop to check for updates
+          const checkRenderLoop = () => {
+            if (!mountedRef.current || !chartRef.current) {
+              return;
+            }
+            
+            if (chartRef.current.needs_render()) {
+              chartRef.current.render().catch((err) => {
+              });
+            }
+            
+            animationFrameRef.current = requestAnimationFrame(checkRenderLoop);
+          };
+          animationFrameRef.current = requestAnimationFrame(checkRenderLoop);
+        } catch (initError) {
+          throw initError;
+        }
 
       } catch (wasmImportError) {
-        console.warn('[useWasmChart] WASM module not available', wasmImportError);
       }
 
       if (!mountedRef.current) return false;
 
-      console.log('[useWasmChart] Chart initialized successfully');
 
       setChartState(prev => {
         return {
@@ -140,11 +145,20 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
 
       return true;
     } catch (error) {
-      console.error('[useWasmChart] Initialization failed:', error);
       return false;
     }
   }, [canvasId, width, height]);
 
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, []);
 
   // API object
   const api: WasmChartAPI = {

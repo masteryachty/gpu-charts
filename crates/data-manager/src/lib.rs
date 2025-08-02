@@ -78,9 +78,10 @@ impl DataManager {
         let encoded_columns = urlencoding::encode(&columns_str);
 
         let url = format!(
-            "{}/api/data?symbol={}&type={}&start={}&end={}&columns={}",
+            "{}/api/data?symbol={}&type={}&start={}&end={}&columns={}&exchange=coinbase",
             self.base_url, encoded_symbol, data_type, start_time, end_time, encoded_columns
         );
+
 
         // Fetch from server
         let (api_header, binary_buffer) =
@@ -89,6 +90,7 @@ impl DataManager {
                 .map_err(|e| GpuChartsError::DataFetch {
                     message: format!("{e:?} (URL: {url})"),
                 })?;
+
 
         // Parse the binary data into columnar format
         let mut column_buffers = HashMap::new();
@@ -164,6 +166,8 @@ impl DataManager {
         let preset = data_store.preset.clone().unwrap();
         let start_time = data_store.start_x;
         let end_time = data_store.end_x;
+
+
         let mut data_requirements: std::collections::HashMap<
             String,
             std::collections::HashSet<String>,
@@ -184,11 +188,14 @@ impl DataManager {
                 }
             }
         }
+
         // Removed unused fetch_results variable
         for (data_type, columns) in data_requirements {
             let mut all_columns = vec!["time"];
             let columns_vec: Vec<String> = columns.into_iter().collect();
             all_columns.extend(columns_vec.iter().map(|s| s.as_str()));
+
+
             // let instance_opt = InstanceManager::take_instance(&instance_id);
             let result = self
                 .fetch_data(
@@ -199,8 +206,12 @@ impl DataManager {
                     &all_columns,
                 )
                 .await;
-            if let Ok(data_handle) = result {
-                let _ = self.process_data_handle(&data_handle, data_store);
+            match result {
+                Ok(data_handle) => {
+                    let _ = self.process_data_handle(&data_handle, data_store);
+                }
+                Err(e) => {
+                }
             }
         }
         Ok(())
@@ -269,6 +280,25 @@ impl DataManager {
                     [0.0, 0.5, 1.0] // Default blue
                 };
 
+                // Debug: Sample the data to check values
+                if column_name == "best_bid" || column_name == "best_ask" {
+                    let data_len = raw_buffer.byte_length() as usize;
+                    let sample_size = std::cmp::min(10, data_len / 4);
+                    let mut sample_values = Vec::new();
+                    for i in 0..sample_size {
+                        let offset = (i * 4) as u32;
+                        if offset + 4 <= raw_buffer.byte_length() {
+                            // Get 4 bytes from ArrayBuffer
+                            let value_buffer = raw_buffer.slice_with_end(offset, offset + 4);
+                            let uint8_array = js_sys::Uint8Array::new(&value_buffer);
+                            let mut bytes = [0u8; 4];
+                            uint8_array.copy_to(&mut bytes);
+                            let value = f32::from_le_bytes(bytes);
+                            sample_values.push(value);
+                        }
+                    }
+                }
+
                 data_store.add_metric_to_group(
                     data_group_index,
                     (raw_buffer.clone(), gpu_buffers.clone()),
@@ -278,10 +308,6 @@ impl DataManager {
             }
         }
 
-        log::info!(
-            "Successfully added {} columns to DataStore for data type",
-            gpu_buffer_set.metadata.columns.len()
-        );
         Ok(())
     }
 }

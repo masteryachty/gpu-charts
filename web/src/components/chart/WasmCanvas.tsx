@@ -45,7 +45,6 @@ export default function WasmCanvas({
     //   canvas.width = newWidth;
     //   canvas.height = newHeight;
 
-    //   console.log('[WasmCanvas] Canvas size updated:', {
     //     containerSize: `${rect.width}x${rect.height}`,
     //     canvasSize: `${canvas.width}x${canvas.height}`
     //   });
@@ -65,37 +64,30 @@ export default function WasmCanvas({
         return;
       }
 
-      console.log('[WasmCanvas] Initialize effect triggered, canvasRef.current:', !!canvasRef.current, 'isInitialized:', chartState.isInitialized);
 
       // Check for test mode and software rendering flags
       const isTestMode = (window as any).__TEST_MODE__;
       const disableWebGPU = (window as any).__DISABLE_WEBGPU__;
 
       if (isTestMode) {
-        console.log('[WasmCanvas] Test mode detected');
       }
 
       // Check WebGPU availability first (unless disabled in tests)
       if (!disableWebGPU && 'gpu' in navigator) {
-        console.log('[WasmCanvas] WebGPU is available');
 
         // In test mode, check if WebGPU actually works
         if (isTestMode) {
           try {
             const adapter = await (navigator.gpu as any).requestAdapter();
             if (!adapter) {
-              console.warn('[WasmCanvas] WebGPU adapter not available, falling back to software rendering');
               (window as any).__FORCE_SOFTWARE_RENDERING__ = true;
             }
           } catch (error) {
-            console.warn('[WasmCanvas] WebGPU initialization failed in test mode, falling back to software rendering:', error);
             (window as any).__FORCE_SOFTWARE_RENDERING__ = true;
           }
         }
       } else {
-        console.warn('[WasmCanvas] WebGPU is not available in this browser or disabled in test mode');
         if (isTestMode) {
-          console.log('[WasmCanvas] Continuing with software fallback for testing');
         } else {
           return; // In production, we still require WebGPU
         }
@@ -104,17 +96,13 @@ export default function WasmCanvas({
       if (canvasRef.current && !chartState.isInitialized && !initializingRef.current) {
         initializingRef.current = true;
         const canvas = canvasRef.current;
-        console.log('[WasmCanvas] Canvas found, dimensions:', canvas.clientWidth, 'x', canvas.clientHeight);
-        console.log('[WasmCanvas] Canvas element:', canvas);
 
         // Ensure canvas is properly laid out before initialization
         await new Promise(resolve => {
           if (canvasRef.current?.clientWidth && canvasRef.current?.clientHeight) {
-            console.log('[WasmCanvas] Canvas has dimensions, proceeding...');
             resolve(undefined);
           } else {
             // Wait for next frame if canvas doesn't have dimensions yet
-            console.log('[WasmCanvas] Canvas has no dimensions, waiting for next frame...');
             requestAnimationFrame(() => resolve(undefined));
           }
         });
@@ -128,19 +116,13 @@ export default function WasmCanvas({
           canvas.width = Math.floor(rect.width);
           canvas.height = Math.floor(rect.height);
 
-          console.log('[WasmCanvas] Canvas size updated:', {
-            containerSize: `${rect.width}x${rect.height}`,
-            canvasSize: `${canvas.width}x${canvas.height}`
-          });
         }
 
         if (canvasRef.current && !chartState.isInitialized) {
-          console.log('[WasmCanvas] Calling chartAPI.initialize()...');
           try {
+
             const success = await chartAPI.initialize(startTime, endTime);
-            console.log('[WasmCanvas] chartAPI.initialize() completed, success:', success);
           } catch (error) {
-            console.error('[WasmCanvas] chartAPI.initialize() failed:', error);
           } finally {
             initializingRef.current = false;
           }
@@ -152,12 +134,10 @@ export default function WasmCanvas({
     const timeoutDuration = (window as any).__TEST_TIMEOUT_OVERRIDE__ || 10000;
     const initTimeout = setTimeout(() => {
       if (!chartState.isInitialized) {
-        console.warn(`[WasmCanvas] Chart initialization timed out after ${timeoutDuration}ms`);
         initializingRef.current = false;
 
         // In test mode, mark as initialized anyway to prevent hanging
         if ((window as any).__TEST_MODE__) {
-          console.log('[WasmCanvas] Test mode: marking as initialized despite timeout');
           (window as any).__WASM_CHART_READY__ = true;
         }
       }
@@ -198,9 +178,6 @@ export default function WasmCanvas({
 
   // Mouse wheel handler for zoom
   const handleMouseWheel = useCallback((event: React.WheelEvent<HTMLCanvasElement>) => {
-    console.log('[React] handleMouseWheel called, deltaY:', event.deltaY);
-    console.log('[React] chartState.chart exists:', !!chartState.chart);
-    console.log('[React] chartState.isInitialized:', chartState.isInitialized);
 
     if (chartState.chart && chartState.isInitialized) {
       event.preventDefault();
@@ -208,11 +185,8 @@ export default function WasmCanvas({
       if (rect) {
         const x = event.clientX - rect.left;
         const y = event.clientY - rect.top;
-        console.log('[React] Mouse position - x:', x, 'y:', y);
-        console.log('[React] chart.handle_mouse_wheel exists:', !!chartState.chart.handle_mouse_wheel);
 
         if (chartState.chart.handle_mouse_wheel) {
-          console.log('[React] Calling WASM handle_mouse_wheel with deltaY:', event.deltaY);
           chartState.chart.handle_mouse_wheel(event.deltaY, x, y);
         }
       }
@@ -252,7 +226,6 @@ export default function WasmCanvas({
 
         }
 
-        console.log(`[WasmCanvas] Mouse down at: ${x}, ${y}`);
       }
     }
   }, [chartState.chart, chartState.isInitialized]);
@@ -275,7 +248,6 @@ export default function WasmCanvas({
           chartState.chart.handle_mouse_click(x, y, false); // pressed = false
         }
 
-        console.log(`[WasmCanvas] Mouse up at: ${x}, ${y}`);
       }
     }
   }, [chartState.chart, chartState.isInitialized]);

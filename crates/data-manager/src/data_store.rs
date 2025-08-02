@@ -212,26 +212,16 @@ impl DataStore {
         self.gpu_max_y = None;
         self.range_bind_group = None;
         self.mark_dirty();
-        log::debug!("[DataStore] Cleared GPU bounds - will recalculate on next render");
     }
 
     pub fn set_x_range(&mut self, min_x: u32, max_x: u32) {
-        log::info!(
-            "[DataStore] set_x_range called: min_x={}, max_x={} (current: {} to {})",
-            min_x,
-            max_x,
-            self.start_x,
-            self.end_x
-        );
 
         if self.start_x != min_x || self.end_x != max_x {
             self.start_x = min_x;
             self.end_x = max_x;
             self.clear_gpu_bounds();
 
-            log::info!("[DataStore] X range updated, cleared Y bounds and marked dirty");
         } else {
-            log::info!("[DataStore] X range unchanged, skipping update");
         }
     }
 
@@ -276,14 +266,27 @@ impl DataStore {
         (result.xy().x, result.xy().y)
     }
 
+    /// Convert Y world coordinate to screen position for Y-axis labels
+    pub fn y_to_screen_position(&self, y: f32) -> f32 {
+        // Use default values if min/max Y are not set yet
+        let min_y = self.gpu_min_y.unwrap_or(0.0);
+        let max_y = self.gpu_max_y.unwrap_or(100.0);
+        let y_range = max_y - min_y;
+        
+        // Add 10% margin to Y range
+        let y_min_with_margin = min_y - (y_range * 0.1);
+        let y_max_with_margin = max_y + (y_range * 0.1);
+        
+        // Normalize Y to [0, 1] range with margin
+        let normalized_y = (y - y_min_with_margin) / (y_max_with_margin - y_min_with_margin);
+        
+        // Convert to screen coordinates (flip Y axis)
+        let screen_y = (1.0 - normalized_y) * self.screen_size.height as f32;
+        
+        screen_y
+    }
+
     pub fn screen_to_world_with_margin(&self, screen_x: f32, screen_y: f32) -> (f32, f32) {
-        log::info!(
-            "conv: {:?} {:?} {:?} {:?}",
-            screen_x,
-            screen_y,
-            self.screen_size.width,
-            self.screen_size.height
-        );
 
         let min_x = self.start_x as f32;
         let max_x = self.end_x as f32;
@@ -467,7 +470,8 @@ impl DataStore {
     pub fn set_gpu_y_bounds(&mut self, min: f32, max: f32) {
         self.gpu_min_y = Some(min);
         self.gpu_max_y = Some(max);
-        log::debug!("[DataStore] GPU Y bounds updated: min={min}, max={max}");
+        // Mark as dirty to trigger re-render with new bounds
+        self.mark_dirty();
     }
 
     /// Get a metric by reference
@@ -551,17 +555,10 @@ impl DataStore {
     ) {
         if let Some(p) = preset {
             self.preset = Some(p.clone());
-            log::info!(
-                "[DataStore] Preset set to: {} with {} chart types",
-                p.name,
-                p.chart_types.len()
-            );
         } else {
             self.preset = None;
-            log::warn!("[DataStore] Preset set to None");
         }
         self.symbol = symbol_name.clone();
-        log::info!("[DataStore] Symbol set to: {symbol_name:?}");
     }
 }
 
@@ -663,11 +660,6 @@ impl MetricSeries {
         }
         self.y_raw = js_array.buffer();
 
-        log::debug!(
-            "[MetricSeries] Computed metric '{}' populated with {} values",
-            self.name,
-            computed_values.len()
-        );
     }
 
     /// Invalidate computation (when dependencies change)

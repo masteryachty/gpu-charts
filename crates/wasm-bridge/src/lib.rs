@@ -87,11 +87,6 @@ impl Chart {
                     .find(|m| m.label == metric_label)
                 {
                     metric.visible = !metric.visible;
-                    log::info!(
-                        "Toggled metric '{}' visibility to: {}",
-                        metric_label,
-                        metric.visible
-                    );
                 }
             }
 
@@ -104,7 +99,6 @@ impl Chart {
 
     #[wasm_bindgen]
     pub fn apply_preset_and_symbol(&mut self, preset: &str, symbol: &str) -> Result<(), JsValue> {
-        log::info!("Active Preset set to : {preset}");
 
         let instance_id = self.instance_id;
 
@@ -112,8 +106,7 @@ impl Chart {
             instance
                 .chart_engine
                 .set_preset_and_symbol(Some(preset.to_string()), Some(symbol.to_string()));
-            log::info!("Active Preset set to : {preset}");
-        })
+            })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
 
         // Spawn async task to fetch data and update render loop state
@@ -147,16 +140,38 @@ impl Chart {
             // Execute the fetch
             match fetch_and_process_data(instance_id).await {
                 Ok(_) => {
-                    log::info!("Data fetched successfully for preset");
 
                     // Trigger render loop state change to preprocess
                     InstanceManager::with_instance_mut(&instance_id, |instance| {
                         let _ = instance.chart_engine.start_render_loop();
                         instance.chart_engine.on_data_received();
                     });
+                    
+                    // Start a render loop to ensure GPU bounds are calculated
+                    wasm_bindgen_futures::spawn_local(async move {
+                        // Render a few times to ensure GPU bounds calculation completes
+                        for i in 0..5 {
+                            // Wait a bit between renders
+                            if i > 0 {
+                                let promise = js_sys::Promise::new(&mut |resolve, _| {
+                                    web_sys::window()
+                                        .unwrap()
+                                        .set_timeout_with_callback_and_timeout_and_arguments_0(
+                                            &resolve,
+                                            100,
+                                        )
+                                        .unwrap();
+                                });
+                                let _ = wasm_bindgen_futures::JsFuture::from(promise).await;
+                            }
+                            
+                            InstanceManager::with_instance_mut(&instance_id, |instance| {
+                                let _ = instance.chart_engine.render();
+                            });
+                        }
+                    });
                 }
                 Err(e) => {
-                    log::error!("Failed to fetch data for preset: {e:?}");
                 }
             }
         });
@@ -179,7 +194,6 @@ impl Chart {
         INIT.call_once(|| {
             std::panic::set_hook(Box::new(console_error_panic_hook::hook));
             // Try to initialize logger, but don't panic if it fails (already initialized)
-            let _ = console_log::init_with_level(log::Level::Debug);
         });
 
         // Store instance using the instance manager
@@ -230,7 +244,6 @@ impl Chart {
             // First, check if the instance exists
             let exists = InstanceManager::instance_exists(&instance_id);
             if !exists {
-                log::error!("Chart instance not found for rendering");
                 return;
             }
 
@@ -250,7 +263,6 @@ impl Chart {
                         result
                     }
                     None => {
-                        log::error!("Failed to take instance for rendering");
                         return;
                     }
                 }
@@ -258,10 +270,8 @@ impl Chart {
 
             match render_result {
                 Ok(()) => {
-                    log::trace!("Render completed successfully");
                 }
                 Err(e) => {
-                    log::error!("Render failed: {e:?}");
                 }
             }
         });
@@ -271,8 +281,14 @@ impl Chart {
     }
 
     #[wasm_bindgen]
+    pub fn needs_render(&self) -> bool {
+        InstanceManager::with_instance(&self.instance_id, |instance| {
+            instance.chart_engine.needs_render()
+        }).unwrap_or(false)
+    }
+
+    #[wasm_bindgen]
     pub fn resize(&self, width: u32, height: u32) -> Result<(), JsValue> {
-        log::info!("Resizing chart to: {width}x{height}");
 
         // InstanceManager::with_instance_mut(&self.instance_id, |instance| {
         //     instance.chart_engine.resized(width, height);
@@ -282,9 +298,37 @@ impl Chart {
         Ok(())
     }
 
+    /// Set the time range for the chart
+    #[wasm_bindgen(js_name = setTimeRange)]
+    pub fn set_time_range(&mut self, start_time: u32, end_time: u32) -> Result<(), JsValue> {
+        
+        // Update the DataStore with the new time range
+        InstanceManager::with_instance_mut(&self.instance_id, |instance| {
+            let data_store = instance.chart_engine.renderer.data_store_mut();
+            data_store.start_x = start_time;
+            data_store.end_x = end_time;
+        })
+        .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
+        
+        // If we have a preset and symbol, re-fetch data with the new time range
+        let (preset_name, symbol) = InstanceManager::with_instance(&self.instance_id, |instance| {
+            let data_store = instance.chart_engine.renderer.data_store();
+            (
+                data_store.preset.as_ref().map(|p| p.name.clone()),
+                data_store.symbol.clone()
+            )
+        })
+        .unwrap_or((None, None));
+        
+        if let (Some(preset), Some(symbol)) = (preset_name, symbol) {
+            self.apply_preset_and_symbol(&preset, &symbol)?;
+        }
+        
+        Ok(())
+    }
+
     #[wasm_bindgen]
     pub fn handle_mouse_wheel(&self, delta_y: f64, x: f64, _y: f64) -> Result<(), JsValue> {
-        log::info!("[WASM] handle_mouse_wheel called with delta_y={delta_y}, x={x}");
 
         InstanceManager::with_instance_mut(&self.instance_id, |instance| {
             let window_event = WindowEvent::MouseWheel {
@@ -292,7 +336,6 @@ impl Chart {
                 phase: TouchPhase::Moved,
             };
 
-            log::info!("[WASM] Created MouseWheel event, passing to canvas_controller");
 
             instance
                 .chart_engine
@@ -306,13 +349,11 @@ impl Chart {
             let is_dirty = data_store.is_dirty();
             let gpu_min_y = data_store.gpu_min_y;
             let gpu_max_y = data_store.gpu_max_y;
-            log::info!("[WASM] After handle_cursor_event - data_store is_dirty: {is_dirty}, min_y: {gpu_min_y:?}, max_y: {gpu_max_y:?}");
 
             if data_store.is_dirty() {
                 // Force recalculation of Y bounds by clearing them
                 data_store.gpu_min_y = None;
                 data_store.gpu_max_y = None;
-                log::info!("[WASM] Cleared Y bounds for recalculation");
 
                 // Trigger view changed in render loop
                 instance.chart_engine.on_view_changed();
@@ -344,7 +385,6 @@ impl Chart {
 
     #[wasm_bindgen]
     pub fn update_unified_state(&self, store_state_json: &str) -> Result<String, JsValue> {
-        log::info!("Updating unified state from React");
 
         // Parse the JSON state
         let store_state: serde_json::Value = serde_json::from_str(store_state_json)
@@ -439,6 +479,6 @@ macro_rules! console_log {
 }
 
 // Re-export simplified API for easy access
-pub use simple_api::{
-    create_chart, ChartBatch, ChartConfig, ChartFactory, ChartRegistry, SimpleChart,
-};
+// pub use simple_api::{
+//     create_chart, ChartBatch, ChartConfig, ChartFactory, ChartRegistry, SimpleChart,
+// };

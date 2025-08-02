@@ -14,13 +14,12 @@ function ChartView() {
   const [appliedPreset, setAppliedPreset] = useState<string | undefined>(undefined);
 
   // Get store state and actions
-  const { symbol, preset, setCurrentSymbol, setTimeRange, setPreset } = useAppStore();
+  const { symbol, preset, startTime, endTime, setCurrentSymbol, setTimeRange, setPreset } = useAppStore();
   const [activePreset, setActivePreset] = useState<string | undefined>(preset);
 
 
   useEffect(() => {
     if (preset && symbol && chartInstance) {
-      console.log('[TradingApp] Setting symbol and preset:', preset, symbol, chartInstance);
       chartInstance.apply_preset_and_symbol(preset, symbol)
       // After applying, update the appliedPreset to trigger metrics fetch
       setAppliedPreset(preset);
@@ -41,7 +40,6 @@ function ChartView() {
     // Parse topic (symbol)
     const topic = urlParams.get('topic');
     if (topic) {
-      console.log('[TradingApp] Setting symbol from URL:', topic);
       setCurrentSymbol(topic);
     }
 
@@ -56,18 +54,18 @@ function ChartView() {
 
       // Validate timestamps
       if (!isNaN(startTime) && !isNaN(endTime) && startTime < endTime) {
-        console.log('[TradingApp] Setting time range from URL:', {
-          start: startTime,
-          end: endTime,
-          startDate: new Date(startTime * 1000).toISOString(),
-          endDate: new Date(endTime * 1000).toISOString()
-        });
         setTimeRange(startTime, endTime);
       } else {
-        console.warn('[TradingApp] Invalid timestamp parameters:', { startParam, endParam });
       }
     }
   }, [setCurrentSymbol, setTimeRange]); // Include dependencies
+  
+  // Update chart time range when store time range changes
+  useEffect(() => {
+    if (chartInstance && chartInstance.setTimeRange) {
+      chartInstance.setTimeRange(startTime, endTime);
+    }
+  }, [chartInstance, startTime, endTime]);
 
   return (
     <div className="flex-1 flex">

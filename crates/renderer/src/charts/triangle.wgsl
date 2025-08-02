@@ -52,9 +52,10 @@ fn vs_main(
     let y_normalized = (price - y_min_with_margin) / y_range_with_margin;
     
     // Convert to NDC (-1 to 1)
+    // Note: Y needs to be inverted for screen coordinates
     let center_ndc = vec4<f32>(
         x_normalized * 2.0 - 1.0,
-        y_normalized * 2.0 - 1.0,
+        (1.0 - y_normalized) * 2.0 - 1.0,  // Invert Y for proper screen orientation
         0.0,
         1.0
     );
@@ -112,7 +113,7 @@ fn vs_main(
     // Convert back to NDC
     out.position = vec4<f32>(
         (vertex_screen.x / screen_size.x) * 2.0 - 1.0,
-        (vertex_screen.y / screen_size.y) * 2.0 - 1.0,
+        1.0 - (vertex_screen.y / screen_size.y) * 2.0,  // Keep Y inverted consistently
         0.0,
         1.0
     );

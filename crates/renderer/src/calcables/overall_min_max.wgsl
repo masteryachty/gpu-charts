@@ -11,8 +11,14 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         return;
     }
     
-    var overall_min = 999999999.0;
-    var overall_max = -999999999.0;
+    var overall_min = 3.402823466e+38;  // +Infinity
+    var overall_max = -3.402823466e+38; // -Infinity
+    
+    let data_length = arrayLength(&input_data);
+    if (data_length == 0u || num_metrics == 0u) {
+        output_min_max = vec2<f32>(0.0, 1.0);
+        return;
+    }
     
     // Iterate through all metrics' min/max values
     // Each metric has 2 floats: min at index i*2, max at index i*2+1
@@ -23,9 +29,20 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let metric_min = input_data[min_idx];
         let metric_max = input_data[max_idx];
         
-        overall_min = min(overall_min, metric_min);
-        overall_max = max(overall_max, metric_max);
+        // Handle min and max separately, skipping infinity values
+        if (metric_min < 3.402823466e+38 && metric_min > -3.402823466e+38) {
+            overall_min = min(overall_min, metric_min);
+        }
+        
+        if (metric_max > -3.402823466e+38 && metric_max < 3.402823466e+38) {
+            overall_max = max(overall_max, metric_max);
+        }
     }
     
-    output_min_max = vec2<f32>(overall_min, overall_max);
+    // If no valid data was found, return default values
+    if (overall_min >= 3.402823466e+38 || overall_max <= -3.402823466e+38 || overall_min > overall_max) {
+        output_min_max = vec2<f32>(0.0, 1.0);
+    } else {
+        output_min_max = vec2<f32>(overall_min, overall_max);
+    }
 }

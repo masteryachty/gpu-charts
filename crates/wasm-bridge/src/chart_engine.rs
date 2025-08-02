@@ -97,7 +97,6 @@ impl ChartEngine {
         start_x: u32,
         end_x: u32,
     ) -> Result<ChartEngine, Error> {
-        log::info!("Initializing chart with canvas: {canvas_id}, size: {width}x{height}");
         let window = web_sys::window().ok_or_else(|| Error::new("No Window"))?;
         let document = window.document().ok_or_else(|| Error::new("No document"))?;
         let canvas = document
@@ -153,25 +152,12 @@ impl ChartEngine {
         let device = Rc::new(device);
         let queue = Rc::new(queue);
 
+        let api_base_url = "https://api.rednax.io".to_string();
+
         // Create DataManager with modular approach
-        let data_manager = DataManager::new(
-            device.clone(),
-            queue.clone(),
-            "https://api.rednax.io".to_string(),
-        );
+        let data_manager = DataManager::new(device.clone(), queue.clone(), api_base_url);
 
         // Log initial state before moving data_store
-        log::info!("Initial DataStore state:");
-        log::info!(
-            "  - X range: {} to {}",
-            data_store.start_x,
-            data_store.end_x
-        );
-        log::info!(
-            "  - Y bounds: min={:?}, max={:?}",
-            data_store.gpu_min_y,
-            data_store.gpu_max_y
-        );
 
         // Create Renderer with modular approach
         let renderer = Renderer::new(canvas, device.clone(), queue.clone(), data_store)
@@ -179,10 +165,8 @@ impl ChartEngine {
             .map_err(|e| Error::new(&format!("Failed to create renderer: {e:?}")))?;
 
         // Skip initial data fetch - wait for user to select a preset
-        log::info!("Skipping initial data fetch - waiting for preset selection");
         // Data will be fetched when user selects a preset via fetch_preset_data
 
-        log::info!("LineGraph initialization completed - no data loaded yet");
 
         // Create a minimal multi-renderer with just axes
         // Specific chart renderers will be added when a preset is selected
@@ -199,7 +183,6 @@ impl ChartEngine {
             )
             .build();
 
-        log::info!("ChartEngine initialized with minimal renderer configuration - waiting for preset selection");
 
         // Create immediate updater
         let updater = ImmediateUpdater::new();
@@ -244,8 +227,12 @@ impl ChartEngine {
         })
     }
 
+    pub fn needs_render(&self) -> bool {
+        // Check if renderer needs to render
+        self.renderer.needs_render()
+    }
+
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        log::info!("RENDER !!!!!!!!");
 
         // Always use multi-renderer (we ensure it exists in new())
         if let Some(ref mut multi_renderer) = self.multi_renderer {
@@ -255,7 +242,6 @@ impl ChartEngine {
             })
         } else {
             // This should never happen since we create a default multi-renderer in new()
-            log::error!("No multi-renderer available!");
             Err(wgpu::SurfaceError::Outdated)
         }
     }
@@ -301,10 +287,8 @@ impl ChartEngine {
 
         // Update config state if preset changed
         if let Some(name) = preset_name.clone() {
-            log::info!("[ChartEngine] Looking for preset: {name}");
             let preset = self.preset_manager.find_preset(&name).cloned();
             if let Some(preset) = preset {
-                log::info!("[ChartEngine] Found preset: {name}");
 
                 // Update renderer with preset
                 self.renderer
@@ -328,12 +312,10 @@ impl ChartEngine {
                     },
                 ));
             } else {
-                log::warn!("[ChartEngine] Preset not found: {name}");
                 self.renderer
                     .set_preset_and_symbol(None, symbol_name.clone());
             }
         } else {
-            log::warn!("[ChartEngine] No preset name provided");
             self.renderer
                 .set_preset_and_symbol(None, symbol_name.clone());
         }
@@ -568,10 +550,6 @@ impl ChartEngine {
 
     /// Rebuild the multi-renderer based on preset configuration
     fn rebuild_multi_renderer_for_preset(&mut self, preset: &config_system::ChartPreset) {
-        log::info!(
-            "[ChartEngine] Rebuilding multi-renderer for preset: {}",
-            preset.name
-        );
 
         // Get current screen dimensions
         let width = self.renderer.data_store().screen_size.width;
@@ -591,10 +569,6 @@ impl ChartEngine {
 
             match chart_type.render_type {
                 config_system::RenderType::Line => {
-                    log::debug!(
-                        "[ChartEngine] Adding PlotRenderer for: {}",
-                        chart_type.label
-                    );
 
                     // Create a configurable plot renderer with specific data columns
                     let plot_renderer = renderer::ConfigurablePlotRenderer::new(
@@ -607,10 +581,6 @@ impl ChartEngine {
                     builder = builder.add_renderer(Box::new(plot_renderer));
                 }
                 config_system::RenderType::Triangle => {
-                    log::debug!(
-                        "[ChartEngine] Adding TriangleRenderer for: {}",
-                        chart_type.label
-                    );
 
                     let triangle_renderer = renderer::charts::TriangleRenderer::new(
                         self.renderer.device.clone(),
@@ -623,24 +593,12 @@ impl ChartEngine {
                     builder = builder.add_renderer(Box::new(triangle_renderer));
                 }
                 config_system::RenderType::Candlestick => {
-                    log::debug!(
-                        "[ChartEngine] Adding CandlestickRenderer for: {}",
-                        chart_type.label
-                    );
                     builder = builder.add_candlestick_renderer();
                 }
                 config_system::RenderType::Bar => {
-                    log::warn!(
-                        "[ChartEngine] Bar renderer not yet implemented for: {}",
-                        chart_type.label
-                    );
                     // TODO: Implement bar renderer
                 }
                 config_system::RenderType::Area => {
-                    log::warn!(
-                        "[ChartEngine] Area renderer not yet implemented for: {}",
-                        chart_type.label
-                    );
                     // TODO: Implement area renderer
                 }
             }
@@ -655,7 +613,6 @@ impl ChartEngine {
         let new_multi_renderer = builder.build();
         self.multi_renderer = Some(new_multi_renderer);
 
-        log::info!("[ChartEngine] Multi-renderer rebuilt with renderers based on preset");
     }
 }
 
