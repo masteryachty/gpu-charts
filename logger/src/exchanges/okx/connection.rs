@@ -1,4 +1,3 @@
-use crate::common::SymbolMapper;
 use crate::exchanges::{Channel, ExchangeConnection, Message};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -20,22 +19,15 @@ pub struct OkxConnection {
     symbols: Vec<String>,
     data_sender: mpsc::Sender<Message>,
     ws_stream: Option<Arc<Mutex<WsStream>>>,
-    symbol_mapper: Arc<SymbolMapper>,
 }
 
 impl OkxConnection {
-    pub fn new(
-        url: String,
-        symbols: Vec<String>,
-        data_sender: mpsc::Sender<Message>,
-        symbol_mapper: Arc<SymbolMapper>,
-    ) -> Self {
+    pub fn new(url: String, symbols: Vec<String>, data_sender: mpsc::Sender<Message>) -> Self {
         Self {
             url,
             symbols,
             data_sender,
             ws_stream: None,
-            symbol_mapper,
         }
     }
 
@@ -45,7 +37,6 @@ impl OkxConnection {
             symbols: self.symbols.clone(),
             data_sender: self.data_sender.clone(),
             ws_stream: self.ws_stream.clone(),
-            symbol_mapper: self.symbol_mapper.clone(),
         }
     }
 
@@ -112,9 +103,7 @@ impl OkxConnection {
                 match channel {
                     "tickers" => {
                         for data in data_array {
-                            if let Some(market_data) =
-                                super::parser::parse_okx_ticker(data, &self.symbol_mapper)?
-                            {
+                            if let Some(market_data) = super::parser::parse_okx_ticker(data)? {
                                 self.data_sender
                                     .send(Message::MarketData(market_data))
                                     .await?;
@@ -123,9 +112,7 @@ impl OkxConnection {
                     }
                     "trades" => {
                         for data in data_array {
-                            if let Some(trade_data) =
-                                super::parser::parse_okx_trade(data, &self.symbol_mapper)?
-                            {
+                            if let Some(trade_data) = super::parser::parse_okx_trade(data)? {
                                 self.data_sender.send(Message::Trade(trade_data)).await?;
                             }
                         }
@@ -261,27 +248,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_connection_creation() {
-        use crate::config::{AssetGroup, EquivalenceRules, SymbolMappingsConfig};
-
-        let config = SymbolMappingsConfig {
-            mappings_file: None,
-            auto_discover: true,
-            equivalence_rules: EquivalenceRules {
-                quote_assets: vec![AssetGroup {
-                    group: "USD_EQUIVALENT".to_string(),
-                    members: vec!["USDT".to_string()],
-                    primary: "USDT".to_string(),
-                }],
-            },
-        };
-
-        let mapper = Arc::new(crate::common::SymbolMapper::new(config).unwrap());
         let (tx, _rx) = mpsc::channel(100);
         let conn = OkxConnection::new(
             "wss://ws.okx.com:8443/ws/v5/public".to_string(),
             vec!["BTC-USDT".to_string()],
             tx,
-            mapper,
         );
 
         assert_eq!(conn.symbols(), &["BTC-USDT"]);

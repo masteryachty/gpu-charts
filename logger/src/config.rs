@@ -5,7 +5,6 @@ use std::path::PathBuf;
 pub struct Config {
     pub logger: LoggerConfig,
     pub exchanges: ExchangesConfig,
-    pub symbol_mappings: SymbolMappingsConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,25 +37,6 @@ pub struct ExchangeConfig {
     pub symbols: Option<Vec<String>>, // If None, fetch all available
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SymbolMappingsConfig {
-    pub mappings_file: Option<PathBuf>,
-    pub auto_discover: bool,
-    pub equivalence_rules: EquivalenceRules,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EquivalenceRules {
-    pub quote_assets: Vec<AssetGroup>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AssetGroup {
-    pub group: String,
-    pub members: Vec<String>,
-    pub primary: String,
-}
-
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -75,7 +55,7 @@ impl Default for Config {
                     symbols_per_connection: 50,
                     reconnect_delay_secs: 1,
                     max_reconnect_delay_secs: 60,
-                    ping_interval_secs: None, // Coinbase doesn't require client pings
+                    ping_interval_secs: None, // Coinbase uses subscription-based heartbeats
                     symbols: None,
                 },
                 binance: ExchangeConfig {
@@ -121,23 +101,6 @@ impl Default for Config {
                     max_reconnect_delay_secs: 60,
                     ping_interval_secs: Some(15), // Bitfinex requires pings every 15s
                     symbols: None,
-                },
-            },
-            symbol_mappings: SymbolMappingsConfig {
-                mappings_file: Some(PathBuf::from("symbol_mappings.yaml")),
-                auto_discover: true,
-                equivalence_rules: EquivalenceRules {
-                    quote_assets: vec![AssetGroup {
-                        group: "USD_EQUIVALENT".to_string(),
-                        members: vec![
-                            "USD".to_string(),
-                            "USDT".to_string(),
-                            "USDC".to_string(),
-                            "BUSD".to_string(),
-                            "DAI".to_string(),
-                        ],
-                        primary: "USD".to_string(),
-                    }],
                 },
             },
         }

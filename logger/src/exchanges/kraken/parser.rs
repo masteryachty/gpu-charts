@@ -1,6 +1,5 @@
 use crate::common::{
     data_types::{ExchangeId, TradeSide, UnifiedMarketData, UnifiedTradeData},
-    symbol_mapper::SymbolMapper,
     utils::current_timestamp,
 };
 use anyhow::Result;
@@ -10,18 +9,12 @@ use tracing::warn;
 /// Parse Kraken ticker data from array format
 /// Format: [channelID, data, "ticker", pair]
 /// Where data is an object with fields like: a, b, c, v, p, t, l, h, o
-pub fn parse_kraken_ticker_array(
-    data: &Value,
-    pair: &str,
-    mapper: &SymbolMapper,
-) -> Result<Option<UnifiedMarketData>> {
+pub fn parse_kraken_ticker_array(data: &Value, pair: &str) -> Result<Option<UnifiedMarketData>> {
     let obj = data
         .as_object()
         .ok_or_else(|| anyhow::anyhow!("Ticker data is not an object"))?;
 
-    let normalized_symbol = mapper
-        .normalize(ExchangeId::Kraken, pair)
-        .unwrap_or_else(|| crate::common::utils::normalize_symbol_kraken(pair));
+    let normalized_symbol = pair.to_string();
 
     let mut market_data = UnifiedMarketData::new(ExchangeId::Kraken, normalized_symbol);
 
@@ -95,11 +88,7 @@ pub fn parse_kraken_ticker_array(
 
 /// Parse Kraken trade data from array format
 /// Format: [price, volume, time, side, orderType, misc]
-pub fn parse_kraken_trade_array(
-    trade: &Value,
-    pair: &str,
-    mapper: &SymbolMapper,
-) -> Result<Option<UnifiedTradeData>> {
+pub fn parse_kraken_trade_array(trade: &Value, pair: &str) -> Result<Option<UnifiedTradeData>> {
     let arr = trade
         .as_array()
         .ok_or_else(|| anyhow::anyhow!("Trade data is not an array"))?;
@@ -108,9 +97,7 @@ pub fn parse_kraken_trade_array(
         return Ok(None);
     }
 
-    let normalized_symbol = mapper
-        .normalize(ExchangeId::Kraken, pair)
-        .unwrap_or_else(|| crate::common::utils::normalize_symbol_kraken(pair));
+    let normalized_symbol = pair.to_string();
 
     // Use timestamp as trade ID (converted to u64)
     let trade_time = arr[2]
@@ -159,20 +146,14 @@ pub fn parse_kraken_trade_array(
 }
 
 /// Parse Kraken ticker from object format (used in REST API responses)
-pub fn parse_kraken_ticker(
-    _value: &Value,
-    _mapper: &SymbolMapper,
-) -> Result<Option<UnifiedMarketData>> {
+pub fn parse_kraken_ticker(_value: &Value) -> Result<Option<UnifiedMarketData>> {
     // This would be used if we receive ticker data in a different format
     // For now, we only handle the array format from WebSocket
     Ok(None)
 }
 
 /// Parse Kraken trade from object format (used in REST API responses)
-pub fn parse_kraken_trade(
-    _value: &Value,
-    _mapper: &SymbolMapper,
-) -> Result<Option<UnifiedTradeData>> {
+pub fn parse_kraken_trade(_value: &Value) -> Result<Option<UnifiedTradeData>> {
     // This would be used if we receive trade data in a different format
     // For now, we only handle the array format from WebSocket
     Ok(None)
@@ -181,29 +162,10 @@ pub fn parse_kraken_trade(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{AssetGroup, EquivalenceRules, SymbolMappingsConfig};
     use serde_json::json;
-
-    fn create_test_mapper() -> SymbolMapper {
-        let config = SymbolMappingsConfig {
-            mappings_file: None,
-            auto_discover: true,
-            equivalence_rules: EquivalenceRules {
-                quote_assets: vec![AssetGroup {
-                    group: "USD_EQUIVALENT".to_string(),
-                    members: vec!["USD".to_string()],
-                    primary: "USD".to_string(),
-                }],
-            },
-        };
-
-        SymbolMapper::new(config).unwrap()
-    }
 
     #[test]
     fn test_parse_ticker() {
-        let mapper = create_test_mapper();
-
         let ticker_data = json!({
             "a": ["50001.00", "1", "1.000"],
             "b": ["49999.00", "1", "1.000"],
@@ -216,12 +178,12 @@ mod tests {
             "o": "49000.00"
         });
 
-        let result = parse_kraken_ticker_array(&ticker_data, "XBT/USD", &mapper)
+        let result = parse_kraken_ticker_array(&ticker_data, "XBT/USD")
             .unwrap()
             .unwrap();
 
         assert_eq!(result.exchange, ExchangeId::Kraken);
-        assert_eq!(result.symbol, "BTC-USD"); // XBT normalized to BTC
+        assert_eq!(result.symbol, "XBT/USD");
         assert_eq!(result.price, 50000.0);
         assert_eq!(result.volume, 0.1);
         assert_eq!(result.best_bid, 49999.0);
@@ -231,38 +193,18 @@ mod tests {
 
     #[test]
     fn test_parse_trade() {
-        let mapper = create_test_mapper();
-
         let trade_arr = json!(["3000.00", "0.50000000", "1612345678.123456", "s", "l", ""]);
 
-        let result = parse_kraken_trade_array(&trade_arr, "ETH/USD", &mapper)
+        let result = parse_kraken_trade_array(&trade_arr, "ETH/USD")
             .unwrap()
             .unwrap();
 
         assert_eq!(result.exchange, ExchangeId::Kraken);
-        assert_eq!(result.symbol, "ETH-USD");
+        assert_eq!(result.symbol, "ETH/USD");
         assert_eq!(result.price, 3000.0);
         assert_eq!(result.size, 0.5);
         assert_eq!(result.side, TradeSide::Sell);
         assert_eq!(result.timestamp, 1612345678);
         assert!(result.nanos > 0); // Should have nanosecond precision
-    }
-
-    #[test]
-    fn test_xbt_to_btc_normalization() {
-        let mapper = create_test_mapper();
-
-        let ticker_data = json!({
-            "c": ["60000.00", "0.01"],
-            "a": ["60001.00", "1", "1.000"],
-            "b": ["59999.00", "1", "1.000"],
-            "o": "59000.00"
-        });
-
-        let result = parse_kraken_ticker_array(&ticker_data, "XBT/EUR", &mapper)
-            .unwrap()
-            .unwrap();
-
-        assert_eq!(result.symbol, "BTC-EUR"); // XBT should be normalized to BTC
     }
 }

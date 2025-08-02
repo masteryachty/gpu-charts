@@ -1,13 +1,12 @@
 use crate::common::{
     data_types::{ExchangeId, TradeSide, UnifiedMarketData, UnifiedTradeData},
-    symbol_mapper::SymbolMapper,
     utils::parse_timestamp_millis,
 };
 use anyhow::Result;
 use serde_json::Value;
 use tracing::warn;
 
-pub fn parse_okx_ticker(value: &Value, mapper: &SymbolMapper) -> Result<Option<UnifiedMarketData>> {
+pub fn parse_okx_ticker(value: &Value) -> Result<Option<UnifiedMarketData>> {
     // OKX ticker format:
     // {
     //   "instType": "SPOT",
@@ -30,9 +29,7 @@ pub fn parse_okx_ticker(value: &Value, mapper: &SymbolMapper) -> Result<Option<U
         .as_str()
         .ok_or_else(|| anyhow::anyhow!("Missing instId"))?;
 
-    let normalized_symbol = mapper
-        .normalize(ExchangeId::OKX, inst_id)
-        .unwrap_or_else(|| inst_id.to_string());
+    let normalized_symbol = inst_id.to_string();
 
     let mut data = UnifiedMarketData::new(ExchangeId::OKX, normalized_symbol);
 
@@ -113,7 +110,7 @@ pub fn parse_okx_ticker(value: &Value, mapper: &SymbolMapper) -> Result<Option<U
     Ok(Some(data))
 }
 
-pub fn parse_okx_trade(value: &Value, mapper: &SymbolMapper) -> Result<Option<UnifiedTradeData>> {
+pub fn parse_okx_trade(value: &Value) -> Result<Option<UnifiedTradeData>> {
     // OKX trade format:
     // {
     //   "instId": "BTC-USDT",
@@ -128,9 +125,7 @@ pub fn parse_okx_trade(value: &Value, mapper: &SymbolMapper) -> Result<Option<Un
         .as_str()
         .ok_or_else(|| anyhow::anyhow!("Missing instId"))?;
 
-    let normalized_symbol = mapper
-        .normalize(ExchangeId::OKX, inst_id)
-        .unwrap_or_else(|| inst_id.to_string());
+    let normalized_symbol = inst_id.to_string();
 
     let trade_id = value["tradeId"]
         .as_str()
@@ -195,29 +190,10 @@ pub fn parse_okx_trade(value: &Value, mapper: &SymbolMapper) -> Result<Option<Un
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{AssetGroup, EquivalenceRules, SymbolMappingsConfig};
     use serde_json::json;
-
-    fn create_test_mapper() -> SymbolMapper {
-        let config = SymbolMappingsConfig {
-            mappings_file: None,
-            auto_discover: true,
-            equivalence_rules: EquivalenceRules {
-                quote_assets: vec![AssetGroup {
-                    group: "USD_EQUIVALENT".to_string(),
-                    members: vec!["USDT".to_string()],
-                    primary: "USDT".to_string(),
-                }],
-            },
-        };
-
-        SymbolMapper::new(config).unwrap()
-    }
 
     #[test]
     fn test_parse_ticker() {
-        let mapper = create_test_mapper();
-
         let ticker_json = json!({
             "instType": "SPOT",
             "instId": "BTC-USDT",
@@ -235,7 +211,7 @@ mod tests {
             "ts": "1609459200000"
         });
 
-        let result = parse_okx_ticker(&ticker_json, &mapper).unwrap().unwrap();
+        let result = parse_okx_ticker(&ticker_json).unwrap().unwrap();
 
         assert_eq!(result.exchange, ExchangeId::OKX);
         assert_eq!(result.symbol, "BTC-USDT");
@@ -251,8 +227,6 @@ mod tests {
 
     #[test]
     fn test_parse_trade() {
-        let mapper = create_test_mapper();
-
         let trade_json = json!({
             "instId": "BTC-USDT",
             "tradeId": "242720720",
@@ -262,7 +236,7 @@ mod tests {
             "ts": "1609459200000"
         });
 
-        let result = parse_okx_trade(&trade_json, &mapper).unwrap().unwrap();
+        let result = parse_okx_trade(&trade_json).unwrap().unwrap();
 
         assert_eq!(result.exchange, ExchangeId::OKX);
         assert_eq!(result.symbol, "BTC-USDT");
@@ -278,8 +252,6 @@ mod tests {
 
     #[test]
     fn test_parse_ticker_with_price_decrease() {
-        let mapper = create_test_mapper();
-
         let ticker_json = json!({
             "instType": "SPOT",
             "instId": "ETH-USDT",
@@ -293,7 +265,7 @@ mod tests {
             "ts": "1609459200000"
         });
 
-        let result = parse_okx_ticker(&ticker_json, &mapper).unwrap().unwrap();
+        let result = parse_okx_ticker(&ticker_json).unwrap().unwrap();
 
         assert_eq!(result.side, TradeSide::Sell); // Price decreased from open
     }

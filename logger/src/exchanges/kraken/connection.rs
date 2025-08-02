@@ -1,10 +1,8 @@
-use crate::common::SymbolMapper;
 use crate::exchanges::{Channel, ExchangeConnection, Message};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use futures_util::{SinkExt, StreamExt};
 use serde_json::{json, Value};
-use std::sync::Arc;
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 use tokio_tungstenite::{
@@ -19,23 +17,16 @@ pub struct KrakenConnection {
     symbols: Vec<String>,
     data_sender: mpsc::Sender<Message>,
     ws_stream: Option<WsStream>,
-    symbol_mapper: Arc<SymbolMapper>,
     subscription_id: u64,
 }
 
 impl KrakenConnection {
-    pub fn new(
-        url: String,
-        symbols: Vec<String>,
-        data_sender: mpsc::Sender<Message>,
-        symbol_mapper: Arc<SymbolMapper>,
-    ) -> Self {
+    pub fn new(url: String, symbols: Vec<String>, data_sender: mpsc::Sender<Message>) -> Self {
         Self {
             url,
             symbols,
             data_sender,
             ws_stream: None,
-            symbol_mapper,
             subscription_id: 0,
         }
     }
@@ -62,22 +53,17 @@ impl KrakenConnection {
 
                 match channel_name {
                     "ticker" => {
-                        if let Some(data) = super::parser::parse_kraken_ticker_array(
-                            &arr[1],
-                            pair,
-                            &self.symbol_mapper,
-                        )? {
+                        if let Some(data) = super::parser::parse_kraken_ticker_array(&arr[1], pair)?
+                        {
                             self.data_sender.send(Message::MarketData(data)).await?;
                         }
                     }
                     "trade" => {
                         if let Some(trades) = arr[1].as_array() {
                             for trade in trades {
-                                if let Some(data) = super::parser::parse_kraken_trade_array(
-                                    trade,
-                                    pair,
-                                    &self.symbol_mapper,
-                                )? {
+                                if let Some(data) =
+                                    super::parser::parse_kraken_trade_array(trade, pair)?
+                                {
                                     self.data_sender.send(Message::Trade(data)).await?;
                                 }
                             }
@@ -256,27 +242,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_connection_creation() {
-        use crate::config::{AssetGroup, EquivalenceRules, SymbolMappingsConfig};
-
-        let config = SymbolMappingsConfig {
-            mappings_file: None,
-            auto_discover: true,
-            equivalence_rules: EquivalenceRules {
-                quote_assets: vec![AssetGroup {
-                    group: "USD_EQUIVALENT".to_string(),
-                    members: vec!["USD".to_string()],
-                    primary: "USD".to_string(),
-                }],
-            },
-        };
-
-        let mapper = Arc::new(crate::common::SymbolMapper::new(config).unwrap());
         let (tx, _rx) = mpsc::channel(100);
         let conn = KrakenConnection::new(
             "wss://ws.kraken.com".to_string(),
             vec!["XBT/USD".to_string()],
             tx,
-            mapper,
         );
 
         assert_eq!(conn.symbols(), &["XBT/USD"]);

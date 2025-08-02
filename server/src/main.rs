@@ -42,7 +42,7 @@ async fn service_handler(req: Request<Body>) -> Result<Response<Body>, Infallibl
             Ok(response)
         }
         (&Method::GET, "/api/symbols") => {
-            let mut response = handle_symbols_request().await?;
+            let mut response = handle_symbols_request(req).await?;
             response
                 .headers_mut()
                 .insert("Access-Control-Allow-Origin", "*".parse().unwrap());

@@ -1,25 +1,18 @@
 use crate::common::{
     data_types::{ExchangeId, TradeSide, UnifiedMarketData, UnifiedTradeData},
-    symbol_mapper::SymbolMapper,
     utils::{current_timestamp, parse_timestamp_millis},
 };
 use anyhow::Result;
 use serde_json::Value;
 use tracing::warn;
 
-pub fn parse_bitfinex_ticker(
-    _value: &Value,
-    _mapper: &SymbolMapper,
-) -> Result<Option<UnifiedMarketData>> {
+pub fn parse_bitfinex_ticker(_value: &Value) -> Result<Option<UnifiedMarketData>> {
     // This function is for REST API responses, not WebSocket
     // Bitfinex REST API ticker format would be handled here if needed
     Ok(None)
 }
 
-pub fn parse_bitfinex_trade(
-    _value: &Value,
-    _mapper: &SymbolMapper,
-) -> Result<Option<UnifiedTradeData>> {
+pub fn parse_bitfinex_trade(_value: &Value) -> Result<Option<UnifiedTradeData>> {
     // This function is for REST API responses, not WebSocket
     // Bitfinex REST API trade format would be handled here if needed
     Ok(None)
@@ -28,7 +21,6 @@ pub fn parse_bitfinex_trade(
 pub fn parse_bitfinex_ticker_update(
     value: &Value,
     symbol: &str,
-    mapper: &SymbolMapper,
 ) -> Result<Option<UnifiedMarketData>> {
     let arr = value
         .as_array()
@@ -49,11 +41,7 @@ pub fn parse_bitfinex_ticker_update(
             return Ok(None);
         }
 
-        let normalized_symbol = mapper
-            .normalize(ExchangeId::Bitfinex, symbol)
-            .unwrap_or_else(|| crate::common::utils::normalize_symbol_bitfinex(symbol));
-
-        let mut data = UnifiedMarketData::new(ExchangeId::Bitfinex, normalized_symbol);
+        let mut data = UnifiedMarketData::new(ExchangeId::Bitfinex, symbol.to_string());
 
         // Use current timestamp as Bitfinex ticker updates don't include timestamp
         let (timestamp, nanos) = current_timestamp();
@@ -97,7 +85,6 @@ pub fn parse_bitfinex_ticker_update(
 pub fn parse_bitfinex_trade_update(
     value: &Value,
     symbol: &str,
-    mapper: &SymbolMapper,
 ) -> Result<Option<Vec<UnifiedTradeData>>> {
     let arr = value
         .as_array()
@@ -112,10 +99,6 @@ pub fn parse_bitfinex_trade_update(
         return Ok(None);
     }
 
-    let normalized_symbol = mapper
-        .normalize(ExchangeId::Bitfinex, symbol)
-        .unwrap_or_else(|| crate::common::utils::normalize_symbol_bitfinex(symbol));
-
     let mut trades = Vec::new();
 
     match &arr[1] {
@@ -124,7 +107,7 @@ pub fn parse_bitfinex_trade_update(
             for trade_item in trade_list {
                 if let Some(trade_data) = trade_item.as_array() {
                     if trade_data.len() >= 4 {
-                        if let Some(trade) = parse_single_trade(trade_data, &normalized_symbol)? {
+                        if let Some(trade) = parse_single_trade(trade_data, symbol)? {
                             trades.push(trade);
                         }
                     }
@@ -134,7 +117,7 @@ pub fn parse_bitfinex_trade_update(
         // Update format: [CHANNEL_ID, "te" or "tu", [ID, MTS, AMOUNT, PRICE]]
         Value::String(event_type) if event_type == "te" || event_type == "tu" => {
             if let Some(trade_data) = arr.get(2).and_then(|v| v.as_array()) {
-                if let Some(trade) = parse_single_trade(trade_data, &normalized_symbol)? {
+                if let Some(trade) = parse_single_trade(trade_data, symbol)? {
                     trades.push(trade);
                 }
             }
@@ -149,10 +132,7 @@ pub fn parse_bitfinex_trade_update(
     }
 }
 
-fn parse_single_trade(
-    trade_data: &[Value],
-    normalized_symbol: &str,
-) -> Result<Option<UnifiedTradeData>> {
+fn parse_single_trade(trade_data: &[Value], symbol: &str) -> Result<Option<UnifiedTradeData>> {
     if trade_data.len() < 4 {
         return Ok(None);
     }
@@ -174,11 +154,7 @@ fn parse_single_trade(
         0.0
     });
 
-    let mut data = UnifiedTradeData::new(
-        ExchangeId::Bitfinex,
-        normalized_symbol.to_string(),
-        trade_id,
-    );
+    let mut data = UnifiedTradeData::new(ExchangeId::Bitfinex, symbol.to_string(), trade_id);
 
     // Parse timestamp
     let (timestamp, nanos) = parse_timestamp_millis(timestamp_ms);
@@ -200,29 +176,10 @@ fn parse_single_trade(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{AssetGroup, EquivalenceRules, SymbolMappingsConfig};
     use serde_json::json;
-
-    fn create_test_mapper() -> SymbolMapper {
-        let config = SymbolMappingsConfig {
-            mappings_file: None,
-            auto_discover: true,
-            equivalence_rules: EquivalenceRules {
-                quote_assets: vec![AssetGroup {
-                    group: "USD_EQUIVALENT".to_string(),
-                    members: vec!["USD".to_string()],
-                    primary: "USD".to_string(),
-                }],
-            },
-        };
-
-        SymbolMapper::new(config).unwrap()
-    }
 
     #[test]
     fn test_parse_ticker_update() {
-        let mapper = create_test_mapper();
-
         let ticker_json = json!([
             123, // channel ID
             [
@@ -239,12 +196,12 @@ mod tests {
             ]
         ]);
 
-        let result = parse_bitfinex_ticker_update(&ticker_json, "tBTCUSD", &mapper)
+        let result = parse_bitfinex_ticker_update(&ticker_json, "tBTCUSD")
             .unwrap()
             .unwrap();
 
         assert_eq!(result.exchange, ExchangeId::Bitfinex);
-        assert_eq!(result.symbol, "BTC-USD");
+        assert_eq!(result.symbol, "tBTCUSD");
         assert_eq!(result.best_bid, 50000.0);
         assert_eq!(result.best_ask, 50001.0);
         assert_eq!(result.price, 50000.5);
@@ -254,8 +211,6 @@ mod tests {
 
     #[test]
     fn test_parse_trade_update_single() {
-        let mapper = create_test_mapper();
-
         let trade_json = json!([
             234,  // channel ID
             "te", // trade executed
@@ -267,14 +222,14 @@ mod tests {
             ]
         ]);
 
-        let trades = parse_bitfinex_trade_update(&trade_json, "tETHUSD", &mapper)
+        let trades = parse_bitfinex_trade_update(&trade_json, "tETHUSD")
             .unwrap()
             .unwrap();
 
         assert_eq!(trades.len(), 1);
         let trade = &trades[0];
         assert_eq!(trade.exchange, ExchangeId::Bitfinex);
-        assert_eq!(trade.symbol, "ETH-USD");
+        assert_eq!(trade.symbol, "tETHUSD");
         assert_eq!(trade.trade_id, 123456789);
         assert_eq!(trade.price, 30000.0);
         assert_eq!(trade.size, 0.1);
@@ -283,8 +238,6 @@ mod tests {
 
     #[test]
     fn test_parse_trade_update_sell() {
-        let mapper = create_test_mapper();
-
         let trade_json = json!([
             234,  // channel ID
             "te", // trade executed
@@ -296,7 +249,7 @@ mod tests {
             ]
         ]);
 
-        let trades = parse_bitfinex_trade_update(&trade_json, "tETHUSD", &mapper)
+        let trades = parse_bitfinex_trade_update(&trade_json, "tETHUSD")
             .unwrap()
             .unwrap();
 
@@ -308,8 +261,6 @@ mod tests {
 
     #[test]
     fn test_parse_trade_snapshot() {
-        let mapper = create_test_mapper();
-
         let snapshot_json = json!([
             234, // channel ID
             [
@@ -319,7 +270,7 @@ mod tests {
             ]
         ]);
 
-        let trades = parse_bitfinex_trade_update(&snapshot_json, "tETHUSD", &mapper)
+        let trades = parse_bitfinex_trade_update(&snapshot_json, "tETHUSD")
             .unwrap()
             .unwrap();
 
@@ -334,14 +285,12 @@ mod tests {
 
     #[test]
     fn test_parse_heartbeat() {
-        let mapper = create_test_mapper();
-
         let hb_json = json!([123, "hb"]);
 
-        let ticker_result = parse_bitfinex_ticker_update(&hb_json, "tBTCUSD", &mapper).unwrap();
+        let ticker_result = parse_bitfinex_ticker_update(&hb_json, "tBTCUSD").unwrap();
         assert!(ticker_result.is_none());
 
-        let trade_result = parse_bitfinex_trade_update(&hb_json, "tBTCUSD", &mapper).unwrap();
+        let trade_result = parse_bitfinex_trade_update(&hb_json, "tBTCUSD").unwrap();
         assert!(trade_result.is_none());
     }
 }

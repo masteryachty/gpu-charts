@@ -1,4 +1,3 @@
-use crate::common::SymbolMapper;
 use crate::exchanges::{Channel, ExchangeConnection, Message};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -20,7 +19,6 @@ pub struct BitfinexConnection {
     symbols: Vec<String>,
     data_sender: mpsc::Sender<Message>,
     ws_stream: Option<WsStream>,
-    symbol_mapper: Arc<SymbolMapper>,
     _ping_interval_secs: Option<u64>,
     channel_map: Arc<Mutex<HashMap<i64, ChannelInfo>>>,
 }
@@ -36,7 +34,6 @@ impl BitfinexConnection {
         url: String,
         symbols: Vec<String>,
         data_sender: mpsc::Sender<Message>,
-        symbol_mapper: Arc<SymbolMapper>,
         ping_interval_secs: Option<u64>,
     ) -> Self {
         Self {
@@ -44,14 +41,9 @@ impl BitfinexConnection {
             symbols,
             data_sender,
             ws_stream: None,
-            symbol_mapper,
             _ping_interval_secs: ping_interval_secs,
             channel_map: Arc::new(Mutex::new(HashMap::new())),
         }
-    }
-
-    pub fn clone_for_ping(&self) -> mpsc::Sender<Message> {
-        self.data_sender.clone()
     }
 
     async fn send_json(&mut self, payload: Value) -> Result<()> {
@@ -92,7 +84,6 @@ impl BitfinexConnection {
                                 if let Some(data) = super::parser::parse_bitfinex_ticker_update(
                                     &value,
                                     &info.symbol,
-                                    &self.symbol_mapper,
                                 )? {
                                     self.data_sender.send(Message::MarketData(data)).await?;
                                 }
@@ -101,7 +92,6 @@ impl BitfinexConnection {
                                 if let Some(trades) = super::parser::parse_bitfinex_trade_update(
                                     &value,
                                     &info.symbol,
-                                    &self.symbol_mapper,
                                 )? {
                                     for trade in trades {
                                         self.data_sender.send(Message::Trade(trade)).await?;
@@ -272,27 +262,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_connection_creation() {
-        use crate::config::{AssetGroup, EquivalenceRules, SymbolMappingsConfig};
-
-        let config = SymbolMappingsConfig {
-            mappings_file: None,
-            auto_discover: true,
-            equivalence_rules: EquivalenceRules {
-                quote_assets: vec![AssetGroup {
-                    group: "USD_EQUIVALENT".to_string(),
-                    members: vec!["USD".to_string()],
-                    primary: "USD".to_string(),
-                }],
-            },
-        };
-
-        let mapper = Arc::new(crate::common::SymbolMapper::new(config).unwrap());
         let (tx, _rx) = mpsc::channel(100);
         let conn = BitfinexConnection::new(
             "wss://api-pub.bitfinex.com/ws/2".to_string(),
             vec!["tBTCUSD".to_string()],
             tx,
-            mapper,
             Some(15),
         );
 

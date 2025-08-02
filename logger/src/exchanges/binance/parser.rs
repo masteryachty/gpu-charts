@@ -1,16 +1,12 @@
 use crate::common::{
     data_types::{ExchangeId, TradeSide, UnifiedMarketData, UnifiedTradeData},
-    symbol_mapper::SymbolMapper,
-    utils::{normalize_symbol_binance, parse_timestamp_millis},
+    utils::parse_timestamp_millis,
 };
 use anyhow::Result;
 use serde_json::Value;
 use tracing::warn;
 
-pub fn parse_binance_ticker(
-    value: &Value,
-    mapper: &SymbolMapper,
-) -> Result<Option<UnifiedMarketData>> {
+pub fn parse_binance_ticker(value: &Value) -> Result<Option<UnifiedMarketData>> {
     // Check if this is a 24hr ticker event
     if value["e"].as_str() != Some("24hrTicker") {
         return Ok(None);
@@ -20,9 +16,7 @@ pub fn parse_binance_ticker(
         .as_str()
         .ok_or_else(|| anyhow::anyhow!("Missing symbol"))?;
 
-    let normalized_symbol = mapper
-        .normalize(ExchangeId::Binance, symbol)
-        .unwrap_or_else(|| normalize_symbol_binance(symbol));
+    let normalized_symbol = symbol.to_string();
 
     let mut data = UnifiedMarketData::new(ExchangeId::Binance, normalized_symbol);
 
@@ -83,10 +77,7 @@ pub fn parse_binance_ticker(
     Ok(Some(data))
 }
 
-pub fn parse_binance_trade(
-    value: &Value,
-    mapper: &SymbolMapper,
-) -> Result<Option<UnifiedTradeData>> {
+pub fn parse_binance_trade(value: &Value) -> Result<Option<UnifiedTradeData>> {
     // Check if this is a trade event
     if value["e"].as_str() != Some("trade") {
         return Ok(None);
@@ -96,9 +87,7 @@ pub fn parse_binance_trade(
         .as_str()
         .ok_or_else(|| anyhow::anyhow!("Missing symbol"))?;
 
-    let normalized_symbol = mapper
-        .normalize(ExchangeId::Binance, symbol)
-        .unwrap_or_else(|| normalize_symbol_binance(symbol));
+    let normalized_symbol = symbol.to_string();
 
     let trade_id = value["t"]
         .as_u64()
@@ -150,29 +139,10 @@ pub fn parse_binance_trade(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{AssetGroup, EquivalenceRules, SymbolMappingsConfig};
     use serde_json::json;
-
-    fn create_test_mapper() -> SymbolMapper {
-        let config = SymbolMappingsConfig {
-            mappings_file: None,
-            auto_discover: true,
-            equivalence_rules: EquivalenceRules {
-                quote_assets: vec![AssetGroup {
-                    group: "USD_EQUIVALENT".to_string(),
-                    members: vec!["USDT".to_string()],
-                    primary: "USD".to_string(),
-                }],
-            },
-        };
-
-        SymbolMapper::new(config).unwrap()
-    }
 
     #[test]
     fn test_parse_binance_ticker() {
-        let mapper = create_test_mapper();
-
         let ticker_json = json!({
             "e": "24hrTicker",
             "E": 1672531200000u64,  // 2023-01-01 00:00:00
@@ -188,12 +158,10 @@ mod tests {
             "A": "0.3"              // Best ask quantity
         });
 
-        let result = parse_binance_ticker(&ticker_json, &mapper)
-            .unwrap()
-            .unwrap();
+        let result = parse_binance_ticker(&ticker_json).unwrap().unwrap();
 
         assert_eq!(result.exchange, ExchangeId::Binance);
-        assert_eq!(result.symbol, "BTC-USDT");
+        assert_eq!(result.symbol, "BTCUSDT");
         assert_eq!(result.price, 50000.0);
         assert_eq!(result.volume, 1234.56);
         assert_eq!(result.best_bid, 49999.0);
@@ -205,8 +173,6 @@ mod tests {
 
     #[test]
     fn test_parse_binance_trade() {
-        let mapper = create_test_mapper();
-
         let trade_json = json!({
             "e": "trade",
             "E": 1672531200123u64,  // Event time
@@ -219,25 +185,15 @@ mod tests {
             "M": true               // Ignore
         });
 
-        let result = parse_binance_trade(&trade_json, &mapper).unwrap().unwrap();
+        let result = parse_binance_trade(&trade_json).unwrap().unwrap();
 
         assert_eq!(result.exchange, ExchangeId::Binance);
-        assert_eq!(result.symbol, "ETH-USDT");
+        assert_eq!(result.symbol, "ETHUSDT");
         assert_eq!(result.trade_id, 123456789);
         assert_eq!(result.price, 3000.5);
         assert_eq!(result.size, 0.5);
         assert_eq!(result.side, TradeSide::Sell); // m=true means sell
         assert_eq!(result.timestamp, 1672531200);
         assert_eq!(result.nanos, 100_000_000); // 100ms
-    }
-
-    #[test]
-    fn test_symbol_normalization() {
-        let _mapper = create_test_mapper();
-
-        // Test various Binance symbols
-        assert_eq!(normalize_symbol_binance("BTCUSDT"), "BTC-USDT");
-        assert_eq!(normalize_symbol_binance("ETHBUSD"), "ETH-BUSD");
-        assert_eq!(normalize_symbol_binance("BNBBTC"), "BNB-BTC");
     }
 }

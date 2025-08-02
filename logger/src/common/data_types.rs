@@ -63,7 +63,7 @@ pub enum QuoteType {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UnifiedMarketData {
     pub exchange: ExchangeId,
-    pub symbol: String,  // Normalized symbol (e.g., BTC-USD)
+    pub symbol: String,  // Raw exchange symbol (e.g., BTC-USD, BTCUSDT, etc.)
     pub timestamp: u32,  // Unix timestamp
     pub nanos: u32,      // Nanosecond precision
     pub price: f32,      // Last trade price
@@ -77,7 +77,7 @@ pub struct UnifiedMarketData {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UnifiedTradeData {
     pub exchange: ExchangeId,
-    pub symbol: String,           // Normalized symbol
+    pub symbol: String,           // Raw exchange symbol
     pub trade_id: u64,            // Exchange trade ID
     pub timestamp: u32,           // Unix timestamp
     pub nanos: u32,               // Nanosecond precision
@@ -92,8 +92,7 @@ pub struct UnifiedTradeData {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Symbol {
     pub exchange: ExchangeId,
-    pub exchange_symbol: String, // Exchange-specific symbol
-    pub normalized: String,      // Normalized symbol
+    pub symbol: String, // Exchange-specific symbol
     pub base_asset: String,
     pub quote_asset: String,
     pub asset_class: AssetClass,
