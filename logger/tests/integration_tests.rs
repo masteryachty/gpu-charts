@@ -10,7 +10,6 @@ use std::time::Duration;
 use tempfile::TempDir;
 use tokio::sync::mpsc;
 
-
 #[tokio::test]
 async fn test_data_buffer_integration() {
     let temp_dir = TempDir::new().unwrap();

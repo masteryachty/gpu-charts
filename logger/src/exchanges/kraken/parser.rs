@@ -207,5 +207,4 @@ mod tests {
         assert_eq!(result.timestamp, 1612345678);
         assert!(result.nanos > 0); // Should have nanosecond precision
     }
-
 }

@@ -37,7 +37,6 @@ pub struct ExchangeConfig {
     pub symbols: Option<Vec<String>>, // If None, fetch all available
 }
 
-
 impl Default for Config {
     fn default() -> Self {
         Self {

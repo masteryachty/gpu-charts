@@ -13,7 +13,7 @@ use hyper::{body::Body, header, Response, StatusCode};
 #[derive(Debug, Serialize, Deserialize)]
 struct SymbolInfo {
     symbol: String,
-    last_update: u64,        // Unix timestamp
+    last_update: u64,         // Unix timestamp
     last_update_date: String, // Human-readable date
 }
 
@@ -22,7 +22,7 @@ fn timestamp_to_readable(timestamp: u64) -> String {
     if timestamp == 0 {
         return "Never".to_string();
     }
-    
+
     match UNIX_EPOCH.checked_add(std::time::Duration::from_secs(timestamp)) {
         Some(time) => {
             let datetime: DateTime<Utc> = time.into();
@@ -33,28 +33,36 @@ fn timestamp_to_readable(timestamp: u64) -> String {
 }
 
 /// Get the most recent modification time of any file in the given directory
-async fn get_latest_modification_time(base_path: &str, exchange: &str, symbol: &str) -> Option<u64> {
-    let symbol_path = format!("{}/{}/{}", base_path, exchange, symbol);
-    
+async fn get_latest_modification_time(
+    base_path: &str,
+    exchange: &str,
+    symbol: &str,
+) -> Option<u64> {
+    let symbol_path = format!("{base_path}/{exchange}/{symbol}");
+
     // Look for any subdirectories (like MD, TRADES, etc.)
     match fs::read_dir(&symbol_path).await {
         Ok(mut type_dirs) => {
             let mut latest_time = 0u64;
-            
+
             while let Some(type_entry) = type_dirs.next_entry().await.ok().flatten() {
                 if let Ok(metadata) = type_entry.metadata().await {
                     if metadata.is_dir() {
                         let type_path = type_entry.path();
-                        
+
                         // Look for .bin files in this directory
                         if let Ok(mut bin_files) = fs::read_dir(&type_path).await {
-                            while let Some(bin_entry) = bin_files.next_entry().await.ok().flatten() {
+                            while let Some(bin_entry) = bin_files.next_entry().await.ok().flatten()
+                            {
                                 if let Some(file_name) = bin_entry.file_name().to_str() {
                                     if file_name.ends_with(".bin") {
                                         if let Ok(file_metadata) = bin_entry.metadata().await {
                                             if let Ok(modified) = file_metadata.modified() {
-                                                if let Ok(duration) = modified.duration_since(SystemTime::UNIX_EPOCH) {
-                                                    latest_time = latest_time.max(duration.as_secs());
+                                                if let Ok(duration) =
+                                                    modified.duration_since(SystemTime::UNIX_EPOCH)
+                                                {
+                                                    latest_time =
+                                                        latest_time.max(duration.as_secs());
                                                 }
                                             }
                                         }
@@ -65,7 +73,7 @@ async fn get_latest_modification_time(base_path: &str, exchange: &str, symbol: &
                     }
                 }
             }
-            
+
             if latest_time > 0 {
                 Some(latest_time)
             } else {
@@ -77,13 +85,15 @@ async fn get_latest_modification_time(base_path: &str, exchange: &str, symbol: &
 }
 
 /// Handler for the /api/symbols endpoint.
-pub async fn handle_symbols_request(req: hyper::Request<Body>) -> Result<Response<Body>, Infallible> {
+pub async fn handle_symbols_request(
+    req: hyper::Request<Body>,
+) -> Result<Response<Body>, Infallible> {
     // Parse query parameters
     let query = req.uri().query().unwrap_or("");
     let params: HashMap<String, String> = url::form_urlencoded::parse(query.as_bytes())
         .map(|(k, v)| (k.to_string(), v.to_string()))
         .collect();
-    
+
     let exchange_filter = params.get("exchange").cloned();
     // Always use /mnt/md/data as the base path
     let base_path = "/mnt/md/data".to_string();
@@ -124,18 +134,21 @@ pub async fn handle_symbols_request(req: hyper::Request<Body>) -> Result<Respons
                                                         symbol_entry.file_name().to_str()
                                                     {
                                                         // Get the last update time for this symbol
-                                                        let last_update = get_latest_modification_time(
-                                                            &base_path,
-                                                            exchange_name,
-                                                            symbol_name,
-                                                        )
-                                                        .await
-                                                        .unwrap_or(0);
+                                                        let last_update =
+                                                            get_latest_modification_time(
+                                                                &base_path,
+                                                                exchange_name,
+                                                                symbol_name,
+                                                            )
+                                                            .await
+                                                            .unwrap_or(0);
 
                                                         let symbol_info = SymbolInfo {
                                                             symbol: symbol_name.to_string(),
                                                             last_update,
-                                                            last_update_date: timestamp_to_readable(last_update),
+                                                            last_update_date: timestamp_to_readable(
+                                                                last_update,
+                                                            ),
                                                         };
 
                                                         exchange_symbols.push(symbol_info);
@@ -149,8 +162,9 @@ pub async fn handle_symbols_request(req: hyper::Request<Body>) -> Result<Respons
 
                                 // Sort symbols by last_update (newest first)
                                 exchange_symbols.sort_by(|a, b| b.last_update.cmp(&a.last_update));
-                                
-                                exchanges_with_info.insert(exchange_name.to_string(), exchange_symbols);
+
+                                exchanges_with_info
+                                    .insert(exchange_name.to_string(), exchange_symbols);
                             }
                         }
                     }

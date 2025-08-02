@@ -58,7 +58,6 @@ pub fn format_size(bytes: u64) -> String {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -103,5 +102,4 @@ mod tests {
         assert_eq!(format_size(1048576), "1.00 MB");
         assert_eq!(format_size(1073741824), "1.00 GB");
     }
-
 }

@@ -22,11 +22,7 @@ pub struct OkxConnection {
 }
 
 impl OkxConnection {
-    pub fn new(
-        url: String,
-        symbols: Vec<String>,
-        data_sender: mpsc::Sender<Message>,
-    ) -> Self {
+    pub fn new(url: String, symbols: Vec<String>, data_sender: mpsc::Sender<Message>) -> Self {
         Self {
             url,
             symbols,

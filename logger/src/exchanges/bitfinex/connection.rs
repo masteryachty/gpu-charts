@@ -46,7 +46,6 @@ impl BitfinexConnection {
         }
     }
 
-
     async fn send_json(&mut self, payload: Value) -> Result<()> {
         if let Some(ws) = &mut self.ws_stream {
             let msg = WsMessage::Text(payload.to_string());

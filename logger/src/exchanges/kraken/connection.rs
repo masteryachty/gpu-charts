@@ -21,11 +21,7 @@ pub struct KrakenConnection {
 }
 
 impl KrakenConnection {
-    pub fn new(
-        url: String,
-        symbols: Vec<String>,
-        data_sender: mpsc::Sender<Message>,
-    ) -> Self {
+    pub fn new(url: String, symbols: Vec<String>, data_sender: mpsc::Sender<Message>) -> Self {
         Self {
             url,
             symbols,
@@ -57,8 +53,7 @@ impl KrakenConnection {
 
                 match channel_name {
                     "ticker" => {
-                        if let Some(data) =
-                            super::parser::parse_kraken_ticker_array(&arr[1], pair)?
+                        if let Some(data) = super::parser::parse_kraken_ticker_array(&arr[1], pair)?
                         {
                             self.data_sender.send(Message::MarketData(data)).await?;
                         }

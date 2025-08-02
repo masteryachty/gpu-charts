@@ -92,7 +92,7 @@ pub struct UnifiedTradeData {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Symbol {
     pub exchange: ExchangeId,
-    pub symbol: String,          // Exchange-specific symbol
+    pub symbol: String, // Exchange-specific symbol
     pub base_asset: String,
     pub quote_asset: String,
     pub asset_class: AssetClass,

@@ -20,11 +20,7 @@ pub struct CoinbaseConnection {
 }
 
 impl CoinbaseConnection {
-    pub fn new(
-        url: String,
-        symbols: Vec<String>,
-        data_sender: mpsc::Sender<Message>,
-    ) -> Self {
+    pub fn new(url: String, symbols: Vec<String>, data_sender: mpsc::Sender<Message>) -> Self {
         Self {
             url,
             symbols,
@@ -104,7 +100,7 @@ impl ExchangeConnection for CoinbaseConnection {
         // Always include heartbeat channel to keep connection alive
         let mut all_channels = channel_names;
         all_channels.push("heartbeat");
-        
+
         let subscribe_msg = json!({
             "type": "subscribe",
             "product_ids": &self.symbols,

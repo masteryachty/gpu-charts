@@ -170,11 +170,8 @@ impl Exchange for OkxExchange {
             let metrics = self.metrics.clone();
 
             let handle = tokio::spawn(async move {
-                let mut connection = OkxConnection::new(
-                    config.exchanges.okx.ws_endpoint.clone(),
-                    batch,
-                    data_tx,
-                );
+                let mut connection =
+                    OkxConnection::new(config.exchanges.okx.ws_endpoint.clone(), batch, data_tx);
 
                 loop {
                     metrics.record_connection_status("okx", true);

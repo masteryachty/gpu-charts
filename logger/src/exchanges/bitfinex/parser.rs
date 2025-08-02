@@ -6,17 +6,13 @@ use anyhow::Result;
 use serde_json::Value;
 use tracing::warn;
 
-pub fn parse_bitfinex_ticker(
-    _value: &Value,
-) -> Result<Option<UnifiedMarketData>> {
+pub fn parse_bitfinex_ticker(_value: &Value) -> Result<Option<UnifiedMarketData>> {
     // This function is for REST API responses, not WebSocket
     // Bitfinex REST API ticker format would be handled here if needed
     Ok(None)
 }
 
-pub fn parse_bitfinex_trade(
-    _value: &Value,
-) -> Result<Option<UnifiedTradeData>> {
+pub fn parse_bitfinex_trade(_value: &Value) -> Result<Option<UnifiedTradeData>> {
     // This function is for REST API responses, not WebSocket
     // Bitfinex REST API trade format would be handled here if needed
     Ok(None)
@@ -136,10 +132,7 @@ pub fn parse_bitfinex_trade_update(
     }
 }
 
-fn parse_single_trade(
-    trade_data: &[Value],
-    symbol: &str,
-) -> Result<Option<UnifiedTradeData>> {
+fn parse_single_trade(trade_data: &[Value], symbol: &str) -> Result<Option<UnifiedTradeData>> {
     if trade_data.len() < 4 {
         return Ok(None);
     }
@@ -161,11 +154,7 @@ fn parse_single_trade(
         0.0
     });
 
-    let mut data = UnifiedTradeData::new(
-        ExchangeId::Bitfinex,
-        symbol.to_string(),
-        trade_id,
-    );
+    let mut data = UnifiedTradeData::new(ExchangeId::Bitfinex, symbol.to_string(), trade_id);
 
     // Parse timestamp
     let (timestamp, nanos) = parse_timestamp_millis(timestamp_ms);

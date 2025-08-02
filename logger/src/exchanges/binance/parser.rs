@@ -196,5 +196,4 @@ mod tests {
         assert_eq!(result.timestamp, 1672531200);
         assert_eq!(result.nanos, 100_000_000); // 100ms
     }
-
 }
