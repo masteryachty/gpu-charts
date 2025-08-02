@@ -95,7 +95,7 @@ pub fn calculate_min_max_y(
     };
 
     // Process ALL data groups, not just the active one
-    for (_group_idx, group) in data_store.data_groups.iter().enumerate() {
+    for group in data_store.data_groups.iter() {
         for metric in &group.metrics {
             if metric.visible {
                 // Check if this metric should be excluded from bounds calculation
@@ -105,7 +105,6 @@ pub fn calculate_min_max_y(
                 }
 
                 all_y_buffers.extend(&metric.y_buffers);
-            } else {
             }
         }
     }
@@ -136,8 +135,8 @@ pub fn calculate_min_max_y(
     // Layout: [min0, max0, min1, max1, ...]
     let mut initial_data = Vec::with_capacity(2 * num_buffers);
     for _ in 0..num_buffers {
-        initial_data.push(3.402823466e+38f32); // min (infinity)
-        initial_data.push(-3.402823466e+38f32); // max (-infinity)
+        initial_data.push(3.402_823_5e38_f32); // min (infinity)
+        initial_data.push(-3.402_823_5e38_f32); // max (-infinity)
     }
 
     let staging_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -206,7 +205,7 @@ pub fn calculate_min_max_y(
         });
 
         // Verify buffer has STORAGE usage before binding
-        if !y_buffer.usage().contains(wgpu::BufferUsages::STORAGE) {}
+        // Check if buffer has correct usage - debug assertion removed
 
         // First pass bind group with current y_buffer
         let bind_group_first_pass = device.create_bind_group(&wgpu::BindGroupDescriptor {

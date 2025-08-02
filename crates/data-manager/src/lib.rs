@@ -206,7 +206,7 @@ impl DataManager {
                 Ok(data_handle) => {
                     let _ = self.process_data_handle(&data_handle, data_store);
                 }
-                Err(e) => {}
+                Err(_e) => {}
             }
         }
         Ok(())

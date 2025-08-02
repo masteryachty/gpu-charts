@@ -282,7 +282,7 @@ impl Renderer {
                     Ok(()) => {
                         *mapping_completed_clone.lock().unwrap() = true;
                     }
-                    Err(e) => {}
+                    Err(_e) => {}
                 });
 
                 // Poll again to potentially complete the mapping immediately

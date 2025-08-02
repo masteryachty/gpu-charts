@@ -168,7 +168,7 @@ impl Chart {
                         }
                     });
                 }
-                Err(e) => {}
+                Err(_e) => {}
             }
         });
 
@@ -238,7 +238,7 @@ impl Chart {
 
             match render_result {
                 Ok(()) => {}
-                Err(e) => {}
+                Err(_e) => {}
             }
         });
 
@@ -255,7 +255,7 @@ impl Chart {
     }
 
     #[wasm_bindgen]
-    pub fn resize(&self, width: u32, height: u32) -> Result<(), JsValue> {
+    pub fn resize(&self, _width: u32, _height: u32) -> Result<(), JsValue> {
         // InstanceManager::with_instance_mut(&self.instance_id, |instance| {
         //     instance.chart_engine.resized(width, height);
         // })
@@ -309,9 +309,9 @@ impl Chart {
             let renderer = &mut instance.chart_engine.renderer;
             let data_store = renderer.data_store_mut();
 
-            let is_dirty = data_store.is_dirty();
-            let gpu_min_y = data_store.gpu_min_y;
-            let gpu_max_y = data_store.gpu_max_y;
+            let _is_dirty = data_store.is_dirty();
+            let _gpu_min_y = data_store.gpu_min_y;
+            let _gpu_max_y = data_store.gpu_max_y;
 
             if data_store.is_dirty() {
                 // Force recalculation of Y bounds by clearing them
@@ -350,7 +350,7 @@ impl Chart {
     pub fn update_unified_state(&self, store_state_json: &str) -> Result<String, JsValue> {
         // Parse the JSON state
         let store_state: serde_json::Value = serde_json::from_str(store_state_json)
-            .map_err(|e| JsValue::from_str(&format!("Failed to parse state JSON: {}", e)))?;
+            .map_err(|e| JsValue::from_str(&format!("Failed to parse state JSON: {e}")))?;
 
         InstanceManager::with_instance_mut(&self.instance_id, |instance| {
             // Update unified state and get diff
@@ -360,9 +360,7 @@ impl Chart {
             let actions = diff.get_required_actions();
 
             // Trigger appropriate render loop updates based on actions
-            if actions.needs_data_fetch {
-                instance.chart_engine.on_data_config_changed();
-            } else if actions.needs_pipeline_rebuild {
+            if actions.needs_data_fetch || actions.needs_pipeline_rebuild {
                 instance.chart_engine.on_data_config_changed();
             } else if actions.needs_render {
                 instance.chart_engine.on_view_changed();
@@ -370,7 +368,7 @@ impl Chart {
 
             // Return state diff as JSON
             serde_json::to_string(&diff)
-                .map_err(|e| JsValue::from_str(&format!("Failed to serialize diff: {}", e)))
+                .map_err(|e| JsValue::from_str(&format!("Failed to serialize diff: {e}")))
         })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))?
     }
@@ -380,7 +378,7 @@ impl Chart {
         InstanceManager::with_instance(&self.instance_id, |instance| {
             let state = instance.chart_engine.get_unified_state();
             serde_json::to_string(state)
-                .map_err(|e| JsValue::from_str(&format!("Failed to serialize state: {}", e)))
+                .map_err(|e| JsValue::from_str(&format!("Failed to serialize state: {e}")))
         })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))?
     }

@@ -219,7 +219,6 @@ impl DataStore {
             self.start_x = min_x;
             self.end_x = max_x;
             self.clear_gpu_bounds();
-        } else {
         }
     }
 
@@ -279,9 +278,7 @@ impl DataStore {
         let normalized_y = (y - y_min_with_margin) / (y_max_with_margin - y_min_with_margin);
 
         // Convert to screen coordinates (flip Y axis)
-        let screen_y = (1.0 - normalized_y) * self.screen_size.height as f32;
-
-        screen_y
+        (1.0 - normalized_y) * self.screen_size.height as f32
     }
 
     pub fn screen_to_world_with_margin(&self, screen_x: f32, screen_y: f32) -> (f32, f32) {

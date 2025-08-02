@@ -55,9 +55,7 @@ impl YAxisRenderer {
 
         if needs_recalculation {
             // Log when we update labels
-            if data_store.get_gpu_y_bounds().is_some() {
-            } else {
-            }
+            // Check if we have GPU bounds - removed empty check
 
             let (interval, start, end) = calculate_y_axis_interval(min, max);
             let mut y_values = Vec::new();
@@ -112,7 +110,7 @@ impl YAxisRenderer {
             // Update text brush
             self.brush
                 .resize_view(data_store.screen_size.width as f32, height as f32, queue);
-            if let Err(e) = self.brush.queue(device, queue, labels) {}
+            if let Err(_e) = self.brush.queue(device, queue, labels) {}
         } else {
             // If only the window size changed, update the text brush size
             // if self.brush.resize_view(size.0 as f32, size.1 as f32, queue) {
@@ -167,9 +165,7 @@ impl YAxisRenderer {
                 render_pass.set_bind_group(0, bind_group, &[]);
                 render_pass.set_vertex_buffer(0, buffer.slice(..));
                 render_pass.draw(0..self.vertex_count, 0..1);
-            } else {
             }
-        } else {
         }
 
         // Draw text labels
@@ -190,7 +186,7 @@ impl YAxisRenderer {
             .map(|builder| builder.build(&device, screen_width, screen_height, color_format))
         {
             Ok(brush) => brush,
-            Err(e) => {
+            Err(_e) => {
                 panic!("Cannot create Y-axis renderer without text rendering capability");
             }
         };

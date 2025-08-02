@@ -1,4 +1,3 @@
-use crate::chart_engine::unix_timestamp_to_string;
 use renderer::Renderer;
 use shared_types::events::{ElementState, MouseScrollDelta, WindowEvent};
 
@@ -53,7 +52,7 @@ impl CanvasController {
     fn handle_cursor_input(
         &mut self,
         state: shared_types::events::ElementState,
-        button: shared_types::events::MouseButton,
+        _button: shared_types::events::MouseButton,
         renderer: &mut Renderer,
     ) {
         match state {
@@ -104,7 +103,7 @@ impl CanvasController {
     fn handle_cursor_wheel(
         &self,
         delta: shared_types::events::MouseScrollDelta,
-        phase: shared_types::events::TouchPhase,
+        _phase: shared_types::events::TouchPhase,
         renderer: &mut Renderer,
     ) {
         let MouseScrollDelta::PixelDelta(position) = delta;
@@ -145,7 +144,6 @@ impl CanvasController {
             // IMPORTANT: After changing x range, we need to recalculate Y bounds
             // and update the shared bind group for axis rendering
             renderer.data_store_mut().mark_dirty();
-        } else {
         }
     }
 }

@@ -352,9 +352,7 @@ impl ChartEngine {
             let actions = diff.get_required_actions();
 
             // Trigger appropriate actions based on state changes
-            if actions.needs_data_fetch {
-                self.on_data_config_changed();
-            } else if actions.needs_pipeline_rebuild {
+            if actions.needs_data_fetch || actions.needs_pipeline_rebuild {
                 self.on_data_config_changed();
             } else if actions.needs_render {
                 self.on_visual_settings_changed();

@@ -171,22 +171,20 @@ impl TriangleRenderer {
         use nalgebra_glm as glm;
 
         // Find the data group with our name - look for a group that has both "price" and "side" metrics
-        let (group_index, data_group) =
+        let (_group_index, data_group) =
             data_store
                 .data_groups
                 .iter()
                 .enumerate()
-                .find(|(idx, group)| {
+                .find(|(_idx, group)| {
                     // Log metrics in this group
-                    for metric in &group.metrics {}
+                    for _metric in &group.metrics {}
 
                     // For trades, we need a group that has both "price" and "side" metrics
                     let has_price = group.metrics.iter().any(|m| m.name == "price");
                     let has_side = group.metrics.iter().any(|m| m.name == "side");
-                    let is_trades_group = has_price && has_side;
-
-                    if is_trades_group {}
-                    is_trades_group
+                    // Check if this is a trades group
+                    has_price && has_side
                 })?;
 
         // The data group itself contains the time buffers
