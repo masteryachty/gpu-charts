@@ -280,25 +280,6 @@ impl DataManager {
                     [0.0, 0.5, 1.0] // Default blue
                 };
 
-                // Debug: Sample the data to check values
-                if column_name == "best_bid" || column_name == "best_ask" {
-                    let data_len = raw_buffer.byte_length() as usize;
-                    let sample_size = std::cmp::min(10, data_len / 4);
-                    let mut sample_values = Vec::new();
-                    for i in 0..sample_size {
-                        let offset = (i * 4) as u32;
-                        if offset + 4 <= raw_buffer.byte_length() {
-                            // Get 4 bytes from ArrayBuffer
-                            let value_buffer = raw_buffer.slice_with_end(offset, offset + 4);
-                            let uint8_array = js_sys::Uint8Array::new(&value_buffer);
-                            let mut bytes = [0u8; 4];
-                            uint8_array.copy_to(&mut bytes);
-                            let value = f32::from_le_bytes(bytes);
-                            sample_values.push(value);
-                        }
-                    }
-                }
-
                 data_store.add_metric_to_group(
                     data_group_index,
                     (raw_buffer.clone(), gpu_buffers.clone()),
