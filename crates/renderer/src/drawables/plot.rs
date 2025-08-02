@@ -24,6 +24,11 @@ impl PlotRenderer {
         view: &wgpu::TextureView,
         data_store: &DataStore,
     ) {
+        // Skip rendering if no min/max buffer is available
+        if data_store.min_max_buffer.is_none() {
+            return;
+        }
+        
         let data_len = data_store.get_data_len();
         if data_len > 0 {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -101,41 +106,8 @@ impl PlotRenderer {
                 usage: wgpu::BufferUsages::UNIFORM,
             });
 
-        // Use GPU bounds if available, otherwise use a reasonable range for BTC prices
-        let (y_min, y_max) = if let (Some(min), Some(max)) = (data_store.gpu_min_y, data_store.gpu_max_y) {
-            (min, max)
-        } else {
-            // Fallback: check if we have data
-            // This is a temporary workaround until GPU bounds calculation is fixed
-            let mut found_data = false;
-            
-            for y_buffer in &metric.y_buffers {
-                if y_buffer.size() >= 4 {
-                    // Note: This is a hack - we're reading the buffer size to estimate data range
-                    // In production, GPU bounds calculation should work correctly
-                    found_data = true;
-                    break;
-                }
-            }
-            
-            if found_data {
-                // Use a reasonable range for BTC prices around $118,000
-                (110000.0, 125000.0)
-            } else {
-                (0.0, 1.0)
-            }
-        };
-        let y_min = y_min;
-        let y_max = y_max;
-        let y_min_max = [y_min, y_max];
-        let y_min_max_bytes = bytemuck::cast_slice(&y_min_max);
-        let y_buffer = self
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("y_min_max buffer"),
-                contents: y_min_max_bytes,
-                usage: wgpu::BufferUsages::UNIFORM,
-            });
+        // Use GPU-computed min/max buffer (we checked it exists in render())
+        let y_buffer = data_store.min_max_buffer.as_ref().unwrap().clone();
 
         let color_bytes = bytemuck::cast_slice(&metric.color);
         let color_buffer = self
@@ -189,7 +161,7 @@ impl PlotRenderer {
                     binding: 1,
                     visibility: wgpu::ShaderStages::VERTEX,
                     ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
                         has_dynamic_offset: false,
                         min_binding_size: None,
                     },

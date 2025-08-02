@@ -8,18 +8,13 @@ struct VertexPayload {
     @location(0) color: vec3<f32>,
 };
 
-struct MinMax {
-    min_val: f32,
-    max_val: f32,
-};
-
 struct MinMaxU32 {
     min_val: u32,
     max_val: u32,
 };
 
 @group(0) @binding(0) var<uniform> x_min_max: MinMaxU32;
-@group(0) @binding(1) var<uniform> y_min_max: MinMax;
+@group(0) @binding(1) var<storage, read> y_min_max: vec2<f32>;  // GPU-computed min/max
 @group(0) @binding(2) var<uniform> line_color: vec3<f32>;
 
 @vertex
@@ -28,7 +23,7 @@ fn vs_main(vertex: Vertex) -> VertexPayload {
     var start_ts = x_min_max.min_val;
     var x_f32 = f32(vertex.x - start_ts);
     var out: VertexPayload;
-    var projection = world_to_screen_conversion_with_margin(0., f32(x_min_max.max_val - start_ts), y_min_max.min_val, y_min_max.max_val, -1., 1.);
+    var projection = world_to_screen_conversion_with_margin(0., f32(x_min_max.max_val - start_ts), y_min_max.x, y_min_max.y, -1., 1.);
     out.position = projection * vec4f(x_f32, vertex.y, 0., 1.);
     out.position.z = 0.0;  // Not the issue, but keeping at 0.0 for correctness
     out.position.w = 1.;
