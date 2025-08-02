@@ -48,7 +48,7 @@ impl CanvasController {
         if let Some(start_pos) = self.start_drag_pos {
             let end_pos = self.position;
             self.start_drag_pos = None;
-            
+
             // Only return positions if there was actual movement
             if start_pos != end_pos {
                 Some((start_pos, end_pos))

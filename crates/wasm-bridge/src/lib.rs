@@ -201,7 +201,7 @@ impl Chart {
                         reject
                             .call1(
                                 &JsValue::undefined(),
-                                &JsValue::from_str(&format!("Failed to fetch data: {:?}", e)),
+                                &JsValue::from_str(&format!("Failed to fetch data: {e:?}")),
                             )
                             .unwrap();
                     }
@@ -276,7 +276,7 @@ impl Chart {
                     log::debug!("[BRIDGE] Render completed successfully");
                 }
                 Err(e) => {
-                    log::error!("[BRIDGE] Render failed: {:?}", e);
+                    log::error!("[BRIDGE] Render failed: {e:?}");
                 }
             }
         });

@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 /// Holds core WebGPU resources needed for rendering
 /// This provides proper separation of concerns between the renderer and wasm-bridge crates
-/// 
+///
 /// Note: The 'static lifetime on surface is appropriate in the WebAssembly context
 /// where the canvas element lives for the entire application lifetime.
 pub struct RenderContext {

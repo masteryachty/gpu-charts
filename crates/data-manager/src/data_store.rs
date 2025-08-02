@@ -462,7 +462,7 @@ impl DataStore {
 
     /// Update GPU-calculated Y bounds
     pub fn set_gpu_y_bounds(&mut self, min: f32, max: f32) {
-        log::debug!("[DataStore] Setting GPU Y bounds: min={}, max={}", min, max);
+        log::debug!("[DataStore] Setting GPU Y bounds: min={min}, max={max}");
         self.gpu_min_y = Some(min);
         self.gpu_max_y = Some(max);
         // Mark as dirty to trigger re-render with new bounds

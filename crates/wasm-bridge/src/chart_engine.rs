@@ -451,7 +451,7 @@ impl ChartEngine {
                             self.data_store.set_gpu_y_bounds(min_val, max_val);
                         } else {
                             // Use sensible defaults if GPU bounds are invalid
-                            log::warn!("Invalid GPU bounds: min={}, max={}", min_val, max_val);
+                            log::warn!("Invalid GPU bounds: min={min_val}, max={max_val}");
                             self.data_store.set_gpu_y_bounds(0.0, 100.0);
                         }
                     }
