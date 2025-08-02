@@ -32,23 +32,20 @@ impl YAxisRenderer {
     ) {
         // Don't skip if no bounds - we'll use fallbacks
 
-        // Get bounds for display - prefer GPU bounds, fall back to reasonable defaults
-        let (min, max) = data_store.get_gpu_y_bounds().unwrap_or({
-            // Use the actual data range from the shader's perspective
-            // The shader will use the correct bounds, we just need values for labels
-            match (data_store.gpu_min_y, data_store.gpu_max_y) {
-                (Some(min), Some(max)) => (min, max),
-                _ => {
-                    // If no bounds yet, use the last known bounds or reasonable defaults for BTC
-                    if self.last_min_y != 0.0 || self.last_max_y != 0.0 {
-                        (self.last_min_y, self.last_max_y)
-                    } else {
-                        // Use reasonable defaults for BTC prices
-                        (110000.0, 125000.0)
-                    }
+        // Get bounds for display - require valid GPU bounds
+        let (min, max) = match data_store.get_gpu_y_bounds() {
+            Some((min, max)) if min < max => (min, max),
+            _ => {
+                // No valid bounds available yet
+                if self.last_min_y < self.last_max_y {
+                    // Use last known valid bounds
+                    (self.last_min_y, self.last_max_y)
+                } else {
+                    // No valid bounds at all - skip rendering
+                    return;
                 }
             }
-        });
+        };
 
 
         let height = data_store.screen_size.height as i32;
