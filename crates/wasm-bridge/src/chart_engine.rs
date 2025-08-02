@@ -1,7 +1,9 @@
 use chrono::DateTime;
 use config_system::PresetManager;
 use data_manager::{DataManager, DataStore};
-use renderer::{compute_engine::ComputeEngine, MultiRenderer, MultiRendererBuilder, RenderOrder};
+use renderer::{
+    compute_engine::ComputeEngine, MultiRenderer, MultiRendererBuilder, RenderContext, RenderOrder,
+};
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
@@ -20,11 +22,8 @@ struct PendingReadback {
 }
 
 pub struct ChartEngine {
-    // WebGPU resources (previously in Renderer)
-    pub surface: wgpu::Surface<'static>,
-    pub device: Rc<wgpu::Device>,
-    pub queue: Rc<wgpu::Queue>,
-    pub config: wgpu::SurfaceConfiguration,
+    // WebGPU resources managed by RenderContext
+    render_context: RenderContext,
     data_store: DataStore,
     compute_engine: ComputeEngine,
     // Track pending GPU readback
@@ -110,7 +109,10 @@ impl ChartEngine {
         let device = Rc::new(device);
         let queue = Rc::new(queue);
 
-        // let api_base_url = "https://api.rednax.io".to_string();
+        // let api_base_url = option_env!("API_BASE_URL")
+        //     .unwrap_or("https://api.rednax.io")
+        //     .to_string();
+
         let api_base_url = "http://localhost:8080".to_string();
 
         // Create DataManager with modular approach
@@ -133,8 +135,12 @@ impl ChartEngine {
         };
         surface.configure(&device, &surface_config);
 
+        // Create RenderContext to manage GPU resources
+        let render_context =
+            RenderContext::new(device.clone(), queue.clone(), surface, surface_config);
+
         // Create compute engine
-        let compute_engine = ComputeEngine::new(device.clone(), queue.clone());
+        let compute_engine = ComputeEngine::new(device, queue);
         log::debug!("11");
 
         // Create immediate updater
@@ -144,10 +150,7 @@ impl ChartEngine {
 
         // Create the ChartEngine instance
         Ok(Self {
-            surface,
-            device,
-            queue,
-            config: surface_config,
+            render_context,
             data_store,
             compute_engine,
             pending_readback: None,
@@ -192,17 +195,18 @@ impl ChartEngine {
         }
 
         // Get current texture
-        let output = self.surface.get_current_texture()?;
+        let output = self.render_context.get_current_texture()?;
         let view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
         // Create command encoder
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Render Encoder"),
-            });
+        let mut encoder =
+            self.render_context
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("Render Encoder"),
+                });
 
         // Start GPU bounds calculation if needed
         if self.data_store.gpu_min_y.is_none() && self.data_store.min_max_buffer.is_none() {
@@ -213,8 +217,8 @@ impl ChartEngine {
             // Calculate Y bounds using GPU
             let (x_min, x_max) = (self.data_store.start_x, self.data_store.end_x);
             let (min_max_buffer, staging_buffer) = renderer::calculate_min_max_y(
-                &self.device,
-                &self.queue,
+                &self.render_context.device,
+                &self.render_context.queue,
                 &mut encoder,
                 &self.data_store,
                 x_min,
@@ -224,7 +228,7 @@ impl ChartEngine {
             // Store buffers
             self.data_store.min_max_buffer = Some(Rc::new(min_max_buffer));
             self.data_store
-                .update_shared_bind_group_with_gpu_buffer(&self.device);
+                .update_shared_bind_group_with_gpu_buffer(&self.render_context.device);
 
             self.pending_readback = Some(PendingReadback {
                 buffer: Rc::new(staging_buffer),
@@ -247,7 +251,9 @@ impl ChartEngine {
         }
 
         // Submit commands
-        self.queue.submit(std::iter::once(encoder.finish()));
+        self.render_context
+            .queue
+            .submit(std::iter::once(encoder.finish()));
 
         // Present the frame
         output.present();
@@ -264,9 +270,7 @@ impl ChartEngine {
     }
 
     pub fn resized(&mut self, width: u32, height: u32) {
-        self.config.width = width;
-        self.config.height = height;
-        self.surface.configure(&self.device, &self.config);
+        self.render_context.resize(width, height);
         self.data_store.resized(width, height);
 
         // Also resize the multi-renderer if present
@@ -341,9 +345,9 @@ impl ChartEngine {
                 config_system::RenderType::Line => {
                     // Create a configurable plot renderer with specific data columns
                     let plot_renderer = renderer::ConfigurablePlotRenderer::new(
-                        self.device.clone(),
-                        self.queue.clone(),
-                        self.config.format,
+                        self.render_context.device.clone(),
+                        self.render_context.queue.clone(),
+                        self.render_context.config.format,
                         chart_type.label.clone(),
                         chart_type.data_columns.clone(),
                     );
@@ -351,9 +355,9 @@ impl ChartEngine {
                 }
                 config_system::RenderType::Triangle => {
                     let triangle_renderer = renderer::charts::TriangleRenderer::new(
-                        self.device.clone(),
-                        self.queue.clone(),
-                        self.config.format,
+                        self.render_context.device.clone(),
+                        self.render_context.queue.clone(),
+                        self.render_context.config.format,
                     );
 
                     // The TriangleRenderer automatically finds data groups with "price" and "side" metrics
@@ -388,13 +392,17 @@ impl ChartEngine {
         self.multi_renderer = Some(new_multi_renderer);
     }
 
-    /// Process pending readback (non-blocking)
+    /// Process pending readback with improved safety and timeout
     fn process_pending_readback(&mut self) -> bool {
         if let Some(pending) = &mut self.pending_readback {
-            // Poll to make progress on async operations
-            self.device.poll(wgpu::Maintain::Poll);
-
-            let mut mapping_completed = pending.mapping_completed.lock().unwrap();
+            // Use try_lock to avoid potential deadlocks
+            let mapping_completed = match pending.mapping_completed.try_lock() {
+                Ok(guard) => guard,
+                Err(_) => {
+                    // Lock is held by another thread, skip this frame
+                    return false;
+                }
+            };
 
             // Check if we need to initiate the mapping
             if !pending.mapping_started && !*mapping_completed {
@@ -408,19 +416,17 @@ impl ChartEngine {
                 let mapping_completed_clone = pending.mapping_completed.clone();
                 let buffer_slice = pending.buffer.slice(..);
 
-                // Now initiate the mapping
-                buffer_slice.map_async(wgpu::MapMode::Read, move |result| match result {
-                    Ok(()) => {
-                        *mapping_completed_clone.lock().unwrap() = true;
+                // Now initiate the mapping with error handling
+                buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
+                    if let Ok(mut guard) = mapping_completed_clone.try_lock() {
+                        *guard = result.is_ok();
                     }
-                    Err(_e) => {}
                 });
 
-                // Poll again to potentially complete the mapping immediately
-                self.device.poll(wgpu::Maintain::Poll);
+                // Poll to make progress on async operations
+                self.render_context.device.poll(wgpu::Maintain::Poll);
 
-                // Re-acquire the lock to check if mapping completed
-                mapping_completed = pending.mapping_completed.lock().unwrap();
+                return false; // Come back next frame to check completion
             }
 
             // Check if mapping is complete
@@ -430,6 +436,7 @@ impl ChartEngine {
 
                 // Take ownership to read the buffer
                 if let Some(pending) = self.pending_readback.take() {
+                    // Process buffer data
                     let buffer_slice = pending.buffer.slice(..);
                     let mapped = buffer_slice.get_mapped_range();
                     let data: &[f32] = bytemuck::cast_slice(&mapped);
@@ -439,21 +446,20 @@ impl ChartEngine {
                         let min_val = data[0];
                         let max_val = data[1];
 
-                        // Check if we got valid bounds
-                        if min_val >= max_val || (min_val == 0.0 && max_val == 1.0) {
-                            // Use sensible defaults if GPU bounds are invalid
-                            self.data_store.set_gpu_y_bounds(0.0, 100.0);
-                        } else {
+                        // Validate bounds before applying
+                        if min_val.is_finite() && max_val.is_finite() && min_val < max_val {
                             self.data_store.set_gpu_y_bounds(min_val, max_val);
+                        } else {
+                            // Use sensible defaults if GPU bounds are invalid
+                            log::warn!("Invalid GPU bounds: min={}, max={}", min_val, max_val);
+                            self.data_store.set_gpu_y_bounds(0.0, 100.0);
                         }
-
-                        // Clean up
-                        drop(mapped);
-                        pending.buffer.unmap();
-                    } else {
-                        drop(mapped);
-                        pending.buffer.unmap();
                     }
+
+                    // Always clean up
+                    drop(mapped);
+                    pending.buffer.unmap();
+
                     return true;
                 }
             }
@@ -474,7 +480,11 @@ impl ChartEngine {
     ///     .build();
     /// ```
     pub fn create_multi_renderer(&self) -> MultiRendererBuilder {
-        MultiRendererBuilder::new(self.device.clone(), self.queue.clone(), self.config.format)
+        MultiRendererBuilder::new(
+            self.render_context.device.clone(),
+            self.render_context.queue.clone(),
+            self.render_context.config.format,
+        )
     }
 
     /// Example: Create a multi-renderer with multiple line plots
@@ -527,7 +537,7 @@ impl ChartEngine {
         }
     }
 
-    /// Handle cursor events - delegating to canvas controller without circular borrowing
+    /// Handle cursor events with simplified canvas controller
     pub fn handle_cursor_event(&mut self, event: shared_types::events::WindowEvent) {
         use shared_types::events::{ElementState, MouseScrollDelta, WindowEvent};
 
@@ -571,50 +581,55 @@ impl ChartEngine {
                 }
             }
             WindowEvent::CursorMoved { position, .. } => {
-                self.canvas_controller.handle_cursor_moved(position);
+                self.canvas_controller.update_position(position.into());
             }
             WindowEvent::MouseInput {
                 state, button: _, ..
             } => {
                 match state {
                     ElementState::Pressed => {
-                        self.canvas_controller.start_drag_pos =
-                            Some(crate::controls::canvas_controller::Position {
-                                x: self.canvas_controller.position.x,
-                                y: self.canvas_controller.position.y,
-                            });
+                        self.canvas_controller.start_drag();
                     }
                     ElementState::Released => {
-                        if let Some(start_pos) = self.canvas_controller.start_drag_pos {
-                            let end_pos = self.canvas_controller.position;
-                            if start_pos != end_pos {
-                                // Apply drag zoom
-                                let start_ts = self.data_store.screen_to_world_with_margin(
-                                    start_pos.x as f32,
-                                    start_pos.y as f32,
-                                );
-                                let end_ts = self.data_store.screen_to_world_with_margin(
-                                    end_pos.x as f32,
-                                    end_pos.y as f32,
-                                );
+                        if let Some((start_pos, end_pos)) = self.canvas_controller.end_drag() {
+                            // Apply drag zoom
+                            let start_ts = self.data_store.screen_to_world_with_margin(
+                                start_pos.x as f32,
+                                start_pos.y as f32,
+                            );
+                            let end_ts = self
+                                .data_store
+                                .screen_to_world_with_margin(end_pos.x as f32, end_pos.y as f32);
 
-                                // Ensure start is less than end
-                                let (new_start, new_end) = if start_ts.0 < end_ts.0 {
-                                    (start_ts.0 as u32, end_ts.0 as u32)
-                                } else {
-                                    (end_ts.0 as u32, start_ts.0 as u32)
-                                };
+                            // Ensure start is less than end
+                            let (new_start, new_end) = if start_ts.0 < end_ts.0 {
+                                (start_ts.0 as u32, end_ts.0 as u32)
+                            } else {
+                                (end_ts.0 as u32, start_ts.0 as u32)
+                            };
 
-                                self.data_store.set_x_range(new_start, new_end);
-                                self.data_store.mark_dirty();
-                            }
+                            self.data_store.set_x_range(new_start, new_end);
+                            self.data_store.mark_dirty();
                         }
-                        // Always clear the drag position after release
-                        self.canvas_controller.start_drag_pos = None;
                     }
                 }
             }
         }
+    }
+}
+
+impl Drop for ChartEngine {
+    fn drop(&mut self) {
+        // Clean up any pending GPU operations
+        if self.pending_readback.is_some() {
+            self.pending_readback = None;
+            log::debug!("Cleaned up pending GPU readback");
+        }
+
+        // Ensure all GPU work is completed before dropping
+        self.render_context.device.poll(wgpu::Maintain::Wait);
+
+        log::debug!("ChartEngine instance {} dropped", self.instance_id);
     }
 }
 

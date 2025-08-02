@@ -5,6 +5,7 @@ pub mod compute_engine;
 pub mod drawables;
 pub mod multi_renderer;
 pub mod pipeline_builder;
+pub mod render_context;
 pub mod shaders;
 
 use shared_types::{GpuChartsError, GpuChartsResult};
@@ -19,6 +20,7 @@ pub use multi_renderer::{
     ConfigurablePlotRenderer, MultiRenderable, MultiRenderer, MultiRendererBuilder, RenderOrder,
     RendererAdapter,
 };
+pub use render_context::RenderContext;
 
 /// Re-export error types
 pub type RenderError = GpuChartsError;
