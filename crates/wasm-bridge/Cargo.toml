@@ -32,6 +32,7 @@ nalgebra-glm = "0.18"
 log = "0.4"
 chrono = "0.4"
 uuid = { version = "1.0", features = ["v4", "serde", "js"] }
+bytemuck = "1.13"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"

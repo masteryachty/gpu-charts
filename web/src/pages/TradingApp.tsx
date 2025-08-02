@@ -20,10 +20,15 @@ function ChartView() {
 
   useEffect(() => {
     if (preset && symbol && chartInstance) {
+      // Apply preset and symbol - returns a promise
       chartInstance.apply_preset_and_symbol(preset, symbol)
-      // After applying, update the appliedPreset to trigger metrics fetch
-      setAppliedPreset(preset);
-      // chartInstance.render()
+        .then(() => {
+          // Preset has been fully applied and data fetched
+          setAppliedPreset(preset);
+        })
+        .catch((error: Error) => {
+          console.error('[TradingApp] Failed to apply preset:', error);
+        });
     }
     setActivePreset(preset);
   }, [chartInstance, preset, symbol]);

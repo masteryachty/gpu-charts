@@ -12,6 +12,7 @@ pub fn calculate_min_max_y(
     mix_x: u32,
     max_x: u32,
 ) -> (wgpu::Buffer, wgpu::Buffer) {
+    log::debug!("[ComputeEngine] Starting Y-axis min/max compute pass...");
     let pipelines = MinMaxPipelines::new(device);
     // let performance = web_sys::window().unwrap().performance().unwrap();
     // let start = performance.now();
@@ -404,6 +405,7 @@ pub fn calculate_min_max_y(
         8, // 2 * f32
     );
 
+    log::debug!("[ComputeEngine] Y-axis min/max compute pass completed");
     (overall_buffer, overall_staging_buffer)
 }
 

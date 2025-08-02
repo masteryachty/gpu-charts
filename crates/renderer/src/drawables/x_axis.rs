@@ -140,9 +140,6 @@ impl XAxisRenderer {
                 vertices.push(y_min);
                 vertices.push(*timestamp as f32);
                 vertices.push(y_max);
-                log::debug!(
-                    "X-axis: Line at x={timestamp} from ({timestamp}, {y_min}) to ({timestamp}, {y_max})"
-                );
             }
 
             // Create or update buffer

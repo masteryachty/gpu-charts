@@ -85,15 +85,29 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
       // Dynamic WASM module import with test fallback
       let chart: Chart;
 
+      console.log("123");
+
       try {
-        const wasmModule = await import('@pkg/wasm_bridge.js');
-        await wasmModule.default();
+        // Use preloaded WASM module if available, otherwise fall back to dynamic import
+        let wasmModule;
+        if (window.wasmPromise) {
+          console.log('[useWasmChart] Using preloaded WASM module');
+          wasmModule = await window.wasmPromise;
+        } else {
+          console.log('[useWasmChart] Falling back to dynamic WASM import');
+          wasmModule = await import('@pkg/wasm_bridge.js');
+          await wasmModule.default();
+        }
+
         if (!mountedRef.current) {
           return false;
         }
 
+        console.log("234");
+
         // Create Chart instance 
         chart = new wasmModule.Chart();
+        console.log("345");
 
         // Initialize with canvas ID and actual canvas dimensions
         const actualWidth = width || canvasElement.clientWidth || 800;
@@ -101,27 +115,30 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
 
         try {
           await chart.init(canvasId, actualWidth, actualHeight, startTime, endTime);
+          console.log("456");
+
         } catch (initError) {
           throw initError;
         }
 
         try {
-          await chart.render();
-          
+          // await chart.render();
+
           // Store chart ref
           chartRef.current = chart;
-          
+
           // Start render loop to check for updates
           const checkRenderLoop = () => {
             if (!mountedRef.current || !chartRef.current) {
               return;
             }
-            
-            if (chartRef.current.needs_render()) {
-              chartRef.current.render().catch((err) => {
-              });
-            }
-            
+
+            // if (chartRef.current.needs_render()) {
+            //   chartRef.current.render().catch((err) => {
+            //     console.error('[useWasmChart] Render error:', err);
+            //   });
+            // }
+
             animationFrameRef.current = requestAnimationFrame(checkRenderLoop);
           };
           animationFrameRef.current = requestAnimationFrame(checkRenderLoop);

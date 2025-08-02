@@ -1,15 +1,15 @@
-use renderer::Renderer;
+use crate::chart_engine::ChartEngine;
 use shared_types::events::{ElementState, MouseScrollDelta, WindowEvent};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Position {
-    x: f64,
-    y: f64,
+    pub x: f64,
+    pub y: f64,
 }
 
 pub struct CanvasController {
-    position: Position,
-    start_drag_pos: Option<Position>,
+    pub position: Position,
+    pub start_drag_pos: Option<Position>,
 }
 
 impl Default for CanvasController {
@@ -26,21 +26,21 @@ impl CanvasController {
         Self::default()
     }
 
-    pub fn handle_cursor_event(&mut self, event: WindowEvent, renderer: &mut Renderer) {
+    pub fn handle_cursor_event(&mut self, event: WindowEvent, chart_engine: &mut ChartEngine) {
         match event {
             WindowEvent::MouseWheel { delta, phase, .. } => {
-                self.handle_cursor_wheel(delta, phase, renderer);
+                self.handle_cursor_wheel(delta, phase, chart_engine);
             }
             WindowEvent::CursorMoved { position, .. } => {
                 self.handle_cursor_moved(position);
             }
             WindowEvent::MouseInput { state, button, .. } => {
-                self.handle_cursor_input(state, button, renderer);
+                self.handle_cursor_input(state, button, chart_engine);
             }
         }
     }
 
-    fn handle_cursor_moved(&mut self, position: shared_types::events::PhysicalPosition) {
+    pub fn handle_cursor_moved(&mut self, position: shared_types::events::PhysicalPosition) {
         if position.x != self.position.x || position.y != self.position.y {
             self.position = Position {
                 x: position.x,
@@ -53,7 +53,7 @@ impl CanvasController {
         &mut self,
         state: shared_types::events::ElementState,
         _button: shared_types::events::MouseButton,
-        renderer: &mut Renderer,
+        chart_engine: &mut ChartEngine,
     ) {
         match state {
             ElementState::Pressed => {
@@ -62,7 +62,7 @@ impl CanvasController {
             ElementState::Released => {
                 if let Some(start_pos) = self.start_drag_pos {
                     if start_pos != self.position {
-                        self.apply_drag_zoom(start_pos, self.position, renderer);
+                        self.apply_drag_zoom(start_pos, self.position, chart_engine);
                     }
                 }
                 // Always clear the drag position after release
@@ -75,12 +75,12 @@ impl CanvasController {
         &self,
         start_pos: Position,
         end_position: Position,
-        renderer: &mut Renderer,
+        chart_engine: &mut ChartEngine,
     ) {
-        let start_ts = renderer
+        let start_ts = chart_engine
             .data_store()
             .screen_to_world_with_margin(start_pos.x as f32, start_pos.y as f32);
-        let end_ts = renderer
+        let end_ts = chart_engine
             .data_store()
             .screen_to_world_with_margin(end_position.x as f32, end_position.y as f32);
 
@@ -93,23 +93,25 @@ impl CanvasController {
 
         // Update the data store range
         // Note: Data fetching should be handled by the parent component using DataManager
-        renderer.data_store_mut().set_x_range(new_start, new_end);
+        chart_engine
+            .data_store_mut()
+            .set_x_range(new_start, new_end);
 
         // IMPORTANT: After changing x range, we need to recalculate Y bounds
         // and update the shared bind group for axis rendering
-        renderer.data_store_mut().mark_dirty();
+        chart_engine.data_store_mut().mark_dirty();
     }
 
     fn handle_cursor_wheel(
         &self,
         delta: shared_types::events::MouseScrollDelta,
         _phase: shared_types::events::TouchPhase,
-        renderer: &mut Renderer,
+        chart_engine: &mut ChartEngine,
     ) {
         let MouseScrollDelta::PixelDelta(position) = delta;
 
-        let start_x = renderer.data_store().start_x;
-        let end_x = renderer.data_store().end_x;
+        let start_x = chart_engine.data_store().start_x;
+        let end_x = chart_engine.data_store().end_x;
         let range = end_x - start_x;
 
         // Zoom factor based on scroll amount
@@ -139,11 +141,13 @@ impl CanvasController {
         if new_start != start_x || new_end != end_x {
             // Update the data store range
             // Note: Data fetching should be handled by the parent component using DataManager
-            renderer.data_store_mut().set_x_range(new_start, new_end);
+            chart_engine
+                .data_store_mut()
+                .set_x_range(new_start, new_end);
 
             // IMPORTANT: After changing x range, we need to recalculate Y bounds
             // and update the shared bind group for axis rendering
-            renderer.data_store_mut().mark_dirty();
+            chart_engine.data_store_mut().mark_dirty();
         }
     }
 }

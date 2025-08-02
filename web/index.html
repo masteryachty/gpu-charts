@@ -11,6 +11,25 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Preload WASM files for faster loading -->
+    <link rel="preload" href="/pkg/wasm_bridge_bg.wasm" as="fetch" type="application/wasm" crossorigin>
+    <link rel="modulepreload" href="/pkg/wasm_bridge.js">
+    
+    <!-- Start loading WASM immediately -->
+    <script type="module">
+      // Load WASM module as soon as possible
+      window.wasmPromise = import('/pkg/wasm_bridge.js').then(module => {
+        // Initialize the WASM module
+        return module.default().then(() => {
+          console.log('[WASM] Module loaded and initialized');
+          return module;
+        });
+      }).catch(error => {
+        console.error('[WASM] Failed to load module:', error);
+        throw error;
+      });
+    </script>
   </head>
   <body class="bg-bg-primary text-text-primary font-sans antialiased">
     <div id="root"></div>

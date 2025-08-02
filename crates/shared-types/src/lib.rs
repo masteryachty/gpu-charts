@@ -3,12 +3,10 @@
 pub mod data_types;
 pub mod errors;
 pub mod events;
-pub mod unified_state;
 
 pub use data_types::*;
 pub use errors::*;
 pub use events::*;
-pub use unified_state::*;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -31,17 +29,6 @@ pub struct DataMetadata {
     pub end_time: u32,
     pub columns: Vec<String>,
     pub row_count: usize,
-}
-
-/// Visual configuration for charts
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VisualConfig {
-    pub line_width: f32,
-    pub colors: Vec<[f32; 3]>,
-    pub background_color: [f32; 4],
-    pub grid_color: [f32; 4],
-    pub show_grid: bool,
-    pub show_axes: bool,
 }
 
 /// Data parsing result from server
