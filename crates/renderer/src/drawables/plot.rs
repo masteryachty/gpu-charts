@@ -28,7 +28,7 @@ impl PlotRenderer {
         if data_store.min_max_buffer.is_none() {
             return;
         }
-        
+
         let data_len = data_store.get_data_len();
         if data_len > 0 {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -224,7 +224,6 @@ impl PlotRenderer {
         }
     }
 }
-
 
 // let vertices: [Vertex; 4] = [
 //     Vertex {

@@ -99,14 +99,13 @@ impl Chart {
 
     #[wasm_bindgen]
     pub fn apply_preset_and_symbol(&mut self, preset: &str, symbol: &str) -> Result<(), JsValue> {
-
         let instance_id = self.instance_id;
 
         InstanceManager::with_instance_mut(&self.instance_id, |instance| {
             instance
                 .chart_engine
                 .set_preset_and_symbol(Some(preset.to_string()), Some(symbol.to_string()));
-            })
+        })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
 
         // Spawn async task to fetch data and update render loop state
@@ -140,13 +139,12 @@ impl Chart {
             // Execute the fetch
             match fetch_and_process_data(instance_id).await {
                 Ok(_) => {
-
                     // Trigger render loop state change to preprocess
                     InstanceManager::with_instance_mut(&instance_id, |instance| {
                         let _ = instance.chart_engine.start_render_loop();
                         instance.chart_engine.on_data_received();
                     });
-                    
+
                     // Start a render loop to ensure GPU bounds are calculated
                     wasm_bindgen_futures::spawn_local(async move {
                         // Render a few times to ensure GPU bounds calculation completes
@@ -157,22 +155,20 @@ impl Chart {
                                     web_sys::window()
                                         .unwrap()
                                         .set_timeout_with_callback_and_timeout_and_arguments_0(
-                                            &resolve,
-                                            100,
+                                            &resolve, 100,
                                         )
                                         .unwrap();
                                 });
                                 let _ = wasm_bindgen_futures::JsFuture::from(promise).await;
                             }
-                            
+
                             InstanceManager::with_instance_mut(&instance_id, |instance| {
                                 let _ = instance.chart_engine.render();
                             });
                         }
                     });
                 }
-                Err(e) => {
-                }
+                Err(e) => {}
             }
         });
 
@@ -241,10 +237,8 @@ impl Chart {
             };
 
             match render_result {
-                Ok(()) => {
-                }
-                Err(e) => {
-                }
+                Ok(()) => {}
+                Err(e) => {}
             }
         });
 
@@ -256,12 +250,12 @@ impl Chart {
     pub fn needs_render(&self) -> bool {
         InstanceManager::with_instance(&self.instance_id, |instance| {
             instance.chart_engine.needs_render()
-        }).unwrap_or(false)
+        })
+        .unwrap_or(false)
     }
 
     #[wasm_bindgen]
     pub fn resize(&self, width: u32, height: u32) -> Result<(), JsValue> {
-
         // InstanceManager::with_instance_mut(&self.instance_id, |instance| {
         //     instance.chart_engine.resized(width, height);
         // })
@@ -273,7 +267,6 @@ impl Chart {
     /// Set the time range for the chart
     #[wasm_bindgen(js_name = setTimeRange)]
     pub fn set_time_range(&mut self, start_time: u32, end_time: u32) -> Result<(), JsValue> {
-        
         // Update the DataStore with the new time range
         InstanceManager::with_instance_mut(&self.instance_id, |instance| {
             let data_store = instance.chart_engine.renderer.data_store_mut();
@@ -281,33 +274,31 @@ impl Chart {
             data_store.end_x = end_time;
         })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
-        
+
         // If we have a preset and symbol, re-fetch data with the new time range
         let (preset_name, symbol) = InstanceManager::with_instance(&self.instance_id, |instance| {
             let data_store = instance.chart_engine.renderer.data_store();
             (
                 data_store.preset.as_ref().map(|p| p.name.clone()),
-                data_store.symbol.clone()
+                data_store.symbol.clone(),
             )
         })
         .unwrap_or((None, None));
-        
+
         if let (Some(preset), Some(symbol)) = (preset_name, symbol) {
             self.apply_preset_and_symbol(&preset, &symbol)?;
         }
-        
+
         Ok(())
     }
 
     #[wasm_bindgen]
     pub fn handle_mouse_wheel(&self, delta_y: f64, x: f64, _y: f64) -> Result<(), JsValue> {
-
         InstanceManager::with_instance_mut(&self.instance_id, |instance| {
             let window_event = WindowEvent::MouseWheel {
                 delta: MouseScrollDelta::PixelDelta(PhysicalPosition::new(x, delta_y)),
                 phase: TouchPhase::Moved,
             };
-
 
             instance
                 .chart_engine
@@ -357,7 +348,6 @@ impl Chart {
 
     #[wasm_bindgen]
     pub fn update_unified_state(&self, store_state_json: &str) -> Result<String, JsValue> {
-
         // Parse the JSON state
         let store_state: serde_json::Value = serde_json::from_str(store_state_json)
             .map_err(|e| JsValue::from_str(&format!("Failed to parse state JSON: {}", e)))?;

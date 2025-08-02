@@ -117,7 +117,6 @@ impl Renderer {
 
     /// Calculate bounds using GPU compute
     pub fn calculate_bounds(&mut self, mut encoder: wgpu::CommandEncoder) -> RenderResult<()> {
-
         // Run pre-render compute passes (e.g., compute mid price)
         self.compute_engine
             .run_compute_passes(&mut encoder, &mut self.data_store);
@@ -171,7 +170,6 @@ impl Renderer {
 
         // Start GPU bounds calculation if needed
         if self.data_store.gpu_min_y.is_none() && self.data_store.min_max_buffer.is_none() {
-
             // Run pre-render compute passes (e.g., compute mid price)
             self.compute_engine
                 .run_compute_passes(&mut encoder, &mut self.data_store);
@@ -264,33 +262,32 @@ impl Renderer {
         if let Some(pending) = &mut self.pending_readback {
             // Poll to make progress on async operations
             self.device.poll(wgpu::Maintain::Poll);
-            
+
             let mut mapping_completed = pending.mapping_completed.lock().unwrap();
-            
+
             // Check if we need to initiate the mapping
             if !pending.mapping_started && !*mapping_completed {
                 // Mark that we've started mapping to avoid double mapping
                 pending.mapping_started = true;
-                
+
                 // Drop the lock before initiating mapping to avoid holding it during async operation
                 drop(mapping_completed);
-                
+
                 // Clone what we need for the closure
                 let mapping_completed_clone = pending.mapping_completed.clone();
                 let buffer_slice = pending.buffer.slice(..);
-                
+
                 // Now initiate the mapping
                 buffer_slice.map_async(wgpu::MapMode::Read, move |result| match result {
                     Ok(()) => {
                         *mapping_completed_clone.lock().unwrap() = true;
                     }
-                    Err(e) => {
-                    }
+                    Err(e) => {}
                 });
-                
+
                 // Poll again to potentially complete the mapping immediately
                 self.device.poll(wgpu::Maintain::Poll);
-                
+
                 // Re-acquire the lock to check if mapping completed
                 mapping_completed = pending.mapping_completed.lock().unwrap();
             }
@@ -299,7 +296,7 @@ impl Renderer {
             if *mapping_completed {
                 // Drop the lock before processing
                 drop(mapping_completed);
-                
+
                 // Take ownership to read the buffer
                 if let Some(pending) = self.pending_readback.take() {
                     let buffer_slice = pending.buffer.slice(..);
@@ -310,8 +307,7 @@ impl Renderer {
                         // Update bounds
                         let min_val = data[0];
                         let max_val = data[1];
-                        
-                        
+
                         // Check if we got valid bounds
                         if min_val >= max_val || (min_val == 0.0 && max_val == 1.0) {
                             // Use sensible defaults if GPU bounds are invalid

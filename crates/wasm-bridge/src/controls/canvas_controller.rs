@@ -28,7 +28,6 @@ impl CanvasController {
     }
 
     pub fn handle_cursor_event(&mut self, event: WindowEvent, renderer: &mut Renderer) {
-
         match event {
             WindowEvent::MouseWheel { delta, phase, .. } => {
                 self.handle_cursor_wheel(delta, phase, renderer);
@@ -93,7 +92,6 @@ impl CanvasController {
             (end_ts.0 as u32, start_ts.0 as u32)
         };
 
-
         // Update the data store range
         // Note: Data fetching should be handled by the parent component using DataManager
         renderer.data_store_mut().set_x_range(new_start, new_end);
@@ -109,18 +107,15 @@ impl CanvasController {
         phase: shared_types::events::TouchPhase,
         renderer: &mut Renderer,
     ) {
-
         let MouseScrollDelta::PixelDelta(position) = delta;
 
         let start_x = renderer.data_store().start_x;
         let end_x = renderer.data_store().end_x;
         let range = end_x - start_x;
 
-
         // Zoom factor based on scroll amount
         let zoom_factor = 0.1; // 10% zoom per scroll
         let zoom_amount = (range as f32 * zoom_factor) as u32;
-
 
         let (new_start, new_end) = if position.y < 0. {
             // Scrolling up = zoom in (shrink range)
@@ -143,7 +138,6 @@ impl CanvasController {
 
         // Only update if range actually changed
         if new_start != start_x || new_end != end_x {
-
             // Update the data store range
             // Note: Data fetching should be handled by the parent component using DataManager
             renderer.data_store_mut().set_x_range(new_start, new_end);
@@ -151,7 +145,6 @@ impl CanvasController {
             // IMPORTANT: After changing x range, we need to recalculate Y bounds
             // and update the shared bind group for axis rendering
             renderer.data_store_mut().mark_dirty();
-
         } else {
         }
     }

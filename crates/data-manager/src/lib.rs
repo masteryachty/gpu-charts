@@ -82,7 +82,6 @@ impl DataManager {
             self.base_url, encoded_symbol, data_type, start_time, end_time, encoded_columns
         );
 
-
         // Fetch from server
         let (api_header, binary_buffer) =
             fetch_api_response(&url)
@@ -90,7 +89,6 @@ impl DataManager {
                 .map_err(|e| GpuChartsError::DataFetch {
                     message: format!("{e:?} (URL: {url})"),
                 })?;
-
 
         // Parse the binary data into columnar format
         let mut column_buffers = HashMap::new();
@@ -167,7 +165,6 @@ impl DataManager {
         let start_time = data_store.start_x;
         let end_time = data_store.end_x;
 
-
         let mut data_requirements: std::collections::HashMap<
             String,
             std::collections::HashSet<String>,
@@ -195,7 +192,6 @@ impl DataManager {
             let columns_vec: Vec<String> = columns.into_iter().collect();
             all_columns.extend(columns_vec.iter().map(|s| s.as_str()));
 
-
             // let instance_opt = InstanceManager::take_instance(&instance_id);
             let result = self
                 .fetch_data(
@@ -210,8 +206,7 @@ impl DataManager {
                 Ok(data_handle) => {
                     let _ = self.process_data_handle(&data_handle, data_store);
                 }
-                Err(e) => {
-                }
+                Err(e) => {}
             }
         }
         Ok(())

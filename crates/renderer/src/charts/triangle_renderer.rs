@@ -148,8 +148,8 @@ impl TriangleRenderer {
         Self {
             pipeline,
             bind_group_layout,
-            triangle_size: 8.0, 
-            data_group_name: "trades".to_string(), 
+            triangle_size: 8.0,
+            data_group_name: "trades".to_string(),
         }
     }
 

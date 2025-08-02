@@ -47,13 +47,11 @@ impl YAxisRenderer {
             }
         };
 
-
         let height = data_store.screen_size.height as i32;
 
         // Only recalculate and recreate buffers if the data range or width has changed
         let needs_recalculation =
             self.last_min_y != min || self.last_max_y != max || self.last_height != height;
-
 
         if needs_recalculation {
             // Log when we update labels
@@ -84,10 +82,7 @@ impl YAxisRenderer {
                 let screen_y = data_store.y_to_screen_position(*y) - 8.0; // Offset by 8 pixels to center text
                 let section = TextSection::default()
                     .add_text(Text::new(y_string).with_color([1.0, 1.0, 1.0, 1.0]))
-                    .with_screen_position((
-                        5.0,
-                        screen_y,
-                    ));
+                    .with_screen_position((5.0, screen_y));
                 labels.push(section);
             }
 
@@ -117,8 +112,7 @@ impl YAxisRenderer {
             // Update text brush
             self.brush
                 .resize_view(data_store.screen_size.width as f32, height as f32, queue);
-            if let Err(e) = self.brush.queue(device, queue, labels) {
-            }
+            if let Err(e) = self.brush.queue(device, queue, labels) {}
         } else {
             // If only the window size changed, update the text brush size
             // if self.brush.resize_view(size.0 as f32, size.1 as f32, queue) {

@@ -215,12 +215,10 @@ impl DataStore {
     }
 
     pub fn set_x_range(&mut self, min_x: u32, max_x: u32) {
-
         if self.start_x != min_x || self.end_x != max_x {
             self.start_x = min_x;
             self.end_x = max_x;
             self.clear_gpu_bounds();
-
         } else {
         }
     }
@@ -272,22 +270,21 @@ impl DataStore {
         let min_y = self.gpu_min_y.unwrap_or(0.0);
         let max_y = self.gpu_max_y.unwrap_or(100.0);
         let y_range = max_y - min_y;
-        
+
         // Add 10% margin to Y range
         let y_min_with_margin = min_y - (y_range * 0.1);
         let y_max_with_margin = max_y + (y_range * 0.1);
-        
+
         // Normalize Y to [0, 1] range with margin
         let normalized_y = (y - y_min_with_margin) / (y_max_with_margin - y_min_with_margin);
-        
+
         // Convert to screen coordinates (flip Y axis)
         let screen_y = (1.0 - normalized_y) * self.screen_size.height as f32;
-        
+
         screen_y
     }
 
     pub fn screen_to_world_with_margin(&self, screen_x: f32, screen_y: f32) -> (f32, f32) {
-
         let min_x = self.start_x as f32;
         let max_x = self.end_x as f32;
         let min_y = self.gpu_min_y.unwrap_or(0.0);
@@ -659,7 +656,6 @@ impl MetricSeries {
             js_array.set_index(i as u32, value);
         }
         self.y_raw = js_array.buffer();
-
     }
 
     /// Invalidate computation (when dependencies change)

@@ -372,8 +372,6 @@ impl ChartEngine {
         Ok(())
     }
 
-  
-
     /// Called when new data is received
     pub fn on_data_received(&mut self) {
         let action = self.updater.process_update(UpdateEvent::DataChanged);

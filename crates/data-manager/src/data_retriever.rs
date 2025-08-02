@@ -28,7 +28,9 @@ pub fn create_gpu_buffer_from_vec<T: Pod>(
     let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some(label),
         contents: cast_slice(data),
-        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::STORAGE,
+        usage: wgpu::BufferUsages::VERTEX
+            | wgpu::BufferUsages::COPY_DST
+            | wgpu::BufferUsages::STORAGE,
     });
 
     buffer
