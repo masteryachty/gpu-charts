@@ -148,8 +148,8 @@ impl TriangleRenderer {
         Self {
             pipeline,
             bind_group_layout,
-            triangle_size: 16.0,                   // 16 pixels for better visibility
-            data_group_name: "trades".to_string(), // Default to trades data
+            triangle_size: 8.0, 
+            data_group_name: "trades".to_string(), 
         }
     }
 
@@ -170,53 +170,46 @@ impl TriangleRenderer {
     ) -> Option<(wgpu::BindGroup, u32)> {
         use nalgebra_glm as glm;
 
-
         // Find the data group with our name - look for a group that has both "price" and "side" metrics
-        let (group_index, data_group) = data_store.data_groups.iter().enumerate()
-            .find(|(idx, group)| {
-                // Log metrics in this group
-                for metric in &group.metrics {
-                }
+        let (group_index, data_group) =
+            data_store
+                .data_groups
+                .iter()
+                .enumerate()
+                .find(|(idx, group)| {
+                    // Log metrics in this group
+                    for metric in &group.metrics {}
 
-                // For trades, we need a group that has both "price" and "side" metrics
-                let has_price = group.metrics.iter().any(|m| m.name == "price");
-                let has_side = group.metrics.iter().any(|m| m.name == "side");
-                let is_trades_group = has_price && has_side;
+                    // For trades, we need a group that has both "price" and "side" metrics
+                    let has_price = group.metrics.iter().any(|m| m.name == "price");
+                    let has_side = group.metrics.iter().any(|m| m.name == "side");
+                    let is_trades_group = has_price && has_side;
 
-                if is_trades_group {
-                }
-                is_trades_group
-            })?;
-
+                    if is_trades_group {}
+                    is_trades_group
+                })?;
 
         // The data group itself contains the time buffers
         let price_metric = data_group.metrics.iter().find(|m| m.name == "price")?;
         let side_metric = data_group.metrics.iter().find(|m| m.name == "side")?;
 
-
         // Get the time buffer from the data group itself (not from a metric)
         let time_buffer = match data_group.x_buffers.first() {
-            Some(buf) => {
-                buf
-            }
+            Some(buf) => buf,
             None => {
                 return None;
             }
         };
-        
+
         let price_buffer = match price_metric.y_buffers.first() {
-            Some(buf) => {
-                buf
-            }
+            Some(buf) => buf,
             None => {
                 return None;
             }
         };
-        
+
         let side_buffer = match side_metric.y_buffers.first() {
-            Some(buf) => {
-                buf
-            }
+            Some(buf) => buf,
             None => {
                 return None;
             }
@@ -224,7 +217,7 @@ impl TriangleRenderer {
 
         // Calculate instance count from buffer size
         let instance_count = (time_buffer.size() / 4) as u32;
-        
+
         // Debug: Log buffer info
 
         // X range (timestamps) - keep as u32 for precision
@@ -308,12 +301,9 @@ impl MultiRenderable for TriangleRenderer {
         device: &wgpu::Device,
         _queue: &wgpu::Queue,
     ) {
-        
         // Try to create bind group - this will fail if no trade data is available
         let (bind_group, instance_count) = match self.create_bind_group(data_store, device) {
-            Some(result) => {
-                result
-            },
+            Some(result) => result,
             None => {
                 // No trade data available, skip rendering
                 return;
