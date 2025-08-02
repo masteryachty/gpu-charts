@@ -53,6 +53,9 @@ const DEFAULT_CONFIG: StoreState = {
 };
 
 export const useAppStore = create<AppStore>((set, get) => ({
+
+  
+
   // Initial state
   symbol: DEFAULT_CONFIG.symbol,
   preset: DEFAULT_CONFIG.preset,

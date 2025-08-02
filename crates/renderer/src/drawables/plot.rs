@@ -3,7 +3,6 @@ use std::rc::Rc;
 use wgpu::TextureFormat;
 
 use data_manager::{DataStore, Vertex};
-use nalgebra_glm as glm;
 
 pub struct PlotRenderer {
     pipeline: wgpu::RenderPipeline,
@@ -17,7 +16,6 @@ impl PlotRenderer {
     /// Set the data filter to restrict which data columns this renderer will display
     pub fn set_data_filter(&mut self, filter: Option<Vec<(String, String)>>) {
         self.data_filter = filter;
-        log::debug!("PlotRenderer: Data filter set to {:?}", self.data_filter);
     }
 
     pub fn render(
@@ -26,6 +24,11 @@ impl PlotRenderer {
         view: &wgpu::TextureView,
         data_store: &DataStore,
     ) {
+        // Skip rendering if no min/max buffer is available
+        if data_store.min_max_buffer.is_none() {
+            return;
+        }
+
         let data_len = data_store.get_data_len();
         if data_len > 0 {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -48,10 +51,6 @@ impl PlotRenderer {
 
                 // Get visible metrics and apply filter if set
                 let visible_metrics = data_store.get_all_visible_metrics();
-                log::debug!(
-                    "PlotRenderer: Found {} visible metrics before filtering",
-                    visible_metrics.len()
-                );
 
                 for (data_series, metric) in visible_metrics {
                     // Apply data filter if set
@@ -61,21 +60,12 @@ impl PlotRenderer {
                         // Check if this metric matches any of our filter criteria
                         for (_data_type, column_name) in filter {
                             if metric.name == *column_name {
-                                log::debug!(
-                                    "PlotRenderer: Metric '{}' matches filter column '{}'",
-                                    metric.name,
-                                    column_name
-                                );
                                 should_render = true;
                                 break;
                             }
                         }
 
                         if !should_render {
-                            log::debug!(
-                                "PlotRenderer: Skipping metric '{}' (not in filter)",
-                                metric.name
-                            );
                             continue;
                         }
                     }
@@ -88,7 +78,6 @@ impl PlotRenderer {
                             render_pass.set_vertex_buffer(0, x_buffer.slice(..));
                             render_pass.set_vertex_buffer(1, y_buffer.slice(..));
                             let vertex_count = (x_buffer.size() / 4) as u32;
-
                             render_pass.draw(0..vertex_count, 0..1);
                         }
                     }
@@ -107,8 +96,8 @@ impl PlotRenderer {
         use wgpu::util::DeviceExt;
 
         // Create buffers for x_min_max, y_min_max, and color
-        let x_min_max = glm::vec2(data_store.start_x, data_store.end_x);
-        let x_min_max_bytes: &[u8] = unsafe { any_as_u8_slice(&x_min_max) };
+        let x_min_max = [data_store.start_x, data_store.end_x];
+        let x_min_max_bytes = bytemuck::cast_slice(&x_min_max);
         let x_buffer = self
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -117,20 +106,10 @@ impl PlotRenderer {
                 usage: wgpu::BufferUsages::UNIFORM,
             });
 
-        let y_min_max = glm::vec2(
-            data_store.gpu_min_y.unwrap_or(0.0),
-            data_store.gpu_max_y.unwrap_or(1.0),
-        );
-        let y_min_max_bytes: &[u8] = unsafe { any_as_u8_slice(&y_min_max) };
-        let y_buffer = self
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("y_min_max buffer"),
-                contents: y_min_max_bytes,
-                usage: wgpu::BufferUsages::UNIFORM,
-            });
+        // Use GPU-computed min/max buffer (we checked it exists in render())
+        let y_buffer = data_store.min_max_buffer.as_ref().unwrap().clone();
 
-        let color_bytes: &[u8] = unsafe { any_as_u8_slice(&metric.color) };
+        let color_bytes = bytemuck::cast_slice(&metric.color);
         let color_buffer = self
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -182,7 +161,7 @@ impl PlotRenderer {
                     binding: 1,
                     visibility: wgpu::ShaderStages::VERTEX,
                     ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
                         has_dynamic_offset: false,
                         min_binding_size: None,
                     },
@@ -246,11 +225,6 @@ impl PlotRenderer {
     }
 }
 
-// From: https://stackoverflow.com/questions/28127165/how-to-convert-struct-to-u8
-unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
-    ::core::slice::from_raw_parts((p as *const T) as *const u8, ::core::mem::size_of::<T>())
-}
-
 // let vertices: [Vertex; 4] = [
 //     Vertex {
 //         position: Vec3::new(100., 100., 0.0),
@@ -277,5 +251,4 @@ unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
 //         vertices[0].position.z,
 //         1.,
 //     );
-// //log::info!("draw {},{}", x.x, x.y);
 // let bytes: &[u8] = unsafe { any_as_u8_slice(&vertices) };

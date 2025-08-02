@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use crate::{
     controls::canvas_controller::CanvasController,
-    simplified_render_loop::{RenderState, SimplifiedRenderLoop, UpdateTrigger},
+    immediate_update::{ImmediateUpdater, UpdateAction, UpdateEvent},
 };
 
 use js_sys::Error;
@@ -21,7 +21,7 @@ pub struct ChartEngine {
     pub data_manager: DataManager,
     pub preset_manager: PresetManager,
     pub multi_renderer: Option<MultiRenderer>,
-    render_loop: SimplifiedRenderLoop,
+    updater: ImmediateUpdater,
     instance_id: Uuid,
     unified_state: UnifiedState,
 }
@@ -97,7 +97,6 @@ impl ChartEngine {
         start_x: u32,
         end_x: u32,
     ) -> Result<ChartEngine, Error> {
-        log::info!("Initializing chart with canvas: {canvas_id}, size: {width}x{height}");
         let window = web_sys::window().ok_or_else(|| Error::new("No Window"))?;
         let document = window.document().ok_or_else(|| Error::new("No document"))?;
         let canvas = document
@@ -153,25 +152,12 @@ impl ChartEngine {
         let device = Rc::new(device);
         let queue = Rc::new(queue);
 
+        let api_base_url = "https://api.rednax.io".to_string();
+
         // Create DataManager with modular approach
-        let data_manager = DataManager::new(
-            device.clone(),
-            queue.clone(),
-            "https://api.rednax.io".to_string(),
-        );
+        let data_manager = DataManager::new(device.clone(), queue.clone(), api_base_url);
 
         // Log initial state before moving data_store
-        log::info!("Initial DataStore state:");
-        log::info!(
-            "  - X range: {} to {}",
-            data_store.start_x,
-            data_store.end_x
-        );
-        log::info!(
-            "  - Y bounds: min={:?}, max={:?}",
-            data_store.gpu_min_y,
-            data_store.gpu_max_y
-        );
 
         // Create Renderer with modular approach
         let renderer = Renderer::new(canvas, device.clone(), queue.clone(), data_store)
@@ -179,10 +165,7 @@ impl ChartEngine {
             .map_err(|e| Error::new(&format!("Failed to create renderer: {e:?}")))?;
 
         // Skip initial data fetch - wait for user to select a preset
-        log::info!("Skipping initial data fetch - waiting for preset selection");
         // Data will be fetched when user selects a preset via fetch_preset_data
-
-        log::info!("LineGraph initialization completed - no data loaded yet");
 
         // Create a minimal multi-renderer with just axes
         // Specific chart renderers will be added when a preset is selected
@@ -199,16 +182,9 @@ impl ChartEngine {
             )
             .build();
 
-        log::info!("ChartEngine initialized with minimal renderer configuration - waiting for preset selection");
-
-        // Create render loop controller
-        let render_loop = SimplifiedRenderLoop::new();
+        // Create immediate updater
+        let updater = ImmediateUpdater::new();
         let instance_id = Uuid::new_v4();
-
-        // Add state change listener for debugging
-        render_loop.add_state_listener(Rc::new(|old, new| {
-            log::info!("ChartEngine state changed: {old:?} -> {new:?}");
-        }));
 
         // Initialize unified state with initial values
         let mut unified_state = UnifiedState::new();
@@ -243,27 +219,26 @@ impl ChartEngine {
             canvas_controller,
             preset_manager: PresetManager::new(),
             multi_renderer: Some(multi_renderer),
-            render_loop,
+            updater,
             instance_id,
             unified_state,
         })
     }
 
-    pub async fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        log::info!("RENDER !!!!!!!!");
+    pub fn needs_render(&self) -> bool {
+        // Check if renderer needs to render
+        self.renderer.needs_render()
+    }
 
+    pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         // Always use multi-renderer (we ensure it exists in new())
         if let Some(ref mut multi_renderer) = self.multi_renderer {
-            self.renderer
-                .render(multi_renderer)
-                .await
-                .map_err(|e| match e {
-                    shared_types::GpuChartsError::Surface { .. } => wgpu::SurfaceError::Outdated,
-                    _ => wgpu::SurfaceError::Outdated,
-                })
+            self.renderer.render(multi_renderer).map_err(|e| match e {
+                shared_types::GpuChartsError::Surface { .. } => wgpu::SurfaceError::Outdated,
+                _ => wgpu::SurfaceError::Outdated,
+            })
         } else {
             // This should never happen since we create a default multi-renderer in new()
-            log::error!("No multi-renderer available!");
             Err(wgpu::SurfaceError::Outdated)
         }
     }
@@ -294,7 +269,7 @@ impl ChartEngine {
         let actions = diff.get_required_actions();
 
         if actions.needs_pipeline_rebuild {
-            self.on_data_config_changed(); // Config update includes pipeline rebuild
+            self.on_resized(width, height); // Resizing requires pipeline rebuild
         } else if actions.needs_render {
             self.on_view_changed();
         }
@@ -309,11 +284,8 @@ impl ChartEngine {
 
         // Update config state if preset changed
         if let Some(name) = preset_name.clone() {
-            log::info!("[ChartEngine] Looking for preset: {name}");
             let preset = self.preset_manager.find_preset(&name).cloned();
             if let Some(preset) = preset {
-                log::info!("[ChartEngine] Found preset: {name}");
-
                 // Update renderer with preset
                 self.renderer
                     .set_preset_and_symbol(Some(&preset), symbol_name.clone());
@@ -336,12 +308,10 @@ impl ChartEngine {
                     },
                 ));
             } else {
-                log::warn!("[ChartEngine] Preset not found: {name}");
                 self.renderer
                     .set_preset_and_symbol(None, symbol_name.clone());
             }
         } else {
-            log::warn!("[ChartEngine] No preset name provided");
             self.renderer
                 .set_preset_and_symbol(None, symbol_name.clone());
         }
@@ -382,9 +352,7 @@ impl ChartEngine {
             let actions = diff.get_required_actions();
 
             // Trigger appropriate actions based on state changes
-            if actions.needs_data_fetch {
-                self.on_data_config_changed();
-            } else if actions.needs_pipeline_rebuild {
+            if actions.needs_data_fetch || actions.needs_pipeline_rebuild {
                 self.on_data_config_changed();
             } else if actions.needs_render {
                 self.on_visual_settings_changed();
@@ -396,59 +364,92 @@ impl ChartEngine {
     //     let result self.render().await;
     // }
 
-    /// Start the render loop
+    /// Start the render loop (now just marks as ready)
     pub fn start_render_loop(&mut self) -> Result<(), Error> {
-        self.render_loop
-            .trigger(UpdateTrigger::Start, self.instance_id);
-        Ok(())
-    }
-
-    /// Stop the render loop
-    pub fn stop_render_loop(&mut self) -> Result<(), Error> {
-        self.render_loop
-            .trigger(UpdateTrigger::Stop, self.instance_id);
+        self.updater.set_ready();
         Ok(())
     }
 
     /// Called when new data is received
     pub fn on_data_received(&mut self) {
-        self.render_loop
-            .trigger(UpdateTrigger::DataRequested, self.instance_id);
+        let action = self.updater.process_update(UpdateEvent::DataChanged);
+        self.handle_update_action(action);
     }
 
     /// Called when view changes (pan/zoom) - render only
     pub fn on_view_changed(&mut self) {
-        self.render_loop
-            .trigger(UpdateTrigger::ViewChanged, self.instance_id);
+        let action = self.updater.process_update(UpdateEvent::ViewChanged {
+            zoom: true,
+            pan: true,
+        });
+        self.handle_update_action(action);
     }
 
     /// Called when visual settings change - render only
     pub fn on_visual_settings_changed(&mut self) {
-        self.render_loop
-            .trigger(UpdateTrigger::VisualSettingsChanged, self.instance_id);
+        let action = self.updater.process_update(UpdateEvent::ViewChanged {
+            zoom: false,
+            pan: false,
+        });
+        self.handle_update_action(action);
     }
 
     /// Called when metric visibility changes - render only
     pub fn on_metric_visibility_changed(&mut self) {
-        self.render_loop
-            .trigger(UpdateTrigger::MetricVisibilityChanged, self.instance_id);
+        let action = self
+            .updater
+            .process_update(UpdateEvent::MetricVisibilityChanged);
+        self.handle_update_action(action);
     }
 
     /// Called when data configuration changes - requires preprocessing
     pub fn on_data_config_changed(&mut self) {
-        self.render_loop
-            .trigger(UpdateTrigger::ConfigChanged, self.instance_id);
+        let action = self.updater.process_update(UpdateEvent::ConfigChanged);
+        self.handle_update_action(action);
     }
 
     /// Called when resized
-    pub fn on_resized(&mut self, _requires_preprocessing: bool) {
-        self.render_loop
-            .trigger(UpdateTrigger::Resized, self.instance_id);
+    pub fn on_resized(&mut self, width: u32, height: u32) {
+        let action = self
+            .updater
+            .process_update(UpdateEvent::Resized(width, height));
+        self.handle_update_action(action);
     }
 
-    /// Get current render loop state
-    pub fn get_render_state(&self) -> RenderState {
-        self.render_loop.get_state()
+    /// Get current render state
+    pub fn get_render_state(&self) -> crate::immediate_update::RenderState {
+        self.updater.get_state()
+    }
+
+    /// Handle update action from the immediate updater
+    fn handle_update_action(&mut self, action: UpdateAction) {
+        match action {
+            UpdateAction::RenderOnly => {
+                // Mark data as dirty to trigger render
+                self.renderer.data_store_mut().mark_dirty();
+            }
+            UpdateAction::FetchAndRender => {
+                // Clear bounds for recalculation
+                {
+                    let data_store = self.renderer.data_store_mut();
+                    data_store.min_max_buffer = None;
+                    data_store.gpu_min_y = None;
+                    data_store.gpu_max_y = None;
+                    data_store.mark_dirty();
+                }
+
+                // In immediate mode, we don't spawn async tasks here
+                // The actual data fetch happens in apply_preset_and_symbol
+            }
+            UpdateAction::RebuildAndRender => {
+                // Rebuild multi-renderer if we have a preset
+                let preset_clone = self.renderer.data_store().preset.clone();
+                if let Some(preset) = preset_clone {
+                    self.rebuild_multi_renderer_for_preset(&preset);
+                }
+                self.renderer.data_store_mut().mark_dirty();
+            }
+        }
     }
 
     /// Set instance ID (used by instance manager)
@@ -535,28 +536,8 @@ impl ChartEngine {
         self.unified_state.get_changes_since(generation)
     }
 
-    /// Set frame rate target
-    pub fn set_frame_rate_target(&self, target: crate::frame_pacing::FrameRateTarget) {
-        self.render_loop.set_frame_rate_target(target);
-    }
-
-    /// Enable or disable adaptive frame rate
-    pub fn set_adaptive_frame_rate(&self, enabled: bool) {
-        self.render_loop.set_adaptive_frame_rate(enabled);
-    }
-
-    /// Get frame statistics
-    pub fn get_frame_stats(&self) -> Option<crate::frame_pacing::FrameStats> {
-        self.render_loop.get_frame_stats()
-    }
-
     /// Rebuild the multi-renderer based on preset configuration
     fn rebuild_multi_renderer_for_preset(&mut self, preset: &config_system::ChartPreset) {
-        log::info!(
-            "[ChartEngine] Rebuilding multi-renderer for preset: {}",
-            preset.name
-        );
-
         // Get current screen dimensions
         let width = self.renderer.data_store().screen_size.width;
         let height = self.renderer.data_store().screen_size.height;
@@ -575,11 +556,6 @@ impl ChartEngine {
 
             match chart_type.render_type {
                 config_system::RenderType::Line => {
-                    log::debug!(
-                        "[ChartEngine] Adding PlotRenderer for: {}",
-                        chart_type.label
-                    );
-
                     // Create a configurable plot renderer with specific data columns
                     let plot_renderer = renderer::ConfigurablePlotRenderer::new(
                         self.renderer.device.clone(),
@@ -591,11 +567,6 @@ impl ChartEngine {
                     builder = builder.add_renderer(Box::new(plot_renderer));
                 }
                 config_system::RenderType::Triangle => {
-                    log::debug!(
-                        "[ChartEngine] Adding TriangleRenderer for: {}",
-                        chart_type.label
-                    );
-
                     let triangle_renderer = renderer::charts::TriangleRenderer::new(
                         self.renderer.device.clone(),
                         self.renderer.queue.clone(),
@@ -607,24 +578,12 @@ impl ChartEngine {
                     builder = builder.add_renderer(Box::new(triangle_renderer));
                 }
                 config_system::RenderType::Candlestick => {
-                    log::debug!(
-                        "[ChartEngine] Adding CandlestickRenderer for: {}",
-                        chart_type.label
-                    );
                     builder = builder.add_candlestick_renderer();
                 }
                 config_system::RenderType::Bar => {
-                    log::warn!(
-                        "[ChartEngine] Bar renderer not yet implemented for: {}",
-                        chart_type.label
-                    );
                     // TODO: Implement bar renderer
                 }
                 config_system::RenderType::Area => {
-                    log::warn!(
-                        "[ChartEngine] Area renderer not yet implemented for: {}",
-                        chart_type.label
-                    );
                     // TODO: Implement area renderer
                 }
             }
@@ -638,8 +597,6 @@ impl ChartEngine {
         // Build and replace the multi-renderer
         let new_multi_renderer = builder.build();
         self.multi_renderer = Some(new_multi_renderer);
-
-        log::info!("[ChartEngine] Multi-renderer rebuilt with renderers based on preset");
     }
 }
 

@@ -30,6 +30,10 @@ fn main(@builtin(workgroup_id) workgroup_id: vec3<u32>,
     // Where this workgroup starts in the global array
     let group_start = start_index + wg_id * chunk_size;
     let group_end = min(group_start + chunk_size, end_index);
+    
+    // Also clamp to actual data size
+    let data_size = arrayLength(&input_data);
+    let safe_group_end = min(group_end, data_size);
 
     // We'll accumulate a local min/max in registers for each thread
     var thread_min = f32(3.402823466e+38);   // +Infinity
@@ -42,18 +46,30 @@ fn main(@builtin(workgroup_id) workgroup_id: vec3<u32>,
     // Base index for this thread
     let base = group_start + lid * THREAD_MULT;
 
-    for (var i = 0u; i < THREAD_MULT; i += 4u) {
+    var data_count = 0u;
+    
+    // Process all elements for this thread
+    for (var i = 0u; i < THREAD_MULT; i += 1u) {
         let idx = base + i;
-        if idx + 3u < group_end {
-            let values = array<f32, 4>(
-                input_data[idx],
-                input_data[idx + 1u],
-                input_data[idx + 2u],
-                input_data[idx + 3u],
-            );
-            thread_min = min(thread_min, min(min(values[0], values[1]), min(values[2], values[3])));
-            thread_max = max(thread_max, max(max(values[0], values[1]), max(values[2], values[3])));
+        if (idx < safe_group_end) {
+            let value = input_data[idx];
+            
+            // Accept all finite values
+            // In WGSL, we check if a value is finite by comparing it to itself (NaN != NaN)
+            // and checking if it's not infinity
+            if (value == value && value > -3.402823466e+38 && value < 3.402823466e+38) {
+                thread_min = min(thread_min, value);
+                thread_max = max(thread_max, value);
+                data_count += 1u;
+            }
         }
+    }
+    
+    // If no valid data found, keep infinity values
+    // This ensures they don't interfere with valid data during reduction
+    if data_count == 0u {
+        // Keep thread_min as +infinity and thread_max as -infinity
+        // These will be ignored during the min/max reduction
     }
 
     // Store these per-thread partial results into shared memory
@@ -75,6 +91,7 @@ fn main(@builtin(workgroup_id) workgroup_id: vec3<u32>,
 
     // After reduction, local_min[0] and local_max[0] hold the group's min/max
     if lid == 0u {
+        // Write the workgroup's min/max to the output buffer
         partial_out[wg_id * 2u] = local_min[0];
         partial_out[wg_id * 2u + 1u] = local_max[0];
     }

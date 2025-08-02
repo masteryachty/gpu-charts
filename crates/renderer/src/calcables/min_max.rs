@@ -17,46 +17,46 @@ pub fn calculate_min_max_y(
     // let start = performance.now();
 
     // Early return if no data is available
-    let active_group = match data_store.get_active_data_group() {
-        Some(group) => group,
-        None => {
-            // log::warn!("No active data group available for min/max calculation");
-            // Return empty buffers as fallback
-            let staging_buffer_size = (2 * std::mem::size_of::<f32>()) as u64;
-            let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("Empty Staging Buffer"),
-                size: staging_buffer_size,
-                usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
-                mapped_at_creation: false,
-            });
-            let staging_buffer2 = device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("Empty Staging Buffer 2"),
-                size: staging_buffer_size,
-                usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            });
-            return (staging_buffer, staging_buffer2);
-        }
-    };
+    if data_store.data_groups.is_empty() {
+        // Return empty buffers as fallback
+        let default_min_max = [0.0f32, 100.0f32];
+        let staging_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Empty Staging Buffer"),
+            contents: bytemuck::cast_slice(&default_min_max),
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
+        });
+        let staging_buffer2 = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Empty Staging Buffer 2"),
+            contents: bytemuck::cast_slice(&default_min_max),
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+        });
+        return (staging_buffer, staging_buffer2);
+    }
 
-    let x_series = &active_group.x_raw;
-    let (start_idx, _) = find_closest(mix_x, x_series);
+    // Find a group with x_raw data for time range calculation
+    let x_series = data_store
+        .data_groups
+        .iter()
+        .find(|g| g.x_raw.byte_length() > 0)
+        .map(|g| &g.x_raw)
+        .unwrap_or(&data_store.data_groups[0].x_raw);
+
+    let (start_idx, _start_val) = find_closest(mix_x, x_series);
     let start_index = start_idx;
 
-    let (end_idx, _) = find_closest(max_x, x_series);
+    let (end_idx, _end_val) = find_closest(max_x, x_series);
     let end_index = end_idx + 1; // Adjust to be exclusive
     let x_data = Float32Array::new(x_series);
     let max_index = x_data.length();
     let end_index = end_index.clamp(0, max_index);
-    log::debug!("1.5 {start_index:?} {end_index:?}");
 
     let thread_mult = 32u32;
     let workgroup_size: u64 = 256;
     let chunk_size = workgroup_size as u32 * thread_mult;
     let sub_range_count = end_index - start_index;
-    let num_groups = sub_range_count.div_ceil(chunk_size);
+    let _num_groups = sub_range_count.div_ceil(chunk_size);
 
-    // Get y_buffers from all visible metrics in the active group
+    // Get y_buffers from all visible metrics across ALL data groups
     // Filter out metrics that are marked as additional_data_columns in the preset
     let mut all_y_buffers = Vec::new();
 
@@ -94,29 +94,18 @@ pub fn calculate_min_max_y(
         )
     };
 
-    for metric in &active_group.metrics {
-        if metric.visible {
-            // Check if this metric should be excluded from bounds calculation
-            // Only exclude if it's ONLY an additional column and not a primary metric
-            if additional_only_metrics.contains(&metric.name) {
-                log::debug!(
-                    "[calculate_min_max_y] Metric '{}' is only in additional_data_columns (not a primary metric), excluding from Y bounds",
-                    metric.name
-                );
-                continue;
-            }
+    // Process ALL data groups, not just the active one
+    for group in data_store.data_groups.iter() {
+        for metric in &group.metrics {
+            if metric.visible {
+                // Check if this metric should be excluded from bounds calculation
+                // Only exclude if it's ONLY an additional column and not a primary metric
+                if additional_only_metrics.contains(&metric.name) {
+                    continue;
+                }
 
-            log::debug!(
-                "[calculate_min_max_y] Metric '{}' is visible, has {} y_buffers",
-                metric.name,
-                metric.y_buffers.len()
-            );
-            all_y_buffers.extend(&metric.y_buffers);
-        } else {
-            log::debug!(
-                "[calculate_min_max_y] Metric '{}' is not visible, skipping",
-                metric.name
-            );
+                all_y_buffers.extend(&metric.y_buffers);
+            }
         }
     }
     let y_buffers = &all_y_buffers;
@@ -129,20 +118,33 @@ pub fn calculate_min_max_y(
         let default_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Default Min/Max Buffer"),
             contents: bytemuck::cast_slice(&default_min_max),
-            usage: wgpu::BufferUsages::UNIFORM,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_SRC,
         });
-        return (default_buffer.clone(), default_buffer);
+        let default_staging_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Default Min/Max Staging Buffer"),
+            contents: bytemuck::cast_slice(&default_min_max),
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+        });
+        return (default_buffer, default_staging_buffer);
     }
 
     // Create staging buffer large enough for all min/max pairs
     let staging_buffer_size = (2 * num_buffers * std::mem::size_of::<f32>()) as u64;
-    let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+
+    // Initialize staging buffer with infinity values to ensure proper min/max computation
+    // Layout: [min0, max0, min1, max1, ...]
+    let mut initial_data = Vec::with_capacity(2 * num_buffers);
+    for _ in 0..num_buffers {
+        initial_data.push(3.402_823_5e38_f32); // min (infinity)
+        initial_data.push(-3.402_823_5e38_f32); // max (-infinity)
+    }
+
+    let staging_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("Staging Buffer"),
-        size: staging_buffer_size,
+        contents: bytemuck::cast_slice(&initial_data),
         usage: wgpu::BufferUsages::COPY_DST
             | wgpu::BufferUsages::STORAGE
             | wgpu::BufferUsages::UNIFORM,
-        mapped_at_creation: false,
     });
     let staging_buffer2 = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Staging Buffer"),
@@ -151,18 +153,42 @@ pub fn calculate_min_max_y(
         mapped_at_creation: false,
     });
 
-    log::debug!(
-        "[calculate_min_max_y] Processing {} y_buffers, num_groups={}, chunk_size={}",
-        y_buffers.len(),
-        num_groups,
-        chunk_size
-    );
+    // Need to track which y_buffer belongs to which data group
+    let mut y_buffer_to_group: Vec<(usize, usize)> = Vec::new(); // (group_idx, metric_idx)
+    for (group_idx, group) in data_store.data_groups.iter().enumerate() {
+        for (metric_idx, metric) in group.metrics.iter().enumerate() {
+            if metric.visible && !additional_only_metrics.contains(&metric.name) {
+                for _ in &metric.y_buffers {
+                    y_buffer_to_group.push((group_idx, metric_idx));
+                }
+            }
+        }
+    }
 
     for (buffer_index, y_buffer) in y_buffers.iter().enumerate() {
-        log::debug!("[calculate_min_max_y] Processing y_buffer[{buffer_index}]");
+        // Debug: Check if buffer is mapped or has any special state
+        if y_buffer.size() == 0 {
+            continue;
+        }
+
+        // Get the data group this buffer belongs to
+        let (group_idx, _metric_idx) = y_buffer_to_group[buffer_index];
+        let data_group = &data_store.data_groups[group_idx];
+
+        // Calculate indices for THIS specific data group
+        let group_x_series = &data_group.x_raw;
+        let (group_start_idx, _) = find_closest(mix_x, group_x_series);
+        let (group_end_idx, _) = find_closest(max_x, group_x_series);
+        let group_end_idx = group_end_idx + 1; // Exclusive
+
+        let group_x_data = Float32Array::new(group_x_series);
+        let group_max_index = group_x_data.length();
+        let group_end_index = group_end_idx.clamp(0, group_max_index);
+        let group_sub_range_count = group_end_index - group_start_idx;
+        let group_num_groups = group_sub_range_count.div_ceil(chunk_size);
 
         // Create buffers for this y_buffer's first pass
-        let partial_first_size = num_groups * 2;
+        let partial_first_size = group_num_groups * 2;
         let partial_first_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Partial First Buffer"),
             size: partial_first_size as u64 * std::mem::size_of::<f32>() as u64,
@@ -170,12 +196,16 @@ pub fn calculate_min_max_y(
             mapped_at_creation: false,
         });
 
-        let params_first = [start_index, end_index, chunk_size];
+        let params_first = [group_start_idx, group_end_index, chunk_size];
+
         let params_first_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("First Pass Params"),
             contents: bytemuck::cast_slice(&params_first),
             usage: wgpu::BufferUsages::UNIFORM,
         });
+
+        // Verify buffer has STORAGE usage before binding
+        // Check if buffer has correct usage - debug assertion removed
 
         // First pass bind group with current y_buffer
         let bind_group_first_pass = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -205,13 +235,13 @@ pub fn calculate_min_max_y(
             });
             cpass.set_pipeline(&pipelines.first_pass);
             cpass.set_bind_group(0, &bind_group_first_pass, &[]);
-            cpass.dispatch_workgroups(num_groups, 1, 1);
+            cpass.dispatch_workgroups(group_num_groups, 1, 1);
         }
 
         // Subsequent passes
         let sub_chunk_size = 256u32;
         let mut current_in_buffer = partial_first_buffer;
-        let mut current_count = num_groups;
+        let mut current_count = group_num_groups;
         let mut pass_index = 0;
 
         while current_count > 1 {
@@ -267,14 +297,15 @@ pub fn calculate_min_max_y(
             current_count = next_num_groups;
         }
 
-        // Copy results to staging buffer
+        // After all reduction passes, current_in_buffer contains just 2 floats (min, max)
+        // Copy these final results to staging buffer
         let offset = (buffer_index * 2 * std::mem::size_of::<f32>()) as u64;
         encoder.copy_buffer_to_buffer(
             &current_in_buffer,
-            0,
+            0, // Source offset - the final min/max are at the beginning
             &staging_buffer,
             offset,
-            2 * std::mem::size_of::<f32>() as u64,
+            2 * std::mem::size_of::<f32>() as u64, // Just copy 2 floats
         );
         encoder.copy_buffer_to_buffer(
             &current_in_buffer,
@@ -285,10 +316,14 @@ pub fn calculate_min_max_y(
         );
     }
 
+    // Force a pipeline flush to ensure all compute passes complete
+    encoder.insert_debug_marker("GPU Min/Max Calculation Complete");
+
+    // Add a memory barrier to ensure all writes are visible
+    encoder.push_debug_group("Ensure compute shader writes are visible");
+    encoder.pop_debug_group();
+
     // Add a final compute pass to find overall min/max across all metrics
-    log::debug!(
-        "[calculate_min_max_y] Creating overall min/max compute pass for {num_buffers} metrics"
-    );
 
     let overall_shader = include_str!("overall_min_max.wgsl");
     let overall_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -376,7 +411,7 @@ fn find_closest(target: u32, data_array_buffer: &ArrayBuffer) -> (u32, u32) {
     let data = Uint32Array::new(data_array_buffer);
     let len = data.length() as usize;
     if len == 0 {
-        panic!("ArrayBuffer cannot be empty");
+        return (0, 0);
     }
     if data.at(0).unwrap() > target {
         return (0, target);

@@ -72,11 +72,8 @@ pub struct DataStore {
     pub screen_size: ScreenDimensions,
     dirty: bool, // Track if data has changed and needs re-rendering
     pub min_max_buffer: Option<Rc<wgpu::Buffer>>, // GPU-calculated min/max buffer
-    pub min_max_staging_buffer: Option<Rc<wgpu::Buffer>>, // Staging buffer for CPU readback
     pub gpu_min_y: Option<f32>, // GPU-calculated min Y value
     pub gpu_max_y: Option<f32>, // GPU-calculated max Y value
-    pub gpu_buffer_mapped: bool, // Flag to track if GPU buffer mapping is requested
-    pub gpu_buffer_ready: bool, // Flag to track if GPU buffer is ready to read
 }
 
 // pub struct Coord {
@@ -95,13 +92,10 @@ impl DataStore {
             active_data_group_indices: Vec::new(),
             range_bind_group: None,
             screen_size: ScreenDimensions { width, height },
-            dirty: true,                  // Start dirty to ensure initial render
-            min_max_buffer: None,         // GPU buffer will be created during rendering
-            min_max_staging_buffer: None, // Staging buffer for CPU readback
+            dirty: true,          // Start dirty to ensure initial render
+            min_max_buffer: None, // GPU buffer will be created during rendering
             gpu_min_y: None,
             gpu_max_y: None,
-            gpu_buffer_mapped: false,
-            gpu_buffer_ready: false,
         }
     }
 
@@ -214,33 +208,30 @@ impl DataStore {
     /// Clear GPU bounds calculations (called when new data is loaded)
     pub fn clear_gpu_bounds(&mut self) {
         self.min_max_buffer = None;
-        self.min_max_staging_buffer = None;
         self.gpu_min_y = None;
         self.gpu_max_y = None;
-        self.gpu_buffer_mapped = false;
-        self.gpu_buffer_ready = false;
         self.range_bind_group = None;
         self.mark_dirty();
-        log::debug!("[DataStore] Cleared GPU bounds - will recalculate on next render");
     }
 
     pub fn set_x_range(&mut self, min_x: u32, max_x: u32) {
-        log::info!(
-            "[DataStore] set_x_range called: min_x={}, max_x={} (current: {} to {})",
-            min_x,
-            max_x,
-            self.start_x,
-            self.end_x
-        );
-
         if self.start_x != min_x || self.end_x != max_x {
             self.start_x = min_x;
             self.end_x = max_x;
             self.clear_gpu_bounds();
+        }
+    }
 
-            log::info!("[DataStore] X range updated, cleared Y bounds and marked dirty");
-        } else {
-            log::info!("[DataStore] X range unchanged, skipping update");
+    /// Check if Y bounds are available
+    pub fn has_y_bounds(&self) -> bool {
+        self.gpu_min_y.is_some() && self.gpu_max_y.is_some()
+    }
+
+    /// Get Y bounds if available
+    pub fn get_y_bounds(&self) -> Option<(f32, f32)> {
+        match (self.gpu_min_y, self.gpu_max_y) {
+            (Some(min), Some(max)) => Some((min, max)),
+            _ => None,
         }
     }
 
@@ -272,15 +263,25 @@ impl DataStore {
         (result.xy().x, result.xy().y)
     }
 
-    pub fn screen_to_world_with_margin(&self, screen_x: f32, screen_y: f32) -> (f32, f32) {
-        log::info!(
-            "conv: {:?} {:?} {:?} {:?}",
-            screen_x,
-            screen_y,
-            self.screen_size.width,
-            self.screen_size.height
-        );
+    /// Convert Y world coordinate to screen position for Y-axis labels
+    pub fn y_to_screen_position(&self, y: f32) -> f32 {
+        // Use default values if min/max Y are not set yet
+        let min_y = self.gpu_min_y.unwrap_or(0.0);
+        let max_y = self.gpu_max_y.unwrap_or(100.0);
+        let y_range = max_y - min_y;
 
+        // Add 10% margin to Y range
+        let y_min_with_margin = min_y - (y_range * 0.1);
+        let y_max_with_margin = max_y + (y_range * 0.1);
+
+        // Normalize Y to [0, 1] range with margin
+        let normalized_y = (y - y_min_with_margin) / (y_max_with_margin - y_min_with_margin);
+
+        // Convert to screen coordinates (flip Y axis)
+        (1.0 - normalized_y) * self.screen_size.height as f32
+    }
+
+    pub fn screen_to_world_with_margin(&self, screen_x: f32, screen_y: f32) -> (f32, f32) {
         let min_x = self.start_x as f32;
         let max_x = self.end_x as f32;
         let min_y = self.gpu_min_y.unwrap_or(0.0);
@@ -463,7 +464,8 @@ impl DataStore {
     pub fn set_gpu_y_bounds(&mut self, min: f32, max: f32) {
         self.gpu_min_y = Some(min);
         self.gpu_max_y = Some(max);
-        log::debug!("[DataStore] GPU Y bounds updated: min={min}, max={max}");
+        // Mark as dirty to trigger re-render with new bounds
+        self.mark_dirty();
     }
 
     /// Get a metric by reference
@@ -547,17 +549,10 @@ impl DataStore {
     ) {
         if let Some(p) = preset {
             self.preset = Some(p.clone());
-            log::info!(
-                "[DataStore] Preset set to: {} with {} chart types",
-                p.name,
-                p.chart_types.len()
-            );
         } else {
             self.preset = None;
-            log::warn!("[DataStore] Preset set to None");
         }
         self.symbol = symbol_name.clone();
-        log::info!("[DataStore] Symbol set to: {symbol_name:?}");
     }
 }
 
@@ -658,12 +653,6 @@ impl MetricSeries {
             js_array.set_index(i as u32, value);
         }
         self.y_raw = js_array.buffer();
-
-        log::debug!(
-            "[MetricSeries] Computed metric '{}' populated with {} values",
-            self.name,
-            computed_values.len()
-        );
     }
 
     /// Invalidate computation (when dependencies change)

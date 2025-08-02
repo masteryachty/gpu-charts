@@ -7,10 +7,8 @@ use wasm_bindgen::prelude::*;
 // Core modules
 pub mod chart_engine;
 pub mod controls;
-pub mod frame_pacing;
+pub mod immediate_update;
 pub mod instance_manager;
-pub mod simple_api;
-pub mod simplified_render_loop;
 pub mod wrappers;
 
 use instance_manager::InstanceManager;
@@ -89,11 +87,6 @@ impl Chart {
                     .find(|m| m.label == metric_label)
                 {
                     metric.visible = !metric.visible;
-                    log::info!(
-                        "Toggled metric '{}' visibility to: {}",
-                        metric_label,
-                        metric.visible
-                    );
                 }
             }
 
@@ -106,15 +99,12 @@ impl Chart {
 
     #[wasm_bindgen]
     pub fn apply_preset_and_symbol(&mut self, preset: &str, symbol: &str) -> Result<(), JsValue> {
-        log::info!("Active Preset set to : {preset}");
-
         let instance_id = self.instance_id;
 
         InstanceManager::with_instance_mut(&self.instance_id, |instance| {
             instance
                 .chart_engine
                 .set_preset_and_symbol(Some(preset.to_string()), Some(symbol.to_string()));
-            log::info!("Active Preset set to : {preset}");
         })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
 
@@ -149,17 +139,36 @@ impl Chart {
             // Execute the fetch
             match fetch_and_process_data(instance_id).await {
                 Ok(_) => {
-                    log::info!("Data fetched successfully for preset");
-
                     // Trigger render loop state change to preprocess
                     InstanceManager::with_instance_mut(&instance_id, |instance| {
                         let _ = instance.chart_engine.start_render_loop();
                         instance.chart_engine.on_data_received();
                     });
+
+                    // Start a render loop to ensure GPU bounds are calculated
+                    wasm_bindgen_futures::spawn_local(async move {
+                        // Render a few times to ensure GPU bounds calculation completes
+                        for i in 0..5 {
+                            // Wait a bit between renders
+                            if i > 0 {
+                                let promise = js_sys::Promise::new(&mut |resolve, _| {
+                                    web_sys::window()
+                                        .unwrap()
+                                        .set_timeout_with_callback_and_timeout_and_arguments_0(
+                                            &resolve, 100,
+                                        )
+                                        .unwrap();
+                                });
+                                let _ = wasm_bindgen_futures::JsFuture::from(promise).await;
+                            }
+
+                            InstanceManager::with_instance_mut(&instance_id, |instance| {
+                                let _ = instance.chart_engine.render();
+                            });
+                        }
+                    });
                 }
-                Err(e) => {
-                    log::error!("Failed to fetch data for preset: {e:?}");
-                }
+                Err(_e) => {}
             }
         });
 
@@ -181,7 +190,6 @@ impl Chart {
         INIT.call_once(|| {
             std::panic::set_hook(Box::new(console_error_panic_hook::hook));
             // Try to initialize logger, but don't panic if it fails (already initialized)
-            let _ = console_log::init_with_level(log::Level::Debug);
         });
 
         // Store instance using the instance manager
@@ -191,34 +199,6 @@ impl Chart {
                 .map_err(|e| JsValue::from_str(&e))?;
         Ok(())
     }
-
-    // #[wasm_bindgen]
-    // pub fn start_render_loop(&mut self) -> Result<(), JsValue> {
-    //     log::info!("Starting render loop");
-    //     InstanceManager::with_instance_mut(&self.instance_id, |instance| {
-    //         instance.chart_engine.start_render_loop()
-    //             .map_err(|e| JsValue::from_str(&format!("Failed to start render loop: {:?}", e)))
-    //     })
-    //     .ok_or_else(|| JsValue::from_str("Chart instance not found"))?
-    // }
-
-    // #[wasm_bindgen]
-    // pub fn stop_render_loop(&mut self) -> Result<(), JsValue> {
-    //     log::info!("Stopping render loop");
-    //     InstanceManager::with_instance_mut(&self.instance_id, |instance| {
-    //         instance.chart_engine.stop_render_loop()
-    //             .map_err(|e| JsValue::from_str(&format!("Failed to stop render loop: {:?}", e)))
-    //     })
-    //     .ok_or_else(|| JsValue::from_str("Chart instance not found"))?
-    // }
-
-    // #[wasm_bindgen]
-    // pub fn get_render_state(&self) -> String {
-    //     InstanceManager::with_instance(&self.instance_id, |instance| {
-    //         format!("{:?}", instance.chart_engine.get_render_state())
-    //     })
-    //     .unwrap_or_else(|| "Unknown".to_string())
-    // }
 
     #[wasm_bindgen]
     pub async fn render(&self) -> Result<(), JsValue> {
@@ -232,7 +212,6 @@ impl Chart {
             // First, check if the instance exists
             let exists = InstanceManager::instance_exists(&instance_id);
             if !exists {
-                log::error!("Chart instance not found for rendering");
                 return;
             }
 
@@ -244,7 +223,7 @@ impl Chart {
                 match instance_opt {
                     Some(mut instance) => {
                         // Perform the render
-                        let result = instance.chart_engine.render().await;
+                        let result = instance.chart_engine.render();
 
                         // Put the instance back
                         InstanceManager::put_instance(instance_id, instance);
@@ -252,19 +231,14 @@ impl Chart {
                         result
                     }
                     None => {
-                        log::error!("Failed to take instance for rendering");
                         return;
                     }
                 }
             };
 
             match render_result {
-                Ok(()) => {
-                    log::trace!("Render completed successfully");
-                }
-                Err(e) => {
-                    log::error!("Render failed: {e:?}");
-                }
+                Ok(()) => {}
+                Err(_e) => {}
             }
         });
 
@@ -273,9 +247,15 @@ impl Chart {
     }
 
     #[wasm_bindgen]
-    pub fn resize(&self, width: u32, height: u32) -> Result<(), JsValue> {
-        log::info!("Resizing chart to: {width}x{height}");
+    pub fn needs_render(&self) -> bool {
+        InstanceManager::with_instance(&self.instance_id, |instance| {
+            instance.chart_engine.needs_render()
+        })
+        .unwrap_or(false)
+    }
 
+    #[wasm_bindgen]
+    pub fn resize(&self, _width: u32, _height: u32) -> Result<(), JsValue> {
         // InstanceManager::with_instance_mut(&self.instance_id, |instance| {
         //     instance.chart_engine.resized(width, height);
         // })
@@ -284,17 +264,41 @@ impl Chart {
         Ok(())
     }
 
+    /// Set the time range for the chart
+    #[wasm_bindgen(js_name = setTimeRange)]
+    pub fn set_time_range(&mut self, start_time: u32, end_time: u32) -> Result<(), JsValue> {
+        // Update the DataStore with the new time range
+        InstanceManager::with_instance_mut(&self.instance_id, |instance| {
+            let data_store = instance.chart_engine.renderer.data_store_mut();
+            data_store.start_x = start_time;
+            data_store.end_x = end_time;
+        })
+        .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
+
+        // If we have a preset and symbol, re-fetch data with the new time range
+        let (preset_name, symbol) = InstanceManager::with_instance(&self.instance_id, |instance| {
+            let data_store = instance.chart_engine.renderer.data_store();
+            (
+                data_store.preset.as_ref().map(|p| p.name.clone()),
+                data_store.symbol.clone(),
+            )
+        })
+        .unwrap_or((None, None));
+
+        if let (Some(preset), Some(symbol)) = (preset_name, symbol) {
+            self.apply_preset_and_symbol(&preset, &symbol)?;
+        }
+
+        Ok(())
+    }
+
     #[wasm_bindgen]
     pub fn handle_mouse_wheel(&self, delta_y: f64, x: f64, _y: f64) -> Result<(), JsValue> {
-        log::info!("[WASM] handle_mouse_wheel called with delta_y={delta_y}, x={x}");
-
         InstanceManager::with_instance_mut(&self.instance_id, |instance| {
             let window_event = WindowEvent::MouseWheel {
                 delta: MouseScrollDelta::PixelDelta(PhysicalPosition::new(x, delta_y)),
                 phase: TouchPhase::Moved,
             };
-
-            log::info!("[WASM] Created MouseWheel event, passing to canvas_controller");
 
             instance
                 .chart_engine
@@ -305,16 +309,14 @@ impl Chart {
             let renderer = &mut instance.chart_engine.renderer;
             let data_store = renderer.data_store_mut();
 
-            let is_dirty = data_store.is_dirty();
-            let gpu_min_y = data_store.gpu_min_y;
-            let gpu_max_y = data_store.gpu_max_y;
-            log::info!("[WASM] After handle_cursor_event - data_store is_dirty: {is_dirty}, min_y: {gpu_min_y:?}, max_y: {gpu_max_y:?}");
+            let _is_dirty = data_store.is_dirty();
+            let _gpu_min_y = data_store.gpu_min_y;
+            let _gpu_max_y = data_store.gpu_max_y;
 
             if data_store.is_dirty() {
                 // Force recalculation of Y bounds by clearing them
                 data_store.gpu_min_y = None;
                 data_store.gpu_max_y = None;
-                log::info!("[WASM] Cleared Y bounds for recalculation");
 
                 // Trigger view changed in render loop
                 instance.chart_engine.on_view_changed();
@@ -346,11 +348,9 @@ impl Chart {
 
     #[wasm_bindgen]
     pub fn update_unified_state(&self, store_state_json: &str) -> Result<String, JsValue> {
-        log::info!("Updating unified state from React");
-
         // Parse the JSON state
         let store_state: serde_json::Value = serde_json::from_str(store_state_json)
-            .map_err(|e| JsValue::from_str(&format!("Failed to parse state JSON: {}", e)))?;
+            .map_err(|e| JsValue::from_str(&format!("Failed to parse state JSON: {e}")))?;
 
         InstanceManager::with_instance_mut(&self.instance_id, |instance| {
             // Update unified state and get diff
@@ -360,9 +360,7 @@ impl Chart {
             let actions = diff.get_required_actions();
 
             // Trigger appropriate render loop updates based on actions
-            if actions.needs_data_fetch {
-                instance.chart_engine.on_data_config_changed();
-            } else if actions.needs_pipeline_rebuild {
+            if actions.needs_data_fetch || actions.needs_pipeline_rebuild {
                 instance.chart_engine.on_data_config_changed();
             } else if actions.needs_render {
                 instance.chart_engine.on_view_changed();
@@ -370,7 +368,7 @@ impl Chart {
 
             // Return state diff as JSON
             serde_json::to_string(&diff)
-                .map_err(|e| JsValue::from_str(&format!("Failed to serialize diff: {}", e)))
+                .map_err(|e| JsValue::from_str(&format!("Failed to serialize diff: {e}")))
         })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))?
     }
@@ -380,7 +378,7 @@ impl Chart {
         InstanceManager::with_instance(&self.instance_id, |instance| {
             let state = instance.chart_engine.get_unified_state();
             serde_json::to_string(state)
-                .map_err(|e| JsValue::from_str(&format!("Failed to serialize state: {}", e)))
+                .map_err(|e| JsValue::from_str(&format!("Failed to serialize state: {e}")))
         })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))?
     }
@@ -389,57 +387,6 @@ impl Chart {
     pub fn get_state_generation(&self) -> Result<u64, JsValue> {
         InstanceManager::with_instance(&self.instance_id, |instance| {
             instance.chart_engine.get_unified_state().generation
-        })
-        .ok_or_else(|| JsValue::from_str("Chart instance not found"))
-    }
-
-    #[wasm_bindgen]
-    pub fn set_frame_rate(&self, fps: u32) -> Result<(), JsValue> {
-        log::info!("Setting frame rate to {} FPS", fps);
-
-        let target = match fps {
-            60 => frame_pacing::FrameRateTarget::Smooth,
-            30 => frame_pacing::FrameRateTarget::Balanced,
-            15 => frame_pacing::FrameRateTarget::PowerSaver,
-            _ => frame_pacing::FrameRateTarget::Custom(fps as f32),
-        };
-
-        InstanceManager::with_instance(&self.instance_id, |instance| {
-            instance.chart_engine.set_frame_rate_target(target);
-        })
-        .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
-
-        Ok(())
-    }
-
-    #[wasm_bindgen]
-    pub fn set_adaptive_frame_rate(&self, enabled: bool) -> Result<(), JsValue> {
-        log::info!("Setting adaptive frame rate: {}", enabled);
-
-        InstanceManager::with_instance(&self.instance_id, |instance| {
-            instance.chart_engine.set_adaptive_frame_rate(enabled);
-        })
-        .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
-
-        Ok(())
-    }
-
-    #[wasm_bindgen]
-    pub fn get_frame_stats(&self) -> Result<String, JsValue> {
-        InstanceManager::with_instance(&self.instance_id, |instance| {
-            if let Some(stats) = instance.chart_engine.get_frame_stats() {
-                serde_json::to_string(&serde_json::json!({
-                    "avgFrameTime": stats.avg_frame_time,
-                    "minFrameTime": stats.min_frame_time,
-                    "maxFrameTime": stats.max_frame_time,
-                    "currentFps": stats.current_fps,
-                    "droppedFrames": stats.dropped_frames,
-                    "totalFrames": stats.total_frames,
-                }))
-                .unwrap_or_else(|_| "{}".to_string())
-            } else {
-                "{}".to_string()
-            }
         })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))
     }
@@ -490,8 +437,3 @@ extern "C" {
 macro_rules! console_log {
     ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
 }
-
-// Re-export simplified API for easy access
-pub use simple_api::{
-    create_chart, ChartBatch, ChartConfig, ChartFactory, ChartRegistry, SimpleChart,
-};

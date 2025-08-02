@@ -5,11 +5,6 @@ struct VertexOutput {
     @location(0) color: vec3<f32>,
 };
 
-struct MinMax {
-    min_val: f32,
-    max_val: f32,
-};
-
 struct MinMaxU32 {
     min_val: u32,
     max_val: u32,
@@ -17,7 +12,7 @@ struct MinMaxU32 {
 
 // Uniforms
 @group(0) @binding(0) var<uniform> x_min_max: MinMaxU32;  // Keep as u32 for timestamp precision
-@group(0) @binding(1) var<uniform> y_min_max: MinMax;
+@group(0) @binding(1) var<storage, read> y_min_max: vec2<f32>;  // GPU-computed min/max buffer
 @group(0) @binding(2) var<uniform> screen_size: vec2<f32>;
 @group(0) @binding(3) var<uniform> triangle_size: f32;
 
@@ -44,17 +39,20 @@ fn vs_main(
     let x_normalized = f32(timestamp - x_min_max.min_val) / f32(x_range);
     
     // Calculate Y normalization with margin
-    let y_range = y_min_max.max_val - y_min_max.min_val;
+    let y_min = y_min_max.x;
+    let y_max = y_min_max.y;
+    let y_range = y_max - y_min;
     let y_margin = y_range * 0.1;
-    let y_min_with_margin = y_min_max.min_val - y_margin;
-    let y_max_with_margin = y_min_max.max_val + y_margin;
+    let y_min_with_margin = y_min - y_margin;
+    let y_max_with_margin = y_max + y_margin;
     let y_range_with_margin = y_max_with_margin - y_min_with_margin;
     let y_normalized = (price - y_min_with_margin) / y_range_with_margin;
     
     // Convert to NDC (-1 to 1)
+    // Note: Y needs to be inverted for screen coordinates
     let center_ndc = vec4<f32>(
         x_normalized * 2.0 - 1.0,
-        y_normalized * 2.0 - 1.0,
+        (1.0 - y_normalized) * 2.0 - 1.0,  // Invert Y for proper screen orientation
         0.0,
         1.0
     );
@@ -112,7 +110,7 @@ fn vs_main(
     // Convert back to NDC
     out.position = vec4<f32>(
         (vertex_screen.x / screen_size.x) * 2.0 - 1.0,
-        (vertex_screen.y / screen_size.y) * 2.0 - 1.0,
+        1.0 - (vertex_screen.y / screen_size.y) * 2.0,  // Keep Y inverted consistently
         0.0,
         1.0
     );

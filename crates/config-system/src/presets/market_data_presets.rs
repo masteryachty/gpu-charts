@@ -18,7 +18,7 @@ fn market_data_preset() -> ChartPreset {
             // Bid line
             RenderPreset {
                 render_type: RenderType::Line,
-                data_columns: vec![("md".to_string(), "best_bid".to_string())],
+                data_columns: vec![("MD".to_string(), "best_bid".to_string())],
                 additional_data_columns: None,
                 visible: true,
                 label: "Bid".to_string(),
@@ -32,7 +32,7 @@ fn market_data_preset() -> ChartPreset {
             // Ask line
             RenderPreset {
                 render_type: RenderType::Line,
-                data_columns: vec![("md".to_string(), "best_ask".to_string())],
+                data_columns: vec![("MD".to_string(), "best_ask".to_string())],
                 additional_data_columns: None,
                 visible: true,
                 label: "Ask".to_string(),
@@ -46,8 +46,8 @@ fn market_data_preset() -> ChartPreset {
             // Trade triangles
             RenderPreset {
                 render_type: RenderType::Triangle,
-                data_columns: vec![("trades".to_string(), "price".to_string())],
-                additional_data_columns: Some(vec![("trades".to_string(), "side".to_string())]),
+                data_columns: vec![("TRADES".to_string(), "price".to_string())],
+                additional_data_columns: Some(vec![("TRADES".to_string(), "side".to_string())]),
                 visible: true,
                 label: "Trades".to_string(),
                 style: RenderStyle {
@@ -64,8 +64,8 @@ fn market_data_preset() -> ChartPreset {
             RenderPreset {
                 render_type: RenderType::Line,
                 data_columns: vec![
-                    ("md".to_string(), "best_ask".to_string()),
-                    ("md".to_string(), "best_bid".to_string()),
+                    ("MD".to_string(), "best_ask".to_string()),
+                    ("MD".to_string(), "best_bid".to_string()),
                 ],
                 additional_data_columns: None,
                 visible: false, // Now visible by default

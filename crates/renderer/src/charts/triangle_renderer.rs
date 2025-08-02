@@ -40,12 +40,12 @@ impl TriangleRenderer {
                     },
                     count: None,
                 },
-                // y_min_max (f32 prices)
+                // y_min_max (f32 prices) - from GPU compute shader
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStages::VERTEX,
                     ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
                         has_dynamic_offset: false,
                         min_binding_size: None,
                     },
@@ -148,8 +148,8 @@ impl TriangleRenderer {
         Self {
             pipeline,
             bind_group_layout,
-            triangle_size: 8.0,                    // 8 pixels default
-            data_group_name: "trades".to_string(), // Default to trades data
+            triangle_size: 8.0,
+            data_group_name: "trades".to_string(),
         }
     }
 
@@ -170,51 +170,53 @@ impl TriangleRenderer {
     ) -> Option<(wgpu::BindGroup, u32)> {
         use nalgebra_glm as glm;
 
-        log::debug!(
-            "🔺 [TriangleRenderer] Looking for data group '{}'",
-            self.data_group_name
-        );
-        log::debug!(
-            "🔺 [TriangleRenderer] Available data groups: {}",
-            data_store.data_groups.len()
-        );
-
         // Find the data group with our name - look for a group that has both "price" and "side" metrics
-        let (group_index, data_group) = data_store.data_groups.iter().enumerate()
-            .find(|(idx, group)| {
-                // Log metrics in this group
-                log::debug!("  Group[{}] has {} metrics", idx, group.metrics.len());
-                for metric in &group.metrics {
-                    log::debug!("    Metric: name='{}', visible={}", metric.name, metric.visible);
-                }
+        let (_group_index, data_group) =
+            data_store
+                .data_groups
+                .iter()
+                .enumerate()
+                .find(|(_idx, group)| {
+                    // Log metrics in this group
+                    for _metric in &group.metrics {}
 
-                // For trades, we need a group that has both "price" and "side" metrics
-                let has_price = group.metrics.iter().any(|m| m.name == "price");
-                let has_side = group.metrics.iter().any(|m| m.name == "side");
-                let is_trades_group = has_price && has_side;
+                    // For trades, we need a group that has both "price" and "side" metrics
+                    let has_price = group.metrics.iter().any(|m| m.name == "price");
+                    let has_side = group.metrics.iter().any(|m| m.name == "side");
+                    // Check if this is a trades group
+                    has_price && has_side
+                })?;
 
-                if is_trades_group {
-                    log::debug!("🔺 [TriangleRenderer] Found trades group at index {idx} (has price and side metrics)");
-                }
-                is_trades_group
-            })?;
-
-        log::debug!("🔺 [TriangleRenderer] Found data group at index {group_index}");
-
-        // Find the specific metrics we need
-        let time_metric = data_store.data_groups.get(group_index)?;
+        // The data group itself contains the time buffers
         let price_metric = data_group.metrics.iter().find(|m| m.name == "price")?;
         let side_metric = data_group.metrics.iter().find(|m| m.name == "side")?;
 
-        log::debug!("🔺 [TriangleRenderer] Found required metrics: price and side");
+        // Get the time buffer from the data group itself (not from a metric)
+        let time_buffer = match data_group.x_buffers.first() {
+            Some(buf) => buf,
+            None => {
+                return None;
+            }
+        };
 
-        // Get the first buffer from each metric (assuming single chunk for now)
-        let time_buffer = time_metric.x_buffers.first()?;
-        let price_buffer = price_metric.y_buffers.first()?;
-        let side_buffer = side_metric.y_buffers.first()?;
+        let price_buffer = match price_metric.y_buffers.first() {
+            Some(buf) => buf,
+            None => {
+                return None;
+            }
+        };
+
+        let side_buffer = match side_metric.y_buffers.first() {
+            Some(buf) => buf,
+            None => {
+                return None;
+            }
+        };
 
         // Calculate instance count from buffer size
         let instance_count = (time_buffer.size() / 4) as u32;
+
+        // Debug: Log buffer info
 
         // X range (timestamps) - keep as u32 for precision
         let x_min = data_store.start_x;
@@ -225,16 +227,11 @@ impl TriangleRenderer {
             usage: wgpu::BufferUsages::UNIFORM,
         });
 
-        // Y range (prices)
-        let y_min_max = glm::vec2(
-            data_store.gpu_min_y.unwrap_or(0.0),
-            data_store.gpu_max_y.unwrap_or(1.0),
-        );
-        let y_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("triangle_y_min_max"),
-            contents: bytemuck::cast_slice(&[y_min_max.x, y_min_max.y]),
-            usage: wgpu::BufferUsages::UNIFORM,
-        });
+        // Y range - use the GPU-computed min/max buffer
+        let y_buffer = match &data_store.min_max_buffer {
+            Some(buffer) => buffer.clone(),
+            None => return None, // Skip rendering if no min/max buffer available
+        };
 
         // Screen size
         let screen_size = glm::vec2(
