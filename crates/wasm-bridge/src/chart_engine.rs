@@ -167,7 +167,6 @@ impl ChartEngine {
         // Skip initial data fetch - wait for user to select a preset
         // Data will be fetched when user selects a preset via fetch_preset_data
 
-
         // Create a minimal multi-renderer with just axes
         // Specific chart renderers will be added when a preset is selected
         let multi_renderer = renderer
@@ -182,7 +181,6 @@ impl ChartEngine {
                 renderer.data_store().screen_size.height,
             )
             .build();
-
 
         // Create immediate updater
         let updater = ImmediateUpdater::new();
@@ -233,7 +231,6 @@ impl ChartEngine {
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-
         // Always use multi-renderer (we ensure it exists in new())
         if let Some(ref mut multi_renderer) = self.multi_renderer {
             self.renderer.render(multi_renderer).map_err(|e| match e {
@@ -289,7 +286,6 @@ impl ChartEngine {
         if let Some(name) = preset_name.clone() {
             let preset = self.preset_manager.find_preset(&name).cloned();
             if let Some(preset) = preset {
-
                 // Update renderer with preset
                 self.renderer
                     .set_preset_and_symbol(Some(&preset), symbol_name.clone());
@@ -376,11 +372,7 @@ impl ChartEngine {
         Ok(())
     }
 
-    /// Stop the render loop (no-op with immediate mode)
-    pub fn stop_render_loop(&mut self) -> Result<(), Error> {
-        // No-op in immediate mode
-        Ok(())
-    }
+  
 
     /// Called when new data is received
     pub fn on_data_received(&mut self) {
@@ -550,7 +542,6 @@ impl ChartEngine {
 
     /// Rebuild the multi-renderer based on preset configuration
     fn rebuild_multi_renderer_for_preset(&mut self, preset: &config_system::ChartPreset) {
-
         // Get current screen dimensions
         let width = self.renderer.data_store().screen_size.width;
         let height = self.renderer.data_store().screen_size.height;
@@ -569,7 +560,6 @@ impl ChartEngine {
 
             match chart_type.render_type {
                 config_system::RenderType::Line => {
-
                     // Create a configurable plot renderer with specific data columns
                     let plot_renderer = renderer::ConfigurablePlotRenderer::new(
                         self.renderer.device.clone(),
@@ -581,7 +571,6 @@ impl ChartEngine {
                     builder = builder.add_renderer(Box::new(plot_renderer));
                 }
                 config_system::RenderType::Triangle => {
-
                     let triangle_renderer = renderer::charts::TriangleRenderer::new(
                         self.renderer.device.clone(),
                         self.renderer.queue.clone(),
@@ -612,7 +601,6 @@ impl ChartEngine {
         // Build and replace the multi-renderer
         let new_multi_renderer = builder.build();
         self.multi_renderer = Some(new_multi_renderer);
-
     }
 }
 

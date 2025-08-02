@@ -204,34 +204,6 @@ impl Chart {
         Ok(())
     }
 
-    // #[wasm_bindgen]
-    // pub fn start_render_loop(&mut self) -> Result<(), JsValue> {
-    //     log::info!("Starting render loop");
-    //     InstanceManager::with_instance_mut(&self.instance_id, |instance| {
-    //         instance.chart_engine.start_render_loop()
-    //             .map_err(|e| JsValue::from_str(&format!("Failed to start render loop: {:?}", e)))
-    //     })
-    //     .ok_or_else(|| JsValue::from_str("Chart instance not found"))?
-    // }
-
-    // #[wasm_bindgen]
-    // pub fn stop_render_loop(&mut self) -> Result<(), JsValue> {
-    //     log::info!("Stopping render loop");
-    //     InstanceManager::with_instance_mut(&self.instance_id, |instance| {
-    //         instance.chart_engine.stop_render_loop()
-    //             .map_err(|e| JsValue::from_str(&format!("Failed to stop render loop: {:?}", e)))
-    //     })
-    //     .ok_or_else(|| JsValue::from_str("Chart instance not found"))?
-    // }
-
-    // #[wasm_bindgen]
-    // pub fn get_render_state(&self) -> String {
-    //     InstanceManager::with_instance(&self.instance_id, |instance| {
-    //         format!("{:?}", instance.chart_engine.get_render_state())
-    //     })
-    //     .unwrap_or_else(|| "Unknown".to_string())
-    // }
-
     #[wasm_bindgen]
     pub async fn render(&self) -> Result<(), JsValue> {
         // For web rendering, we typically want to render asynchronously
@@ -477,8 +449,3 @@ extern "C" {
 macro_rules! console_log {
     ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
 }
-
-// Re-export simplified API for easy access
-// pub use simple_api::{
-//     create_chart, ChartBatch, ChartConfig, ChartFactory, ChartRegistry, SimpleChart,
-// };
