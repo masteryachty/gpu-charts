@@ -235,7 +235,7 @@ impl Chart {
     }
 
     #[wasm_bindgen]
-    pub async fn render(&self) -> Result<(), JsValue> {
+    pub fn render(&self) -> Result<(), JsValue> {
         log::debug!("[BRIDGE] render");
 
         // For web rendering, we typically want to render asynchronously
@@ -310,84 +310,54 @@ impl Chart {
         Ok(())
     }
 
+    fn handle_cursor_event(&self, event: shared_types::events::WindowEvent) -> Result<(), JsValue> {
+        InstanceManager::with_instance_mut(&self.instance_id, |instance| {
+            instance.chart_engine.handle_cursor_event(event);
+        });
+        self.render()?;
+        Ok(())
+    }
+
     #[wasm_bindgen]
     pub fn handle_mouse_wheel(&self, delta_y: f64, x: f64, y: f64) -> Result<(), JsValue> {
         log::debug!("[BRIDGE] handle_mouse_wheel");
+        // First update the mouse position
+        let cursor_event = WindowEvent::CursorMoved {
+            position: PhysicalPosition::new(x, y),
+        };
+        self.handle_cursor_event(cursor_event)?;
 
-        InstanceManager::with_instance_mut(&self.instance_id, |instance| {
-            // First update the mouse position
-            let cursor_event = WindowEvent::CursorMoved {
-                position: PhysicalPosition::new(x, y),
-            };
-            instance.chart_engine.handle_cursor_event(cursor_event);
+        // Then send the wheel event
+        let window_event = WindowEvent::MouseWheel {
+            delta: MouseScrollDelta::PixelDelta(PhysicalPosition::new(0.0, delta_y)),
+            phase: TouchPhase::Moved,
+        };
 
-            // Then send the wheel event
-            let window_event = WindowEvent::MouseWheel {
-                delta: MouseScrollDelta::PixelDelta(PhysicalPosition::new(0.0, delta_y)),
-                phase: TouchPhase::Moved,
-            };
-
-            instance.chart_engine.handle_cursor_event(window_event);
-
-            // After zoom, ensure bounds are recalculated
-            let data_store = instance.chart_engine.data_store_mut();
-
-            if data_store.is_dirty() {
-                // Force recalculation of Y bounds by clearing them
-                data_store.gpu_min_y = None;
-                data_store.gpu_max_y = None;
-            }
-        })
-        .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
+        self.handle_cursor_event(window_event)?;
 
         Ok(())
     }
 
     #[wasm_bindgen]
     pub fn handle_mouse_move(&self, x: f64, y: f64) -> Result<(), JsValue> {
-        InstanceManager::with_instance_mut(&self.instance_id, |instance| {
-            let window_event = WindowEvent::CursorMoved {
-                position: PhysicalPosition::new(x, y),
-            };
-            instance.chart_engine.handle_cursor_event(window_event);
-
-            // Mouse movement during drag should trigger view change
-            // instance.chart_engine.on_view_changed();
-        })
-        .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
-
+        // let window_event = WindowEvent::CursorMoved {
+        //     position: PhysicalPosition::new(x, y),
+        // };
+        // self.handle_cursor_event(window_event)?;
         Ok(())
     }
 
     #[wasm_bindgen]
     pub fn handle_mouse_click(&self, _x: f64, _y: f64, pressed: bool) -> Result<(), JsValue> {
-        InstanceManager::with_instance_mut(&self.instance_id, |instance| {
-            let window_event = WindowEvent::MouseInput {
-                state: if pressed {
-                    ElementState::Pressed
-                } else {
-                    ElementState::Released
-                },
-                button: MouseButton::Left,
-            };
-            instance.chart_engine.handle_cursor_event(window_event);
-
-            // After drag zoom (on release), ensure bounds are recalculated
-            if !pressed {
-                let chart_engine = &mut instance.chart_engine;
-                let data_store = chart_engine.data_store_mut();
-                if data_store.is_dirty() {
-                    // Force recalculation of Y bounds by clearing them
-                    data_store.gpu_min_y = None;
-                    data_store.gpu_max_y = None;
-
-                    // Trigger view changed for drag zoom
-                    // instance.chart_engine.on_view_changed();
-                }
-            }
-        })
-        .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
-
+        let window_event = WindowEvent::MouseInput {
+            state: if pressed {
+                ElementState::Pressed
+            } else {
+                ElementState::Released
+            },
+            button: MouseButton::Left,
+        };
+        self.handle_cursor_event(window_event)?;
         Ok(())
     }
 }

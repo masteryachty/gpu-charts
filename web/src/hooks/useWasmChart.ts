@@ -122,26 +122,7 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
         }
 
         try {
-          // await chart.render();
-
-          // Store chart ref
           chartRef.current = chart;
-
-          // Start render loop to check for updates
-          const checkRenderLoop = () => {
-            if (!mountedRef.current || !chartRef.current) {
-              return;
-            }
-
-            if (chartRef.current.needs_render()) {
-              chartRef.current.render().catch((err) => {
-                console.error('[useWasmChart] Render error:', err);
-              });
-            }
-
-            animationFrameRef.current = requestAnimationFrame(checkRenderLoop);
-          };
-          animationFrameRef.current = requestAnimationFrame(checkRenderLoop);
         } catch (initError) {
           throw initError;
         }
