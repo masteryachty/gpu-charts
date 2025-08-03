@@ -135,7 +135,6 @@ impl ChartEngine {
         // Create immediate updater
         let instance_id = Uuid::new_v4();
 
-
         // Create the ChartEngine instance
         Ok(Self {
             render_context,
@@ -175,7 +174,6 @@ impl ChartEngine {
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-
         // Check if rendering is needed
         if !self.data_store.is_dirty() {
             return Ok(());
@@ -334,7 +332,6 @@ impl ChartEngine {
             .create_multi_renderer()
             .with_render_order(RenderOrder::BackgroundToForeground);
 
-
         // Add renderers based on preset chart types
         for chart_type in &preset.chart_types {
             if !chart_type.visible {
@@ -382,12 +379,10 @@ impl ChartEngine {
             }
         }
 
-
         // Always add axes
         builder = builder
             .add_x_axis_renderer(width, height)
             .add_y_axis_renderer(width, height);
-
 
         // Build and replace the multi-renderer
         let new_multi_renderer = builder.build();
@@ -509,7 +504,6 @@ impl ChartEngine {
     }
 
     fn rerender(&mut self) {
-
         // Check if we need to schedule another render
         if self.pending_readback.is_some() {
             // Process any pending readback

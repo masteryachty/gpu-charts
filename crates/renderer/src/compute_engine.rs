@@ -36,14 +36,12 @@ impl ComputeEngine {
     /// Run all necessary compute passes before rendering
     /// This should be called BEFORE min/max calculation
     pub fn run_compute_passes(&mut self, encoder: &mut CommandEncoder, data_store: &mut DataStore) {
-
         // Get all metrics that need computation
         let metrics_to_compute = data_store.get_metrics_needing_computation();
 
         if metrics_to_compute.is_empty() {
             return;
         }
-
 
         // Sort metrics by dependency order (simple topological sort)
         let sorted_metrics = self.sort_by_dependencies(&metrics_to_compute, data_store);
@@ -52,7 +50,6 @@ impl ComputeEngine {
         for metric_ref in sorted_metrics {
             self.compute_metric(encoder, data_store, &metric_ref);
         }
-
     }
 
     /// Sort metrics by their dependencies to ensure correct computation order
@@ -148,7 +145,6 @@ impl ComputeEngine {
             }
         };
 
-
         // Perform computation based on type
         match compute_type {
             ComputeOp::Average => {
@@ -224,7 +220,6 @@ impl ComputeEngine {
             return;
         }
 
-
         // Compute mid price
         match calculator.calculate(dep_buffers[0], dep_buffers[1], element_count, encoder) {
             Ok(result) => {
@@ -239,7 +234,6 @@ impl ComputeEngine {
                     // Track that we computed this metric
                     self.computed_metrics
                         .insert(*metric_ref, metric.compute_version);
-
                 }
             }
             Err(e) => {

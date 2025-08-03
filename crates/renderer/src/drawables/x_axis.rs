@@ -78,7 +78,6 @@ impl XAxisRenderer {
                 base_unit = *LOGIC_TS_DURATIONS.last().unwrap();
             }
 
-
             let interval = 1;
             let mut timestamps = Vec::new();
             let mut labels = Vec::new();
@@ -124,14 +123,12 @@ impl XAxisRenderer {
             // Create vertex data for axis lines
             let mut vertices = Vec::new();
 
-
             // Create vertical lines for each timestamp
             for timestamp in &timestamps {
                 vertices.push(*timestamp as f32);
-                vertices.push(-1.0);  // Bottom of screen in clip space
+                vertices.push(-1.0); // Bottom of screen in clip space
                 vertices.push(*timestamp as f32);
-                vertices.push(1.0);   // Top of screen in clip space
-                
+                vertices.push(1.0); // Top of screen in clip space
             }
 
             // Create or update buffer
@@ -210,9 +207,7 @@ impl XAxisRenderer {
                 render_pass.set_bind_group(0, bind_group, &[]);
                 render_pass.set_vertex_buffer(0, buffer.slice(..));
                 render_pass.draw(0..self.vertex_count, 0..1);
-            } else {
             }
-        } else {
         }
 
         // Draw text labels

@@ -43,7 +43,6 @@ impl Chart {
             }
         });
 
-
         Chart {
             instance_id: Uuid::new_v4(),
         }
@@ -51,7 +50,6 @@ impl Chart {
 
     #[wasm_bindgen]
     pub fn get_all_preset_names(&self) -> Result<js_sys::Array, JsValue> {
-
         let preset_manager = PresetManager::new();
         let names = js_sys::Array::new();
 
@@ -84,7 +82,6 @@ impl Chart {
 
     #[wasm_bindgen]
     pub fn toggle_metric_visibility(&self, metric_label: &str) -> Result<(), JsValue> {
-
         InstanceManager::with_instance_mut(&self.instance_id, |instance| {
             // Get mutable access to the data store
             let data_store = instance.chart_engine.data_store_mut();
@@ -219,7 +216,6 @@ impl Chart {
         start_x: u32,
         end_x: u32,
     ) -> Result<(), JsValue> {
-
         // Store instance using the instance manager
         self.instance_id =
             InstanceManager::create_instance(canvas_id, width, height, start_x, end_x)
@@ -230,7 +226,6 @@ impl Chart {
 
     #[wasm_bindgen]
     pub async fn render(&self) -> Result<(), JsValue> {
-
         // For web rendering, we typically want to render asynchronously
         // without blocking. We'll spawn a local task to handle the render.
         let instance_id = self.instance_id;
@@ -268,8 +263,7 @@ impl Chart {
             };
 
             match render_result {
-                Ok(()) => {
-                }
+                Ok(()) => {}
                 Err(e) => {
                     log::error!("[BRIDGE] Render failed: {e:?}");
                 }
@@ -282,7 +276,6 @@ impl Chart {
 
     #[wasm_bindgen]
     pub fn needs_render(&self) -> bool {
-
         InstanceManager::with_instance(&self.instance_id, |instance| {
             instance.chart_engine.needs_render()
         })
@@ -291,7 +284,6 @@ impl Chart {
 
     #[wasm_bindgen]
     pub fn resize(&self, _width: u32, _height: u32) -> Result<(), JsValue> {
-
         // InstanceManager::with_instance_mut(&self.instance_id, |instance| {
         //     instance.chart_engine.resized(width, height);
         // })
@@ -302,7 +294,6 @@ impl Chart {
 
     #[wasm_bindgen]
     pub fn handle_mouse_wheel(&self, delta_y: f64, x: f64, _y: f64) -> Result<(), JsValue> {
-
         InstanceManager::with_instance_mut(&self.instance_id, |instance| {
             let window_event = WindowEvent::MouseWheel {
                 delta: MouseScrollDelta::PixelDelta(PhysicalPosition::new(x, delta_y)),
