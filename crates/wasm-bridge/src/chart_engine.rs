@@ -551,13 +551,26 @@ impl ChartEngine {
                 let range = end_x - start_x;
 
                 // Zoom factor based on scroll amount
-                let zoom_factor = 0.1; // 10% zoom per scroll
-                let zoom_amount = (range as f32 * zoom_factor) as u32;
+                let zoom_factor = 0.001; // Reduced zoom factor for smoother zooming
+                let zoom_amount = position.y.abs() * zoom_factor;
+                
+                // Calculate zoom centered on mouse position
+                // position.x contains the mouse x coordinate relative to canvas
+                let mouse_x_ratio = if self.data_store.screen_size.width > 0 {
+                    position.x / self.data_store.screen_size.width as f64
+                } else {
+                    0.5 // Default to center if width not set
+                };
 
                 let (new_start, new_end) = if position.y < 0. {
                     // Scrolling up = zoom in (shrink range)
-                    let new_start = start_x + zoom_amount;
-                    let new_end = end_x - zoom_amount;
+                    let zoom_pixels = (range as f64 * zoom_amount) as u32;
+                    let left_zoom = (zoom_pixels as f64 * mouse_x_ratio) as u32;
+                    let right_zoom = zoom_pixels - left_zoom;
+                    
+                    let new_start = start_x + left_zoom;
+                    let new_end = end_x - right_zoom;
+                    
                     // Ensure we don't zoom in too much (minimum range of 10 units)
                     if new_end > new_start + 10 {
                         (new_start, new_end)
@@ -566,8 +579,12 @@ impl ChartEngine {
                     }
                 } else if position.y > 0. {
                     // Scrolling down = zoom out (expand range)
-                    let new_start = start_x.saturating_sub(zoom_amount);
-                    let new_end = end_x + zoom_amount;
+                    let zoom_pixels = (range as f64 * zoom_amount) as u32;
+                    let left_zoom = (zoom_pixels as f64 * mouse_x_ratio) as u32;
+                    let right_zoom = zoom_pixels - left_zoom;
+                    
+                    let new_start = start_x.saturating_sub(left_zoom);
+                    let new_end = end_x + right_zoom;
                     (new_start, new_end)
                 } else {
                     (start_x, end_x) // No change
