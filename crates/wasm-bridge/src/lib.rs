@@ -305,18 +305,14 @@ impl Chart {
             // After zoom, ensure bounds are recalculated
             let data_store = instance.chart_engine.data_store_mut();
 
-            let _is_dirty = data_store.is_dirty();
-            let _gpu_min_y = data_store.gpu_min_y;
-            let _gpu_max_y = data_store.gpu_max_y;
-
             if data_store.is_dirty() {
                 // Force recalculation of Y bounds by clearing them
                 data_store.gpu_min_y = None;
                 data_store.gpu_max_y = None;
-
-                // Trigger view changed in render loop
-                // instance.chart_engine.on_view_changed();
             }
+
+            // Always render after mouse wheel to show zoom changes immediately
+            let _ = instance.chart_engine.render();
         })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
 
