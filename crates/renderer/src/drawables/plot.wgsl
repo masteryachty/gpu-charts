@@ -21,7 +21,14 @@ struct MinMaxU32 {
 fn vs_main(vertex: Vertex) -> VertexPayload {
 
     var start_ts = x_min_max.min_val;
-    var x_f32 = f32(vertex.x - start_ts);
+    // Handle the case where vertex.x < start_ts to avoid unsigned underflow
+    var x_f32: f32;
+    if (vertex.x >= start_ts) {
+        x_f32 = f32(vertex.x - start_ts);
+    } else {
+        // If x is before start, calculate negative offset
+        x_f32 = -f32(start_ts - vertex.x);
+    }
     var out: VertexPayload;
     var projection = world_to_screen_conversion_with_margin(0., f32(x_min_max.max_val - start_ts), y_min_max.x, y_min_max.y, -1., 1.);
     out.position = projection * vec4f(x_f32, vertex.y, 0., 1.);
