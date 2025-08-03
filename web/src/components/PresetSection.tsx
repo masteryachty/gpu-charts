@@ -37,22 +37,26 @@ export default function PresetSection({
   }, [chartInstance]);
 
   const getMetrics = useCallback(() => {
-    console.log('[PresetSection] start to fetch metrics:', preset);
 
-    if (preset) {
-      const metricsArray = chartInstance.get_metrics_for_preset() || [];
-      const metrics = []
-      for (let i = 0; i < metricsArray.length; i += 2) {
-        metrics.push({ label: metricsArray[i], visible: metricsArray[i + 1] })
+    if (preset && chartInstance) {
+      console.log('[PresetSection] start to fetch metrics:', preset);
+      try {
+        const metricsArray = chartInstance.get_metrics_for_preset() || [];
+        const metrics = []
+        for (let i = 0; i < metricsArray.length; i += 2) {
+          metrics.push({ label: metricsArray[i], visible: metricsArray[i + 1] })
+        }
+        setMetrics(metrics);
+        console.log('[PresetSection] Success to fetch metrics:', metrics);
+      } catch (error) {
+        console.error('[PresetSection] Failed to fetch metrics:', error);
       }
-      setMetrics(metrics);
-      console.log('[PresetSection] Success to fetch metrics:', metrics);
     }
   }, [chartInstance, preset]);
 
   // Load available metrics
   useEffect(() => {
-    getMetrics()
+    getMetrics();
   }, [getMetrics]);
 
   // // Apply Market Data preset by default

@@ -2,10 +2,8 @@
 //! This handles all pre-render computations like mid price, moving averages, etc.
 
 use crate::compute::MidPriceCalculator;
-use data_manager::{
-    data_store::{ComputeType, MetricRef},
-    DataStore,
-};
+use config_system::ComputeOp;
+use data_manager::{data_store::MetricRef, DataStore};
 use std::collections::HashMap;
 use std::rc::Rc;
 use wgpu::{CommandEncoder, Device, Queue};
@@ -165,32 +163,36 @@ impl ComputeEngine {
 
         // Perform computation based on type
         match compute_type {
-            ComputeType::Average => {
-                if name == "mid_price" && dependencies.len() == 2 {
+            ComputeOp::Average => {
+                if (name == "mid_price" || name == "Mid") && dependencies.len() == 2 {
                     self.compute_mid_price(encoder, data_store, metric_ref, &dependencies);
                 } else {
                     log::warn!("[ComputeEngine] Average computation for {name} not implemented");
                 }
             }
-            ComputeType::Sum => {
+            ComputeOp::Sum => {
                 log::warn!("[ComputeEngine] Sum computation not yet implemented");
             }
-            ComputeType::Difference => {
+            ComputeOp::Difference => {
                 log::warn!("[ComputeEngine] Difference computation not yet implemented");
             }
-            ComputeType::MovingAverage { period } => {
-                log::warn!("[ComputeEngine] Moving average (period: {period}) not yet implemented");
+            ComputeOp::Product => {
+                log::warn!("[ComputeEngine] Product computation not yet implemented");
             }
-            ComputeType::RSI { period } => {
-                log::warn!("[ComputeEngine] RSI (period: {period}) not yet implemented");
+            ComputeOp::Ratio => {
+                log::warn!("[ComputeEngine] Ratio computation not yet implemented");
             }
-            ComputeType::BollingerBands { period, std_dev } => {
+            ComputeOp::Min => {
+                log::warn!("[ComputeEngine] Min computation not yet implemented");
+            }
+            ComputeOp::Max => {
+                log::warn!("[ComputeEngine] Max computation not yet implemented");
+            }
+            ComputeOp::WeightedAverage { weights } => {
                 log::warn!(
-                    "[ComputeEngine] Bollinger bands (period: {period}, std: {std_dev}) not yet implemented"
+                    "[ComputeEngine] Weighted average with {} weights not yet implemented",
+                    weights.len()
                 );
-            }
-            ComputeType::Custom { shader_name } => {
-                log::warn!("[ComputeEngine] Custom shader '{shader_name}' not yet implemented");
             }
         }
     }

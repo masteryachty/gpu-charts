@@ -535,6 +535,7 @@ impl MultiRendererBuilder {
     }
 
     pub fn build(self) -> MultiRenderer {
+        log::debug!("[MULTIRENDER] build render pipeline");
         let mut renderer = MultiRenderer::new(self.device, self.queue, self.format);
         renderer.render_order = self.render_order;
         for r in self.renderers {

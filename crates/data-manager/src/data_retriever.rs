@@ -53,49 +53,35 @@ pub fn create_chunked_gpu_buffer_from_arraybuffer(
 
     while offset < total_length {
         let chunk_size = std::cmp::min(max_chunk_size, total_length - offset);
-        let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+
+        // Validate bounds before operation
+        let start_idx = offset as u32;
+        let end_idx = (offset + chunk_size) as u32;
+
+        if end_idx > typed_array.length() {
+            panic!(
+                "Buffer overflow: attempting to read beyond typed array bounds. \
+                   Array length: {}, requested end: {}",
+                typed_array.length(),
+                end_idx
+            );
+        }
+
+        // Copy data from typed array to a Vec first to avoid BufferViewMut
+        let chunk_data = typed_array.subarray(start_idx, end_idx);
+        let mut data_vec = vec![0u8; chunk_size];
+        chunk_data.copy_to(&mut data_vec[..]);
+
+        // Create buffer with the data directly
+        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some(label),
-            size: chunk_size as u64,
+            contents: &data_vec,
             usage: wgpu::BufferUsages::COPY_DST
                 | wgpu::BufferUsages::COPY_SRC
                 | wgpu::BufferUsages::STORAGE
                 | wgpu::BufferUsages::VERTEX,
-            mapped_at_creation: true,
         });
 
-        {
-            // Copy the relevant slice from the JS memory into the GPU–buffer.
-            let mut mapped_range = buffer.slice(0..(chunk_size as u64)).get_mapped_range_mut();
-
-            // Validate bounds before unsafe operation
-            let start_idx = offset as u32;
-            let end_idx = (offset + chunk_size) as u32;
-
-            if end_idx > typed_array.length() {
-                panic!(
-                    "Buffer overflow: attempting to read beyond typed array bounds. \
-                       Array length: {}, requested end: {}",
-                    typed_array.length(),
-                    end_idx
-                );
-            }
-
-            if mapped_range.len() < chunk_size {
-                panic!(
-                    "Mapped range too small: expected {}, got {}",
-                    chunk_size,
-                    mapped_range.len()
-                );
-            }
-
-            unsafe {
-                typed_array
-                    .subarray(start_idx, end_idx)
-                    .raw_copy_to_ptr(mapped_range.as_mut_ptr());
-            }
-        }
-
-        buffer.unmap();
         buffer_vec.push(buffer);
         offset += chunk_size;
     }
