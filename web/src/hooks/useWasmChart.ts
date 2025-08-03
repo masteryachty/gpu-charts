@@ -85,14 +85,12 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
       // Dynamic WASM module import with test fallback
       let chart: Chart;
 
-      console.log("123");
 
       try {
         // Use preloaded WASM module if available, otherwise fall back to dynamic import
         let wasmModule;
         if (window.wasmPromise) {
-          console.log('[useWasmChart] Using preloaded WASM module');
-          wasmModule = await window.wasmPromise;
+              wasmModule = await window.wasmPromise;
         } else {
           console.log('[useWasmChart] Falling back to dynamic WASM import');
           wasmModule = await import('@pkg/wasm_bridge.js');
@@ -103,20 +101,17 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
           return false;
         }
 
-        console.log("234");
-
+  
         // Create Chart instance 
         chart = new wasmModule.Chart();
-        console.log("345");
-
+  
         // Initialize with canvas ID and actual canvas dimensions
         const actualWidth = width || canvasElement.clientWidth || 800;
         const actualHeight = height || canvasElement.clientHeight || 600;
 
         try {
           await chart.init(canvasId, actualWidth, actualHeight, startTime, endTime);
-          console.log("456");
-
+    
         } catch (initError) {
           throw initError;
         }

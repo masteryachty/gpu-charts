@@ -33,13 +33,11 @@ export default function PresetSection({
   useEffect(() => {
     const loadedPresets = chartInstance.get_all_preset_names() || [];
     setPresets(loadedPresets);
-    console.log('[PresetSection] Success to load presets:', loadedPresets);
   }, [chartInstance]);
 
   const getMetrics = useCallback(() => {
 
     if (preset && chartInstance) {
-      console.log('[PresetSection] start to fetch metrics:', preset);
       try {
         const metricsArray = chartInstance.get_metrics_for_preset() || [];
         const metrics = []
@@ -47,7 +45,6 @@ export default function PresetSection({
           metrics.push({ label: metricsArray[i], visible: metricsArray[i + 1] })
         }
         setMetrics(metrics);
-        console.log('[PresetSection] Success to fetch metrics:', metrics);
       } catch (error) {
         console.error('[PresetSection] Failed to fetch metrics:', error);
       }
@@ -80,7 +77,6 @@ export default function PresetSection({
 
   // // Toggle individual metric visibility - simplified to use new WASM architecture
   const handleMetricToggle = useCallback((chartLabel: string) => {
-    console.log('[PresetSection] Toggling metric visibility:', chartLabel);
     // Use the new simplified toggle_metric_visibility method
     chartInstance.toggle_metric_visibility(chartLabel);
     getMetrics()

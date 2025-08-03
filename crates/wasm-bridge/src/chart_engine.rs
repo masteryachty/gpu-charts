@@ -45,7 +45,6 @@ impl ChartEngine {
         start_x: u32,
         end_x: u32,
     ) -> Result<ChartEngine, Error> {
-        log::debug!("1");
         let window = web_sys::window().ok_or_else(|| Error::new("No Window"))?;
         let document = window.document().ok_or_else(|| Error::new("No document"))?;
         let canvas = document
@@ -53,21 +52,17 @@ impl ChartEngine {
             .ok_or_else(|| Error::new("Canvas not found"))?
             .dyn_into::<HtmlCanvasElement>()
             .map_err(|_| Error::new("Element is not a canvas"))?;
-        log::debug!("2");
 
         // Set canvas size
         canvas.set_width(width);
         canvas.set_height(height);
-        log::debug!("3");
 
         // Create canvas controller
         let canvas_controller = CanvasController::new();
-        log::debug!("4");
 
         // Create DataStore
         let data_store = DataStore::new(width, height, start_x, end_x);
         // data_store.topic = Some(topic.clone());
-        log::debug!("5");
 
         // Create WebGPU instance and get device/queue
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
@@ -75,12 +70,10 @@ impl ChartEngine {
             flags: wgpu::InstanceFlags::default(),
             ..Default::default()
         });
-        log::debug!("6");
 
         let surface = instance
             .create_surface(wgpu::SurfaceTarget::Canvas(canvas.clone()))
             .map_err(|e| Error::new(&format!("Failed to create surface: {e}")))?;
-        log::debug!("7");
 
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
@@ -90,7 +83,6 @@ impl ChartEngine {
             })
             .await
             .ok_or_else(|| Error::new("Failed to get adapter"))?;
-        log::debug!("8");
 
         let (device, queue) = adapter
             .request_device(
@@ -104,7 +96,6 @@ impl ChartEngine {
             )
             .await
             .map_err(|e| Error::new(&format!("Failed to request device: {e}")))?;
-        log::debug!("9");
 
         let device = Rc::new(device);
         let queue = Rc::new(queue);
@@ -117,7 +108,6 @@ impl ChartEngine {
 
         // Create DataManager with modular approach
         let data_manager = DataManager::new(device.clone(), queue.clone(), api_base_url);
-        log::debug!("10");
 
         // Surface configuration (previously in Renderer::new)
         let surface_capabilities = surface.get_capabilities(&adapter);
@@ -141,12 +131,9 @@ impl ChartEngine {
 
         // Create compute engine
         let compute_engine = ComputeEngine::new(device, queue);
-        log::debug!("11");
 
         // Create immediate updater
         let instance_id = Uuid::new_v4();
-
-        log::debug!("14");
 
         // Create the ChartEngine instance
         Ok(Self {
@@ -187,8 +174,6 @@ impl ChartEngine {
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        log::debug!("[CHART_ENGINE] Render Start");
-
         // Check if rendering is needed
         if !self.data_store.is_dirty() {
             return Ok(());
@@ -259,7 +244,6 @@ impl ChartEngine {
         output.present();
 
         // Log successful render completion
-        log::debug!("[CHART_ENGINE] Frame rendered and presented successfully");
 
         // Clear dirty flag before processing readback
         // This ensures that if readback marks the store dirty, it stays dirty for next frame
@@ -339,7 +323,6 @@ impl ChartEngine {
 
     /// Rebuild the multi-renderer based on preset configuration
     fn rebuild_multi_renderer_for_preset(&mut self, preset: &config_system::ChartPreset) {
-        log::debug!("rebuild_multi_renderer_for_preset");
         // Get current screen dimensions
         let width = self.data_store.screen_size.width;
         let height = self.data_store.screen_size.height;
@@ -348,8 +331,6 @@ impl ChartEngine {
         let mut builder = self
             .create_multi_renderer()
             .with_render_order(RenderOrder::BackgroundToForeground);
-
-        log::debug!("builder");
 
         // Add renderers based on preset chart types
         for chart_type in &preset.chart_types {
@@ -398,18 +379,13 @@ impl ChartEngine {
             }
         }
 
-        log::debug!("builder 2");
-
         // Always add axes
         builder = builder
             .add_x_axis_renderer(width, height)
             .add_y_axis_renderer(width, height);
 
-        log::debug!("builder 3");
-
         // Build and replace the multi-renderer
         let new_multi_renderer = builder.build();
-        log::debug!("builder 4");
 
         self.multi_renderer = Some(new_multi_renderer);
     }
@@ -471,10 +447,13 @@ impl ChartEngine {
                         // Validate bounds before applying
                         if min_val.is_finite() && max_val.is_finite() && min_val < max_val {
                             self.data_store.set_gpu_y_bounds(min_val, max_val);
+                            // Update the bind group with the new bounds
+                            self.data_store.update_shared_bind_group_with_gpu_buffer(
+                                &self.render_context.device,
+                            );
                         } else {
                             // Use sensible defaults if GPU bounds are invalid
                             log::warn!("Invalid GPU bounds: min={min_val}, max={max_val}");
-                            self.data_store.set_gpu_y_bounds(0.0, 100.0);
                         }
                     }
 
@@ -525,8 +504,6 @@ impl ChartEngine {
     }
 
     fn rerender(&mut self) {
-        log::debug!("[engine] rerender");
-
         // Check if we need to schedule another render
         if self.pending_readback.is_some() {
             // Process any pending readback

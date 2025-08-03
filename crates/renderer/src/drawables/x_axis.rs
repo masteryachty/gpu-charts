@@ -78,10 +78,6 @@ impl XAxisRenderer {
                 base_unit = *LOGIC_TS_DURATIONS.last().unwrap();
             }
 
-            log::debug!(
-                "X-axis: Range={range} seconds, width={width} pixels, selected base_unit={base_unit} seconds"
-            );
-
             let interval = 1;
             let mut timestamps = Vec::new();
             let mut labels = Vec::new();
@@ -125,21 +121,14 @@ impl XAxisRenderer {
             }
 
             // Create vertex data for axis lines
-            let mut vertices = Vec::with_capacity(timestamps.len() * 4);
+            let mut vertices = Vec::new();
 
-            // Get the Y range from data_store
-            let y_min = data_store.gpu_min_y.unwrap_or(0.0);
-            let y_max = data_store.gpu_max_y.unwrap_or(100.0);
-
-            log::debug!("X-axis: Creating vertical lines for {} timestamps within range [{}, {}], Y range: [{}, {}]", 
-                timestamps.len(), min, max, y_min, y_max);
-
+            // Create vertical lines for each timestamp
             for timestamp in &timestamps {
-                // Use absolute timestamps and Y values that match the data range
                 vertices.push(*timestamp as f32);
-                vertices.push(y_min);
+                vertices.push(-1.0); // Bottom of screen in clip space
                 vertices.push(*timestamp as f32);
-                vertices.push(y_max);
+                vertices.push(1.0); // Top of screen in clip space
             }
 
             // Create or update buffer
@@ -214,19 +203,11 @@ impl XAxisRenderer {
         if let Some(buffer) = &self.vertex_buffer {
             // Use the shared bind group from DataStore
             if let Some(bind_group) = data_store.range_bind_group.as_ref() {
-                log::debug!(
-                    "X-axis: Drawing {} vertices for vertical lines",
-                    self.vertex_count
-                );
                 render_pass.set_pipeline(&self.pipeline);
                 render_pass.set_bind_group(0, bind_group, &[]);
                 render_pass.set_vertex_buffer(0, buffer.slice(..));
                 render_pass.draw(0..self.vertex_count, 0..1);
-            } else {
-                log::warn!("X-axis: No shared bind group available, skipping vertical lines");
             }
-        } else {
-            log::warn!("X-axis: No vertex buffer available");
         }
 
         // Draw text labels

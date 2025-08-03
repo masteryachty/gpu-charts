@@ -194,14 +194,12 @@ impl MultiRenderer {
 
     /// Add a renderer to the pipeline
     pub fn add_renderer(&mut self, renderer: Box<dyn MultiRenderable>) {
-        log::debug!("MultiRenderer: Adding renderer '{}'", renderer.name());
         self.renderers.push(renderer);
         self.sort_renderers();
     }
 
     /// Remove all renderers
     pub fn clear_renderers(&mut self) {
-        log::debug!("MultiRenderer: Clearing all renderers");
         self.renderers.clear();
     }
 
@@ -261,7 +259,6 @@ impl MultiRenderer {
         data_store: &DataStore,
     ) -> RenderResult<()> {
         if self.renderers.is_empty() {
-            log::debug!("MultiRenderer: No renderers to execute");
             return Ok(());
         }
 
@@ -322,7 +319,6 @@ impl MultiRenderer {
 
     /// Handle resize for all renderers
     pub fn resize(&mut self, width: u32, height: u32) {
-        log::debug!("MultiRenderer: Resizing to {width}x{height}");
         for renderer in &mut self.renderers {
             renderer.resize(width, height);
         }
@@ -535,7 +531,6 @@ impl MultiRendererBuilder {
     }
 
     pub fn build(self) -> MultiRenderer {
-        log::debug!("[MULTIRENDER] build render pipeline");
         let mut renderer = MultiRenderer::new(self.device, self.queue, self.format);
         renderer.render_order = self.render_order;
         for r in self.renderers {
