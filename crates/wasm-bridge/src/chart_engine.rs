@@ -316,6 +316,22 @@ impl ChartEngine {
     /// Called when resized
     pub fn on_resized(&mut self, _width: u32, _height: u32) {}
 
+    /// Called when metric visibility changes
+    pub fn on_metric_visibility_changed(&mut self) {
+        // Rebuild the renderer if we have a preset
+        if let Some(preset) = &self.data_store.preset {
+            let preset_clone = preset.clone();
+            self.rebuild_multi_renderer_for_preset(&preset_clone);
+            
+            // Clear GPU bounds to force recalculation
+            self.data_store.gpu_min_y = None;
+            self.data_store.gpu_max_y = None;
+            self.data_store.min_max_buffer = None;
+            
+            self.data_store.mark_dirty();
+        }
+    }
+
     /// Set instance ID (used by instance manager)
     pub fn set_instance_id(&mut self, id: Uuid) {
         self.instance_id = id;
@@ -343,6 +359,12 @@ impl ChartEngine {
 
             match chart_type.render_type {
                 config_system::RenderType::Line => {
+                    log::debug!(
+                        "[ChartEngine] Creating renderer for metric '{}' with columns: {:?}",
+                        chart_type.label,
+                        chart_type.data_columns
+                    );
+
                     // Create a configurable plot renderer with specific data columns
                     let plot_renderer = renderer::ConfigurablePlotRenderer::new(
                         self.render_context.device.clone(),

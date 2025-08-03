@@ -16,7 +16,7 @@ pub use data_retriever::{
     ApiHeader, ColumnMeta,
 };
 pub use data_store::{
-    ChartType, ComputeType, DataSeries, DataStore, MetricRef, MetricSeries, ScreenDimensions,
+    ChartType, DataSeries, DataStore, MetricRef, MetricSeries, ScreenDimensions,
     Vertex,
 };
 
@@ -210,9 +210,13 @@ impl DataManager {
                 Ok(data_handle) => {
                     let _ = self.process_data_handle(&data_handle, data_store);
                 }
-                Err(_e) => {}
+                Err(_e) => {} 
             }
         }
+        
+        // After loading all data, create computed metrics if needed
+        self.create_computed_metrics_for_preset(data_store);
+        
         Ok(())
     }
 
@@ -289,6 +293,80 @@ impl DataManager {
         }
 
         Ok(())
+    }
+    
+    fn create_computed_metrics_for_preset(&self, data_store: &mut DataStore) {
+        if let Some(preset) = &data_store.preset.clone() {
+            // Check each chart type for compute operations
+            for chart_type in &preset.chart_types {
+                if let Some(compute_op) = &chart_type.compute_op {
+                    
+                    // Find dependencies based on additional_data_columns for computed metrics
+                    let mut dependencies = Vec::new();
+                    
+                    // Use additional_data_columns if present (for computed metrics), otherwise fall back to data_columns
+                    let dependency_columns = chart_type.additional_data_columns.as_ref()
+                        .unwrap_or(&chart_type.data_columns);
+                    
+                    // Since we don't have named groups, we need to find metrics by name
+                    // across all data groups
+                    for (_, column_name) in dependency_columns {
+                        for (group_idx, group) in data_store.data_groups.iter().enumerate() {
+                            for (metric_idx, metric) in group.metrics.iter().enumerate() {
+                                if metric.name == *column_name {
+                                    dependencies.push(MetricRef {
+                                        group_index: group_idx,
+                                        metric_index: metric_idx,
+                                    });
+                                    break; // Found the metric, move to next column
+                                }
+                            }
+                        }
+                    }
+                    
+                    // If we have all dependencies, create the computed metric
+                    if dependencies.len() == dependency_columns.len() && !dependencies.is_empty() {
+                        log::debug!(
+                            "[DataManager] Creating computed metric '{}' with {} dependencies",
+                            chart_type.label,
+                            dependencies.len()
+                        );
+                        
+                        // Add the computed metric to the first data group (or create one if needed)
+                        let group_index = if data_store.data_groups.is_empty() {
+                            // This shouldn't happen, but handle it gracefully
+                            log::warn!("[DataManager] No data groups available for computed metric");
+                            return;
+                        } else {
+                            0 // Use the first data group
+                        };
+                        
+                        // Get color from chart type
+                        let color = chart_type.style.color.unwrap_or([0.5, 0.5, 0.5, 1.0]);
+                        data_store.add_computed_metric_to_group(
+                            group_index,
+                            chart_type.label.clone(),
+                            [color[0], color[1], color[2]],
+                            compute_op.clone(),
+                            dependencies,
+                        );
+                        
+                        log::debug!(
+                            "[DataManager] Added computed metric '{}' to group {}",
+                            chart_type.label,
+                            group_index
+                        );
+                    } else {
+                        log::debug!(
+                            "[DataManager] Could not create computed metric '{}': found {} of {} dependencies",
+                            chart_type.label,
+                            dependencies.len(),
+                            chart_type.data_columns.len()
+                        );
+                    }
+                }
+            }
+        }
     }
 }
 

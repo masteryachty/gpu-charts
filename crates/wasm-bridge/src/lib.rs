@@ -105,8 +105,11 @@ impl Chart {
                 }
             }
 
-            // Trigger metric visibility changed - render only
-            // instance.chart_engine.on_metric_visibility_changed();
+            // Trigger metric visibility changed - rebuild renderer
+            instance.chart_engine.on_metric_visibility_changed();
+            
+            // Trigger a render to update the chart
+            let _ = instance.chart_engine.render();
         })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
         Ok(())

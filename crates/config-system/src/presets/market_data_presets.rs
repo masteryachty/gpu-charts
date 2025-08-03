@@ -20,7 +20,7 @@ fn market_data_preset() -> ChartPreset {
                 render_type: RenderType::Line,
                 data_columns: vec![("MD".to_string(), "best_bid".to_string())],
                 additional_data_columns: None,
-                visible: true,
+                visible: false,
                 label: "Bid".to_string(),
                 style: RenderStyle {
                     color: Some([0.0, 0.8, 0.0, 1.0]), // Green
@@ -34,7 +34,7 @@ fn market_data_preset() -> ChartPreset {
                 render_type: RenderType::Line,
                 data_columns: vec![("MD".to_string(), "best_ask".to_string())],
                 additional_data_columns: None,
-                visible: true,
+                visible: false,
                 label: "Ask".to_string(),
                 style: RenderStyle {
                     color: Some([0.8, 0.0, 0.0, 1.0]), // Red
@@ -48,7 +48,7 @@ fn market_data_preset() -> ChartPreset {
                 render_type: RenderType::Triangle,
                 data_columns: vec![("TRADES".to_string(), "price".to_string())],
                 additional_data_columns: Some(vec![("TRADES".to_string(), "side".to_string())]),
-                visible: true,
+                visible: false,
                 label: "Trades".to_string(),
                 style: RenderStyle {
                     color: None, // Use color_options instead
@@ -60,15 +60,15 @@ fn market_data_preset() -> ChartPreset {
                 },
                 compute_op: None,
             },
-            // Mid price (calculated from bid/ask)
+            // Mid price (calculated from bid/ask)Somnething 
             RenderPreset {
                 render_type: RenderType::Line,
-                data_columns: vec![
+                data_columns: vec![("COMPUTED".to_string(), "Mid".to_string())],
+                additional_data_columns: Some(vec![
                     ("MD".to_string(), "best_ask".to_string()),
                     ("MD".to_string(), "best_bid".to_string()),
-                ],
-                additional_data_columns: None,
-                visible: false, // Now visible by default
+                ]),
+                visible: true, // Now visible by default
                 label: "Mid".to_string(),
                 style: RenderStyle {
                     color: Some([0.7, 0.7, 1.0, 1.0]), // Light blue
@@ -103,9 +103,9 @@ mod tests {
         assert_eq!(preset.chart_types[3].label, "Mid");
 
         // Check visibility defaults
-        assert!(preset.chart_types[0].visible); // Bid visible
-        assert!(preset.chart_types[1].visible); // Ask visible
-        assert!(preset.chart_types[2].visible); // Trades visible by default
+        assert!(!preset.chart_types[0].visible); // Bid not visible
+        assert!(!preset.chart_types[1].visible); // Ask not visible
+        assert!(!preset.chart_types[2].visible); // Trades not visible by default
         assert!(preset.chart_types[3].visible); // Mid visible by default
     }
 

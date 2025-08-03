@@ -1,4 +1,4 @@
-use config_system::ChartPreset;
+use config_system::{ChartPreset, ComputeOp};
 use js_sys::{ArrayBuffer, Uint32Array};
 use nalgebra_glm as glm;
 use std::rc::Rc;
@@ -19,7 +19,7 @@ pub struct MetricSeries {
 
     // Computed metric fields
     pub is_computed: bool,
-    pub compute_type: Option<ComputeType>,
+    pub compute_type: Option<ComputeOp>,
     pub dependencies: Vec<MetricRef>,
     pub is_computed_ready: bool,
     pub compute_version: u64,
@@ -31,16 +31,6 @@ pub struct MetricRef {
     pub metric_index: usize,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum ComputeType {
-    Average, // (bid + ask) / 2
-    Sum,
-    Difference, // ask - bid (spread)
-    MovingAverage { period: u32 },
-    RSI { period: u32 },
-    BollingerBands { period: u32, std_dev: f32 },
-    Custom { shader_name: String },
-}
 
 pub struct DataSeries {
     pub x_buffers: Vec<wgpu::Buffer>, // Shared time axis
@@ -158,7 +148,7 @@ impl DataStore {
         group_index: usize,
         name: String,
         color: [f32; 3],
-        compute_type: ComputeType,
+        compute_type: ComputeOp,
         dependencies: Vec<MetricRef>,
     ) {
         if let Some(data_group) = self.data_groups.get_mut(group_index) {
@@ -620,7 +610,7 @@ impl MetricSeries {
     pub fn new_computed(
         name: String,
         color: [f32; 3],
-        compute_type: ComputeType,
+        compute_type: ComputeOp,
         dependencies: Vec<MetricRef>,
     ) -> Self {
         Self {

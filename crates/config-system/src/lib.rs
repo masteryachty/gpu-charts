@@ -46,7 +46,7 @@ pub struct RenderStyle {
 }
 
 /// Compute operation for calculated fields
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ComputeOp {
     /// Average of all inputs: (a + b + ...) / n
     Average,
