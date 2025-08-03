@@ -60,7 +60,7 @@ fn market_data_preset() -> ChartPreset {
                 },
                 compute_op: None,
             },
-            // Mid price (calculated from bid/ask)Somnething 
+            // Mid price (calculated from bid/ask)Somnething
             RenderPreset {
                 render_type: RenderType::Line,
                 data_columns: vec![("COMPUTED".to_string(), "Mid".to_string())],

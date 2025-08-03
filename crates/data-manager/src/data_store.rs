@@ -31,7 +31,6 @@ pub struct MetricRef {
     pub metric_index: usize,
 }
 
-
 pub struct DataSeries {
     pub x_buffers: Vec<wgpu::Buffer>, // Shared time axis
     pub x_raw: ArrayBuffer,

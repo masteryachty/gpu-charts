@@ -322,12 +322,12 @@ impl ChartEngine {
         if let Some(preset) = &self.data_store.preset {
             let preset_clone = preset.clone();
             self.rebuild_multi_renderer_for_preset(&preset_clone);
-            
+
             // Clear GPU bounds to force recalculation
             self.data_store.gpu_min_y = None;
             self.data_store.gpu_max_y = None;
             self.data_store.min_max_buffer = None;
-            
+
             self.data_store.mark_dirty();
         }
     }

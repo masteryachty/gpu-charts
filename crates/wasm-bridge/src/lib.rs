@@ -107,7 +107,7 @@ impl Chart {
 
             // Trigger metric visibility changed - rebuild renderer
             instance.chart_engine.on_metric_visibility_changed();
-            
+
             // Trigger a render to update the chart
             let _ = instance.chart_engine.render();
         })

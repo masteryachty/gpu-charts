@@ -2,11 +2,8 @@
 //! This handles all pre-render computations like mid price, moving averages, etc.
 
 use crate::compute::MidPriceCalculator;
-use data_manager::{
-    data_store::MetricRef,
-    DataStore,
-};
 use config_system::ComputeOp;
+use data_manager::{data_store::MetricRef, DataStore};
 use std::collections::HashMap;
 use std::rc::Rc;
 use wgpu::{CommandEncoder, Device, Queue};
