@@ -22,7 +22,6 @@
       window.wasmPromise = import('/pkg/wasm_bridge.js').then(module => {
         // Initialize the WASM module
         return module.default().then(() => {
-          console.log('[WASM] Module loaded and initialized');
           return module;
         });
       }).catch(error => {

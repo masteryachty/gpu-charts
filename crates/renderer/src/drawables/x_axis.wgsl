@@ -16,20 +16,20 @@ fn vs_main(
     @location(0) pos: vec2f
 ) -> VertexPayload {
     var output: VertexPayload;
-    // Use no-margin conversion for vertical lines to extend full height
-    var projection = world_to_screen_conversion_no_margin(x_min_max.min_val, x_min_max.max_val, y_min_max.min_val, y_min_max.max_val, -1., 1.);
-    output.position = projection * vec4f(pos.x, pos.y, 0, 1);
-    // Don't override the y position - keep the transformed value
-    // output.position.y = pos.y;
-    output.position.z = 0.01;
-    output.position.w = 1.;
-    output.color = vec3f(1.0, 1.0, 1.0);
+    
+    // Only transform X coordinate, Y is already in clip space (-1 to 1)
+    let x_normalized = (pos.x - x_min_max.min_val) / (x_min_max.max_val - x_min_max.min_val);
+    output.position.x = x_normalized * 2.0 - 1.0;
+    output.position.y = pos.y;  // Already in clip space
+    output.position.z = 0.5;
+    output.position.w = 1.0;
+    output.color = vec3f(0.6, 0.6, 0.6); // Light gray color for grid lines
     return output;
 }
 
 @fragment
 fn fs_main(in: VertexPayload) -> @location(0) vec4<f32> {
-    return vec4<f32>(in.color, 1.0);
+    return vec4<f32>(in.color, 0.2); // Semi-transparent grid lines
 }
 
 

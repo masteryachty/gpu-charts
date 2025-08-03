@@ -57,20 +57,16 @@ export default function ChartControls({
   // Set up chart subscription for change tracking
   const chartSubscription = useChartSubscription({
     onSymbolChange: (newSymbol, oldSymbol) => {
-      console.log('[ChartControls] Symbol changed:', { from: oldSymbol, to: newSymbol });
 
     },
 
     onTimeRangeChange: (newRange, oldRange) => {
-      console.log('[ChartControls] Time range changed:', { from: oldRange, to: newRange });
     },
 
     onPresetChange(newPreset, oldPreset) {
-      console.log('[ChartControls] Preset changed:', { from: oldPreset, to: newPreset });
     },
 
     onAnyChange: (_newState, _oldState) => {
-      console.log('[ChartControls] Store state changed');
       setActiveSubscriptions(prev => prev + 1);
     }
   });

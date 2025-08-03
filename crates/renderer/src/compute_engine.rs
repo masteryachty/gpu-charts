@@ -36,20 +36,14 @@ impl ComputeEngine {
     /// Run all necessary compute passes before rendering
     /// This should be called BEFORE min/max calculation
     pub fn run_compute_passes(&mut self, encoder: &mut CommandEncoder, data_store: &mut DataStore) {
-        log::debug!("[ComputeEngine] Starting compute passes...");
 
         // Get all metrics that need computation
         let metrics_to_compute = data_store.get_metrics_needing_computation();
 
         if metrics_to_compute.is_empty() {
-            log::debug!("[ComputeEngine] No metrics need computation");
             return;
         }
 
-        log::debug!(
-            "[ComputeEngine] Found {} metrics needing computation",
-            metrics_to_compute.len()
-        );
 
         // Sort metrics by dependency order (simple topological sort)
         let sorted_metrics = self.sort_by_dependencies(&metrics_to_compute, data_store);
@@ -59,7 +53,6 @@ impl ComputeEngine {
             self.compute_metric(encoder, data_store, &metric_ref);
         }
 
-        log::debug!("[ComputeEngine] Compute passes complete");
     }
 
     /// Sort metrics by their dependencies to ensure correct computation order
@@ -120,10 +113,6 @@ impl ComputeEngine {
         if let Some(&version) = self.computed_metrics.get(metric_ref) {
             if let Some(metric) = data_store.get_metric(metric_ref) {
                 if metric.compute_version == version {
-                    log::debug!(
-                        "[ComputeEngine] Metric already computed this frame: {}",
-                        metric.name
-                    );
                     return;
                 }
             }
@@ -159,7 +148,6 @@ impl ComputeEngine {
             }
         };
 
-        log::debug!("[ComputeEngine] Computing metric: {name}");
 
         // Perform computation based on type
         match compute_type {
@@ -236,7 +224,6 @@ impl ComputeEngine {
             return;
         }
 
-        log::debug!("[ComputeEngine] Computing mid price for {element_count} elements");
 
         // Compute mid price
         match calculator.calculate(dep_buffers[0], dep_buffers[1], element_count, encoder) {
@@ -253,7 +240,6 @@ impl ComputeEngine {
                     self.computed_metrics
                         .insert(*metric_ref, metric.compute_version);
 
-                    log::debug!("[ComputeEngine] Successfully computed mid price");
                 }
             }
             Err(e) => {

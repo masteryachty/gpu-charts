@@ -81,7 +81,6 @@ impl DataManager {
             self.base_url, encoded_symbol, data_type, start_time, end_time, encoded_columns
         );
 
-        log::debug!("[data] fetch");
 
         // Fetch from server
         let (api_header, binary_buffer) =
@@ -91,7 +90,6 @@ impl DataManager {
                     message: format!("{e:?} (URL: {url})"),
                 })?;
 
-        log::debug!("[data] fetch done");
 
         // Parse the binary data into columnar format
         let mut column_buffers = HashMap::new();

@@ -43,7 +43,6 @@ impl Chart {
             }
         });
 
-        log::debug!("[BRIDGE] new");
 
         Chart {
             instance_id: Uuid::new_v4(),
@@ -52,7 +51,6 @@ impl Chart {
 
     #[wasm_bindgen]
     pub fn get_all_preset_names(&self) -> Result<js_sys::Array, JsValue> {
-        log::debug!("[BRIDGE] get_all_preset_names");
 
         let preset_manager = PresetManager::new();
         let names = js_sys::Array::new();
@@ -66,7 +64,6 @@ impl Chart {
 
     #[wasm_bindgen]
     pub fn get_metrics_for_preset(&self) -> Result<js_sys::Array, JsValue> {
-        log::debug!("[BRIDGE] get_metrics_for_preset");
         let metrics = js_sys::Array::new();
 
         // Get the preset from the instance, return empty array if not available
@@ -87,7 +84,6 @@ impl Chart {
 
     #[wasm_bindgen]
     pub fn toggle_metric_visibility(&self, metric_label: &str) -> Result<(), JsValue> {
-        log::debug!("[BRIDGE] toggle_metric_visibility");
 
         InstanceManager::with_instance_mut(&self.instance_id, |instance| {
             // Get mutable access to the data store
@@ -117,7 +113,6 @@ impl Chart {
 
     #[wasm_bindgen]
     pub fn apply_preset_and_symbol(&mut self, preset: &str, symbol: &str) -> js_sys::Promise {
-        log::debug!("[BRIDGE] apply_preset_and_symbol");
         let instance_id = self.instance_id;
         let preset_str = preset.to_string();
         let symbol_str = symbol.to_string();
@@ -224,7 +219,6 @@ impl Chart {
         start_x: u32,
         end_x: u32,
     ) -> Result<(), JsValue> {
-        log::debug!("[BRIDGE] init");
 
         // Store instance using the instance manager
         self.instance_id =
@@ -236,7 +230,6 @@ impl Chart {
 
     #[wasm_bindgen]
     pub async fn render(&self) -> Result<(), JsValue> {
-        log::debug!("[BRIDGE] render");
 
         // For web rendering, we typically want to render asynchronously
         // without blocking. We'll spawn a local task to handle the render.
@@ -276,7 +269,6 @@ impl Chart {
 
             match render_result {
                 Ok(()) => {
-                    log::debug!("[BRIDGE] Render completed successfully");
                 }
                 Err(e) => {
                     log::error!("[BRIDGE] Render failed: {e:?}");
@@ -290,7 +282,6 @@ impl Chart {
 
     #[wasm_bindgen]
     pub fn needs_render(&self) -> bool {
-        log::debug!("[BRIDGE] needs_render");
 
         InstanceManager::with_instance(&self.instance_id, |instance| {
             instance.chart_engine.needs_render()
@@ -300,7 +291,6 @@ impl Chart {
 
     #[wasm_bindgen]
     pub fn resize(&self, _width: u32, _height: u32) -> Result<(), JsValue> {
-        log::debug!("[BRIDGE] resize");
 
         // InstanceManager::with_instance_mut(&self.instance_id, |instance| {
         //     instance.chart_engine.resized(width, height);
@@ -312,7 +302,6 @@ impl Chart {
 
     #[wasm_bindgen]
     pub fn handle_mouse_wheel(&self, delta_y: f64, x: f64, _y: f64) -> Result<(), JsValue> {
-        log::debug!("[BRIDGE] handle_mouse_wheel");
 
         InstanceManager::with_instance_mut(&self.instance_id, |instance| {
             let window_event = WindowEvent::MouseWheel {
