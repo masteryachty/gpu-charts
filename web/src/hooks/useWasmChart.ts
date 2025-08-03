@@ -133,11 +133,11 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
               return;
             }
 
-            // if (chartRef.current.needs_render()) {
-            //   chartRef.current.render().catch((err) => {
-            //     console.error('[useWasmChart] Render error:', err);
-            //   });
-            // }
+            if (chartRef.current.needs_render()) {
+              chartRef.current.render().catch((err) => {
+                console.error('[useWasmChart] Render error:', err);
+              });
+            }
 
             animationFrameRef.current = requestAnimationFrame(checkRenderLoop);
           };

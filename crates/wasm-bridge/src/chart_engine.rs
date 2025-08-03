@@ -573,24 +573,43 @@ impl ChartEngine {
                 let end_x = self.data_store.end_x;
                 let range = end_x - start_x;
 
+                // Get mouse position from canvas controller
+                let mouse_x = self.canvas_controller.position.x;
+                let screen_width = self.data_store.screen_size.width as f64;
+
+                log::debug!("[ChartEngine] Mouse wheel event: delta_y = {}, mouse_x = {}", position.y, mouse_x);
+
+                // Calculate the mouse position as a ratio (0.0 to 1.0) across the screen
+                let mouse_ratio = mouse_x / screen_width;
+                
+                // Calculate the timestamp under the mouse cursor
+                let mouse_timestamp = start_x + (range as f64 * mouse_ratio) as u32;
+
                 // Zoom factor based on scroll amount
                 let zoom_factor = 0.1; // 10% zoom per scroll
-                let zoom_amount = (range as f32 * zoom_factor) as u32;
 
                 let (new_start, new_end) = if position.y < 0. {
                     // Scrolling up = zoom in (shrink range)
-                    let new_start = start_x + zoom_amount;
-                    let new_end = end_x - zoom_amount;
+                    let new_range = (range as f32 * (1.0 - zoom_factor)) as u32;
+                    
+                    // Calculate new start/end to keep mouse_timestamp at the same screen position
+                    let new_start = mouse_timestamp.saturating_sub((new_range as f64 * mouse_ratio) as u32);
+                    let new_end = new_start + new_range;
+                    
                     // Ensure we don't zoom in too much (minimum range of 10 units)
-                    if new_end > new_start + 10 {
+                    if new_range > 10 {
                         (new_start, new_end)
                     } else {
                         (start_x, end_x) // Keep current range if too zoomed in
                     }
                 } else if position.y > 0. {
                     // Scrolling down = zoom out (expand range)
-                    let new_start = start_x.saturating_sub(zoom_amount);
-                    let new_end = end_x + zoom_amount;
+                    let new_range = (range as f32 * (1.0 + zoom_factor)) as u32;
+                    
+                    // Calculate new start/end to keep mouse_timestamp at the same screen position
+                    let new_start = mouse_timestamp.saturating_sub((new_range as f64 * mouse_ratio) as u32);
+                    let new_end = new_start + new_range;
+                    
                     (new_start, new_end)
                 } else {
                     (start_x, end_x) // No change
@@ -598,6 +617,8 @@ impl ChartEngine {
 
                 // Only update if range actually changed
                 if new_start != start_x || new_end != end_x {
+                    log::debug!("[ChartEngine] Zoom: old range [{}, {}], new range [{}, {}], mouse_timestamp = {}", 
+                        start_x, end_x, new_start, new_end, mouse_timestamp);
                     self.data_store.set_x_range(new_start, new_end);
                     self.data_store.mark_dirty();
                 }

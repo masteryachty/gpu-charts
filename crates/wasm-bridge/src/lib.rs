@@ -311,12 +311,19 @@ impl Chart {
     }
 
     #[wasm_bindgen]
-    pub fn handle_mouse_wheel(&self, delta_y: f64, x: f64, _y: f64) -> Result<(), JsValue> {
+    pub fn handle_mouse_wheel(&self, delta_y: f64, x: f64, y: f64) -> Result<(), JsValue> {
         log::debug!("[BRIDGE] handle_mouse_wheel");
 
         InstanceManager::with_instance_mut(&self.instance_id, |instance| {
+            // First update the mouse position
+            let cursor_event = WindowEvent::CursorMoved {
+                position: PhysicalPosition::new(x, y),
+            };
+            instance.chart_engine.handle_cursor_event(cursor_event);
+
+            // Then send the wheel event
             let window_event = WindowEvent::MouseWheel {
-                delta: MouseScrollDelta::PixelDelta(PhysicalPosition::new(x, delta_y)),
+                delta: MouseScrollDelta::PixelDelta(PhysicalPosition::new(0.0, delta_y)),
                 phase: TouchPhase::Moved,
             };
 
@@ -325,17 +332,10 @@ impl Chart {
             // After zoom, ensure bounds are recalculated
             let data_store = instance.chart_engine.data_store_mut();
 
-            let _is_dirty = data_store.is_dirty();
-            let _gpu_min_y = data_store.gpu_min_y;
-            let _gpu_max_y = data_store.gpu_max_y;
-
             if data_store.is_dirty() {
                 // Force recalculation of Y bounds by clearing them
                 data_store.gpu_min_y = None;
                 data_store.gpu_max_y = None;
-
-                // Trigger view changed in render loop
-                // instance.chart_engine.on_view_changed();
             }
         })
         .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
