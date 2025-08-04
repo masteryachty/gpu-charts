@@ -105,12 +105,13 @@ impl DataStore {
 
     pub fn add_data_group(&mut self, x_series: (ArrayBuffer, Vec<Buffer>), set_as_active: bool) {
         let f: Uint32Array = Uint32Array::new(&x_series.0);
+        let length = f.length();
 
         self.data_groups.push(DataSeries {
             x_buffers: x_series.1,
             x_raw: x_series.0,
             metrics: Vec::new(),
-            length: f.length(),
+            length,
         });
 
         if set_as_active {
@@ -132,10 +133,21 @@ impl DataStore {
         color: [f32; 3],
         name: String,
     ) {
+        self.add_metric_to_group_with_visibility(group_index, y_series, color, name, true);
+    }
+
+    pub fn add_metric_to_group_with_visibility(
+        &mut self,
+        group_index: usize,
+        y_series: (ArrayBuffer, Vec<Buffer>),
+        color: [f32; 3],
+        name: String,
+        visible: bool,
+    ) {
         if let Some(data_group) = self.data_groups.get_mut(group_index) {
-            data_group
-                .metrics
-                .push(MetricSeries::new(y_series.1, y_series.0, color, name));
+            let mut metric = MetricSeries::new(y_series.1, y_series.0, color, name);
+            metric.visible = visible;
+            data_group.metrics.push(metric);
         }
 
         self.mark_dirty();
@@ -150,13 +162,30 @@ impl DataStore {
         compute_type: ComputeOp,
         dependencies: Vec<MetricRef>,
     ) {
+        self.add_computed_metric_to_group_with_visibility(
+            group_index,
+            name,
+            color,
+            compute_type,
+            dependencies,
+            true,
+        );
+    }
+
+    /// Add a computed metric to a data group with visibility
+    pub fn add_computed_metric_to_group_with_visibility(
+        &mut self,
+        group_index: usize,
+        name: String,
+        color: [f32; 3],
+        compute_type: ComputeOp,
+        dependencies: Vec<MetricRef>,
+        visible: bool,
+    ) {
         if let Some(data_group) = self.data_groups.get_mut(group_index) {
-            data_group.metrics.push(MetricSeries::new_computed(
-                name,
-                color,
-                compute_type,
-                dependencies,
-            ));
+            let mut metric = MetricSeries::new_computed(name, color, compute_type, dependencies);
+            metric.visible = visible;
+            data_group.metrics.push(metric);
         }
 
         self.mark_dirty();
@@ -174,11 +203,13 @@ impl DataStore {
     }
 
     pub fn get_data_len(&self) -> u32 {
-        self.get_active_data_groups()
+        let active_groups = self.get_active_data_groups();
+        let result = active_groups
             .iter()
             .map(|group| group.length)
             .max()
-            .unwrap_or(0)
+            .unwrap_or(0);
+        result
     }
 
     pub fn get_all_visible_metrics(&self) -> Vec<(&DataSeries, &MetricSeries)> {
@@ -536,12 +567,26 @@ impl DataStore {
         preset: Option<&ChartPreset>,
         symbol_name: Option<String>,
     ) {
+        // Check if preset is changing
+        let preset_changed = match (&self.preset, preset) {
+            (Some(current), Some(new)) => current.name != new.name,
+            (None, Some(_)) | (Some(_), None) => true,
+            (None, None) => false,
+        };
+
         if let Some(p) = preset {
             self.preset = Some(p.clone());
         } else {
             self.preset = None;
         }
         self.symbol = symbol_name.clone();
+
+        // Clear all data if preset changed to avoid mixing data from different presets
+        if preset_changed {
+            self.data_groups.clear();
+            self.active_data_group_indices.clear();
+            self.clear_gpu_bounds();
+        }
     }
 }
 

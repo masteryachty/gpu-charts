@@ -44,6 +44,72 @@ struct CacheKey {
 }
 
 impl CandlestickRenderer {
+    /// Calculate the optimal candle timeframe based on the visible time range
+    /// Aims to show the most candles while keeping the count under 100
+    fn calculate_optimal_timeframe(&self, data_store: &DataStore) -> u32 {
+        // Define available timeframes (in seconds)
+        const TIMEFRAMES: &[u32] = &[
+            1,       // 1 second
+            5,       // 5 seconds
+            10,      // 10 seconds
+            30,      // 30 seconds
+            60,      // 1 minute
+            300,     // 5 minutes
+            900,     // 15 minutes
+            1800,    // 30 minutes
+            3600,    // 1 hour
+            14400,   // 4 hours
+            86400,   // 1 day
+            604800,  // 1 week
+            2592000, // 30 days (1 month)
+        ];
+
+        let time_range = data_store.end_x - data_store.start_x;
+        let target_candles = 300;
+
+        // Find the smallest timeframe that keeps candle count under target
+        let mut selected_timeframe = TIMEFRAMES[0];
+
+        for &timeframe in TIMEFRAMES.iter() {
+            let candle_count = time_range / timeframe;
+
+            if candle_count <= target_candles {
+                selected_timeframe = timeframe;
+                break;
+            }
+        }
+
+        // If even the largest timeframe produces too many candles,
+        // use a custom timeframe that produces exactly the target count
+        if time_range / TIMEFRAMES.last().unwrap() > target_candles {
+            selected_timeframe = time_range / target_candles;
+        }
+
+        selected_timeframe
+    }
+
+    /// Get a human-readable description of the timeframe
+    pub fn get_timeframe_description(&self) -> String {
+        match self.candle_timeframe {
+            1 => "1s".to_string(),
+            5 => "5s".to_string(),
+            10 => "10s".to_string(),
+            30 => "30s".to_string(),
+            60 => "1m".to_string(),
+            300 => "5m".to_string(),
+            900 => "15m".to_string(),
+            1800 => "30m".to_string(),
+            3600 => "1h".to_string(),
+            14400 => "4h".to_string(),
+            86400 => "1d".to_string(),
+            604800 => "1w".to_string(),
+            2592000 => "1M".to_string(),
+            n if n < 60 => format!("{n}s"),
+            n if n < 3600 => format!("{}m", n / 60),
+            n if n < 86400 => format!("{}h", n / 3600),
+            n => format!("{}d", n / 86400),
+        }
+    }
     pub fn render(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
@@ -58,8 +124,8 @@ impl CandlestickRenderer {
             return;
         }
 
-        // Update timeframe from DataStore
-        self.candle_timeframe = 60;
+        // Automatically select optimal candle timeframe based on time range
+        self.candle_timeframe = self.calculate_optimal_timeframe(data_store);
 
         // Calculate cache key for current state
         let data_hash = self.calculate_data_hash(data_store);
@@ -326,14 +392,35 @@ impl CandlestickRenderer {
             return;
         }
 
-        // Use the first data group and first metric (price data)
-        let data_series = &active_groups[0];
-        if data_series.metrics.is_empty() {
-            return;
+        // For candlestick, we look for price data to aggregate into OHLC
+        let mut price_data = None;
+
+        for (group_idx, group) in active_groups.iter().enumerate() {
+            for (metric_idx, metric) in group.metrics.iter().enumerate() {
+                if metric.name == "price" {
+                    price_data = Some((group_idx, metric_idx));
+                    break;
+                }
+            }
+            if price_data.is_some() {
+                break;
+            }
         }
 
+        let (group_idx, price_idx) = match price_data {
+            Some(data) => data,
+            None => {
+                log::warn!("CandlestickRenderer: Could not find price data for OHLC aggregation");
+                return;
+            }
+        };
+
+        let data_series = &active_groups[group_idx];
+        let price_metric = &data_series.metrics[price_idx];
+
         // Check if we have GPU buffers
-        if data_series.x_buffers.is_empty() || data_series.metrics[0].y_buffers.is_empty() {
+        if data_series.x_buffers.is_empty() || price_metric.y_buffers.is_empty() {
+            log::warn!("CandlestickRenderer: No GPU buffers available");
             return;
         }
 
@@ -343,21 +430,21 @@ impl CandlestickRenderer {
         let tick_count = data_series.length;
 
         // Validate array lengths match before aggregation
-        if data_series.x_buffers.len() != data_series.metrics[0].y_buffers.len() {
+        if data_series.x_buffers.len() != price_metric.y_buffers.len() {
             log::error!(
                 "CandlestickRenderer: X and Y buffer array lengths don't match: {} vs {}",
                 data_series.x_buffers.len(),
-                data_series.metrics[0].y_buffers.len()
+                price_metric.y_buffers.len()
             );
             return;
         }
 
         // For now, handle single chunk case (most common)
         // TODO: Implement multi-chunk support for very large datasets
-        if data_series.x_buffers.len() == 1 && data_series.metrics[0].y_buffers.len() == 1 {
+        if data_series.x_buffers.len() == 1 && price_metric.y_buffers.len() == 1 {
             // Validate buffer sizes are consistent
             let x_buffer_size = data_series.x_buffers[0].size();
-            let y_buffer_size = data_series.metrics[0].y_buffers[0].size();
+            let y_buffer_size = price_metric.y_buffers[0].size();
             let expected_x_elements = x_buffer_size / 4; // u32 = 4 bytes
             let expected_y_elements = y_buffer_size / 4; // f32 = 4 bytes
 
@@ -381,7 +468,7 @@ impl CandlestickRenderer {
                         queue,
                         encoder,
                         &data_series.x_buffers[0],
-                        &data_series.metrics[0].y_buffers[0],
+                        &price_metric.y_buffers[0],
                         tick_count,
                         first_candle_start,
                         self.candle_timeframe,
@@ -397,7 +484,7 @@ impl CandlestickRenderer {
             for (i, buffer) in data_series.x_buffers.iter().enumerate() {
                 // Calculate chunk size from buffer size
                 let x_buffer_size = buffer.size();
-                let y_buffer_size = data_series.metrics[0].y_buffers[i].size();
+                let y_buffer_size = price_metric.y_buffers[i].size();
                 let x_chunk_size = (x_buffer_size / 4) as u32; // u32 = 4 bytes
                 let y_chunk_size = (y_buffer_size / 4) as u32; // f32 = 4 bytes
 
@@ -423,7 +510,7 @@ impl CandlestickRenderer {
                         queue,
                         encoder,
                         &data_series.x_buffers,
-                        &data_series.metrics[0].y_buffers,
+                        &price_metric.y_buffers,
                         &chunk_sizes,
                         tick_count,
                         first_candle_start,
