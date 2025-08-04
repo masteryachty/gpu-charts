@@ -135,7 +135,7 @@ impl DataStore {
     ) {
         self.add_metric_to_group_with_visibility(group_index, y_series, color, name, true);
     }
-    
+
     pub fn add_metric_to_group_with_visibility(
         &mut self,
         group_index: usize,
@@ -171,7 +171,7 @@ impl DataStore {
             true,
         );
     }
-    
+
     /// Add a computed metric to a data group with visibility
     pub fn add_computed_metric_to_group_with_visibility(
         &mut self,
@@ -183,12 +183,7 @@ impl DataStore {
         visible: bool,
     ) {
         if let Some(data_group) = self.data_groups.get_mut(group_index) {
-            let mut metric = MetricSeries::new_computed(
-                name,
-                color,
-                compute_type,
-                dependencies,
-            );
+            let mut metric = MetricSeries::new_computed(name, color, compute_type, dependencies);
             metric.visible = visible;
             data_group.metrics.push(metric);
         }
@@ -578,14 +573,14 @@ impl DataStore {
             (None, Some(_)) | (Some(_), None) => true,
             (None, None) => false,
         };
-        
+
         if let Some(p) = preset {
             self.preset = Some(p.clone());
         } else {
             self.preset = None;
         }
         self.symbol = symbol_name.clone();
-        
+
         // Clear all data if preset changed to avoid mixing data from different presets
         if preset_changed {
             self.data_groups.clear();

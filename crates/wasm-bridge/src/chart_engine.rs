@@ -287,10 +287,10 @@ impl ChartEngine {
 
                 // Rebuild multi-renderer based on preset configuration
                 self.rebuild_multi_renderer_for_preset(&preset);
-                
+
                 // Clear GPU bounds to force recalculation when switching presets
                 self.data_store.clear_gpu_bounds();
-                
+
                 // Also clear any pending readback operations
                 self.pending_readback = None;
             } else {
@@ -315,7 +315,7 @@ impl ChartEngine {
 
             // Clear GPU bounds to force recalculation
             self.data_store.clear_gpu_bounds();
-            
+
             // Also clear any pending readback operations
             self.pending_readback = None;
         }

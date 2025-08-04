@@ -259,30 +259,25 @@ impl DataManager {
                 // Get color and visibility from preset if available
                 let (color, visible) = if let Some(preset) = &data_store.preset {
                     // Find the chart type for this metric in the preset
-                    let chart_type_info = preset
-                        .chart_types
-                        .iter()
-                        .find(|chart_type| {
-                            chart_type
-                                .data_columns
-                                .iter()
-                                .any(|(_, col)| col == column_name)
-                                || chart_type
-                                    .additional_data_columns
-                                    .as_ref()
-                                    .map(|cols| cols.iter().any(|(_, col)| col == column_name))
-                                    .unwrap_or(false)
-                        });
-                    
+                    let chart_type_info = preset.chart_types.iter().find(|chart_type| {
+                        chart_type
+                            .data_columns
+                            .iter()
+                            .any(|(_, col)| col == column_name)
+                            || chart_type
+                                .additional_data_columns
+                                .as_ref()
+                                .map(|cols| cols.iter().any(|(_, col)| col == column_name))
+                                .unwrap_or(false)
+                    });
+
                     let color = chart_type_info
                         .and_then(|ct| ct.style.color)
                         .map(|c| [c[0], c[1], c[2]])
                         .unwrap_or([0.0, 0.5, 1.0]);
-                    
-                    let visible = chart_type_info
-                        .map(|ct| ct.visible)
-                        .unwrap_or(true);
-                    
+
+                    let visible = chart_type_info.map(|ct| ct.visible).unwrap_or(true);
+
                     (color, visible)
                 } else {
                     ([0.0, 0.5, 1.0], true) // Default blue and visible
