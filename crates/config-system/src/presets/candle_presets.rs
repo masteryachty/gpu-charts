@@ -13,15 +13,11 @@ pub fn create_candle_presets() -> ChartPreset {
 fn candlestick_preset() -> ChartPreset {
     ChartPreset {
         name: "Candlestick".to_string(),
-        description: "Standard OHLC candlestick chart".to_string(),
+        description: "OHLC candlestick chart aggregated from trades".to_string(),
         chart_types: vec![RenderPreset {
             render_type: RenderType::Candlestick,
-            data_columns: vec![
-                ("ohlc".to_string(), "open".to_string()),
-                ("ohlc".to_string(), "high".to_string()),
-                ("ohlc".to_string(), "low".to_string()),
-                ("ohlc".to_string(), "close".to_string()),
-            ],
+            // The candlestick renderer will aggregate trades data into OHLC
+            data_columns: vec![("TRADES".to_string(), "price".to_string())],
             additional_data_columns: None,
             visible: true,
             label: "OHLC".to_string(),
@@ -30,7 +26,7 @@ fn candlestick_preset() -> ChartPreset {
                 color_options: None,
                 size: 0.8, // Body width relative to time interval
             },
-            compute_op: None,
+            compute_op: None, // OHLC aggregation is done by the renderer itself
         }],
     }
 }
@@ -50,6 +46,6 @@ mod tests {
         let preset = candlestick_preset();
         assert_eq!(preset.chart_types.len(), 1);
         assert_eq!(preset.chart_types[0].render_type, RenderType::Candlestick);
-        assert_eq!(preset.chart_types[0].data_columns.len(), 4); // OHLC
+        assert_eq!(preset.chart_types[0].data_columns.len(), 1); // price from TRADES
     }
 }

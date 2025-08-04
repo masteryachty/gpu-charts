@@ -287,6 +287,12 @@ impl ChartEngine {
 
                 // Rebuild multi-renderer based on preset configuration
                 self.rebuild_multi_renderer_for_preset(&preset);
+                
+                // Clear GPU bounds to force recalculation when switching presets
+                self.data_store.clear_gpu_bounds();
+                
+                // Also clear any pending readback operations
+                self.pending_readback = None;
             } else {
                 self.data_store
                     .set_preset_and_symbol(None, symbol_name.clone());
@@ -308,11 +314,10 @@ impl ChartEngine {
             self.rebuild_multi_renderer_for_preset(&preset_clone);
 
             // Clear GPU bounds to force recalculation
-            self.data_store.gpu_min_y = None;
-            self.data_store.gpu_max_y = None;
-            self.data_store.min_max_buffer = None;
-
-            self.data_store.mark_dirty();
+            self.data_store.clear_gpu_bounds();
+            
+            // Also clear any pending readback operations
+            self.pending_readback = None;
         }
     }
 
@@ -340,12 +345,6 @@ impl ChartEngine {
 
             match chart_type.render_type {
                 config_system::RenderType::Line => {
-                    log::debug!(
-                        "[ChartEngine] Creating renderer for metric '{}' with columns: {:?}",
-                        chart_type.label,
-                        chart_type.data_columns
-                    );
-
                     // Create a configurable plot renderer with specific data columns
                     let plot_renderer = renderer::ConfigurablePlotRenderer::new(
                         self.render_context.device.clone(),
@@ -492,7 +491,6 @@ impl ChartEngine {
     pub fn create_multi_line_renderer(&self) -> MultiRenderer {
         let width = self.data_store.screen_size.width;
         let height = self.data_store.screen_size.height;
-        log::debug!("A");
         // In a real implementation, you'd create multiple PlotRenderers
         // with different data sources/colors
         self.create_multi_renderer()
@@ -553,7 +551,7 @@ impl ChartEngine {
                 // Zoom factor based on scroll amount
                 let zoom_factor = 0.001; // Reduced zoom factor for smoother zooming
                 let zoom_amount = position.y.abs() * zoom_factor;
-                
+
                 // Calculate zoom centered on mouse position
                 // position.x contains the mouse x coordinate relative to canvas
                 let mouse_x_ratio = if self.data_store.screen_size.width > 0 {
@@ -567,10 +565,10 @@ impl ChartEngine {
                     let zoom_pixels = (range as f64 * zoom_amount) as u32;
                     let left_zoom = (zoom_pixels as f64 * mouse_x_ratio) as u32;
                     let right_zoom = zoom_pixels - left_zoom;
-                    
+
                     let new_start = start_x + left_zoom;
                     let new_end = end_x - right_zoom;
-                    
+
                     // Ensure we don't zoom in too much (minimum range of 10 units)
                     if new_end > new_start + 10 {
                         (new_start, new_end)
@@ -582,7 +580,7 @@ impl ChartEngine {
                     let zoom_pixels = (range as f64 * zoom_amount) as u32;
                     let left_zoom = (zoom_pixels as f64 * mouse_x_ratio) as u32;
                     let right_zoom = zoom_pixels - left_zoom;
-                    
+
                     let new_start = start_x.saturating_sub(left_zoom);
                     let new_end = end_x + right_zoom;
                     (new_start, new_end)
@@ -639,13 +637,10 @@ impl Drop for ChartEngine {
         // Clean up any pending GPU operations
         if self.pending_readback.is_some() {
             self.pending_readback = None;
-            log::debug!("Cleaned up pending GPU readback");
         }
 
         // Ensure all GPU work is completed before dropping
         self.render_context.device.poll(wgpu::Maintain::Wait);
-
-        log::debug!("ChartEngine instance {} dropped", self.instance_id);
     }
 }
 

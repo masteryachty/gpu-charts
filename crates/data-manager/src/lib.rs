@@ -205,7 +205,9 @@ impl DataManager {
                 Ok(data_handle) => {
                     let _ = self.process_data_handle(&data_handle, data_store);
                 }
-                Err(_e) => {}
+                Err(e) => {
+                    log::error!("Failed to fetch {data_type} data: {e:?}");
+                }
             }
         }
 
@@ -254,10 +256,10 @@ impl DataManager {
                 gpu_buffer_set.raw_buffers.get(column_name),
                 gpu_buffer_set.buffers.get(column_name),
             ) {
-                // Get color from preset if available
-                let color = if let Some(preset) = &data_store.preset {
-                    // Find the color for this metric in the preset
-                    preset
+                // Get color and visibility from preset if available
+                let (color, visible) = if let Some(preset) = &data_store.preset {
+                    // Find the chart type for this metric in the preset
+                    let chart_type_info = preset
                         .chart_types
                         .iter()
                         .find(|chart_type| {
@@ -270,19 +272,28 @@ impl DataManager {
                                     .as_ref()
                                     .map(|cols| cols.iter().any(|(_, col)| col == column_name))
                                     .unwrap_or(false)
-                        })
-                        .and_then(|chart_type| chart_type.style.color)
+                        });
+                    
+                    let color = chart_type_info
+                        .and_then(|ct| ct.style.color)
                         .map(|c| [c[0], c[1], c[2]])
-                        .unwrap_or([0.0, 0.5, 1.0])
+                        .unwrap_or([0.0, 0.5, 1.0]);
+                    
+                    let visible = chart_type_info
+                        .map(|ct| ct.visible)
+                        .unwrap_or(true);
+                    
+                    (color, visible)
                 } else {
-                    [0.0, 0.5, 1.0] // Default blue
+                    ([0.0, 0.5, 1.0], true) // Default blue and visible
                 };
 
-                data_store.add_metric_to_group(
+                data_store.add_metric_to_group_with_visibility(
                     data_group_index,
                     (raw_buffer.clone(), gpu_buffers.clone()),
                     color,
                     column_name.clone(),
+                    visible,
                 );
             }
         }
@@ -322,44 +333,24 @@ impl DataManager {
 
                     // If we have all dependencies, create the computed metric
                     if dependencies.len() == dependency_columns.len() && !dependencies.is_empty() {
-                        log::debug!(
-                            "[DataManager] Creating computed metric '{}' with {} dependencies",
-                            chart_type.label,
-                            dependencies.len()
-                        );
-
                         // Add the computed metric to the first data group (or create one if needed)
                         let group_index = if data_store.data_groups.is_empty() {
                             // This shouldn't happen, but handle it gracefully
-                            log::warn!(
-                                "[DataManager] No data groups available for computed metric"
-                            );
+                            log::warn!("No data groups available for computed metric");
                             return;
                         } else {
                             0 // Use the first data group
                         };
 
-                        // Get color from chart type
+                        // Get color and visibility from chart type
                         let color = chart_type.style.color.unwrap_or([0.5, 0.5, 0.5, 1.0]);
-                        data_store.add_computed_metric_to_group(
+                        data_store.add_computed_metric_to_group_with_visibility(
                             group_index,
                             chart_type.label.clone(),
                             [color[0], color[1], color[2]],
                             compute_op.clone(),
                             dependencies,
-                        );
-
-                        log::debug!(
-                            "[DataManager] Added computed metric '{}' to group {}",
-                            chart_type.label,
-                            group_index
-                        );
-                    } else {
-                        log::debug!(
-                            "[DataManager] Could not create computed metric '{}': found {} of {} dependencies",
-                            chart_type.label,
-                            dependencies.len(),
-                            chart_type.data_columns.len()
+                            chart_type.visible,
                         );
                     }
                 }
