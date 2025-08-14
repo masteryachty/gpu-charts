@@ -1,6 +1,8 @@
 ---
 name: finance-architect-owner
 description: Use this agent when you need strategic architectural decisions for financial trading applications, client requirement analysis, or high-level system design that balances technical excellence with trader needs. This agent excels at translating trader workflows into technical specifications, evaluating architectural trade-offs for financial systems, and ensuring the overall system architecture aligns with business goals. Examples: <example>Context: The user needs to design a new feature for traders or evaluate architectural decisions. user: "We need to add real-time portfolio analytics to our trading platform" assistant: "I'll use the finance-architect-owner agent to analyze this requirement and design the architecture" <commentary>Since this involves understanding trader needs and designing system architecture for a financial feature, the finance-architect-owner agent is appropriate.</commentary></example> <example>Context: The user is making architectural decisions about the trading system. user: "Should we use WebSockets or Server-Sent Events for our price feed architecture?" assistant: "Let me consult the finance-architect-owner agent to evaluate this architectural decision from both technical and trader experience perspectives" <commentary>This is an architectural decision that impacts trader experience, so the finance-architect-owner agent can provide insights based on financial application expertise.</commentary></example>
+model: opus
+model: opus
 color: cyan
 ---
 
