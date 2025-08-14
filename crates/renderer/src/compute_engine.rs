@@ -1,7 +1,7 @@
 //! Compute engine for managing GPU compute operations on metrics
 //! This handles all pre-render computations like mid price, moving averages, etc.
 
-use crate::compute::MidPriceCalculator;
+use crate::compute::{MidPriceCalculator, RsiCalculator};
 use config_system::ComputeOp;
 use data_manager::{data_store::MetricRef, DataStore};
 use std::collections::HashMap;
@@ -15,6 +15,7 @@ pub struct ComputeEngine {
 
     // Compute calculators
     mid_price_calculator: Option<MidPriceCalculator>,
+    rsi_calculator: Option<RsiCalculator>,
 
     // Track which metrics have been computed this frame
     computed_metrics: HashMap<MetricRef, u64>, // metric_ref -> compute_version
@@ -24,11 +25,13 @@ impl ComputeEngine {
     /// Create a new compute engine
     pub fn new(device: Rc<Device>, queue: Rc<Queue>) -> Self {
         let mid_price_calculator = MidPriceCalculator::new(device.clone(), queue.clone()).ok();
+        let rsi_calculator = RsiCalculator::new(device.clone(), queue.clone()).ok();
 
         Self {
             _device: device,
             _queue: queue,
             mid_price_calculator,
+            rsi_calculator,
             computed_metrics: HashMap::new(),
         }
     }
@@ -178,6 +181,9 @@ impl ComputeEngine {
                     weights.len()
                 );
             }
+            ComputeOp::Rsi { period } => {
+                self.compute_rsi(encoder, data_store, metric_ref, &dependencies, period);
+            }
         }
     }
 
@@ -238,6 +244,77 @@ impl ComputeEngine {
             }
             Err(e) => {
                 log::error!("[ComputeEngine] Failed to compute mid price: {e}");
+            }
+        }
+    }
+
+    /// Compute RSI from price data
+    fn compute_rsi(
+        &mut self,
+        encoder: &mut CommandEncoder,
+        data_store: &mut DataStore,
+        metric_ref: &MetricRef,
+        dependencies: &[MetricRef],
+        period: u32,
+    ) {
+        let Some(calculator) = &self.rsi_calculator else {
+            log::error!("[ComputeEngine] No RSI calculator available");
+            return;
+        };
+
+        // Get dependency buffer (price data)
+        if dependencies.len() != 1 {
+            log::error!(
+                "[ComputeEngine] Expected 1 buffer for RSI calculation, got {}",
+                dependencies.len()
+            );
+            return;
+        }
+
+        let price_buffer = match data_store.get_metric(&dependencies[0]) {
+            Some(metric) => match metric.y_buffers.first() {
+                Some(buffer) => buffer,
+                None => {
+                    log::error!("[ComputeEngine] No buffer available for RSI price dependency");
+                    return;
+                }
+            },
+            None => {
+                log::error!("[ComputeEngine] RSI price dependency not found");
+                return;
+            }
+        };
+
+        // Get element count from the data group
+        let element_count = data_store
+            .data_groups
+            .first()
+            .map(|g| g.length)
+            .unwrap_or(0);
+
+        if element_count == 0 {
+            log::error!("[ComputeEngine] No data elements for RSI computation");
+            return;
+        }
+
+        // Compute RSI (use high accuracy SMA for better results)
+        match calculator.calculate_rsi(price_buffer, period, element_count, encoder, true) {
+            Ok(result) => {
+                // Create a temporary vector to collect computed values
+                // In a real implementation, we'd schedule async readback
+                let computed_values = vec![50.0f32; element_count as usize]; // Initialize with neutral RSI
+
+                // Update the metric
+                if let Some(metric) = data_store.get_metric_mut(metric_ref) {
+                    metric.set_computed_data(result.output_buffer, computed_values);
+
+                    // Track that we computed this metric
+                    self.computed_metrics
+                        .insert(*metric_ref, metric.compute_version);
+                }
+            }
+            Err(e) => {
+                log::error!("[ComputeEngine] Failed to compute RSI: {e}");
             }
         }
     }
