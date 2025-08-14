@@ -10,8 +10,14 @@ use crate::ChartPreset;
 
 /// Get all preset groups
 pub fn get_all_presets() -> Vec<ChartPreset> {
-    vec![
+    let mut presets = vec![
         market_data_presets::create_market_data_presets(),
         candle_presets::create_candle_presets(),
-    ]
+        candle_presets::create_candlestick_with_rsi_presets(),
+    ];
+    
+    // Add RSI variants for different periods
+    presets.extend(candle_presets::create_candlestick_rsi_variants());
+    
+    presets
 }

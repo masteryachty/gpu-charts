@@ -64,6 +64,8 @@ pub enum ComputeOp {
     Max,
     /// Weighted average: (a * weight_a + b * weight_b) / (weight_a + weight_b)
     WeightedAverage { weights: Vec<f32> },
+    /// Relative Strength Index with period
+    Rsi { period: u32 },
 }
 
 /// Chart-specific preset
