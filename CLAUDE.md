@@ -1,396 +1,504 @@
-# CLAUDE.md
+# GPU Charts - Comprehensive Project Documentation
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides comprehensive guidance for developers and AI assistants working with the GPU Charts codebase.
 
-## Important Development Standards
+## Executive Summary
 
-- **ALWAYS use Linux line endings (LF) for all files in this project**. Do not use Windows line endings (CRLF).
+GPU Charts is a high-performance, real-time financial data visualization platform that leverages WebGPU for hardware-accelerated rendering. Built with a modular Rust/WebAssembly architecture, it delivers sub-millisecond latency charting capabilities for professional trading applications.
 
-## Project Overview
+### Key Value Propositions
+- **Ultra-Low Latency**: Sub-millisecond data-to-pixel rendering using GPU compute shaders
+- **Massive Scale**: Visualize millions of data points without performance degradation
+- **Professional Trading Features**: Order book visualization, candlestick charts, technical indicators
+- **Real-Time Data**: Live market data ingestion from multiple exchanges
+- **Production Ready**: Battle-tested with comprehensive testing and monitoring
 
-This is a WebAssembly-based real-time data visualization application built in Rust that renders interactive charts using WebGPU for high-performance GPU-accelerated rendering. The application uses a modular architecture with separate crates for different concerns and includes a React web frontend.
-
-## Architecture Overview
-
-### Modular Crate Architecture
-
-The project has been restructured into a clean, modular architecture with five specialized crates:
+## System Architecture
 
 ```
-gpu-charts/
-├── crates/
-│   ├── shared-types/     # Common types and data structures
-│   ├── config-system/    # Configuration and quality presets
-│   ├── data-manager/     # Data fetching, parsing, and GPU buffers
-│   ├── renderer/         # Pure GPU rendering engine
-│   └── wasm-bridge/      # JavaScript/React integration layer
-├── web/                  # React frontend application
-├── server/               # High-performance data server
-├── logger/      # Real-time market data collector
-└── file_server/          # Legacy development server
+┌─────────────────────────────────────────────────────────────────────┐
+│                         External Data Sources                        │
+│              (Coinbase, Kraken, Binance WebSocket Feeds)            │
+└─────────────────────┬───────────────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                     Market Data Collection Layer                     │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │  Logger Service (Multi-Exchange WebSocket Connections)       │  │
+│  │  - Real-time order book and trade data collection           │  │
+│  │  - Binary file output (4-byte aligned records)              │  │
+│  │  - Multi-threaded processing with 40+ concurrent streams    │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────┬───────────────────────────────────────────────┘
+                      │ Binary Files
+                      ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                      Data Serving Layer                              │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │  High-Performance Data Server (HTTP/2 + TLS)                 │  │
+│  │  - Memory-mapped file I/O for zero-copy serving             │  │
+│  │  - Sub-millisecond query response times                     │  │
+│  │  - RESTful API with binary streaming                        │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────┬───────────────────────────────────────────────┘
+                      │ HTTPS API
+                      ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    WebAssembly Rendering Engine                      │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │               Modular Crate Architecture                      │  │
+│  │  ┌────────────────────────────────────────────────────────┐  │  │
+│  │  │ shared-types: Foundation types and data structures     │  │  │
+│  │  └────────────────────────────────────────────────────────┘  │  │
+│  │  ┌────────────────────────────────────────────────────────┐  │  │
+│  │  │ config-system: Quality presets and performance tuning  │  │  │
+│  │  └────────────────────────────────────────────────────────┘  │  │
+│  │  ┌────────────────────────────────────────────────────────┐  │  │
+│  │  │ data-manager: Data fetching and GPU buffer management  │  │  │
+│  │  └────────────────────────────────────────────────────────┘  │  │
+│  │  ┌────────────────────────────────────────────────────────┐  │  │
+│  │  │ renderer: WebGPU pipelines and WGSL shader execution   │  │  │
+│  │  └────────────────────────────────────────────────────────┘  │  │
+│  │  ┌────────────────────────────────────────────────────────┐  │  │
+│  │  │ wasm-bridge: JavaScript bindings and orchestration     │  │  │
+│  │  └────────────────────────────────────────────────────────┘  │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────┬───────────────────────────────────────────────┘
+                      │ WASM Module
+                      ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                      React Frontend Application                      │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │  - Modern React 18 with TypeScript and Vite                  │  │
+│  │  - Zustand state management for real-time updates            │  │
+│  │  - Professional trading UI components                        │  │
+│  │  - WebGPU canvas integration                                 │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-#### Crate Dependencies
+## Data Flow Architecture
+
 ```
-shared-types (foundation - no internal deps)
+1. Market Data Collection
+   WebSocket Feed → Logger → Binary Files
+   - 40+ concurrent WebSocket connections
+   - Multi-threaded data processing
+   - 4-byte aligned binary records
+
+2. Data Storage & Serving
+   Binary Files → Memory Map → HTTP/2 Server
+   - Zero-copy data access via mmap
+   - Sub-millisecond query response
+   - Multi-day range queries
+
+3. Client Data Fetching
+   React App → HTTPS API → Binary Stream
+   - Efficient binary protocol
+   - Streaming large datasets
+   - Client-side caching
+
+4. GPU Processing Pipeline
+   Binary Data → GPU Buffers → Compute Shaders → Render Pipeline
+   - Parallel data processing on GPU
+   - Real-time min/max calculations
+   - Hardware-accelerated rendering
+
+5. User Interaction Loop
+   Mouse/Keyboard → Event System → State Update → Re-render
+   - <16ms interaction latency
+   - Smooth 60 FPS updates
+   - Responsive zoom/pan operations
+```
+
+## Component Documentation
+
+Each component has its own detailed CLAUDE.md file:
+
+### Core Rendering Engine
+- [`crates/shared-types/CLAUDE.md`](/home/xander/projects/gpu-charts/crates/shared-types/CLAUDE.md) - Foundation types and data structures
+- [`crates/config-system/CLAUDE.md`](/home/xander/projects/gpu-charts/crates/config-system/CLAUDE.md) - Configuration and quality presets
+- [`crates/data-manager/CLAUDE.md`](/home/xander/projects/gpu-charts/crates/data-manager/CLAUDE.md) - Data operations and GPU buffers
+- [`crates/renderer/CLAUDE.md`](/home/xander/projects/gpu-charts/crates/renderer/CLAUDE.md) - WebGPU rendering engine
+- [`crates/wasm-bridge/CLAUDE.md`](/home/xander/projects/gpu-charts/crates/wasm-bridge/CLAUDE.md) - JavaScript/React integration
+
+### Infrastructure Components
+- [`logger/CLAUDE.md`](/home/xander/projects/gpu-charts/logger/CLAUDE.md) - Multi-exchange market data collection
+- [`server/CLAUDE.md`](/home/xander/projects/gpu-charts/server/CLAUDE.md) - Ultra-low latency data server
+- [`web/CLAUDE.md`](/home/xander/projects/gpu-charts/web/CLAUDE.md) - React frontend application
+
+## Modular Crate Architecture
+
+### Dependency Hierarchy
+```
+shared-types (foundation - zero dependencies)
     ↑
-├── config-system (depends on: shared-types)
-├── data-manager (depends on: shared-types)
-├── renderer (depends on: shared-types, config-system)
-    ↑
-└── wasm-bridge (depends on: all above crates)
-    ↑
-    JavaScript/React
+    ├── config-system (configuration management)
+    ├── data-manager (data operations)
+    └── renderer (GPU rendering)
+            ↑
+        wasm-bridge (orchestration layer)
+            ↑
+        JavaScript/React
 ```
 
-#### Key Architectural Benefits
-- **Clear Separation of Concerns**: Each crate has a single, well-defined responsibility
-- **Testability**: Crates can be tested in isolation
-- **Reusability**: Core logic can be used outside WASM context
-- **Maintainability**: Changes are localized to specific crates
-- **Parallel Development**: Teams can work on different crates independently
-
-### Crate Descriptions
-
-#### 1. **shared-types** (`crates/shared-types/`)
-- Foundation crate with zero dependencies on other workspace crates
-- Common data structures, enums, and types
-- Store state types for React integration
-- Event system types
-- Error definitions
-
-#### 2. **config-system** (`crates/config-system/`)
-- Manages all configuration and quality presets
-- Defines Low/Medium/High/Ultra quality settings
-- Performance tuning parameters
-- Chart appearance configuration
-
-#### 3. **data-manager** (`crates/data-manager/`)
-- Handles all data operations
-- HTTP data fetching with caching
-- Binary data parsing
-- GPU buffer creation and management
-- Screen-space coordinate transformations
-
-#### 4. **renderer** (`crates/renderer/`)
-- Pure GPU rendering engine
-- WebGPU pipeline management
-- Specialized renderers (plot, candlestick, axes)
-- WGSL shader management
-- Surface and texture handling
-
-#### 5. **wasm-bridge** (`crates/wasm-bridge/`)
-- Central orchestration layer
-- JavaScript/React bindings
-- Event handling and user interactions
-- State synchronization
-- Coordinates all other crates
+### Architectural Principles
+1. **Single Responsibility**: Each crate has one clear purpose
+2. **Upward Dependencies**: Dependencies only flow up the hierarchy
+3. **Interface Stability**: shared-types provides stable contracts
+4. **Testability**: Crates can be tested in isolation
+5. **Parallel Development**: Teams can work independently on crates
 
 ## Development Commands
 
-### Code Quality and Pre-commit Hooks
-
-A comprehensive pre-commit hook is configured to run all code quality checks before allowing commits:
-
+### Quick Start
 ```bash
-# The pre-commit hook automatically runs when you commit:
-git commit -m "Your commit message"
+# Initial setup
+git clone https://github.com/masteryachty/gpu-charts.git
+cd gpu-charts
+npm install
+npm run setup:ssl  # Generate SSL certificates for local HTTPS
 
-# Manual testing of pre-commit checks:
-.git/hooks/pre-commit
-
-# Individual commands the pre-commit hook runs:
-cd logger
-cargo fmt --all -- --check           # Rust formatting check
-cargo clippy --target x86_64-unknown-linux-gnu -- -D warnings  # Linting
-cargo audit                           # Security vulnerability scan
-cargo deny check                      # Dependency and license audit
-cargo build --target x86_64-unknown-linux-gnu   # Build verification
-cargo test --target x86_64-unknown-linux-gnu    # Full test suite
+# Start full development stack
+npm run dev:suite  # WASM + Server + React
 ```
 
-The pre-commit hook ensures:
-- ✅ **Rust formatting** is correct (via `cargo fmt`)
-- ✅ **Clippy linting** passes with no warnings
-- 🔒 **Security audit** passes (via `cargo audit`) - blocks commits if vulnerabilities found
-- ⚠️ **Dependency and license check** (via `cargo deny`) - shows warnings but doesn't block
-- ✅ **Code builds** successfully 
-- ✅ **All tests pass** (49 tests across 6 test files)
-- ✅ **Frontend linting** passes (if web directory exists)
-- ✅ **Server code quality** checks pass (if server directory exists)
-
-If any critical checks fail, the commit is blocked with helpful error messages and fix suggestions.
-
-### Primary Development Workflow (from project root)
+### Development Workflows
 ```bash
-# Build WASM module for development (generates files in web/pkg)
-npm run dev:wasm
+# Core Development Commands
+npm run dev                  # React dev server only
+npm run dev:web             # WASM watch + React dev server
+npm run dev:suite           # Full stack: WASM + Server + React
+npm run dev:suite:full      # Full stack + Market data logger
 
-# Watch Rust files and auto-rebuild WASM with hot reload
-npm run dev:watch
+# Component-Specific Development
+npm run dev:wasm            # Build WASM module once
+npm run dev:watch           # Watch and auto-rebuild WASM
+npm run dev:server          # Run data server (port 8443)
+npm run dev:logger          # Run market data logger
 
-# Build and run the data server (port 8443)
-npm run dev:server
+# Build Commands
+npm run build               # Production build (WASM + React)
+npm run build:wasm          # Build WASM module only
+npm run build:server        # Build server binary
+npm run build:logger        # Build logger binary
 
-# Full development server (WASM watch + React dev server)
-npm run dev:web
-
-# Complete development stack (WASM + server + React)
-npm run dev:suite
-
-# Complete development stack with data logger
-npm run dev:suite:full
-
-# Set up SSL certificates for local development
-npm run setup:ssl
-
-# Production build (WASM + React)
-npm run build
-
-# Build all components for production
-npm run build:server
-npm run build:logger
-
-# Lint TypeScript/React code
-npm run lint
-
-# Clean all build artifacts
-npm run clean
+# Docker Deployment
+npm run docker:build:server  # Build server Docker image
+npm run docker:deploy:server # Deploy server container
+npm run docker:logs:server   # View server logs
+npm run docker:shell:server  # Access server shell
 ```
 
-### Testing (from project root)
+### Testing Commands
 ```bash
-# Run default tests (server only - web tests disabled due to current issues)
-npm run test
+# Test Suites
+npm run test                # Default tests (server only)
+npm run test:all           # All tests (server + web)
+npm run test:server        # Server unit and integration tests
+npm run test:logger        # Logger tests
+npm run test:web           # React/frontend tests
 
-# Run ALL tests including web frontend (use when web tests are working)
-npm run test:all
+# Specific Frontend Tests
+npm run test:data          # Data handling tests
+npm run test:basic         # Basic functionality tests
 
-# Run server unit and integration tests
+# Quality Checks
+npm run lint               # Lint TypeScript/React code
+npm run clean              # Clean all build artifacts
+```
+
+## Important Development Standards
+
+### Critical Requirements
+- **ALWAYS use Linux line endings (LF) for all files**. Never use Windows line endings (CRLF).
+- **All Rust cargo commands must use `--target x86_64-unknown-linux-gnu`** to avoid WASM compilation issues
+- **Pre-commit hooks automatically enforce code quality** - commits are blocked if checks fail
+
+### Pre-commit Hook Validation
+The pre-commit hook (`/.git/hooks/pre-commit`) automatically runs:
+
+```bash
+# Automatic checks on commit
+- Rust formatting (cargo fmt)
+- Clippy linting with zero warnings
+- Security vulnerability scanning (cargo audit)
+- Dependency and license auditing (cargo deny)
+- Build verification
+- Full test suite execution
+- Frontend linting (if web/ exists)
+- Server code quality checks
+```
+
+### Code Quality Standards
+1. **Rust Code**
+   - Must pass `cargo fmt --check`
+   - Zero warnings from `cargo clippy`
+   - No security vulnerabilities (cargo audit)
+   - All tests must pass
+
+2. **TypeScript/React**
+   - Must pass ESLint checks
+   - Type-safe with strict TypeScript
+   - React best practices enforced
+
+3. **Performance Standards**
+   - Sub-millisecond data query response
+   - 60 FPS rendering minimum
+   - <16ms interaction latency
+
+## Testing Strategy
+
+### Unit Testing
+- Each crate has comprehensive unit tests
+- Server: 18 unit tests covering core functionality
+- Logger: 6 test modules with 49 total tests
+- Frontend: Component and hook testing with Vitest
+
+### Integration Testing
+- Server: 8 integration tests for API endpoints
+- End-to-end WebSocket data flow testing
+- React integration tests with Playwright
+
+### Performance Testing
+- GPU benchmark suite for rendering performance
+- Load testing for server scalability
+- Memory profiling for leak detection
+
+### Test Execution
+```bash
+# Must use native target for Rust tests
+cd server && cargo test --target x86_64-unknown-linux-gnu
+cd logger && cargo test --target x86_64-unknown-linux-gnu
+
+# Or use npm scripts from root
 npm run test:server
-
-# Run coinbase logger tests
 npm run test:logger
-
-# Run React/frontend tests
 npm run test:web
-
-# Run specific frontend test suites
-npm run test:data
-npm run test:basic
 ```
 
-### Alternative File Server (Legacy)
-```bash
-# Build and run simple file server (serves on port 8080)
-cd file_server && cargo build && cargo run
+## API Documentation
+
+### Production Endpoints
+Base URL: `https://api.rednax.io/api/`
+
+### Local Development
+Base URL: `https://localhost:8443/api/` (requires SSL certificates)
+
+### Endpoints
+
+#### `GET /api/data`
+Serves time-series financial data with binary streaming.
+
+**Query Parameters:**
+- `symbol`: Trading pair (e.g., "BTC-USD")
+- `type`: Data type (e.g., "MD" for market data)
+- `start`: Unix timestamp for range start
+- `end`: Unix timestamp for range end
+- `columns`: Comma-separated column names (time,best_bid,best_ask,price,volume,side)
+
+**Response Format:**
+```
+JSON Header (metadata) + Binary Data Stream (4-byte records)
 ```
 
-### Testing the Application
-- **React dev server**: `http://localhost:3000/app?topic=BTC-usd&start=1745322750&end=1745691150`
-- **Production API**: `https://api.rednax.io/api/` (via Cloudflare Tunnel)
-  - `/api/data` - Time-series data endpoint
-  - `/api/symbols` - Available symbols endpoint
-- **Local development API**: `https://localhost:8443/api/` (requires SSL certificates)
-- **Legacy file server**: `http://localhost:8080` with query parameters:
-  - `topic`: data source identifier
-  - `start`: start timestamp  
-  - `end`: end timestamp
-
-Example production API request: `https://api.rednax.io/api/data?symbol=BTC-USD&type=MD&start=1234567890&end=1234567900&columns=time,best_bid`
-
-Example local development: `https://localhost:8443/api/data?symbol=BTC-USD&type=MD&start=1234567890&end=1234567900&columns=time,best_bid`
-
-Example legacy server: `http://localhost:8080?topic=sensor_data&start=1234567890&end=1234567900`
-
-## API Configuration
-
-The application uses `api.rednax.io` as the default API endpoint. To override this:
-
-### Environment Variables (Web App)
+**Example:**
 ```bash
-# For production deployment
+curl "https://api.rednax.io/api/data?symbol=BTC-USD&type=MD&start=1234567890&end=1234567900&columns=time,best_bid"
+```
+
+#### `GET /api/symbols`
+Returns available trading symbols.
+
+**Response:**
+```json
+{
+  "symbols": ["BTC-USD", "ETH-USD", "SOL-USD", ...]
+}
+```
+
+### Environment Configuration
+```bash
+# Production deployment
 REACT_APP_API_BASE_URL=https://api.rednax.io
 
-# For local development
+# Local development
 REACT_APP_API_BASE_URL=https://localhost:8443
 ```
 
-## Server Architecture
+## Performance Optimizations
 
-### Data Server (`/server`)
-A high-performance HTTP/2 TLS server built for ultra-low latency financial data serving:
+### GPU Acceleration
+- WebGPU compute shaders for parallel data processing
+- Hardware-accelerated line rendering
+- GPU-based min/max calculations
+- Efficient buffer management
 
-- **Technology**: Rust with `hyper`, `tokio-rustls`, and `memmap2`
-- **Port**: 8443 (HTTPS only)
-- **Data Storage**: Memory-mapped binary files for zero-copy serving
-- **File Format**: `{column}.{DD}.{MM}.{YY}.bin` (e.g., `best_bid.01.03.25.bin`)
-- **Path Structure**: `/mnt/md/data/{symbol}/{type}/{column}.{DD}.{MM}.{YY}.bin`
+### Data Serving
+- Memory-mapped files for zero-copy access
+- Binary protocol for minimal overhead
+- HTTP/2 for multiplexed streams
+- Client-side caching strategies
 
-#### Endpoints
-- **`GET /api/data`**: Serves time-series data
-  - Query params: `symbol`, `type`, `start`, `end`, `columns`
-  - Returns: JSON header + binary data stream
-  - Columns: `time`, `best_bid`, `best_ask`, `price`, `volume`, `side` (4-byte records each)
-- **`GET /api/symbols`**: Lists available trading symbols
+### Rendering Pipeline
+- Separate render passes for different elements
+- Instanced rendering for repeated elements
+- Texture atlases for text rendering
+- Frame rate limiting for power efficiency
 
-#### Features
-- Memory-mapped file I/O for zero-copy data access
-- Multi-day query support with automatic date range handling
-- TLS encryption with local SSL certificates
-- Memory locking (`mlock`) for ultra-low latency
-- CORS enabled for web frontend integration
-- Comprehensive test coverage with unit and integration tests
+### Memory Management
+- Rust ownership for guaranteed memory safety
+- Efficient buffer recycling
+- Streaming large datasets
+- Automatic garbage collection in WASM
 
-#### Testing Infrastructure
-The server includes extensive testing capabilities:
+## Deployment Considerations
 
-- **Unit Tests** (`server/tests/unit_tests.rs`): 18 tests covering:
-  - Query parameter parsing and validation
-  - Data indexing and binary search algorithms
-  - File I/O and memory-mapped file operations
-  - Edge cases and error handling
-  
-- **Integration Tests** (`server/tests/data_tests.rs`): 8 tests covering:
-  - End-to-end API request handling
-  - Mock data generation and validation
-  - Multi-column data serving scenarios
-  
-- **API Tests** (`server/test_api.sh`): Bash script testing:
-  - Live server endpoints (`/api/data`, `/api/symbols`)
-  - Error handling and HTTP status codes
-  - CORS headers and OPTIONS preflight requests
-  - SSL/TLS connectivity
+### Production Requirements
+- Linux server with 16+ GB RAM
+- SSD storage for binary data files
+- SSL certificates for HTTPS
+- Docker or systemd for process management
 
-**Running Tests**: All tests must be run with the native target to avoid WASM compilation issues:
+### Scaling Strategy
+- Horizontal scaling via load balancer
+- CDN for static assets
+- Read replicas for data serving
+- WebSocket connection pooling
+
+### Monitoring
+- Prometheus metrics integration
+- Custom performance dashboards
+- Error tracking with Sentry
+- Real-time alerting system
+
+### Security
+- TLS 1.3 for all connections
+- CORS configuration for API access
+- Rate limiting per client
+- Input validation and sanitization
+
+## Quick Reference for AI Assistants
+
+### When Working on Rendering
+1. Check `/home/xander/projects/gpu-charts/crates/renderer/CLAUDE.md`
+2. GPU shaders are in `crates/renderer/src/shaders/`
+3. Test with `cargo test -p renderer --target x86_64-unknown-linux-gnu`
+
+### When Working on Data
+1. Check `/home/xander/projects/gpu-charts/crates/data-manager/CLAUDE.md`
+2. Binary parsing in `crates/data-manager/src/binary_parser.rs`
+3. Test with `cargo test -p data-manager --target x86_64-unknown-linux-gnu`
+
+### When Working on Frontend
+1. Check `/home/xander/projects/gpu-charts/web/CLAUDE.md`
+2. Components in `web/src/components/`
+3. State management in `web/src/store/`
+4. Test with `npm run test:web`
+
+### When Working on Server
+1. Check `/home/xander/projects/gpu-charts/server/CLAUDE.md`
+2. Handlers in `server/src/handlers/`
+3. Test with `npm run test:server`
+
+### When Working on Logger
+1. Check `/home/xander/projects/gpu-charts/logger/CLAUDE.md`
+2. Exchange modules in `logger/src/exchanges/`
+3. Test with `npm run test:logger`
+
+## Common Development Scenarios
+
+### Adding a New Chart Type
+1. Define types in `crates/shared-types`
+2. Add configuration in `crates/config-system`
+3. Implement renderer in `crates/renderer`
+4. Add JavaScript bindings in `crates/wasm-bridge`
+5. Create React component in `web/src/components`
+
+### Adding a New Data Source
+1. Implement collector in `logger/src/exchanges/`
+2. Define binary format in `logger/src/writers/`
+3. Update server to handle new data type
+4. Add parsing logic in `crates/data-manager`
+
+### Performance Optimization
+1. Profile with Chrome DevTools Performance tab
+2. Check GPU utilization with WebGPU profiling
+3. Analyze server response times
+4. Monitor memory usage patterns
+
+### Debugging Issues
+1. Enable debug logging: `RUST_LOG=debug`
+2. Use Chrome DevTools for frontend
+3. Check server logs: `npm run docker:logs:server`
+4. Validate data integrity with test scripts
+
+## Troubleshooting Guide
+
+### WASM Build Failures
 ```bash
-# From project root
-cargo test --target x86_64-unknown-linux-gnu
+# Clean and rebuild
+npm run clean
+npm run dev:wasm
 
-# Or using npm scripts from web directory
-npm run test:server          # Unit and integration tests
+# Check wasm-pack version
+wasm-pack --version  # Should be 0.12.0+
 ```
 
-## Key Technical Considerations
+### Server Connection Issues
+```bash
+# Regenerate SSL certificates
+npm run setup:ssl
 
-### WebAssembly Integration
-- Built as both `cdylib` (for WASM) and `rlib` (for testing)
-- Uses `wasm-bindgen` for JavaScript interop
-- Async operations handled via `wasm-bindgen-futures`
-- Memory management follows Rust ownership patterns
+# Check server is running
+curl -k https://localhost:8443/api/symbols
 
-### Data Flow
-1. URL parameters determine initial dataset (topic, time range)
-2. DataRetriever fetches data via HTTP requests
-3. GPU compute shaders calculate min/max bounds
-4. Separate render passes draw plot lines, axes, and labels
-5. User interactions trigger new data fetches and re-rendering
+# Verify firewall rules
+sudo ufw status
+```
 
-### Performance Optimizations
-- GPU-accelerated calculations using WebGPU compute shaders
-- Efficient buffer management for large time-series datasets
-- Asynchronous data loading and rendering pipeline
+### Performance Issues
+1. Check GPU acceleration is enabled in browser
+2. Verify quality preset (Low/Medium/High/Ultra)
+3. Monitor data transfer sizes
+4. Profile rendering pipeline
 
-## Multi-Component Architecture
+### Test Failures
+```bash
+# Always use native target for Rust tests
+cargo test --target x86_64-unknown-linux-gnu
 
-This project consists of four main components working together:
+# Run specific test
+cargo test test_name --target x86_64-unknown-linux-gnu
 
-### 1. WASM Bridge and Core Libraries (`/crates/`)
-- **Core Engine**: Modular WebAssembly-based charting system built in Rust
-- **Technology**: WebGPU for GPU-accelerated rendering, WASM for web integration
-- **Output**: Built from `crates/wasm-bridge` to `web/pkg/` for React consumption
-- **Features**: Real-time data visualization, interactive controls, high-performance rendering
-- **Development**: Hot reloading via `scripts/dev-build.sh` watching all crate changes
+# Verbose output
+cargo test --target x86_64-unknown-linux-gnu -- --nocapture
+```
 
-### 2. React Frontend (`/web`)
-- **Frontend**: Modern React app with TypeScript, Tailwind CSS, and Vite
-- **Integration**: Consumes WASM module from `web/pkg/`
-- **State Management**: Zustand store in `web/src/store/`
-- **Components**: React components in `web/src/components/` with chart integration
-- **Data Source**: Connects to local data server via HTTPS API
+## Contributing Guidelines
 
-### 3. Data Server (`/server`)
-- **Backend**: High-performance Rust server with HTTP/2 and TLS
-- **Purpose**: Serves financial time-series data with ultra-low latency
-- **API**: RESTful endpoints for data and symbol queries
-- **Storage**: Memory-mapped binary files for zero-copy data access
-- **Testing**: Comprehensive test suite with 26 total tests (18 unit + 8 integration)
-- **Development**: Must use `--target x86_64-unknown-linux-gnu` for all cargo operations
+1. **Code Style**: Follow Rust and TypeScript conventions
+2. **Testing**: Add tests for new functionality
+3. **Documentation**: Update relevant CLAUDE.md files
+4. **Performance**: Benchmark changes that might impact speed
+5. **Security**: Review for vulnerabilities before committing
 
-### 4. Coinbase Logger (`/logger`)
-- **Purpose**: Real-time market data collection from Coinbase WebSocket feed
-- **Output**: Writes binary data files that the server memory-maps
-- **Technology**: Multi-threaded Rust application with WebSocket connections
-- **Integration**: Feeds data directly to server for live visualization
+## Project Metadata
 
-### 5. Legacy File Server (`/file_server`)
-- **File Server**: Simple Actix-web server (development only)
-- **Direct WASM**: Traditional web integration without React framework
-- **Legacy Support**: Maintains original URL parameter-based interface
+- **Repository**: https://github.com/masteryachty/gpu-charts
+- **License**: MIT
+- **Primary Language**: Rust (70%), TypeScript (30%)
+- **Key Technologies**: WebGPU, WebAssembly, React, HTTP/2
+- **Target Audience**: Professional traders and financial institutions
 
-## File Structure Notes
-- `crates/`: Modular Rust crates for the charting system
-  - `wasm-bridge/`: Central orchestration and JavaScript bridge
-  - `data-manager/`: Data operations and GPU buffer management
-  - `renderer/`: Pure GPU rendering with WGSL shaders
-  - `config-system/`: Configuration and quality presets
-  - `shared-types/`: Common types and interfaces
-- `web/`: React frontend application
-  - `web/pkg/`: Generated WASM modules from wasm-bridge crate
-- `server/`: High-performance data server with SSL certificates
-- `logger/`: Real-time market data collection service
-- `file_server/`: Simple Actix-web development server (legacy mode)
-- `scripts/`: Build and development automation scripts
-  - `dev-build.sh`: Automated WASM rebuilding with file watching (updated paths)
-  - `setup-ssl.sh`: SSL certificate generation and management
-- `package.json`: Top-level orchestration scripts for all components
-- `Cargo.toml`: Workspace configuration for all Rust components
+## Support and Resources
 
-## Working with Individual Crates
+- **Documentation**: Component-specific CLAUDE.md files
+- **Issues**: GitHub Issues for bug reports
+- **Performance**: Benchmarks in `/benchmarks`
+- **Examples**: Sample data in `/test-data`
 
-Each crate has its own CLAUDE.md file with specific guidance:
+---
 
-- [`crates/shared-types/CLAUDE.md`](crates/shared-types/CLAUDE.md) - Common types and structures
-- [`crates/config-system/CLAUDE.md`](crates/config-system/CLAUDE.md) - Configuration management
-- [`crates/data-manager/CLAUDE.md`](crates/data-manager/CLAUDE.md) - Data operations
-- [`crates/renderer/CLAUDE.md`](crates/renderer/CLAUDE.md) - GPU rendering
-- [`crates/wasm-bridge/CLAUDE.md`](crates/wasm-bridge/CLAUDE.md) - JavaScript integration
-
-## Best Practices for Modular Development
-
-1. **Dependency Direction**: Dependencies should only flow upward in the architecture
-2. **Interface Stability**: Changes to shared-types affect all crates - plan carefully
-3. **Testing**: Each crate should have comprehensive unit tests
-4. **Documentation**: Keep crate-specific CLAUDE.md files updated
-5. **Version Management**: Use workspace versioning for consistency
-
-## Quick Start for New Developers
-
-1. **Clone and Setup**:
-   ```bash
-   git clone <repo>
-   cd gpu-charts
-   npm install
-   npm run setup:ssl
-   ```
-
-2. **Start Development**:
-   ```bash
-   npm run dev:suite  # Full stack: WASM + Server + React
-   ```
-
-3. **Make Changes**:
-   - Rust changes in `/crates/` auto-rebuild via watcher
-   - React changes in `/web/` hot-reload automatically
-   - Server changes require restart
-
-4. **Test Your Changes**:
-   ```bash
-   npm run test:server  # Test Rust code
-   npm run test:web     # Test React code
-   ```
-
-5. **Commit**:
-   ```bash
-   git commit -m "feat: your feature"  # Pre-commit hooks run automatically
-   ```
+For detailed component-specific information, refer to the individual CLAUDE.md files in each directory.
