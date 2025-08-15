@@ -1,0 +1,107 @@
+describe('Visual Regression - Metric Toggles', () => {
+  beforeEach(() => {
+    cy.visit('/app?topic=BTC-USD');
+    cy.waitForChartRender();
+  });
+
+  it('should toggle Market Data metrics', () => {
+    // Select Market Data preset
+    cy.selectPreset('Market Data');
+    cy.wait(3000);
+    
+    // Initial state with all metrics
+    cy.screenshot('market-data-all-metrics', { capture: 'viewport' });
+    
+    // Find and toggle checkboxes
+    cy.get('input[type="checkbox"]').then(($checkboxes) => {
+      if ($checkboxes.length > 0) {
+        // Uncheck first metric
+        cy.wrap($checkboxes[0]).uncheck();
+        cy.wait(2000);
+        cy.screenshot('market-data-first-metric-off', { capture: 'viewport' });
+        
+        // Uncheck second metric if exists
+        if ($checkboxes.length > 1) {
+          cy.wrap($checkboxes[1]).uncheck();
+          cy.wait(2000);
+          cy.screenshot('market-data-two-metrics-off', { capture: 'viewport' });
+        }
+        
+        // Re-check all
+        $checkboxes.each((index, checkbox) => {
+          cy.wrap(checkbox).check();
+        });
+        cy.wait(2000);
+        cy.screenshot('market-data-all-metrics-restored', { capture: 'viewport' });
+      }
+    });
+  });
+
+  it('should toggle individual metrics', () => {
+    cy.selectPreset('Market Data');
+    cy.wait(3000);
+    
+    // Get all checkbox labels
+    cy.get('label:has(input[type="checkbox"])').each(($label, index) => {
+      const labelText = $label.text().trim();
+      
+      // Toggle off
+      cy.wrap($label).find('input[type="checkbox"]').uncheck();
+      cy.wait(2000);
+      cy.screenshot(`metric-${labelText.toLowerCase().replace(/\s+/g, '-')}-off`, { capture: 'viewport' });
+      
+      // Toggle back on
+      cy.wrap($label).find('input[type="checkbox"]').check();
+      cy.wait(2000);
+    });
+  });
+
+  it('should show only bid/ask metrics', () => {
+    cy.selectPreset('Market Data');
+    cy.wait(3000);
+    
+    // Uncheck all non bid/ask metrics
+    cy.get('label:has(input[type="checkbox"])').each(($label) => {
+      const labelText = $label.text().toLowerCase();
+      if (!labelText.includes('bid') && !labelText.includes('ask')) {
+        cy.wrap($label).find('input[type="checkbox"]').uncheck();
+      }
+    });
+    
+    cy.wait(3000);
+    cy.screenshot('market-data-bid-ask-only', { capture: 'viewport' });
+  });
+
+  it('should show chart with no metrics', () => {
+    cy.selectPreset('Market Data');
+    cy.wait(3000);
+    
+    // Uncheck all metrics
+    cy.get('input[type="checkbox"]').uncheck({ multiple: true });
+    cy.wait(3000);
+    cy.screenshot('market-data-no-metrics', { capture: 'viewport' });
+  });
+
+  it('should handle Candlestick preset metrics', () => {
+    cy.selectPreset('Candlestick');
+    cy.wait(3000);
+    
+    // Initial state
+    cy.screenshot('candlestick-initial-metrics', { capture: 'viewport' });
+    
+    // Check if there are any toggles
+    cy.get('input[type="checkbox"]').then(($checkboxes) => {
+      if ($checkboxes.length > 0) {
+        // Toggle metrics
+        $checkboxes.each((index, checkbox) => {
+          cy.wrap(checkbox).uncheck();
+          cy.wait(2000);
+          cy.screenshot(`candlestick-metric-${index}-off`, { capture: 'viewport' });
+          cy.wrap(checkbox).check();
+        });
+      } else {
+        cy.log('No metric toggles available for Candlestick preset');
+      }
+    });
+  });
+});
