@@ -471,7 +471,8 @@ data/
 web/cypress/screenshots/
 web/cypress/videos/
 web/cypress/downloads/
-web/cypress/snapshots/diff/
 
-# Keep baseline snapshots
-!web/cypress/snapshots/base/
+# Keep baseline images
+!web/cypress/fixtures/
+!web/cypress/fixtures/visual-baselines/
+!web/cypress/fixtures/visual-baselines/*.png
