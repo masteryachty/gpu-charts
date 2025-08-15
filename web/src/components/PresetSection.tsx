@@ -18,16 +18,22 @@ export default function PresetSection({
   const [presets, setPresets] = useState<string[]>([]);
   const [metrics, setMetrics] = useState<{ label: string, visible: boolean }[]>([]);
 
-  // // Handle preset selection - simplified to use new WASM architecture
+  // Handle preset selection - simplified to use new WASM architecture
   const handlePresetSelect = useCallback(async (preset?: string) => {
     if (preset) {
-      // await chartInstance.apply_preset(
-      //   preset
-      // );
-      setPreset(preset);
+      try {
+        // Apply the preset to the chart instance
+        // await chartInstance.apply_preset_and_symbol(
+        //   preset,
+        //   useAppStore.getState().symbol || ""
+        // );
+        setPreset(preset);
+      } catch (error) {
+        console.error('[PresetSection] Error applying preset:', error);
+      }
     }
 
-  }, [setPreset]);
+  }, [chartInstance, setPreset]);
 
   // Load available presets
   useEffect(() => {
@@ -36,7 +42,6 @@ export default function PresetSection({
   }, [chartInstance]);
 
   const getMetrics = useCallback(() => {
-
     if (preset && chartInstance) {
       try {
         const metricsArray = chartInstance.get_metrics_for_preset() || [];
@@ -75,7 +80,7 @@ export default function PresetSection({
 
   // // This useEffect is no longer needed since we load chart states immediately in handlePresetSelect
 
-  // // Toggle individual metric visibility - simplified to use new WASM architecture
+  // Toggle individual metric visibility - simplified to use new WASM architecture
   const handleMetricToggle = useCallback((chartLabel: string) => {
     // Use the new simplified toggle_metric_visibility method
     chartInstance.toggle_metric_visibility(chartLabel);

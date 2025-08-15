@@ -100,11 +100,9 @@ impl ChartEngine {
         let device = Rc::new(device);
         let queue = Rc::new(queue);
 
-        // let api_base_url = option_env!("API_BASE_URL")
-        //     .unwrap_or("https://api.rednax.io")
-        //     .to_string();
-
-        let api_base_url = "http://localhost:8080".to_string();
+        let api_base_url = option_env!("API_BASE_URL")
+            .unwrap_or("https://api.rednax.io")
+            .to_string();
 
         // Create DataManager with modular approach
         let data_manager = DataManager::new(device.clone(), queue.clone(), api_base_url);
@@ -385,7 +383,6 @@ impl ChartEngine {
 
         // Build and replace the multi-renderer
         let new_multi_renderer = builder.build();
-
         self.multi_renderer = Some(new_multi_renderer);
     }
 
