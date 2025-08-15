@@ -16,7 +16,13 @@
     "test:report": "playwright show-report",
     "test:data": "playwright test data-visualization.spec.ts data-scenarios.spec.ts",
     "test:basic": "playwright test basic.spec.ts",
-    "test:all": "playwright test --project=chromium"
+    "test:all": "playwright test --project=chromium",
+    "test:visual": "playwright test visual-regression-simple.spec.ts --project=chromium",
+    "test:visual:update": "playwright test visual-regression-simple.spec.ts --project=chromium --update-snapshots",
+    "test:visual:headed": "playwright test visual-regression.spec.ts --project=chromium-visual --headed",
+    "test:visual:ui": "playwright test visual-regression.spec.ts --project=chromium-visual --ui",
+    "test:visual:report": "playwright show-report",
+    "test:visual:docker": "docker run --rm -v $(pwd):/work -w /work/web mcr.microsoft.com/playwright:v1.52.0-jammy npm run test:visual"
   },
   "dependencies": {
     "clsx": "^2.0.0",
@@ -36,6 +42,7 @@
     "@typescript-eslint/parser": "^8.8.0",
     "@vitejs/plugin-react": "^4.3.2",
     "autoprefixer": "^10.4.20",
+    "cross-env": "^10.0.0",
     "eslint": "^9.11.1",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.12",

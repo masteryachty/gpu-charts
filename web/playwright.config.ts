@@ -16,7 +16,15 @@ export default defineConfig({
   /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 1 : undefined,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: 'html',
+  reporter: process.env.CI ? [['html'], ['github']] : 'html',
+  
+  /* Visual regression testing configuration */
+  snapshotDir: './tests/visual-baselines',
+  snapshotPathTemplate: '{snapshotDir}/{testFileDir}/{arg}{ext}',
+  
+  /* Update snapshots with special flag */
+  updateSnapshots: process.env.UPDATE_SNAPSHOTS === 'true' ? 'all' : 'missing',
+  
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
@@ -30,6 +38,10 @@ export default defineConfig({
 
     /* Record video on failure */
     video: 'retain-on-failure',
+    
+    /* Visual comparison settings */
+    ignoreHTTPSErrors: true,
+    actionTimeout: 10000,
   },
 
   /* Configure projects for major browsers */
@@ -71,6 +83,42 @@ export default defineConfig({
             // Force software rendering for WebGL/WebGPU compatibility
             "--disable-gpu",
             "--disable-software-rasterizer"
+          ]
+        }
+      },
+    },
+
+    {
+      name: 'chromium-visual',
+      use: {
+        ...devices['Desktop Chrome'],
+        // Optimized for visual regression testing
+        viewport: { width: 1920, height: 1080 },
+        deviceScaleFactor: 1,
+        hasTouch: false,
+        isMobile: false,
+        launchOptions: {
+          args: [
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+            "--no-first-run",
+            "--no-zygote",
+            "--disable-gpu-sandbox",
+            // WebGPU flags for visual testing
+            '--enable-unsafe-webgpu',
+            '--enable-webgpu-developer-features',
+            '--disable-web-security',
+            '--ignore-certificate-errors',
+            // Consistent rendering
+            "--force-device-scale-factor=1",
+            "--disable-font-subpixel-positioning",
+            "--disable-lcd-text",
+            // Stability
+            "--disable-background-timer-throttling",
+            "--disable-backgrounding-occluded-windows",
+            "--disable-renderer-backgrounding",
+            "--memory-pressure-off",
           ]
         }
       },

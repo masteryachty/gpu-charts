@@ -466,3 +466,15 @@ server/localhost.crt
 !server/certs/.gitkeep
 data/
 .claude/settings.local.json
+
+# Playwright test artifacts
+web/test-results/
+web/playwright-report/
+web/playwright/.cache/
+
+# Visual regression test artifacts (but keep baselines)
+web/tests/visual-baselines/*-diff.png
+web/tests/visual-baselines/*-actual.png
+web/tests/visual-baselines/*-expected.png
+# Keep the baseline screenshots
+!web/tests/visual-baselines/*.png

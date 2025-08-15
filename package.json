@@ -35,6 +35,11 @@
     "test:web": "cd web && npm run test",
     "test:data": "cd web && npm run test:data",
     "test:basic": "cd web && npm run test:basic",
+    "test:visual": "cd web && npm run test:visual",
+    "test:visual:update": "cd web && npm run test:visual:update",
+    "test:visual:headed": "cd web && npm run test:visual:headed",
+    "test:visual:ui": "cd web && npm run test:visual:ui",
+    "test:visual:docker": "cd web && npm run test:visual:docker",
     "lint": "cd web && npm run lint",
     "clean": "rm -rf web/pkg && cargo clean"
   },

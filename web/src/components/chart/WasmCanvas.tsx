@@ -257,10 +257,11 @@ export default function WasmCanvas({
       ref={containerRef}
       className="flex-1 bg-gray-900"
       style={{ minWidth: '200px', minHeight: '150px' }}
+      data-chart-ready={chartState.isInitialized ? 'true' : undefined}
     >
       <canvas
         ref={canvasRef}
-        id="wasm-chart-canvas"
+        id="webgpu-canvas"
         className="w-full h-full"
         style={{
           width: width ? `${width}px` : '100%',

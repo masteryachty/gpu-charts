@@ -1,0 +1,167 @@
+name: Visual Regression Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      update_baselines:
+        description: 'Update visual baselines'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  visual-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        lfs: true  # If using Git LFS for baseline images
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+        target: wasm32-unknown-unknown
+
+    - name: Cache Rust dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Install wasm-pack
+      run: |
+        curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build WASM module
+      run: |
+        cd crates/wasm-bridge
+        wasm-pack build --target web --out-dir ../../web/pkg
+        cd ../..
+
+    - name: Install Playwright browsers
+      run: |
+        cd web
+        npx playwright install chromium
+        npx playwright install-deps chromium
+        cd ..
+
+    - name: Start test server
+      run: |
+        npm run dev:server &
+        sleep 10  # Wait for server to start
+
+    - name: Run visual regression tests
+      id: visual_tests
+      run: |
+        cd web
+        if [ "${{ github.event.inputs.update_baselines }}" = "true" ]; then
+          npm run test:visual:update
+        else
+          npm run test:visual
+        fi
+      env:
+        CI: true
+
+    - name: Upload test artifacts on failure
+      if: failure()
+      uses: actions/upload-artifact@v3
+      with:
+        name: visual-regression-artifacts
+        path: |
+          web/test-results/
+          web/tests/visual-baselines/
+        retention-days: 30
+
+    - name: Upload baseline images
+      if: github.event.inputs.update_baselines == 'true' && success()
+      uses: actions/upload-artifact@v3
+      with:
+        name: updated-baselines
+        path: web/tests/visual-baselines/
+        retention-days: 7
+
+    - name: Comment PR with visual diff results
+      if: github.event_name == 'pull_request' && failure()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          
+          // Check if test results exist
+          const resultsDir = 'web/test-results';
+          if (!fs.existsSync(resultsDir)) {
+            return;
+          }
+          
+          let comment = '## 📸 Visual Regression Test Results\n\n';
+          comment += '❌ Visual differences detected. Please review the changes:\n\n';
+          
+          // Find diff images
+          const files = fs.readdirSync(resultsDir, { recursive: true });
+          const diffImages = files.filter(f => f.includes('-diff.png'));
+          
+          if (diffImages.length > 0) {
+            comment += '### Changed Screenshots:\n';
+            diffImages.forEach(img => {
+              const testName = path.basename(img, '-diff.png');
+              comment += `- ${testName}\n`;
+            });
+            comment += '\n[Download artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) to review visual differences.\n';
+          }
+          
+          comment += '\n### How to update baselines:\n';
+          comment += '1. Run locally: `npm run test:visual:update`\n';
+          comment += '2. Or trigger workflow with "Update baselines" option\n';
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+
+  update-baselines:
+    if: github.event.inputs.update_baselines == 'true'
+    needs: visual-tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Download updated baselines
+      uses: actions/download-artifact@v3
+      with:
+        name: updated-baselines
+        path: web/tests/visual-baselines/
+
+    - name: Commit and push updated baselines
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git add web/tests/visual-baselines/
+        git commit -m "chore: update visual regression baselines [skip ci]"
+        git push
