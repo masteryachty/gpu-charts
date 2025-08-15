@@ -23,7 +23,7 @@ export default function WasmCanvas({
 
   // Initialize WASM chart with proper configuration
   const [chartState, chartAPI] = useWasmChart({
-    canvasId: 'wasm-chart-canvas',
+    canvasId: 'webgpu-canvas',
     width,
     height
   });
