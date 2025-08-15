@@ -126,7 +126,9 @@ impl FileHandlers {
         date: DateTime<Utc>,
     ) -> Result<Self> {
         let exchange_path = base_path.join(exchange.as_str());
-        let symbol_path = exchange_path.join(&symbol);
+        // Sanitize symbol for filesystem: replace / with _
+        let sanitized_symbol = symbol.replace('/', "_");
+        let symbol_path = exchange_path.join(&sanitized_symbol);
 
         let md_path = symbol_path.join("MD");
         let trades_path = symbol_path.join("TRADES");
