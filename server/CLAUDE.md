@@ -1,339 +1,317 @@
-# Server Directory - CLAUDE.md
+# CLAUDE.md - Ultra-Low Latency Data Server
 
-This file provides specific guidance for working with the high-performance data server component of the graph visualization application.
+This file provides guidance to Claude Code when working with the high-performance HTTP/2 TLS server in this directory.
 
-## Overview
+## Purpose and Architecture
 
-The server directory contains an ultra-low latency HTTP/2 TLS server built in Rust for serving financial time-series data. This server is optimized for zero-copy data access using memory-mapped files and is designed to handle high-frequency market data queries with minimal latency.
+This is an ultra-low latency financial data server built in Rust, designed to serve time-series market data with minimal overhead. The server achieves microsecond-level latencies through:
 
-## Development Commands
+- **Memory-mapped I/O** for zero-copy data access
+- **HTTP/2 with TLS** for secure, multiplexed connections
+- **Binary data format** with efficient 4-byte records
+- **Memory locking (mlock)** on Linux for consistent performance
+- **Asynchronous I/O** with Tokio for high concurrency
+- **Multi-day query support** with automatic date range handling
 
-### Build and Run
-```bash
-# Development server (from web/ directory)
-npm run dev:server
+## Core Technologies
 
-# Direct development (from server/ directory)
-cargo run --target x86_64-unknown-linux-gnu
+- **Hyper 0.14**: HTTP/2 server implementation
+- **Tokio**: Async runtime with full feature set
+- **Tokio-rustls**: TLS implementation using rustls
+- **Memmap2**: Memory-mapped file I/O for zero-copy access
+- **Chrono**: Date/time handling for multi-day queries
+- **Serde/serde_json**: JSON serialization for API responses
 
-# Production build
-cargo build --release --target x86_64-unknown-linux-gnu
+## Server Implementation Details
 
-# Development build
-cargo build --target x86_64-unknown-linux-gnu
-```
+### Main Entry Point (`src/main.rs`)
+- Configurable TLS/HTTP mode via `USE_TLS` environment variable
+- HTTP/2-only for TLS connections (optimal for multiplexing)
+- HTTP/1.1-only for plain HTTP (Cloudflare Tunnel compatibility)
+- TCP_NODELAY enabled for minimal latency
+- CORS headers on all responses for web frontend integration
+- Handles OPTIONS preflight requests for CORS
 
-### Testing
-```bash
-# All tests (MUST use native target - critical for testing)
-cargo test --target x86_64-unknown-linux-gnu
+### Data API (`src/data.rs`)
+The `/api/data` endpoint serves time-series market data with sophisticated features:
 
-# Unit tests only (18 tests)
-cargo test --target x86_64-unknown-linux-gnu unit_tests
-
-# Integration tests only (8 tests)  
-cargo test --target x86_64-unknown-linux-gnu data_tests
-
-# Live API tests (requires running server)
-./test_api.sh
-```
-
-**Critical**: Always use `--target x86_64-unknown-linux-gnu` to avoid WASM compilation issues during development and testing.
-
-## Server Architecture
-
-### Core Technology Stack
-- **HTTP Server**: Hyper with HTTP/2 and TLS (tokio-rustls)
-- **Data Storage**: Memory-mapped binary files via memmap2
-- **Performance**: Memory locking (mlock) for ultra-low latency
-- **Security**: Full TLS encryption with local SSL certificates
-- **Async Runtime**: Tokio with connection pooling and non-blocking I/O
-
-### Module Organization
-```
-src/
-├── main.rs          # HTTP/2 TLS server, request routing, CORS
-├── lib.rs           # Public module exports
-├── data.rs          # Core data serving, memory mapping, binary search
-└── symbols.rs       # Symbol discovery and API endpoint
-```
-
-## API Endpoints
-
-### Data Endpoint: `GET /api/data`
-Serves time-series financial data with zero-copy streaming.
-
-**Query Parameters:**
-- `symbol`: Trading symbol (e.g., "BTC-USD")
-- `type`: Data type (e.g., "MD" for Market Data)
-- `start`: Unix timestamp (u32)
-- `end`: Unix timestamp (u32)
-- `columns`: Comma-separated column names
-
-**Supported Columns:**
-- `time`: 4-byte Unix timestamps
-- `best_bid`: 4-byte bid prices
-- `best_ask`: 4-byte ask prices
-- `price`: 4-byte trade prices
-- `volume`: 4-byte trade volumes
-- `side`: 4-byte trade sides
-
-**Response Format:**
-1. JSON header line with column metadata
-2. Binary data stream (memory-mapped file chunks)
-
-**Example Request:**
-```
-https://localhost:8443/api/data?symbol=BTC-USD&type=MD&start=1234567890&end=1234567900&columns=time,best_bid
-```
-
-### Symbols Endpoint: `GET /api/symbols`
-Returns available trading symbols from the data directory.
-
-**Response:**
-```json
-{
-  "symbols": ["BTC-USD", "ETH-USD", "SOL-USD", ...]
+#### Zero-Copy Architecture
+```rust
+struct ZeroCopyChunk {
+    mmap: Arc<Mmap>,  // Shared memory-mapped file
+    offset: usize,    // Start offset in the mmap
+    len: usize,       // Length of this chunk
+    pos: usize,       // Current read position
 }
 ```
+- Memory-mapped files avoid kernel buffer copies
+- Arc allows shared ownership across async tasks
+- Streaming response with backpressure support
 
-## Data Storage Architecture
+#### Multi-Day Query Processing
+- Automatically spans queries across multiple day files
+- File naming: `{column}.{DD}.{MM}.{YY}.bin`
+- Efficient binary search to find time ranges within each day
+- Aggregates data from multiple days into a single response
 
-### File Organization
+#### Performance Optimizations
+- **mlock() on Linux**: Locks memory pages to prevent swapping
+- **Binary search**: O(log n) time range lookups
+- **Streaming response**: Starts sending data before full query completes
+- **Parallel column loading**: Concurrent mmap operations per column
+
+#### Response Format
+```json
+{
+  "columns": [
+    {
+      "name": "time",
+      "record_size": 4,
+      "num_records": 1000,
+      "data_length": 4000
+    },
+    {
+      "name": "best_bid",
+      "record_size": 4,
+      "num_records": 1000,
+      "data_length": 4000
+    }
+  ]
+}
+```
+Followed by raw binary data (4-byte little-endian records).
+
+### Symbols API (`src/symbols.rs`)
+The `/api/symbols` endpoint provides symbol discovery and metadata:
+
+#### Features
+- Lists all available trading symbols across exchanges
+- Shows last update timestamp for each symbol
+- Supports exchange filtering via query parameter
+- Sorts symbols by recency (newest first)
+- Scans filesystem for real-time accuracy
+
+#### Implementation Details
+- Asynchronous directory traversal with `tokio::fs`
+- Stream processing with `tokio_stream` for memory efficiency
+- Finds latest modification time across all data files
+- Human-readable date formatting with Chrono
+
+## File Format and Data Structure
+
+### Directory Layout
 ```
 /mnt/md/data/
-├── {symbol}/          # e.g., BTC-USD/
-│   └── {type}/        # e.g., MD/
-│       ├── time.{DD}.{MM}.{YY}.bin
-│       ├── best_bid.{DD}.{MM}.{YY}.bin
-│       ├── best_ask.{DD}.{MM}.{YY}.bin
-│       └── ...
+├── {exchange}/           # e.g., coinbase, binance, kraken
+│   └── {symbol}/         # e.g., BTC-USD, ETH-USD
+│       └── {type}/       # e.g., MD (Market Data), TRADES
+│           ├── time.{DD}.{MM}.{YY}.bin      # Unix timestamps (4 bytes each)
+│           ├── best_bid.{DD}.{MM}.{YY}.bin   # Bid prices (4 bytes each)
+│           ├── best_ask.{DD}.{MM}.{YY}.bin   # Ask prices (4 bytes each)
+│           ├── price.{DD}.{MM}.{YY}.bin      # Trade prices (4 bytes each)
+│           ├── volume.{DD}.{MM}.{YY}.bin     # Trade volumes (4 bytes each)
+│           └── side.{DD}.{MM}.{YY}.bin       # Trade sides (4 bytes each)
 ```
 
-### Binary File Format
-- **Record Size**: Fixed 4-byte records for all columns
-- **Byte Order**: Little-endian (x86_64 standard)
-- **Time Format**: Unix timestamps as u32 values
-- **Pricing**: Raw u32 values (scaling handled by client)
+### Binary Format
+- All data stored as 4-byte little-endian values
+- Time column: u32 Unix timestamps (seconds since epoch)
+- Price columns: f32 values encoded as u32
+- Volume column: f32 values encoded as u32
+- Side column: u32 (0 = buy, 1 = sell)
+- Files must be sorted by timestamp for binary search
 
-### Multi-Day Query Processing
-1. **Date Range Expansion**: Convert query timestamps to date list
-2. **File Discovery**: Locate and validate per-day files
-3. **Binary Search**: O(log n) time range filtering within each day
-4. **Chunk Streaming**: Memory-mapped chunks streamed to client
+## Configuration Management
 
-## Performance Optimizations
+### Build-Time Configuration (`build.rs`)
+- Reads `config.toml` at compile time
+- Embeds configuration as environment variables
+- Supports development/production profiles
+- Default data path: `/mnt/md/data`
+- Default port: 8443
 
-### Memory Management
-- **Memory-Mapped Files**: Zero-copy data access via memmap2
-- **Memory Locking**: mlock() system calls prevent swapping
-- **Arc-based Sharing**: Efficient memory sharing across async tasks
-- **Lazy Loading**: Files loaded only when needed
+### Runtime Configuration
+Environment variables override build-time defaults:
+- `USE_TLS`: Enable/disable TLS (default: true)
+- `PORT`: Server port (default: 8443)
+- `SSL_CERT_PATH`: Path to SSL certificate
+- `SSL_PRIVATE_FILE`: Path to SSL private key
+- `DATA_PATH`: Override data directory path (not currently used)
 
-### Network Optimizations
-- **HTTP/2 Only**: Maximum protocol efficiency
-- **TCP_NODELAY**: Disabled Nagle's algorithm for low latency
-- **TLS Session Reuse**: Connection pooling for repeated requests
-- **Chunked Streaming**: Large datasets served without full buffering
+## TLS/SSL Implementation
 
-### Data Access Patterns
-- **Binary Search**: O(log n) time range queries
-- **Day-based Partitioning**: Efficient multi-day processing
-- **Sorted Data Assumption**: Files must be sorted by timestamp
-- **Index Caching**: In-memory indices for frequently accessed ranges
+### Certificate Loading
+- Supports PEM format certificates
+- Reads PKCS8 private keys
+- Configurable paths via environment variables
+- Defaults: `localhost.crt` and `localhost.key`
 
-## Security Configuration
-
-### TLS Setup
-- **Certificates**: Auto-generated during Docker build (no pre-existing files needed)
-- **Modern TLS**: rustls for memory-safe TLS implementation
-- **ALPN Support**: HTTP/2 and HTTP/1.1 protocol negotiation
-- **Certificate Loading**: Supports both .crt/.key and .pem formats
-- **Build-time Generation**: Certificates created with proper SANs for Docker networking
-
-### CORS Configuration
-- **Wildcard Origins**: `Access-Control-Allow-Origin: *`
-- **Preflight Support**: OPTIONS method handling
-- **Headers**: Accepts `Content-Type`, `Authorization`, custom headers
-- **Methods**: GET, POST, OPTIONS
+### Protocol Support
+- HTTP/2 preferred for TLS connections
+- HTTP/1.1 fallback available
+- ALPN negotiation for protocol selection
+- Safe TLS defaults via rustls
 
 ## Testing Infrastructure
 
-### Unit Tests (18 tests in `tests/unit_tests.rs`)
-**Query Parameter Testing:**
-- Valid parameter parsing and validation
-- Missing required field detection
-- Invalid data type handling
-- Multiple column parameter support
+### Unit Tests (`tests/unit_tests.rs`)
+18 comprehensive tests covering:
+- Query parameter parsing and validation
+- Binary search algorithms (start/end index)
+- Memory-mapped file operations
+- Edge cases (empty files, single elements)
+- Column metadata and record sizes
 
-**Binary Search Algorithm:**
-- Exact timestamp matches
-- Between-element searches
-- Boundary conditions (before first, after last)
-- Single-element and empty array edge cases
+### Integration Tests (`tests/data_tests.rs`)
+8 tests validating:
+- End-to-end request handling
+- Mock data generation
+- Multi-column queries
+- Error handling
 
-**Memory-Mapped File Operations:**
-- Successful file loading and mapping
-- Nonexistent file error handling
-- Empty file handling
-- Data integrity verification
+### Test Scripts
+- `test_symbols_api.sh`: Tests symbols endpoint functionality
+- `test_symbols_advanced.sh`: Advanced symbol API testing
 
-### Integration Tests (8 tests in `tests/data_tests.rs`)
-**End-to-End Processing:**
-- Complete request pipeline testing
-- Mock data structure creation and validation
-- Multi-column data serving scenarios
-- Response format verification
-
-**Test Data Generation:**
-```rust
-// Creates realistic test directory structure
-async fn create_test_data_structure() -> TempDir {
-    // Generates /tmp/.../symbol/type/column.DD.MM.YY.bin
-    // Creates binary data with sorted timestamps
-    // Tests multi-day query scenarios
-}
-```
-
-### Live API Tests (`test_api.sh`)
-**Comprehensive API Validation:**
-- Server connectivity and HTTPS endpoint availability
-- Symbols endpoint response format validation
-- Data endpoint with valid parameter processing
-- Error handling for missing/invalid parameters
-- HTTP status code verification (404 for invalid endpoints)
-- CORS headers and OPTIONS preflight testing
-- SSL/TLS certificate validation
-
-**Test Examples:**
+### Running Tests
 ```bash
-# Symbols endpoint
-curl -k -s "https://localhost:8443/api/symbols"
+# Must use native target to avoid WASM issues
+cargo test --target x86_64-unknown-linux-gnu
 
-# Valid data request
-curl -k -s "https://localhost:8443/api/data?symbol=BTC-USD&type=MD&start=1745322750&end=1745391150&columns=time,best_bid"
-
-# Error case - missing parameters
-curl -k -s "https://localhost:8443/api/data?symbol=BTC-USD&type=MD"
+# Or use npm scripts from project root
+npm run test:server
 ```
 
 ## Error Handling Patterns
 
-### Comprehensive Error Coverage
-- **File I/O Errors**: Graceful handling of missing files
-- **Parse Errors**: Detailed error messages for invalid parameters
-- **Memory Mapping**: Safe handling of mmap failures
-- **TLS Errors**: Certificate and connection error handling
-- **Data Validation**: Sort order verification and integrity checks
+### Graceful Degradation
+- Missing day files are skipped with warnings
+- Partial data returned when some files unavailable
+- Detailed error messages for debugging
 
-### Logging and Monitoring
-```rust
-// Request timing for performance analysis
-let start = Instant::now();
-// ... process request ...
-println!("Request handled in {:?}", start.elapsed());
+### Error Response Format
+HTTP status codes with descriptive messages:
+- 400 Bad Request: Invalid query parameters
+- 404 Not Found: Unknown endpoints
+- 500 Internal Server Error: File I/O or data format issues
 
-// Memory lock warnings
-if mlock_result != 0 {
-    eprintln!("Warning: mlock failed for {} (errno {})", path, ret);
-}
-```
+## Performance Characteristics
 
-## Build Configuration
-
-### Cargo.toml Key Dependencies
-```toml
-[dependencies]
-tokio = { version = "1", features = ["full"] }      # Async runtime
-hyper = { version = "0.14", features = ["full"] }   # HTTP/2 server
-memmap2 = "0.5"                                     # Memory-mapped files
-rustls = "0.21.11"                                  # Modern TLS
-tokio-rustls = "0.24"                              # Async TLS integration
-serde = { version = "1.0", features = ["derive"] }  # JSON serialization
-chrono = "0.4.41"                                   # Date/time handling
-libc = "0.2"                                        # System calls (mlock)
-bytes = "1.0"                                       # Zero-copy byte handling
-```
-
-### Build Requirements
-- **Target Platform**: Must use `x86_64-unknown-linux-gnu` for native performance
-- **SSL Certificates**: Generated automatically during Docker build
-- **Data Directory**: Expects `/mnt/md/data/` structure or configure path
-- **Memory Permissions**: May require increased memory limits for large datasets
-
-## Integration with Frontend
-
-### API Contract
-- **Base URL**: `https://localhost:8443/api/`
-- **Content-Type**: `application/octet-stream` for data responses
-- **CORS**: Fully enabled for web frontend integration
-- **Authentication**: None (local development setup)
-
-### Response Protocol
-1. **JSON Header**: Single line with column metadata and record counts
-2. **Binary Data**: Raw memory-mapped file contents streamed sequentially
-3. **End-of-Stream**: Connection close indicates complete response
-
-### Frontend Integration Points
-- **WebAssembly Client**: Rust WASM module consumes binary data directly
-- **React Component**: Chart component manages data fetching and display
-- **Error Handling**: HTTP status codes and JSON error responses
-
-## Performance Considerations
+### Latency Targets
+- Sub-millisecond response times for cached data
+- 1-5ms for multi-day queries
+- Zero-copy path from disk to network
 
 ### Memory Usage
-- **Memory-Mapped Files**: Virtual memory usage can be large but physical usage is efficient
-- **Buffer Sizes**: Configurable chunk sizes for different memory environments
-- **Memory Locking**: Consider system limits for mlock() usage
+- Virtual memory scales with data size (mmap)
+- Physical memory usage minimal (page cache)
+- Optional mlock() prevents swapping
 
-### Latency Optimization
-- **Cold Start**: First query per file may be slower due to initial mapping
-- **Warm Cache**: Subsequent queries on same files are extremely fast
-- **Data Locality**: Keep frequently accessed files on fast storage (SSD/NVMe)
-
-### Scalability
-- **Concurrent Connections**: Tokio async runtime handles many simultaneous connections
-- **File Handle Limits**: Consider system limits for large numbers of data files
-- **CPU Usage**: Binary search and data processing are CPU-efficient
+### Concurrency
+- Tokio runtime with work-stealing scheduler
+- One task spawned per connection
+- Async I/O prevents blocking on file operations
 
 ## Deployment Considerations
 
-### Development Deployment
-- SSL certificates auto-generated during Docker build
-- Default port 8443 (configurable)
-- Expects data in `/mnt/md/data/` (or configure alternative path)
+### Docker Deployment
+- Multi-stage build for minimal image size
+- cargo-chef for dependency caching
+- Non-root user (uid 1000) for security
+- Health checks via `/api/symbols` endpoint
 
-### Production Deployment
-- Mount production certificates to override auto-generated ones
-- Configure proper data directory paths
-- Consider file permissions and security
-- Monitor memory usage and file handle limits
-- Set up proper logging and monitoring
+### Production Setup
+- Mount data as read-only volume
+- Use SSD/NVMe storage for best performance
+- Consider dedicated CPU cores
+- Increase file descriptor limits
+- Monitor memory usage and page faults
 
-## Common Development Tasks
+### Cloudflare Tunnel Integration
+- Set `USE_TLS=false` for tunnel deployment
+- HTTP/1.1 mode for compatibility
+- Tunnel handles TLS termination
+- CORS headers for web access
 
-### Adding New Data Columns
-1. Ensure binary files follow naming convention: `{column}.{DD}.{MM}.{YY}.bin`
-2. Verify data is sorted by timestamp
-3. Add column name to query parameter validation if needed
-4. Test with integration tests
+## Security Considerations
 
-### Debugging Data Issues
+- TLS encryption for data in transit
+- Read-only data access recommended
+- No built-in authentication (use reverse proxy)
+- Runs as non-privileged user in container
+- Input validation on all query parameters
+
+## API Usage Examples
+
+### Data Query
 ```bash
-# Check file existence and size
-ls -la /mnt/md/data/BTC-USD/MD/
-
-# Verify binary data format (should be sorted timestamps)
-xxd -l 64 /mnt/md/data/BTC-USD/MD/time.01.03.25.bin
-
-# Test API directly
-curl -k -v "https://localhost:8443/api/data?symbol=BTC-USD&type=MD&start=1234567890&end=1234567900&columns=time"
+curl -k "https://localhost:8443/api/data?symbol=BTC-USD&type=MD&start=1234567890&end=1234567900&columns=time,best_bid,best_ask"
 ```
 
-### Performance Profiling
-- Use `perf` for CPU profiling during heavy load
-- Monitor memory usage with system tools
-- Check file I/O patterns with `iotop`
-- Use async profiling tools for tokio runtime analysis
+### Symbol Discovery
+```bash
+# All symbols
+curl -k "https://localhost:8443/api/symbols"
 
-This server component is designed for extreme performance in financial data serving scenarios and requires careful attention to system-level optimizations and proper data management.
+# Filter by exchange
+curl -k "https://localhost:8443/api/symbols?exchange=coinbase"
+```
+
+## Common Issues and Solutions
+
+### Issue: mlock() warnings
+**Solution**: Increase memory lock limits or run with appropriate capabilities
+
+### Issue: Certificate errors
+**Solution**: Use `-k` flag for self-signed certs or provide valid certificates
+
+### Issue: Slow queries spanning many days
+**Solution**: Optimize date range or implement caching layer
+
+### Issue: High memory usage
+**Solution**: Data is memory-mapped, virtual memory is normal; monitor RSS instead
+
+## Future Optimization Opportunities
+
+1. **Caching Layer**: LRU cache for frequently accessed data
+2. **Compression**: Support for compressed responses (gzip/brotli)
+3. **Index Files**: Pre-computed indices for faster time lookups
+4. **Parallel Processing**: Multi-threaded column processing
+5. **Connection Pooling**: Reuse mmap handles across requests
+6. **WebSocket Support**: Real-time data streaming
+7. **Authentication**: JWT or API key authentication
+8. **Rate Limiting**: Protect against abuse
+9. **Metrics**: Prometheus/Grafana integration
+10. **Distributed Cache**: Redis/Memcached for multi-server deployments
+
+## Development Workflow
+
+```bash
+# Build and run locally
+cargo build --release
+./target/release/ultra_low_latency_server_chunked_parallel
+
+# Run with custom settings
+USE_TLS=false PORT=8080 cargo run
+
+# Test with data
+curl -k "https://localhost:8443/api/symbols"
+
+# Run tests
+cargo test --target x86_64-unknown-linux-gnu
+
+# Build Docker image
+docker build -f server/Dockerfile -t gpu-charts-server .
+
+# Run container
+docker run -p 8443:8443 -v /mnt/md/data:/mnt/md/data:ro gpu-charts-server
+```
+
+## Code Quality Standards
+
+- Use `cargo fmt` for consistent formatting
+- Run `cargo clippy` for linting
+- Maintain comprehensive test coverage
+- Document performance-critical sections
+- Profile before optimizing
+- Measure after implementing
