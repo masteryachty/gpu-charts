@@ -13,10 +13,10 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       
     - name: Setup Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: '20'
         cache: 'npm'
@@ -49,7 +49,7 @@ jobs:
         sleep 10  # Wait for React to start
         
     - name: Run Cypress visual regression tests
-      uses: cypress-io/github-action@v5
+      uses: cypress-io/github-action@v6
       with:
         working-directory: web
         command: npm run cy:visual
@@ -59,21 +59,21 @@ jobs:
         
     - name: Upload screenshots
       if: always()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: cypress-screenshots
         path: web/cypress/screenshots
         
     - name: Upload visual regression diff images
       if: failure()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: visual-regression-diffs
         path: web/cypress/snapshots/diff
         
     - name: Comment PR with results
       if: github.event_name == 'pull_request'
-      uses: actions/github-script@v6
+      uses: actions/github-script@v7
       with:
         script: |
           const fs = require('fs');
