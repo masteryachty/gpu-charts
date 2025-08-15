@@ -7,7 +7,7 @@ import tsparser from '@typescript-eslint/parser';
 
 export default [
   {
-    ignores: ['dist', 'pkg', 'public/pkg', 'node_modules', 'playwright-report', 'test-results']
+    ignores: ['dist', 'pkg', 'public/pkg', 'node_modules', 'cypress']
   },
   {
     files: ['**/*.{ts,tsx}'],

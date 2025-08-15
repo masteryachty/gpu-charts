@@ -467,14 +467,11 @@ server/localhost.crt
 data/
 .claude/settings.local.json
 
-# Playwright test artifacts
-web/test-results/
-web/playwright-report/
-web/playwright/.cache/
+# Cypress test artifacts
+web/cypress/screenshots/
+web/cypress/videos/
+web/cypress/downloads/
+web/cypress/snapshots/diff/
 
-# Visual regression test artifacts (but keep baselines)
-web/tests/visual-baselines/*-diff.png
-web/tests/visual-baselines/*-actual.png
-web/tests/visual-baselines/*-expected.png
-# Keep the baseline screenshots
-!web/tests/visual-baselines/*.png
+# Keep baseline snapshots
+!web/cypress/snapshots/base/
