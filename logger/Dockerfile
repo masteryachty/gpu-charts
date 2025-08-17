@@ -15,8 +15,8 @@ WORKDIR /usr/src/app
 # Copy everything
 COPY . .
 
-# Build the application for the native platform
-RUN cargo build --release
+# Build only the logger application for the native platform
+RUN cargo build --release --package logger
 
 # Stage 2: Runtime image
 FROM debian:bookworm-slim

@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  logger:
+    build:
+      context: .
+      dockerfile: logger/Dockerfile
+    container_name: gpu-charts-logger
+    volumes:
+      - ./data:/mnt/md/data
+    environment:
+      - RUST_LOG=info
+    restart: unless-stopped
+    networks:
+      - gpu-charts-network
+
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: gpu-charts-server
+    ports:
+      - "8443:8443"
+    volumes:
+      - ./data:/mnt/md/data
+      - ./certs:/certs
+    environment:
+      - DATA_PATH=/mnt/md/data
+      - SSL_CERT_PATH=/certs/cert.pem
+      - SSL_PRIVATE_FILE=/certs/key.pem
+      - RUST_LOG=info
+      - USE_TLS=false
+    restart: unless-stopped
+    depends_on:
+      - logger
+    networks:
+      - gpu-charts-network
+
+networks:
+  gpu-charts-network:
+    driver: bridge
