@@ -98,27 +98,35 @@ class APIBenchmark:
             exchanges = []
             for exchange, symbols in data['exchanges'].items():
                 exchanges.append(exchange)
-                total_symbols += len(symbols)
-                
-                # Validate symbol structure
-                if symbols and len(symbols) > 0:
-                    symbol = symbols[0]
-                    required_fields = ['symbol', 'last_update', 'last_update_date']
-                    for field in required_fields:
-                        if field not in symbol:
-                            self.log(f"Failed: Missing field '{field}' in symbol", "ERROR")
-                            self.test_results['failed'].append(f"symbols_endpoint: Missing field {field}")
-                            return False
+                # After optimization, symbols is now a list of strings, not objects
+                if isinstance(symbols, list):
+                    total_symbols += len(symbols)
+                    # Validate it's a list of strings
+                    if symbols and not isinstance(symbols[0], str):
+                        self.log(f"Failed: Invalid symbol format in exchange {exchange}", "ERROR")
+                        self.test_results['failed'].append(f"symbols_endpoint: Invalid symbol format")
+                        return False
             
-            print(f"✓ Response validated successfully")
+            # Check performance requirement (100ms)
+            latency_ok = result['latency_ms'] < 100
+            
+            if latency_ok:
+                print(f"✓ Response validated successfully")
+            else:
+                print(f"⚠️ Response validated but SLOW (>{100}ms)")
+                
             print(f"  - Exchanges: {len(exchanges)}")
             print(f"  - Total symbols: {total_symbols}")
             print(f"  - Response size: {result['bytes'] / 1024:.2f} KB")
-            print(f"  - Latency: {result['latency_ms']:.2f} ms")
+            print(f"  - Latency: {result['latency_ms']:.2f} ms {'✓' if latency_ok else '❌ (>100ms)'}")
             
-            self.test_results['passed'].append("symbols_endpoint")
+            if latency_ok:
+                self.test_results['passed'].append("symbols_endpoint")
+            else:
+                self.test_results['failed'].append(f"symbols_endpoint: Latency {result['latency_ms']:.2f}ms exceeds 100ms limit")
+                
             self.test_results['performance']['symbols_latency'] = result['latency_ms']
-            return True
+            return latency_ok
             
         except Exception as e:
             self.log(f"Failed to parse response: {e}", "ERROR")
@@ -232,6 +240,88 @@ class APIBenchmark:
         
         return all_passed
     
+    def test_status_endpoint(self) -> bool:
+        """Test /api/status endpoint functionality and performance"""
+        print("\n" + "="*60)
+        print("TESTING: /api/status Endpoint")
+        print("="*60)
+        
+        # Test first call (likely cache miss)
+        url = f"{self.base_url}/api/status"
+        result1 = self.make_request(url)
+        
+        if result1['status'] != 200:
+            self.log(f"Failed: Status {result1['status']}", "ERROR")
+            self.test_results['failed'].append(f"status_endpoint: {result1['error']}")
+            return False
+        
+        try:
+            data = json.loads(result1['content'])
+            
+            # Validate response structure
+            if 'exchanges' not in data:
+                self.log("Failed: Missing 'exchanges' field", "ERROR")
+                self.test_results['failed'].append("status_endpoint: Invalid response structure")
+                return False
+            
+            # Validate exchange status structure
+            exchanges_count = 0
+            for exchange_status in data['exchanges']:
+                exchanges_count += 1
+                required_fields = ['exchange', 'last_update', 'last_update_date']
+                for field in required_fields:
+                    if field not in exchange_status:
+                        self.log(f"Failed: Missing field '{field}' in status", "ERROR")
+                        self.test_results['failed'].append(f"status_endpoint: Missing field {field}")
+                        return False
+            
+            # Test second call (should be cached and very fast)
+            time.sleep(0.1)  # Small delay to ensure cache is set
+            result2 = self.make_request(url)
+            
+            if result2['status'] != 200:
+                self.log(f"Failed second call: Status {result2['status']}", "ERROR")
+                self.test_results['failed'].append(f"status_endpoint_cached: {result2['error']}")
+                return False
+            
+            # Check performance requirements
+            first_call_ok = result1['latency_ms'] < 100  # First call under 100ms
+            cached_call_ok = result2['latency_ms'] < 10  # Cached call under 10ms
+            
+            print(f"✓ Response structure validated")
+            print(f"  - Exchanges monitored: {exchanges_count}")
+            print(f"  - Response size: {result1['bytes'] / 1024:.2f} KB")
+            print(f"  - First call latency: {result1['latency_ms']:.2f} ms {'✓' if first_call_ok else '❌ (>100ms)'}")
+            print(f"  - Cached call latency: {result2['latency_ms']:.2f} ms {'✓' if cached_call_ok else '❌ (>10ms)'}")
+            
+            # Check if response indicates caching
+            data2 = json.loads(result2['content'])
+            if 'cached' in data2:
+                print(f"  - Cache status in response: {data2.get('cached')}")
+            if 'fetch_time_ms' in data:
+                print(f"  - Server fetch time: {data.get('fetch_time_ms')} ms")
+            
+            all_ok = first_call_ok and cached_call_ok
+            
+            if all_ok:
+                self.test_results['passed'].append("status_endpoint")
+                self.test_results['passed'].append("status_endpoint_cached")
+            else:
+                if not first_call_ok:
+                    self.test_results['failed'].append(f"status_endpoint: First call {result1['latency_ms']:.2f}ms exceeds 100ms")
+                if not cached_call_ok:
+                    self.test_results['failed'].append(f"status_endpoint_cached: Cached call {result2['latency_ms']:.2f}ms exceeds 10ms")
+            
+            self.test_results['performance']['status_latency'] = result1['latency_ms']
+            self.test_results['performance']['status_cached_latency'] = result2['latency_ms']
+            
+            return all_ok
+            
+        except Exception as e:
+            self.log(f"Failed to parse response: {e}", "ERROR")
+            self.test_results['failed'].append(f"status_endpoint: {e}")
+            return False
+    
     def test_error_handling(self) -> bool:
         """Test API error handling"""
         print("\n" + "="*60)
@@ -322,6 +412,12 @@ class APIBenchmark:
         def worker(request_id: int) -> Dict[str, Any]:
             if mode == "symbols":
                 url = f"{self.base_url}/api/symbols"
+            elif mode == "api":
+                # Test only symbols and status endpoints
+                if request_id % 2 == 0:
+                    url = f"{self.base_url}/api/symbols"
+                else:
+                    url = f"{self.base_url}/api/status"
             elif mode == "data":
                 symbol = symbols[request_id % len(symbols)]
                 end_time = int(datetime.now().timestamp())
@@ -331,8 +427,12 @@ class APIBenchmark:
                        f"start={start_time}&end={end_time}&"
                        f"columns=time,best_bid,best_ask")
             else:  # mixed
-                if request_id % 2 == 0:
+                # Rotate between symbols, status, and data endpoints
+                endpoint_choice = request_id % 3
+                if endpoint_choice == 0:
                     url = f"{self.base_url}/api/symbols"
+                elif endpoint_choice == 1:
+                    url = f"{self.base_url}/api/status"
                 else:
                     symbol = symbols[request_id % len(symbols)]
                     end_time = int(datetime.now().timestamp())
@@ -660,6 +760,22 @@ class APIBenchmark:
                     'latency_stdev': (3, 'StdDev (ms)', True),
                     # Throughput requirement removed - not realistic with current test payload sizes
                 }
+            elif self.test_results.get('test_mode', 'mixed') == 'mixed':
+                # Mixed mode includes symbols and status endpoints
+                requirements = {
+                    'latency_p99': (100, 'P99 latency (ms)', True),  # 100ms for mixed endpoints
+                    'latency_p95': (50, 'P95 latency (ms)', True),
+                    'latency_mean': (20, 'Mean latency (ms)', True),
+                }
+            elif self.test_results.get('test_mode', 'api') == 'api':
+                # API mode tests only symbols and status endpoints with strict 100ms requirement
+                requirements = {
+                    'latency_p99': (100, 'P99 latency (ms)', True),  # Must be under 100ms
+                    'latency_p95': (50, 'P95 latency (ms)', True),
+                    'latency_p90': (30, 'P90 latency (ms)', True),
+                    'latency_mean': (15, 'Mean latency (ms)', True),
+                    'latency_max': (200, 'Max latency (ms)', True),  # Allow some outliers
+                }
             else:
                 # Relaxed requirements for other modes
                 requirements = {
@@ -713,6 +829,7 @@ class APIBenchmark:
         print("-"*70)
         
         self.test_symbols_endpoint()
+        self.test_status_endpoint()
         self.test_data_endpoint()
         self.test_error_handling()
         
@@ -777,8 +894,8 @@ Examples:
                        help='Number of concurrent connections for performance test (default: 20)')
     parser.add_argument('-r', '--requests', type=int, default=2000,
                        help='Total requests for performance test (default: 2000)')
-    parser.add_argument('-m', '--mode', choices=['symbols', 'data', 'mixed'],
-                       default='data', help='Performance test mode (default: data)')
+    parser.add_argument('-m', '--mode', choices=['symbols', 'data', 'mixed', 'api'],
+                       default='data', help='Performance test mode (default: data, api=test only symbols/status)')
     parser.add_argument('-q', '--quick', action='store_true',
                        help='Run quick test (10 connections, 100 requests)')
     parser.add_argument('--standard', action='store_true',
