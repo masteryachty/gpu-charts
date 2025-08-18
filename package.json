@@ -41,7 +41,8 @@
     "test:visual:ui": "cd web && npm run test:visual:ui",
     "test:visual:docker": "cd web && npm run test:visual:docker",
     "lint": "cd web && npm run lint",
-    "clean": "rm -rf web/pkg && cargo clean"
+    "clean": "rm -rf web/pkg && cargo clean",
+    "benchmark": "python3 api_benchmark.py"
   },
   "dependencies": {
     "clsx": "^2.0.0",
