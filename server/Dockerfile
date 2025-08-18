@@ -47,8 +47,8 @@ RUN sed -i '/\[workspace\]/d' ./Cargo.toml && \
 # Copy source code
 COPY server/src ./src
 
-# Build the application
-RUN cargo build --release --jobs $(nproc)
+# Build only the server application
+RUN cargo build --release --package ultra_low_latency_server_chunked_parallel --jobs $(nproc)
 
 # Runtime stage
 FROM debian:bookworm-slim
