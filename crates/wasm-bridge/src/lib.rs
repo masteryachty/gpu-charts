@@ -89,12 +89,24 @@ impl Chart {
             // Check if preset exists
             if let Some(preset) = &mut data_store.preset {
                 // Find and toggle the metric's visibility
-                if let Some(metric) = preset
+                if let Some(chart_type) = preset
                     .chart_types
                     .iter_mut()
                     .find(|m| m.label == metric_label)
                 {
-                    metric.visible = !metric.visible;
+                    chart_type.visible = !chart_type.visible;
+
+                    // Also update the visibility in the data store's metrics
+                    // Find the corresponding metric in data store by matching the column name
+                    for (_data_type, column_name) in &chart_type.data_columns {
+                        for data_group in &mut data_store.data_groups {
+                            for metric in &mut data_group.metrics {
+                                if metric.name == *column_name {
+                                    metric.visible = chart_type.visible;
+                                }
+                            }
+                        }
+                    }
                 }
             }
 

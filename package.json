@@ -35,6 +35,11 @@
     "test:web": "cd web && npm run test",
     "test:data": "cd web && npm run test:data",
     "test:basic": "cd web && npm run test:basic",
+    "test:visual": "cd web && npm run test:visual",
+    "test:visual:update": "cd web && npm run test:visual:update",
+    "test:visual:headed": "cd web && npm run test:visual:headed",
+    "test:visual:ui": "cd web && npm run test:visual:ui",
+    "test:visual:docker": "cd web && npm run test:visual:docker",
     "lint": "cd web && npm run lint",
     "clean": "rm -rf web/pkg && cargo clean"
   },
@@ -49,7 +54,6 @@
   "devDependencies": {
     "@eslint/js": "^9.31.0",
     "@eslint/plugin-kit": "^0.3.4",
-    "@playwright/test": "^1.52.0",
     "@types/node": "^24.0.2",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.0",

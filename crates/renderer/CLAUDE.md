@@ -1,342 +1,340 @@
-# Renderer Crate - CLAUDE.md
+# Renderer Crate - GPU Rendering Engine Documentation
 
-This file provides guidance for working with the renderer crate, which implements the pure GPU rendering engine for the GPU Charts system.
+## Purpose and Architecture
 
-## Overview
+The renderer crate is a high-performance, pure GPU rendering engine built on WebGPU/WGPU for real-time financial data visualization. It provides hardware-accelerated rendering of large datasets with multiple chart types, leveraging GPU compute shaders for data processing and transformation.
 
-The renderer crate provides:
-- WebGPU-based rendering engine
-- Multiple chart type renderers (line, candlestick, bar, area)
-- Axis rendering with dynamic labels
-- Grid and background rendering
-- Shader management and compilation
-- Render pipeline optimization
-- Surface and texture management
+### Core Design Principles
+- **GPU-First Architecture**: All heavy computation happens on the GPU via compute shaders
+- **Zero-Copy Rendering**: Direct GPU buffer usage without CPU-GPU roundtrips
+- **Modular Pipeline System**: Composable renderers that can be combined via MultiRenderer
+- **WGSL Shader-Driven**: All rendering logic implemented in WebGPU Shading Language
+- **Memory-Efficient**: Shared buffer strategies and GPU-resident data
 
-## Architecture Position
+## Architecture Components
 
-```
-shared-types
-    ↑
-├── config-system
-│   ↑
-└── renderer (this crate)
-    ↑
-└── wasm-bridge
-```
-
-This crate handles all GPU rendering operations and is used by wasm-bridge.
-
-## Key Components
-
-### Renderer (`src/lib.rs`)
-Main rendering orchestrator:
-
+### Render Context Management (`render_context.rs`)
+Central WebGPU resource holder:
 ```rust
-pub struct Renderer {
-    pub render_engine: RenderEngine,
-    config: GpuChartsConfig,
-    
-    // Specialized renderers
-    plot_renderer: PlotRenderer,
-    candlestick_renderer: CandlestickRenderer,
-    x_axis_renderer: XAxisRenderer,
-    y_axis_renderer: YAxisRenderer,
-}
-
-impl Renderer {
-    pub async fn render(&mut self, data_store: &DataStore) -> Result<(), RendererError>;
-    pub fn resize(&mut self, width: u32, height: u32);
-    pub fn set_chart_type(&mut self, chart_type: ChartType);
-}
-```
-
-### RenderEngine (`src/render_engine.rs`)
-Core WebGPU resource management:
-
-```rust
-pub struct RenderEngine {
-    pub device: Arc<wgpu::Device>,
-    pub queue: Arc<wgpu::Queue>,
-    pub surface: wgpu::Surface<'static>,
+pub struct RenderContext {
+    pub device: Rc<wgpu::Device>,
+    pub queue: Rc<wgpu::Queue>,
+    pub surface: wgpu::Surface<'static>,  // 'static lifetime for WASM context
     pub config: wgpu::SurfaceConfiguration,
-    pub depth_texture: wgpu::TextureView,
+}
+```
+- Manages surface configuration and resizing
+- Provides texture acquisition for render targets
+- Shared device/queue references for all renderers
+
+### Multi-Renderer System (`multi_renderer.rs`)
+Orchestrates multiple chart renderers in a single view:
+- **MultiRenderable Trait**: Common interface for all renderers
+- **Render Order Strategies**:
+  - `Sequential`: Render in insertion order
+  - `BackgroundToForeground`: Background elements (bars, areas) first
+  - `Priority`: Custom priority-based ordering (0-255)
+- **Compute Pass Integration**: Runs compute shaders before rendering
+- **Automatic Clear Management**: First renderer clears the frame
+
+Key Features:
+- Dynamic renderer composition
+- Priority-based rendering (background: 0-50, midground: 100, foreground: 150+)
+- Shared resource management
+- Builder pattern for convenient setup
+
+### Pipeline Builder (`pipeline_builder.rs`)
+Currently commented out but provides structured pipeline creation patterns for:
+- Vertex buffer layout configuration
+- Shader module management
+- Render pipeline state setup
+- Blend mode configuration
+
+## GPU Compute Infrastructure
+
+### Compute Engine (`compute_engine.rs`)
+Central orchestrator for GPU compute operations:
+- **Dependency Resolution**: Topological sort for compute operation ordering
+- **Compute Calculators**: Pluggable compute shader processors
+- **Frame Caching**: Tracks computed metrics to avoid redundant calculations
+- **Operations Supported**:
+  - Average (Mid Price calculation)
+  - Sum, Difference, Product, Ratio (planned)
+  - Min/Max aggregations
+  - Weighted averages
+
+### Compute Processor Framework (`compute/`)
+Generic infrastructure for GPU compute operations:
+
+#### ComputeProcessor Trait (`compute_processor.rs`)
+```rust
+pub trait ComputeProcessor {
+    fn compute(device, queue, encoder) -> Result<ComputeResult>;
+    fn name() -> &str;
 }
 ```
 
-### Specialized Renderers
+#### Mid Price Calculator (`mid_price_calculator.rs`)
+GPU-accelerated bid/ask spread calculations:
+- Computes `(bid + ask) / 2` for millions of data points
+- Handles edge cases (missing bid/ask values)
+- Additional functions: spread, spread percentage
+- 256-thread workgroups for optimal GPU occupancy
 
-#### PlotRenderer (`src/drawables/plot.rs`)
-Line chart rendering with WebGPU:
-- Vertex generation for line strips
-- Anti-aliasing techniques
-- Dynamic line width
-- Color gradients
+## Shader Architecture (WGSL)
 
-#### CandlestickRenderer (`src/drawables/candlestick.rs`)
-Financial candlestick charts:
-- OHLC data visualization
-- Bullish/bearish coloring
-- Volume overlay support
-- Wick and body rendering
+### Compute Shaders
 
-#### Axis Renderers (`src/drawables/[x|y]_axis.rs`)
-Dynamic axis rendering:
-- Automatic label generation
-- Scientific notation support
+#### Min/Max Calculation (`calcables/min_max_*.wgsl`)
+Two-phase parallel reduction algorithm:
+1. **First Phase** (`min_max_first.wgsl`):
+   - 256-thread workgroups
+   - Each thread processes multiple elements (configurable multiplier)
+   - Thread-local min/max accumulation
+   - Shared memory reduction tree
+   - Handles NaN/Infinity filtering
+   - Outputs partial results per workgroup
+
+2. **Second Phase** (`min_max_second.wgsl`):
+   - Reduces partial results from first phase
+   - Final global min/max computation
+   - Handles empty data ranges gracefully
+
+3. **Overall Min/Max** (`overall_min_max.wgsl`):
+   - Combines multiple min/max buffers
+   - Used for multi-metric bounds calculation
+
+#### Candle Aggregation (`calcables/candle_aggregation.wgsl`)
+Parallel OHLC candle generation from tick data:
+- **64-thread workgroups** (one workgroup per candle)
+- **Binary search optimization** for sorted timestamps
+- **Parallel tick scanning** with thread-local accumulation
+- **Shared memory reduction** for OHLC values
+- **Empty candle handling** (uses previous close)
+- Optimizations:
+  - Early exit for out-of-range threads
+  - Efficient first/last tick tracking
+  - Sentinel values for uninitialized data
+
+#### Mid Price Compute (`compute/mid_price_compute.wgsl`)
+Calculates derived metrics from bid/ask data:
+- **256-thread workgroups** for maximum throughput
+- Three compute entry points:
+  - `compute_mid_price`: Average of bid/ask
+  - `compute_spread`: Ask - Bid difference
+  - `compute_spread_percentage`: Percentage spread
+- Robust edge case handling for missing data
+
+### Rendering Shaders
+
+#### Plot Renderer (`drawables/plot.wgsl`)
+Line chart rendering with GPU transformation:
+- **Vertex Shader**:
+  - Handles u32 timestamps with precision preservation
+  - World-to-screen matrix transformation
+  - 10% Y-axis margin for visual padding
+  - Unsigned integer underflow protection
+- **Fragment Shader**:
+  - Per-metric color application
+  - Simple pass-through for efficiency
+
+#### Candlestick Renderer (`drawables/candlestick.wgsl`)
+Financial candlestick visualization:
+- **Two-pass rendering**:
+  1. Bodies: 6 vertices per candle (2 triangles)
+  2. Wicks: 4 vertices per candle (2 lines)
+- **Features**:
+  - 80% timeframe width for visual gaps
+  - Minimum body height enforcement (0.5% of range)
+  - Bullish (green), bearish (red), doji (yellow) coloring
+  - Centered candle positioning
+- **GPU-optimized vertex generation** from compute shader output
+
+#### Triangle Renderer (`charts/triangle.wgsl`)
+Trade marker visualization:
+- **Instance-based rendering** (3 vertices per triangle)
+- **Fixed pixel-size triangles** (screen-space consistent)
+- **Direction-based shapes**:
+  - Upward triangles for buy trades (green)
+  - Downward triangles for sell trades (red)
+- **Screen-space calculations** for pixel-perfect rendering
+- **NDC transformation** with proper Y-axis inversion
+
+#### Axis Renderers (`drawables/x_axis.wgsl`, `y_axis.wgsl`)
+Dynamic axis label generation:
+- GPU-based text positioning
+- Automatic label scaling
 - Grid line integration
-- Tick mark positioning
+- Time formatting for X-axis
+- Scientific notation support for Y-axis
 
-## Shader System
+## Rendering Components (Drawables)
 
-### Shader Organization
-Each renderer has co-located WGSL shaders:
+### PlotRenderer (`drawables/plot.rs`)
+Multi-line chart renderer:
+- **Data Filtering**: Selective column rendering
+- **Per-Metric Bind Groups**: Individual color/style per line
+- **Multi-Buffer Support**: Handles segmented data
+- **Dynamic vertex generation** from data buffers
 
-```
-src/drawables/
-├── plot/
-│   ├── mod.rs           # PlotRenderer implementation
-│   ├── vertex.wgsl      # Vertex shader
-│   └── fragment.wgsl    # Fragment shader
-├── candlestick/
-│   ├── mod.rs
-│   ├── compute.wgsl     # Compute shader for data processing
-│   ├── vertex.wgsl
-│   └── fragment.wgsl
-└── axis/
-    ├── mod.rs
-    └── shaders.wgsl     # Combined shaders for axes
-```
+### CandlestickRenderer (`drawables/candlestick.rs`)
+OHLC financial chart renderer:
+- **GPU Compute Integration**: Reads directly from aggregated candle buffer
+- **Two-stage rendering**: Bodies and wicks separately
+- **Dynamic timeframe adjustment**
+- **Volume overlay support** (planned)
 
-### Shader Loading Pattern
+### XAxisRenderer & YAxisRenderer (`drawables/x_axis.rs`, `y_axis.rs`)
+Axis label and grid rendering:
+- **Dynamic label generation** based on viewport
+- **Automatic formatting** (time, scientific notation)
+- **GPU-accelerated text rendering** via wgpu_text
+- **Responsive to zoom/pan operations**
 
-```rust
-impl PlotRenderer {
-    fn create_pipeline(device: &Device) -> RenderPipeline {
-        let vertex_shader = device.create_shader_module(ShaderModuleDescriptor {
-            label: Some("Plot Vertex Shader"),
-            source: ShaderSource::Wgsl(include_str!("vertex.wgsl").into()),
-        });
-        
-        // Pipeline creation...
-    }
-}
-```
+## Chart Types
 
-## Rendering Pipeline
+### Line Chart (`charts/line.rs`)
+- Standard time-series visualization
+- Anti-aliased line rendering
+- Multiple series support
 
-### Frame Rendering Flow
+### Area Chart (`charts/area.rs`)
+- Filled area under curve
+- Gradient fill support
+- Transparency handling
 
-1. **Begin Frame**: Acquire surface texture
-2. **Clear Pass**: Clear with background color
-3. **Grid Pass**: Render grid lines
-4. **Data Pass**: Render chart data
-5. **Axis Pass**: Render axes and labels
-6. **UI Pass**: Render overlays (if any)
-7. **Present**: Submit command buffer
+### Bar Chart (`charts/bar.rs`)
+- Vertical/horizontal bars
+- Grouped/stacked variants
+- Dynamic width calculation
 
-### Example Render Implementation
+### Candlestick Chart (`charts/candlestick.rs`)
+- OHLC data visualization
+- Volume integration
+- Multiple timeframe support
 
-```rust
-pub async fn render(&mut self, data_store: &DataStore) -> Result<(), RendererError> {
-    // Get current texture
-    let output = self.render_engine.surface.get_current_texture()?;
-    let view = output.texture.create_view(&Default::default());
-    
-    // Create command encoder
-    let mut encoder = self.render_engine.device.create_command_encoder(&Default::default());
-    
-    // Clear pass
-    {
-        let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
-            color_attachments: &[Some(RenderPassColorAttachment {
-                view: &view,
-                resolve_target: None,
-                ops: Operations {
-                    load: LoadOp::Clear(Color { r: 0.1, g: 0.1, b: 0.1, a: 1.0 }),
-                    store: StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: Some(/* depth attachment */),
-            ..Default::default()
-        });
-        
-        // Render components
-        self.grid_renderer.render(&mut render_pass, data_store);
-        self.plot_renderer.render(&mut render_pass, data_store);
-        self.x_axis_renderer.render(&mut render_pass, data_store);
-        self.y_axis_renderer.render(&mut render_pass, data_store);
-    }
-    
-    // Submit
-    self.render_engine.queue.submit(std::iter::once(encoder.finish()));
-    output.present();
-    
-    Ok(())
-}
-```
+### Triangle Renderer (`charts/triangle_renderer.rs`)
+- Trade execution markers
+- Buy/sell differentiation
+- Fixed screen-space size
+- Instanced rendering for efficiency
 
 ## Performance Optimizations
 
-### Buffer Management
+### GPU Memory Management
+- **Buffer Pooling**: Reuse allocated buffers across frames
+- **Shared Buffers**: Single time buffer for multiple metrics
+- **GPU-Resident Data**: Minimize CPU-GPU transfers
+- **Memory-Mapped Buffers**: Direct data access patterns
 
+### Parallel Computation Strategies
+- **Workgroup Optimization**: 256 threads for compute, 64 for specialized tasks
+- **Thread Multipliers**: Each thread processes multiple elements
+- **Shared Memory Usage**: Reduce global memory access
+- **Coalesced Memory Access**: Sequential access patterns
+
+### Rendering Optimizations
+- **Instanced Rendering**: For repeated geometry (triangles, candles)
+- **Early Z-Testing**: Depth-based culling
+- **Viewport Culling**: Skip off-screen elements
+- **LOD System**: Reduced detail at low zoom levels
+- **Batch Rendering**: Minimize draw calls
+
+### Compute Shader Optimizations
+- **Binary Search**: For sorted data lookups
+- **Parallel Reduction**: Tree-based aggregation
+- **Early Exit**: Skip unnecessary computation
+- **Sentinel Values**: Efficient uninitialized data handling
+- **Cache-Friendly Access**: Optimize for GPU cache lines
+
+## Multi-Renderer Usage
+
+### Basic Setup
 ```rust
-// Reuse buffers across frames
-struct BufferPool {
-    vertex_buffers: Vec<Buffer>,
-    index_buffers: Vec<Buffer>,
-    uniform_buffers: Vec<Buffer>,
-}
+let multi_renderer = MultiRendererBuilder::new(device, queue, format)
+    .with_render_order(RenderOrder::Priority)
+    .add_candlestick_renderer()
+    .add_plot_renderer()
+    .add_x_axis_renderer(width, height)
+    .add_y_axis_renderer(width, height)
+    .build();
+```
 
-impl BufferPool {
-    fn get_or_create_buffer(&mut self, size: u64, usage: BufferUsages) -> &Buffer {
-        // Reuse existing buffer or create new
+### Custom Renderer Integration
+```rust
+impl MultiRenderable for CustomRenderer {
+    fn render(&mut self, encoder, view, data_store, device, queue) {
+        // Custom rendering logic
+    }
+    
+    fn priority(&self) -> u32 {
+        75  // Render between background (50) and foreground (100)
+    }
+    
+    fn has_compute(&self) -> bool {
+        true  // Enable compute pass
+    }
+    
+    fn compute(&mut self, encoder, data_store, device, queue) {
+        // Pre-render compute operations
     }
 }
 ```
 
-### Instanced Rendering
+## Dependencies and Integration
 
-```rust
-// For rendering many similar objects (e.g., candlesticks)
-struct InstanceData {
-    position: [f32; 2],
-    size: [f32; 2],
-    color: [f32; 4],
-}
+### Internal Dependencies
+- `shared-types`: Common types and error definitions
+- `config-system`: Quality presets and configuration
+- `data-manager`: Data store and GPU buffer management
 
-fn render_instanced(&self, instances: &[InstanceData]) {
-    // Upload instance data
-    // Draw with instance count
-}
-```
+### External Dependencies
+- `wgpu 24.0.5`: WebGPU implementation
+- `bytemuck`: Zero-copy buffer casting
+- `wgpu_text`: GPU text rendering
+- `nalgebra-glm`: Matrix operations
+- `js-sys/web-sys`: WASM browser integration
 
-### LOD System
+## WebGPU Best Practices Implemented
 
-```rust
-fn select_lod(&self, zoom_level: f32, data_density: f32) -> LodLevel {
-    match (zoom_level, data_density) {
-        (z, d) if z < 0.5 && d > 1000.0 => LodLevel::Simplified,
-        (z, d) if z > 2.0 || d < 100.0 => LodLevel::Full,
-        _ => LodLevel::Normal,
-    }
-}
-```
+1. **Buffer Usage Flags**: Minimal, specific usage flags for optimization
+2. **Bind Group Caching**: Reuse bind groups across frames
+3. **Pipeline State Objects**: Pre-compiled, cached pipelines
+4. **Async Pipeline Compilation**: Non-blocking shader compilation
+5. **Proper Synchronization**: Barriers and fences where needed
+6. **Error Recovery**: Graceful handling of device loss
+7. **Format Compatibility**: Automatic format detection and adaptation
 
-## Shader Examples
+## Performance Profiling Points
 
-### Vertex Shader (Line Plot)
-```wgsl
-struct VertexInput {
-    @location(0) position: vec2<f32>,
-    @location(1) value: f32,
-}
+### GPU Metrics to Monitor
+- **GPU Time**: Via timestamp queries
+- **Memory Usage**: Buffer and texture allocation
+- **Draw Call Count**: Minimize for efficiency
+- **Vertex Count**: Track per-frame vertices
+- **Compute Dispatch Count**: Optimize workgroup sizes
 
-struct VertexOutput {
-    @builtin(position) clip_position: vec4<f32>,
-    @location(0) color: vec4<f32>,
-}
-
-@vertex
-fn vs_main(input: VertexInput) -> VertexOutput {
-    var output: VertexOutput;
-    
-    // Transform to clip space
-    output.clip_position = vec4<f32>(
-        input.position.x * 2.0 - 1.0,
-        input.value * 2.0 - 1.0,
-        0.0,
-        1.0
-    );
-    
-    // Color based on value
-    output.color = value_to_color(input.value);
-    
-    return output;
-}
-```
-
-### Compute Shader (Data Processing)
-```wgsl
-@group(0) @binding(0) var<storage, read> input_data: array<f32>;
-@group(0) @binding(1) var<storage, read_write> output_data: array<vec2<f32>>;
-@group(0) @binding(2) var<uniform> params: TransformParams;
-
-@compute @workgroup_size(256)
-fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
-    let index = id.x;
-    if (index >= arrayLength(&input_data)) {
-        return;
-    }
-    
-    // Transform data point to screen space
-    let value = input_data[index];
-    let x = f32(index) / f32(params.data_count);
-    let y = (value - params.min_value) / (params.max_value - params.min_value);
-    
-    output_data[index] = vec2<f32>(x, y);
-}
-```
-
-## Best Practices
-
-1. **Minimize State Changes**: Batch similar draw calls
-2. **Use Compute Shaders**: For data transformation
-3. **Profile GPU Usage**: Use browser tools
-4. **Avoid Shader Compilation**: Cache pipelines
-5. **Optimize Buffer Updates**: Use mapping when possible
-
-## Error Handling
-
-```rust
-#[derive(Debug, thiserror::Error)]
-pub enum RendererError {
-    #[error("Surface error: {0}")]
-    SurfaceError(#[from] wgpu::SurfaceError),
-    
-    #[error("Pipeline creation failed: {0}")]
-    PipelineError(String),
-    
-    #[error("Shader compilation failed: {0}")]
-    ShaderError(String),
-    
-    #[error("Buffer creation failed: {0}")]
-    BufferError(String),
-}
-```
-
-## Testing
-
-Testing GPU code requires special consideration:
-
-```rust
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_vertex_generation() {
-        let data = vec![1.0, 2.0, 3.0, 2.0, 1.0];
-        let vertices = generate_line_vertices(&data);
-        
-        assert_eq!(vertices.len(), data.len() * 2); // x,y for each point
-    }
-    
-    #[test]
-    fn test_color_interpolation() {
-        let color = value_to_color(0.5);
-        assert_eq!(color, [0.5, 0.5, 1.0, 1.0]); // Example
-    }
-}
-```
+### Optimization Targets
+- < 16ms frame time (60 FPS)
+- < 100MB GPU memory for 1M data points
+- < 10 draw calls per frame
+- < 5ms compute shader execution
+- Zero CPU-GPU sync stalls
 
 ## Future Enhancements
 
-- WebGL fallback support
-- Advanced anti-aliasing (FXAA/TAA)
-- Custom shader hot-reloading
-- Shader caching system
-- Multi-pass rendering effects
-- Post-processing pipeline
-- WebGPU compute animations
-- Tessellation for smooth curves
+### Planned Features
+- **Adaptive Quality**: Dynamic LOD based on performance
+- **GPU-Based Culling**: Frustum and occlusion culling
+- **Texture Atlasing**: For improved text rendering
+- **Indirect Drawing**: GPU-driven render commands
+- **Mesh Shaders**: Next-gen geometry pipeline
+- **Ray Tracing**: Advanced visualization effects
+
+### Optimization Opportunities
+- **Persistent Mapped Buffers**: Reduce allocation overhead
+- **Multi-Queue Submission**: Parallel command execution
+- **Subgroup Operations**: Utilize GPU wave/warp intrinsics
+- **Variable Rate Shading**: Adaptive quality per region
+- **GPU Timeline Profiling**: Detailed performance analysis
+- **Shader Hot-Reload**: Development productivity

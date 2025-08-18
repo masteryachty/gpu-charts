@@ -53,12 +53,14 @@ impl KrakenConnection {
 
                 match channel_name {
                     "ticker" => {
+                        debug!("Processing Kraken ticker for {}", pair);
                         if let Some(data) = super::parser::parse_kraken_ticker_array(&arr[1], pair)?
                         {
                             self.data_sender.send(Message::MarketData(data)).await?;
                         }
                     }
                     "trade" => {
+                        debug!("Processing Kraken trades for {}", pair);
                         if let Some(trades) = arr[1].as_array() {
                             for trade in trades {
                                 if let Some(data) =
@@ -70,9 +72,18 @@ impl KrakenConnection {
                         }
                     }
                     _ => {
-                        debug!("Unhandled channel: {}", channel_name);
+                        debug!(
+                            "Unhandled Kraken channel: {} for pair: {}",
+                            channel_name, pair
+                        );
                     }
                 }
+            } else if !arr.is_empty() {
+                debug!(
+                    "Kraken array message with {} elements: {:?}",
+                    arr.len(),
+                    arr
+                );
             }
         } else if let Some(obj) = value.as_object() {
             // Handle system messages
@@ -90,15 +101,19 @@ impl KrakenConnection {
                             .get("channelName")
                             .and_then(|v| v.as_str())
                             .unwrap_or("");
+                        let pair = obj.get("pair").and_then(|v| v.as_str()).unwrap_or("");
 
                         if status == "subscribed" {
-                            debug!("Subscribed to Kraken channel: {}", channel);
+                            debug!(
+                                "Successfully subscribed to Kraken channel: {} for pair: {}",
+                                channel, pair
+                            );
                         } else if status == "error" {
                             let error_msg = obj
                                 .get("errorMessage")
                                 .and_then(|v| v.as_str())
                                 .unwrap_or("Unknown error");
-                            error!("Kraken subscription error: {}", error_msg);
+                            error!("Kraken subscription error for {}: {}", pair, error_msg);
                             self.data_sender
                                 .send(Message::Error(error_msg.to_string()))
                                 .await?;
@@ -147,6 +162,7 @@ impl ExchangeConnection for KrakenConnection {
     }
 
     async fn subscribe(&mut self, channels: Vec<Channel>) -> Result<()> {
+        let num_channels = channels.len();
         for channel in channels {
             let channel_name = match channel {
                 Channel::Ticker => "ticker",
@@ -163,12 +179,14 @@ impl ExchangeConnection for KrakenConnection {
                 "reqid": self.generate_subscription_id()
             });
 
+            debug!("Sending Kraken subscription: {}", subscribe_msg.to_string());
             self.send_json(subscribe_msg).await?;
         }
 
         info!(
-            "Sent subscription requests for {} symbols",
-            self.symbols.len()
+            "Sent subscription requests for {} symbols with {} channels",
+            self.symbols.len(),
+            num_channels
         );
         Ok(())
     }

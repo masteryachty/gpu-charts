@@ -1,6 +1,7 @@
 ---
 name: qa-web-tester
 description: Use this agent when you need comprehensive testing, quality assurance, and feedback on web applications. This includes functional testing, user experience evaluation, performance assessment, accessibility checks, cross-browser compatibility testing, and providing actionable feedback to developers. The agent should be engaged after features are implemented, during code reviews, or when preparing for releases. Examples: <example>Context: The user has just implemented a new feature and wants comprehensive testing feedback. user: "I've just finished implementing the user authentication flow" assistant: "I'll use the qa-web-tester agent to thoroughly test the authentication flow and provide detailed feedback" <commentary>Since the user has completed a feature implementation, use the Task tool to launch the qa-web-tester agent to test and provide feedback.</commentary></example> <example>Context: The user is preparing for a release and needs quality assurance. user: "We're planning to release version 2.0 next week" assistant: "Let me use the qa-web-tester agent to perform a comprehensive QA review before the release" <commentary>Since the user is preparing for a release, use the qa-web-tester agent to ensure quality standards are met.</commentary></example>
+model: opus
 color: pink
 ---
 

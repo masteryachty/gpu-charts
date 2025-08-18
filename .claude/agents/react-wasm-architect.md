@@ -1,6 +1,7 @@
 ---
 name: react-wasm-architect
 description: Use this agent when you need to design, implement, or refactor React applications that integrate with WebAssembly modules, especially when focusing on architecture, extensibility, and interaction patterns between JavaScript/React and WASM. This includes creating component hierarchies, state management strategies, WASM module integration patterns, and building scalable web application architectures. Examples: <example>Context: User needs help designing a React app that integrates with a WASM module. user: "I need to create a React component that can communicate with my WASM charting library" assistant: "I'll use the react-wasm-architect agent to help design the proper integration pattern" <commentary>Since the user needs React-WASM integration expertise, use the Task tool to launch the react-wasm-architect agent.</commentary></example> <example>Context: User wants to refactor their web app for better extensibility. user: "My React app is getting messy with all these WASM calls scattered everywhere. How should I structure this?" assistant: "Let me use the react-wasm-architect agent to analyze your architecture and suggest improvements" <commentary>The user needs architectural guidance for React-WASM integration, so use the react-wasm-architect agent.</commentary></example>
+model: opus
 color: blue
 ---
 

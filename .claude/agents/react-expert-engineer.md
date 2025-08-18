@@ -1,6 +1,7 @@
 ---
 name: react-expert-engineer
 description: Use this agent when you need expert React development assistance, including building new React components, refactoring existing React code, implementing React best practices, optimizing React performance, integrating React with APIs, managing state with modern patterns (hooks, context, Zustand, etc.), or architecting React application structure. This agent excels at modern React development with TypeScript, functional components, custom hooks, and the latest React features.
+model: opus
 color: green
 ---
 
