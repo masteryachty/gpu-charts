@@ -1,4 +1,4 @@
-describe.skip('Visual Regression - Different Viewports', () => {
+describe('Visual Regression - Different Viewports', () => {
   const viewports = [
     { name: 'desktop-4k', width: 3840, height: 2160 },
     { name: 'desktop-full-hd', width: 1920, height: 1080 },
