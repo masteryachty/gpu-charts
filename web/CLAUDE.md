@@ -4,7 +4,7 @@ This file provides specific guidance for working with the React/TypeScript front
 
 ## Overview
 
-The web directory contains a modern React 18 application built with TypeScript, Vite, and Tailwind CSS. It provides a sophisticated frontend for real-time financial data visualization, featuring seamless WebAssembly integration, comprehensive testing with Playwright, and a professional trading interface design.
+The web directory contains a modern React 18 application built with TypeScript, Vite, and Tailwind CSS. It provides a sophisticated frontend for real-time financial data visualization, featuring seamless WebAssembly integration, comprehensive testing with Cypress, and a professional trading interface design.
 
 ## Development Commands
 
@@ -37,7 +37,7 @@ npm run dev:server:build  # Development server build
 ### Testing Commands
 ```bash
 # Comprehensive testing
-npm test                # Full Playwright test suite
+npm test                # Run Cypress tests
 npm run test:data       # Data visualization specific tests
 npm run test:basic      # Basic functionality tests
 
@@ -69,7 +69,7 @@ npm run type-check      # TypeScript compilation check
 - **Tailwind CSS 3.4.13**: Utility-first styling framework
 - **Zustand 4.4.7**: Lightweight state management
 - **React Router DOM 6.26.1**: Client-side routing
-- **Playwright 1.52.0**: Comprehensive end-to-end testing
+- **Cypress 14.5.4**: Visual regression and end-to-end testing with WebGPU support
 
 ### Component Architecture
 ```
@@ -488,86 +488,93 @@ export default {
 
 ## Testing Infrastructure
 
-### Playwright Configuration (`playwright.config.ts`)
-```typescript
-export default defineConfig({
-  testDir: './tests',
-  fullyParallel: true,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
-  reporter: 'html',
-  
-  use: {
-    baseURL: 'http://localhost:3000',
-    trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
-    video: 'retain-on-failure'
+### Cypress Configuration (`cypress.config.cjs`)
+```javascript
+const { defineConfig } = require('cypress');
+
+module.exports = defineConfig({
+  e2e: {
+    baseUrl: 'http://localhost:3000',
+    viewportWidth: 1280,
+    viewportHeight: 720,
+    video: false,
+    screenshotsFolder: 'cypress/screenshots',
+    screenshotOnRunFailure: true,
+    
+    setupNodeEvents(on, config) {
+      // Enable WebGPU support
+      on('before:browser:launch', (browser, launchOptions) => {
+        if (browser.family === 'chromium' && browser.name !== 'electron') {
+          // Enable WebGPU flags
+          launchOptions.args.push('--enable-unsafe-webgpu');
+          launchOptions.args.push('--enable-features=Vulkan');
+          launchOptions.args.push('--use-angle=vulkan');
+          launchOptions.args.push('--enable-gpu-rasterization');
+          launchOptions.args.push('--enable-zero-copy');
+        }
+        return launchOptions;
+      });
+      
+      return config;
+    },
+    
+    // Timeouts for WebGPU/WASM initialization
+    defaultCommandTimeout: 30000,
+    requestTimeout: 30000,
+    responseTimeout: 30000,
   },
-  
-  projects: [
-    {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] }
-    },
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] }
-    },
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] }
-    }
-  ],
-  
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI
-  }
 });
 ```
 
-### Test Utilities (`tests/helpers/`)
+### Test Utilities (`cypress/support/`)
 
-#### GraphTestUtils for WebGPU Testing
+#### Custom Commands for WebGPU Testing
 ```typescript
-export class GraphTestUtils {
-  static async checkWebGPUSupport(page: Page): Promise<boolean> {
-    return await page.evaluate(() => 'gpu' in navigator);
-  }
+// Dynamic waiting with API intercepts
+Cypress.Commands.add('waitForChartRender', () => {
+  // Wait for WASM to load
+  cy.wait('@wasmLoad', { timeout: 30000 });
   
-  static async waitForWasmLoad(page: Page, timeout = 10000): Promise<void> {
-    await page.waitForFunction(() => {
-      const canvas = document.querySelector('#wasm-canvas');
-      return canvas && canvas.getAttribute('data-initialized') === 'true';
-    }, { timeout });
-  }
+  // Wait for initial data load
+  cy.wait('@apiData', { timeout: 30000 });
   
-  static async measureMemoryUsage(page: Page): Promise<MemoryInfo> {
-    return await page.evaluate(async () => {
-      if ('measureUserAgentSpecificMemory' in performance) {
-        return await performance.measureUserAgentSpecificMemory();
-      }
-      return (performance as any).memory;
-    });
-  }
-  
-  static async triggerChartInteraction(page: Page, action: 'zoom' | 'pan', coordinates: { x: number, y: number }): Promise<void> {
-    const canvas = page.locator('#wasm-canvas');
+  // Wait for WebGPU initialization
+  cy.waitForWebGPU();
+});
+
+// Select preset with dynamic waiting
+Cypress.Commands.add('selectPreset', (presetName: string) => {
+  cy.intercept('GET', '**/api/data*').as('presetDataLoad');
+  cy.get('select:has(option:contains("Select a Preset"))')
+    .select(presetName);
+  cy.wait('@presetDataLoad', { timeout: 10000 });
+});
+
+// Chart interaction commands
+Cypress.Commands.add('zoomChart', (direction: 'in' | 'out', amount = 200) => {
+  cy.intercept('GET', '**/api/data*').as('zoomDataLoad');
+  cy.get('canvas#webgpu-canvas').trigger('wheel', {
+    deltaY: direction === 'in' ? -amount : amount,
+    bubbles: true
+  });
+  cy.wait(500);
+});
+
+Cypress.Commands.add('panChart', (deltaX: number, deltaY = 0) => {
+  cy.intercept('GET', '**/api/data*').as('panDataLoad');
+  cy.get('canvas#webgpu-canvas').then(($canvas) => {
+    const canvas = $canvas[0];
+    const rect = canvas.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
     
-    if (action === 'zoom') {
-      await canvas.hover();
-      await page.mouse.wheel(0, -100); // Zoom in
-    } else if (action === 'pan') {
-      await canvas.click(coordinates);
-      await page.mouse.move(coordinates.x + 100, coordinates.y);
-    }
-    
-    // Wait for chart update
-    await page.waitForTimeout(100);
-  }
-}
+    cy.get('canvas#webgpu-canvas')
+      .trigger('mousedown', centerX, centerY, { button: 0 })
+      .trigger('mousemove', centerX + deltaX, centerY + deltaY)
+      .trigger('mouseup', centerX + deltaX, centerY + deltaY);
+  });
+  cy.wait(500);
+});
 ```
 
 #### DataMockHelper for Test Data
@@ -735,9 +742,10 @@ The development workflow includes sophisticated hot reload:
     "build:wasm": "cd .. && wasm-pack build --release --target web --out-dir web/pkg",
     "build:server": "cd ../server && cargo build --release --target x86_64-unknown-linux-gnu",
     
-    "test": "playwright test",
-    "test:data": "playwright test tests/data-scenarios tests/data-visualization tests/simple-data-tests",
-    "test:basic": "playwright test tests/basic tests/app",
+    "test": "cypress run",
+    "test:open": "cypress open",
+    "cy:visual": "cypress run --spec \"cypress/e2e/visual-regression-*.cy.ts\"",
+    "cy:visual:presets": "cypress run --spec \"cypress/e2e/visual-regression-presets.cy.ts\"",
     "test:server": "cd ../server && cargo test --target x86_64-unknown-linux-gnu",
     
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
@@ -808,7 +816,7 @@ The application includes built-in performance monitoring:
 2. Follow naming convention: PascalCase for files and components
 3. Include proper TypeScript typing
 4. Add to component index file for clean imports
-5. Write Playwright tests for new functionality
+5. Write Cypress tests for new functionality
 
 ### Integrating New WASM Features
 1. Add new methods to WASM bridge in the appropriate crate:

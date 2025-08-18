@@ -2,24 +2,41 @@
 
 // Custom commands for GPU Charts testing
 
-// Command to select a preset
+// Command to select a preset with dynamic waiting
 Cypress.Commands.add('selectPreset', (presetName: string) => {
+  // Set up intercept for the API call that will be triggered
+  cy.intercept('GET', '**/api/data*').as('presetDataLoad');
+  
+  // Select the preset
   cy.get('select:has(option:contains("Select a Preset"))')
     .select(presetName);
-  cy.wait(3000); // Wait for preset to apply
+  
+  // Wait for the API call to complete
+  cy.wait('@presetDataLoad', { timeout: 10000 });
+  
+  // Small wait for render to complete after data loads
+  cy.wait(500);
 });
 
-// Command to perform zoom
+// Command to perform zoom with dynamic waiting
 Cypress.Commands.add('zoomChart', (direction: 'in' | 'out', amount: number = 200) => {
+  // Set up intercept if zoom triggers data reload
+  cy.intercept('GET', '**/api/data*').as('zoomDataLoad');
+  
   cy.get('canvas#webgpu-canvas').trigger('wheel', {
     deltaY: direction === 'in' ? -amount : amount,
     bubbles: true
   });
-  cy.wait(2000);
+  
+  // Wait for any data reload or just a short render time
+  cy.wait(500);
 });
 
-// Command to perform pan
+// Command to perform pan with dynamic waiting
 Cypress.Commands.add('panChart', (deltaX: number, deltaY: number = 0) => {
+  // Set up intercept if pan triggers data reload
+  cy.intercept('GET', '**/api/data*').as('panDataLoad');
+  
   cy.get('canvas#webgpu-canvas').then(($canvas) => {
     const canvas = $canvas[0];
     const rect = canvas.getBoundingClientRect();
@@ -31,7 +48,9 @@ Cypress.Commands.add('panChart', (deltaX: number, deltaY: number = 0) => {
       .trigger('mousemove', centerX + deltaX, centerY + deltaY)
       .trigger('mouseup', centerX + deltaX, centerY + deltaY);
   });
-  cy.wait(2000);
+  
+  // Wait for any data reload or just a short render time
+  cy.wait(500);
 });
 
 // Command to check if chart has data

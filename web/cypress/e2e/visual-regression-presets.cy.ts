@@ -71,8 +71,8 @@ describe('Visual Regression - Chart Presets', () => {
       // Test each preset
       presets.forEach((preset) => {
         if (preset) {
+          // Select preset (includes dynamic waiting)
           cy.selectPreset(preset);
-          cy.wait(5000);
           
           // Take screenshot for each preset
           const snapshotName = `preset-${preset.toLowerCase().replace(/\s+/g, '-')}`;
