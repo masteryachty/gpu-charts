@@ -1,194 +1,284 @@
-# Shared Types Crate - CLAUDE.md
+# Shared Types Crate - Comprehensive Documentation
 
-This file provides guidance for working with the shared-types crate, which contains all common data structures and types used across the GPU Charts modular architecture.
+## Purpose and Responsibility
 
-## Overview
+The `shared-types` crate is the foundational layer of the GPU Charts architecture, providing the common type system that enables communication and data flow between all other crates. As a zero-dependency foundation (within the workspace), it defines the lingua franca for the entire system, ensuring type safety and consistency across module boundaries.
 
-The shared-types crate is the foundational layer of the GPU Charts system, providing:
-- Common data structures used by all other crates
-- Type definitions for cross-crate communication
-- Event system types for user interactions
-- Store state management structures for React integration
-- Error types and result definitions
+### Core Responsibilities:
+- **Type Definitions**: Provides all shared data structures, enums, and type aliases
+- **Error System**: Defines the comprehensive error hierarchy for the entire application
+- **Event System**: Implements custom event types for WebAssembly/browser integration
+- **Data Contracts**: Establishes the data formats for server communication and GPU processing
+- **Serialization Contracts**: Ensures consistent JSON serialization across WASM boundaries
 
-## Architecture Position
+## Architectural Position
 
 ```
-shared-types (this crate)
+shared-types (Foundation - Zero internal dependencies)
     ↑
-    ├── config-system
-    ├── data-manager
-    ├── renderer
-    └── wasm-bridge
+    ├── config-system    (Configuration and quality presets)
+    ├── data-manager     (Data operations and GPU buffers)
+    ├── renderer         (GPU rendering engine)
+    └── wasm-bridge      (JavaScript/React integration)
 ```
 
-This crate has no dependencies on other workspace crates and serves as the common foundation.
+All other crates in the workspace depend on `shared-types`, but it depends on none of them, ensuring a clean dependency hierarchy.
 
-## Key Modules
+## External Dependencies
 
-### Core Types (`src/lib.rs`)
-- `ChartType`: Enum for chart visualization types (Line, Candlestick, Bar, Area)
-- `GpuChartsConfig`: Main configuration structure
-- `DataHandle`: Handle for managing data buffers
-- `ParsedData`: Parsed time-series data structure
-- `DataMetadata`: Metadata about loaded data
-- `GpuBufferSet`: GPU buffer management structure
+```toml
+# Core dependencies
+serde = "1.0"          # Serialization framework for WASM boundary crossing
+serde_json = "1.0"     # JSON serialization for JavaScript interop
+uuid = "1.0"           # Unique identifiers with JavaScript compatibility
+wgpu = "24.0.5"        # WebGPU types (specifically pinned version)
+thiserror = "1.0"      # Error derivation macros
+chrono = "0.4"         # Timestamp handling with WASM support
 
-### Events Module (`src/events.rs`)
-Provides winit-compatible event types for WebAssembly:
-- `WindowEvent`: Mouse and keyboard events
-- `MouseButton`, `ElementState`: Input state tracking
-- `PhysicalPosition`: Coordinate system types
-- `MouseScrollDelta`, `TouchPhase`: Scroll and touch events
+# WASM-specific dependencies (conditional compilation)
+wasm-bindgen = "0.2"   # JavaScript binding generation
+js-sys = "0.3"         # JavaScript standard library types
+web-sys = "0.3"        # Browser API types
+```
 
-### Store State Module (`src/store_state.rs`)
-React store integration types:
-- `StoreState`: Complete application state structure
-- `ChartStateConfig`: Chart-specific configuration
-- `MarketData`: Real-time market data structure
-- `User`: User session information
-- `ChangeDetectionConfig`: Smart change detection settings
-- `StateChangeDetection`: Change detection results
-- `StoreValidationResult`: State validation results
+## Module Structure and Key Types
 
-## Usage Patterns
+### 1. Core Library Module (`lib.rs`)
 
-### Adding New Shared Types
+**Primary Types:**
+- `DataHandle`: Unique handle for data sets with metadata
+  - Contains UUID and metadata for tracking data lifecycle
+  - Used by data-manager for buffer management
+  
+- `DataMetadata`: Comprehensive metadata for data sets
+  - Fields: symbol, start_time, end_time, columns, row_count
+  - Critical for data validation and cache management
+  
+- `ParsedData`: Container for parsed time-series data
+  - Separates time data from value data using HashMap
+  - Optimized for GPU buffer creation
+  
+- `WorldBounds`: Data space boundaries (f64 precision)
+  - Used for coordinate transformations
+  - Critical for zoom/pan calculations
+  
+- `ScreenBounds`: Rendering viewport dimensions (f32 precision)
+  - Used for pixel-space calculations
 
-1. **Determine Module Placement**:
-   - Core types → `lib.rs`
-   - UI events → `events.rs`
-   - React state → `store_state.rs`
+### 2. Data Types Module (`data_types.rs`)
 
-2. **Follow Naming Conventions**:
-   ```rust
-   // Good: Clear, descriptive names
-   pub struct ChartStateConfig { ... }
-   pub enum ChartType { ... }
-   
-   // Avoid: Ambiguous or overly generic names
-   pub struct Config { ... }
-   pub enum Type { ... }
-   ```
+**Financial Data Structures:**
+- `DataPoint`: Basic time-value pair (u32 timestamp, f32 value)
+- `OhlcData`: Candlestick chart data (open, high, low, close, volume)
+- `TradeData`: Individual trade information with side indicator
+- `TradeSide`: Buy/Sell enum with lowercase serialization
 
-3. **Implement Required Traits**:
-   ```rust
-   #[derive(Debug, Clone, Serialize, Deserialize)]
-   pub struct NewType {
-       // All shared types should be serializable
-   }
-   ```
+**Data Management Types:**
+- `ColumnType`: Strongly-typed column identifiers
+  - Provides string conversion for API communication
+  - Ensures type safety across data pipeline
+  
+- `DataRequest`: API request parameters
+  - Fields: symbol, data_type, time range, columns
+  
+- `DataResponseHeader`: Server response metadata
+  - Used for validating and parsing binary data streams
 
-### Store State Integration
+### 3. Error System Module (`errors.rs`)
 
-The store state types enable seamless React-Rust communication:
+**Comprehensive Error Hierarchy:**
 
+The `GpuChartsError` enum provides categorized error types:
+
+1. **Data Errors:**
+   - `DataFetch`: Network/HTTP failures
+   - `DataParse`: Parsing failures with offset tracking
+   - `InvalidFormat`: Format mismatches
+   - `DataNotFound`: Missing resources
+
+2. **GPU/Rendering Errors:**
+   - `GpuInit`: GPU initialization failures
+   - `Surface`: Surface/swap chain errors
+   - `BufferCreation`: GPU buffer allocation failures
+   - `ShaderCompilation`: WGSL compilation errors
+   - `RenderPipeline`: Pipeline creation failures
+
+3. **Configuration Errors:**
+   - `InvalidConfig`: Configuration validation failures
+   - `MissingConfig`: Required fields missing
+
+4. **State Management Errors:**
+   - `StateValidation`: Multi-error validation results
+   - `StateUpdate`: State mutation failures
+   - `InstanceNotFound`: Missing chart instances
+
+5. **Infrastructure Errors:**
+   - `Network`: Network communication failures
+   - `Timeout`: Operation timeouts with duration tracking
+   - `JsInterop`: JavaScript boundary errors
+   - `WasmMemory`: WASM memory issues
+
+**Error Infrastructure:**
+- `GpuChartsResult<T>`: Standard Result type alias
+- `ErrorResponse`: Serializable error for JavaScript
+- `ErrorContext`: Additional debugging information
+- Conversion traits from external error types (wgpu, serde_json, JsValue)
+- Helper macros: `gpu_error!` and `map_gpu_error!`
+
+### 4. Event System Module (`events.rs`)
+
+**Custom Event Types (Winit Replacement):**
+
+Since winit doesn't work in WASM/browser contexts, this module provides lightweight event types:
+
+- `PhysicalPosition`: Pixel-based coordinates (f64 precision)
+- `MouseScrollDelta`: Scroll events (currently pixel-based only)
+- `ElementState`: Pressed/Released states
+- `MouseButton`: Mouse button identification (currently left only)
+- `TouchPhase`: Touch event phases (currently moved only)
+- `WindowEvent`: Unified event enum containing:
+  - MouseWheel events with delta and phase
+  - CursorMoved with position
+  - MouseInput with state and button
+
+Note: Many enum variants are commented out, suggesting a minimal implementation focused on essential functionality.
+
+## Critical Implementation Patterns
+
+### 1. Serialization Strategy
+All public types implement `Serialize` and `Deserialize` to cross the WASM boundary:
 ```rust
-// Validation example
-impl StoreState {
-    pub fn validate(&self) -> StoreValidationResult {
-        let mut errors = Vec::new();
-        let mut warnings = Vec::new();
-        
-        // Add validation logic
-        if self.chart_config.start_time >= self.chart_config.end_time {
-            errors.push("Invalid time range".to_string());
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DataHandle {
+    pub id: Uuid,
+    pub metadata: DataMetadata,
+}
+```
+
+### 2. Error Handling Pattern
+The crate uses `thiserror` for ergonomic error definitions with automatic Display implementations:
+```rust
+#[derive(Error, Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "details")]
+pub enum GpuChartsError {
+    #[error("Data fetch failed: {message}")]
+    DataFetch { message: String },
+}
+```
+
+### 3. Type Safety Through Enums
+Strong typing prevents stringly-typed errors:
+```rust
+pub enum ColumnType {
+    Time, BestBid, BestAsk, Price, Volume, Side,
+    Open, High, Low, Close,
+}
+```
+
+### 4. Platform-Specific Compilation
+Conditional compilation for WASM-specific features:
+```rust
+#[cfg(target_arch = "wasm32")]
+impl From<wasm_bindgen::JsValue> for GpuChartsError {
+    fn from(err: wasm_bindgen::JsValue) -> Self {
+        GpuChartsError::JsInterop {
+            message: format!("{err:?}"),
         }
-        
-        StoreValidationResult {
-            is_valid: errors.is_empty(),
-            errors,
-            warnings,
-        }
     }
 }
 ```
 
-### Change Detection
+## Testing Approach
 
-The change detection system enables efficient updates:
+The crate includes unit tests for critical functionality:
 
-```rust
-impl StoreState {
-    pub fn detect_changes_from(
-        &self,
-        previous: &StoreState,
-        config: &ChangeDetectionConfig,
-    ) -> StateChangeDetection {
-        StateChangeDetection {
-            has_changes: self != previous,
-            symbol_changed: self.chart_config.symbol != previous.chart_config.symbol,
-            // ... other change flags
-        }
-    }
-}
-```
+1. **Error Serialization Tests** (`errors.rs`):
+   - Validates JSON serialization of error responses
+   - Ensures error context is preserved
+   - Tests error conversion traits
 
-## Best Practices
+2. **Type Conversion Tests**:
+   - Validates enum to string conversions
+   - Tests serialization round-trips
 
-1. **Keep Types Simple**: Shared types should be POD (Plain Old Data) when possible
-2. **Avoid Business Logic**: Keep logic in the appropriate crate, not in shared types
-3. **Version Carefully**: Changes to shared types affect all crates
-4. **Document Thoroughly**: All public types should have doc comments
-5. **Use Semantic Versioning**: Breaking changes require major version bumps
+Testing philosophy focuses on:
+- Contract validation (serialization formats)
+- Error handling correctness
+- Type conversion accuracy
 
-## Common Patterns
+## Important Conventions
 
-### Result Types
-```rust
-pub type SharedResult<T> = Result<T, SharedError>;
+### 1. Timestamp Representation
+- Uses `u32` for timestamps (Unix epoch seconds)
+- Sufficient for financial data (covers until year 2106)
+- Reduces memory usage compared to u64
 
-#[derive(Debug, thiserror::Error)]
-pub enum SharedError {
-    #[error("Validation failed: {0}")]
-    ValidationError(String),
-    // Add other common errors
-}
-```
+### 2. Numeric Precision
+- `f32` for GPU-bound data (values, prices)
+- `f64` for world coordinates (higher precision needed)
+- `u32` for counts and indices
 
-### Builder Pattern for Complex Types
-```rust
-impl ChartStateConfig {
-    pub fn builder() -> ChartStateConfigBuilder {
-        ChartStateConfigBuilder::default()
-    }
-}
-```
+### 3. Naming Conventions
+- Snake_case for serialized field names
+- PascalCase for type names
+- Descriptive names avoiding abbreviations
 
-## Testing
-
-While shared-types primarily contains data structures, test:
-- Serialization/deserialization roundtrips
-- Validation logic
-- Change detection accuracy
-- Default implementations
-
-```rust
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_store_state_validation() {
-        let mut state = StoreState::default();
-        state.chart_config.end_time = 0; // Invalid
-        
-        let result = state.validate();
-        assert!(!result.is_valid);
-    }
-}
-```
+### 4. Public API Design
+- All fields are public for simplicity
+- No hidden invariants in data structures
+- Validation happens in consuming crates
 
 ## Performance Considerations
 
-- Keep structures small and cache-friendly
-- Use `Arc` for large shared data
-- Consider zero-copy serialization for IPC
-- Minimize allocations in hot paths
+1. **Memory Layout**: Structures are designed to be cache-friendly with grouped related fields
+2. **Copy Types**: Small enums implement Copy for efficient passing
+3. **HashMap Usage**: Value data stored in HashMap for flexible column access
+4. **String Allocations**: Minimized through use of `&'static str` where possible
 
-## Future Enhancements
+## Integration Points
 
-- Add protobuf support for binary serialization
-- Implement schema versioning for migrations
-- Add compile-time validation macros
-- Consider const generics for buffer sizes
+### With config-system:
+- Provides error types for configuration validation
+- Defines metadata structures for configuration storage
+
+### With data-manager:
+- Defines data request/response formats
+- Provides parsed data structures for GPU buffer creation
+- Error types for data operations
+
+### With renderer:
+- Provides world/screen bounds for transformations
+- Surface error types from wgpu
+- Event types for user interactions
+
+### With wasm-bridge:
+- All types are serializable for JavaScript boundary
+- Error responses formatted for JavaScript consumption
+- Event types map to browser events
+
+## Future Considerations
+
+Based on the current implementation, potential enhancements could include:
+
+1. **Event System Expansion**: Uncommented event types suggest future support for right-click, middle-click, and complete touch gestures
+2. **Performance Metrics**: Types for tracking frame times, GPU usage
+3. **Streaming Data**: Types for real-time data updates
+4. **Multi-Chart Support**: Extended metadata for multiple chart instances
+5. **Custom Indicators**: Types for technical analysis indicators
+
+## Migration and Breaking Changes
+
+When modifying this crate:
+
+1. **Adding Fields**: Use Option<T> for backward compatibility
+2. **Changing Enums**: Add variants at the end to preserve serialization
+3. **Removing Types**: Requires major version bump and migration in all dependent crates
+4. **Serialization Changes**: Must maintain backward compatibility or provide migration path
+
+## Key Insights
+
+1. **Foundation Role**: This crate is truly foundational - changes ripple through the entire system
+2. **Minimal Logic**: Contains almost no business logic, focusing on type definitions
+3. **WASM-First Design**: Event system and error handling designed specifically for browser environment
+4. **Performance Focus**: Type choices (u32 vs u64, f32 vs f64) show careful performance consideration
+5. **Extensibility**: Commented code and optional fields suggest planned future features
