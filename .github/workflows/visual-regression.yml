@@ -48,6 +48,9 @@ jobs:
         npm run dev &
         sleep 10  # Wait for React to start
         
+    - name: Copy package-lock.json to web directory
+      run: cp package-lock.json web/
+        
     - name: Run Cypress visual regression tests
       uses: cypress-io/github-action@v6
       with:
@@ -56,6 +59,7 @@ jobs:
         browser: chrome
         wait-on: 'http://localhost:3000'
         wait-on-timeout: 120
+        install: false  # Skip install since we already ran npm ci at root
         
     - name: Upload screenshots
       if: always()
