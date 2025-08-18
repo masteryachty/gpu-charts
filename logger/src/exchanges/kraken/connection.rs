@@ -78,7 +78,7 @@ impl KrakenConnection {
                         );
                     }
                 }
-            } else if arr.len() > 0 {
+            } else if !arr.is_empty() {
                 debug!(
                     "Kraken array message with {} elements: {:?}",
                     arr.len(),
