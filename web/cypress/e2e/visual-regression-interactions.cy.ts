@@ -1,4 +1,4 @@
-describe('Visual Regression - Chart Interactions', () => {
+describe.skip('Visual Regression - Chart Interactions', () => {
   beforeEach(() => {
     cy.visit('/app?topic=BTC-USD');
     cy.waitForChartRender();

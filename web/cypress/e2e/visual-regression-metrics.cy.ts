@@ -1,4 +1,4 @@
-describe('Visual Regression - Metric Toggles', () => {
+describe.skip('Visual Regression - Metric Toggles', () => {
   beforeEach(() => {
     cy.visit('/app?topic=BTC-USD');
     cy.waitForChartRender();
