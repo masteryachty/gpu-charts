@@ -33,7 +33,7 @@ export default function PresetSection({
       }
     }
 
-  }, [chartInstance, setPreset]);
+  }, [setPreset]);
 
   // Load available presets
   useEffect(() => {
