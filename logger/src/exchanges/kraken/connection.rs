@@ -72,11 +72,18 @@ impl KrakenConnection {
                         }
                     }
                     _ => {
-                        debug!("Unhandled Kraken channel: {} for pair: {}", channel_name, pair);
+                        debug!(
+                            "Unhandled Kraken channel: {} for pair: {}",
+                            channel_name, pair
+                        );
                     }
                 }
             } else if arr.len() > 0 {
-                debug!("Kraken array message with {} elements: {:?}", arr.len(), arr);
+                debug!(
+                    "Kraken array message with {} elements: {:?}",
+                    arr.len(),
+                    arr
+                );
             }
         } else if let Some(obj) = value.as_object() {
             // Handle system messages
@@ -97,7 +104,10 @@ impl KrakenConnection {
                         let pair = obj.get("pair").and_then(|v| v.as_str()).unwrap_or("");
 
                         if status == "subscribed" {
-                            debug!("Successfully subscribed to Kraken channel: {} for pair: {}", channel, pair);
+                            debug!(
+                                "Successfully subscribed to Kraken channel: {} for pair: {}",
+                                channel, pair
+                            );
                         } else if status == "error" {
                             let error_msg = obj
                                 .get("errorMessage")
