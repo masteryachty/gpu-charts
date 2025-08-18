@@ -1,0 +1,48 @@
+{
+  "timestamp": "2025-08-18T13:09:22.891742",
+  "server_url": "http://localhost:8443",
+  "test_configuration": {
+    "connections": 10,
+    "requests": 100,
+    "mode": "data"
+  },
+  "functional_tests": {
+    "passed": 6,
+    "failed": 1,
+    "passed_tests": [
+      "symbols_endpoint",
+      "data_endpoint_1 hour",
+      "data_endpoint_7 days",
+      "error_handling_Invalid endpoint",
+      "error_handling_Missing symbol",
+      "error_handling_Invalid time range"
+    ],
+    "failed_tests": [
+      "data_endpoint_24 hours: Latency 11.65ms exceeds 10ms limit"
+    ]
+  },
+  "performance_metrics": {
+    "total_requests": 100,
+    "successful": 100,
+    "failed": 0,
+    "total_time_s": 0.04946583096170798,
+    "requests_per_sec": 2021.5974958029321,
+    "total_bytes": 21400,
+    "throughput_mbps": 3.3006428840776634,
+    "latency_min": 1.4458780060522258,
+    "latency_max": 9.275755961425602,
+    "latency_mean": 4.403352945228107,
+    "latency_median": 4.07301148516126,
+    "latency_p50": 4.097366007044911,
+    "latency_p90": 6.485979014541954,
+    "latency_p95": 7.423811999615282,
+    "latency_p99": 9.275755961425602,
+    "latency_stdev": 1.6296157337797548
+  },
+  "performance_summary": {
+    "p99_latency_ms": 9.275755961425602,
+    "mean_latency_ms": 4.403352945228107,
+    "requests_per_sec": 2021.5974958029321,
+    "success_rate": 100.0
+  }
+}

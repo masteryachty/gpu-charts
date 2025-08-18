@@ -15,9 +15,8 @@ mod symbols;
 use data::handle_data_request;
 use symbols::handle_symbols_request;
 
-/// Our top–level service function. It dispatches GET requests on “/api/data” to our handler.
+/// Our top–level service function. It dispatches GET requests on "/api/data" to our handler.
 async fn service_handler(req: Request<Body>) -> Result<Response<Body>, Infallible> {
-    println!("log");
 
     // Handle preflight OPTIONS requests.
     if req.method() == Method::OPTIONS {

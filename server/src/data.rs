@@ -2,6 +2,7 @@
 
 use std::time::Instant;
 use std::{collections::HashMap, convert::Infallible, fs::File, sync::Arc};
+use std::num::NonZeroUsize;
 
 use bytes::{Buf, Bytes};
 use futures::stream;
@@ -10,11 +11,19 @@ use memmap2::Mmap;
 use serde::Serialize;
 use serde_json::json;
 use url::form_urlencoded;
+use lru::LruCache;
+use once_cell::sync::Lazy;
+use tokio::sync::Mutex;
 
 // For mlock - using fully qualified path libc:: in code
 
 // Added for multi–day date handling.
 use chrono::{TimeZone, Utc};
+
+// Global LRU cache for memory-mapped files (cache size: 100 files)
+static MMAP_CACHE: Lazy<Arc<Mutex<LruCache<String, Arc<Mmap>>>>> = Lazy::new(|| {
+    Arc::new(Mutex::new(LruCache::new(NonZeroUsize::new(100).unwrap())))
+});
 
 //
 // ----- Structures and helper functions -----
@@ -186,26 +195,45 @@ pub fn find_end_index(time_slice: &[u32], target: u32) -> usize {
     }
 }
 
-/// Asynchronously load a file and memory–map it.
-pub async fn load_mmap(path: &str) -> Result<Mmap, String> {
-    let path = path.to_string();
-    tokio::task::spawn_blocking(move || {
-        let file = File::open(&path).map_err(|e| format!("Failed to open {path}: {e}"))?;
+/// Asynchronously load a file and memory–map it with caching.
+pub async fn load_mmap(path: &str) -> Result<Arc<Mmap>, String> {
+    // Check cache first
+    {
+        let mut cache = MMAP_CACHE.lock().await;
+        if let Some(mmap) = cache.get(path) {
+            return Ok(Arc::clone(mmap));
+        }
+    }
+    
+    // Not in cache, load from disk
+    let path_clone = path.to_string();
+    let mmap = tokio::task::spawn_blocking(move || -> Result<Mmap, String> {
+        let file = File::open(&path_clone).map_err(|e| format!("Failed to open {path_clone}: {e}"))?;
         // Safety: we assume the file is not modified while mapped.
-        let mmap = unsafe { Mmap::map(&file).map_err(|e| format!("Failed to mmap {path}: {e}"))? };
+        let mmap = unsafe { Mmap::map(&file).map_err(|e| format!("Failed to mmap {path_clone}: {e}"))? };
 
         // Optionally lock the mmap pages in memory (Linux only).
         #[cfg(target_os = "linux")]
         unsafe {
             let ret = libc::mlock(mmap.as_ptr().cast::<libc::c_void>(), mmap.len());
             if ret != 0 {
-                eprintln!("Warning: mlock failed for {path} (errno {ret})");
+                eprintln!("Warning: mlock failed for {path_clone} (errno {ret})");
             }
         }
         Ok(mmap)
     })
     .await
-    .map_err(|e| format!("Task join error: {e:?}"))?
+    .map_err(|e| format!("Task join error: {e:?}"))??;
+    
+    let mmap_arc = Arc::new(mmap);
+    
+    // Add to cache
+    {
+        let mut cache = MMAP_CACHE.lock().await;
+        cache.put(path.to_string(), Arc::clone(&mmap_arc));
+    }
+    
+    Ok(mmap_arc)
 }
 
 /// Main handler for the /api/data endpoint.
@@ -224,8 +252,6 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
         }
     };
 
-    println!("Query Params: {query_params:?}");
-
     // Build a base path using the configured data path
     // Always use /mnt/md/data as the base path
     let data_root = "/mnt/md/data".to_string();
@@ -242,24 +268,25 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
     let start_dt = Utc.timestamp_opt(i64::from(query_params.start), 0).unwrap();
     let end_dt = Utc.timestamp_opt(i64::from(query_params.end), 0).unwrap();
 
-    println!("date: {start_dt:?}, {end_dt:?}");
-
     // Build a list of days (inclusive) in the query range.
-    let mut days = Vec::new();
+    // Pre-allocate with estimated capacity
+    let days_count = (end_dt.date_naive() - start_dt.date_naive()).num_days() + 1;
+    let mut days = Vec::with_capacity(days_count as usize);
     let mut current_date = start_dt.date_naive();
     while current_date <= end_dt.date_naive() {
         days.push(current_date);
         current_date = current_date.succ_opt().unwrap();
     }
-    println!("Days in range: {days:?}");
 
-    // Prepare per–column accumulators.
-    let mut col_chunks: HashMap<String, Vec<ZeroCopyChunk>> = HashMap::new();
-    let mut col_total_records: HashMap<String, usize> = HashMap::new();
-    let mut col_total_lengths: HashMap<String, usize> = HashMap::new();
+    // Prepare per–column accumulators with pre-allocated capacity.
+    let cols_count = query_params.columns.len();
+    let mut col_chunks: HashMap<String, Vec<ZeroCopyChunk>> = HashMap::with_capacity(cols_count);
+    let mut col_total_records: HashMap<String, usize> = HashMap::with_capacity(cols_count);
+    let mut col_total_lengths: HashMap<String, usize> = HashMap::with_capacity(cols_count);
 
     for col in &query_params.columns {
-        col_chunks.insert(col.clone(), Vec::new());
+        // Pre-allocate vectors for chunks (estimate ~2 chunks per day)
+        col_chunks.insert(col.clone(), Vec::with_capacity(days.len() * 2));
         col_total_records.insert(col.clone(), 0);
         col_total_lengths.insert(col.clone(), 0);
     }
@@ -268,59 +295,26 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
     for day in days {
         // Format the day as "DD.MM.YY"
         let date_suffix = day.format("%d.%m.%y").to_string();
-        println!("Processing day: {date_suffix}");
 
         // Build the time file path for this day.
         let time_path = format!("{base_path}/time.{date_suffix}.bin");
         let time_mmap = match load_mmap(&time_path).await {
             Ok(mmap) => mmap,
-            Err(e) => {
-                println!("Warning: Could not load time file {time_path}: {e}. Skipping day.");
+            Err(_e) => {
                 continue;
             }
         };
-        let time_mmap = Arc::new(time_mmap);
+        let time_mmap = time_mmap;
 
         // Ensure the time file length is valid (assuming each record is 8 bytes).
         if time_mmap.len() % 4 != 0 {
-            println!(
-                "Invalid time file length for day {}, {}.",
-                date_suffix,
-                time_mmap.len()
-            );
             continue;
         }
         let num_time_records = time_mmap.len() / 4;
         let time_slice: &[u32] = unsafe {
             std::slice::from_raw_parts(time_mmap.as_ptr().cast::<u32>(), num_time_records)
         };
-        println!(
-            "Day {}: first time = {}, last time = {}",
-            date_suffix,
-            time_slice.first().unwrap_or(&0),
-            time_slice.last().unwrap_or(&0)
-        );
 
-        let mut is_sorted = true;
-
-        for i in 0..time_slice.len().saturating_sub(1) {
-            if time_slice[i] > time_slice[i + 1] + 60 {
-                println!(
-                    "Unsorted jump at index {} -> {}: {} > {}",
-                    i,
-                    i + 1,
-                    time_slice[i],
-                    time_slice[i + 1]
-                );
-                is_sorted = false;
-            }
-        }
-
-        if is_sorted {
-            println!("Day {date_suffix}: time array is sorted.");
-        } else {
-            println!("Day {date_suffix}: time array has unsorted jumps.");
-        }
 
         // if (!time_slice.windows(2).all(|w| w[0] <= w[1])) {
         //     println!("{:?}", time_slice);
@@ -330,7 +324,6 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
         let day_first = time_slice[0];
         let day_last = time_slice[num_time_records - 1];
         if query_params.end < day_first || query_params.start > day_last {
-            println!("No overlap for day {date_suffix}.");
             continue;
         }
 
@@ -340,13 +333,9 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
         let start_idx = find_start_index(time_slice, effective_start);
         let end_idx = find_end_index(time_slice, effective_end);
         if start_idx >= num_time_records || start_idx > end_idx {
-            println!("Invalid time slice for day {date_suffix}.");
             continue;
         }
         let day_num_records = end_idx - start_idx + 1;
-        println!(
-            "Day {date_suffix}: start_idx = {start_idx}, end_idx = {end_idx}, num_records = {day_num_records}"
-        );
 
         // For each requested column, load its day–specific file and extract the slice.
         for col in &query_params.columns {
@@ -363,12 +352,9 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
                         .unwrap());
                 }
             };
-            let mmap = Arc::new(mmap);
+            let mmap = mmap;
             let offset = start_idx * record_size;
             let length = day_num_records * record_size;
-            println!(
-                "Day {date_suffix} column '{col}': record_size = {record_size}, offset = {offset}, length = {length}"
-            );
             if offset + length > mmap.len() {
                 return Ok(Response::builder()
                     .status(StatusCode::INTERNAL_SERVER_ERROR)
@@ -406,10 +392,11 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
     }
     let header_json = json!({ "columns": columns_meta });
     let header_str = header_json.to_string() + "\n";
-    println!("Header JSON: {header_str}");
 
-    // Build the stream of DataChunks.
-    let mut chunks: Vec<Result<DataChunk, std::io::Error>> = Vec::new();
+    // Build the stream of DataChunks with pre-allocated capacity.
+    // Calculate total chunks: 1 header + sum of all column chunks
+    let total_chunks: usize = 1 + col_chunks.values().map(|v| v.len()).sum::<usize>();
+    let mut chunks: Vec<Result<DataChunk, std::io::Error>> = Vec::with_capacity(total_chunks);
     chunks.push(Ok(DataChunk::Header(Bytes::from(header_str))));
     for col in &query_params.columns {
         if let Some(vec_chunks) = col_chunks.get(col) {
@@ -426,10 +413,8 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
         .header(header::CONTENT_TYPE, "application/octet-stream")
         .body(Body::wrap_stream(body_stream))
         .unwrap();
-    println!("Response prepared.");
 
-    let duration = start_time.elapsed(); // End timing
-    println!("Request handled in {duration:?}");
+    let _duration = start_time.elapsed(); // End timing
 
     Ok(response)
 }
