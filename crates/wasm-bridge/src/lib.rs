@@ -95,7 +95,7 @@ impl Chart {
                     .find(|m| m.label == metric_label)
                 {
                     chart_type.visible = !chart_type.visible;
-                    
+
                     // Also update the visibility in the data store's metrics
                     // Find the corresponding metric in data store by matching the column name
                     for (_data_type, column_name) in &chart_type.data_columns {

@@ -1,510 +1,396 @@
-# Web Frontend - CLAUDE.md
+# CLAUDE.md
 
-This file provides comprehensive guidance for working with the React frontend application, its WASM integration patterns, and modern frontend development practices.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Purpose and Architecture
+## Important Development Standards
 
-The web directory contains a high-performance React 18 application that serves as the frontend for a GPU-accelerated financial data visualization platform. It integrates WebAssembly modules built from Rust, provides real-time charting capabilities through WebGPU, and implements professional trading interface patterns.
+- **ALWAYS use Linux line endings (LF) for all files in this project**. Do not use Windows line endings (CRLF).
 
-### Core Responsibilities
-- **WASM Integration**: Seamless bridging between React and Rust/WebAssembly modules
-- **State Management**: Centralized application state with Zustand
-- **Real-time Visualization**: WebGPU-powered chart rendering at 120fps
-- **User Interface**: Professional trading dashboard with responsive controls
-- **Error Handling**: Comprehensive error boundaries and recovery mechanisms
+## Project Overview
 
-## Technology Stack
+This is a WebAssembly-based real-time data visualization application built in Rust that renders interactive charts using WebGPU for high-performance GPU-accelerated rendering. The application uses a modular architecture with separate crates for different concerns and includes a React web frontend.
 
-### Core Technologies
-- **React 18.3.1**: Latest React with concurrent features and Suspense
-- **TypeScript 5.6.2**: Strict type safety with advanced type features
-- **Vite 6.3.5**: Lightning-fast build tool with HMR and WASM support
-- **Tailwind CSS 3.4.13**: Utility-first styling with dark theme optimization
-- **Zustand 4.4.7**: Lightweight state management without boilerplate
+## Architecture Overview
 
-### Supporting Libraries
-- **React Router DOM 6.26.1**: Client-side routing with future flags
-- **Lucide React**: Modern icon library for UI components
-- **clsx**: Conditional className utility
-- **vite-plugin-wasm**: WebAssembly module loading
-- **vite-plugin-top-level-await**: Async WASM initialization support
+### Modular Crate Architecture
 
-### Testing Infrastructure
-- **Playwright 1.52.0**: End-to-end testing with WebGPU support
-- **Multiple browser targets**: Chromium, Firefox, WebKit testing
-- **Software rendering fallback**: Headless testing support
-
-## Component Hierarchy and Organization
+The project has been restructured into a clean, modular architecture with five specialized crates:
 
 ```
-src/
-├── App.tsx                         # Root application with routing and error boundaries
-├── main.tsx                        # Entry point with BrowserRouter setup
-│
-├── pages/
-│   ├── HomePage.tsx                # Landing page with feature showcase
-│   └── TradingApp.tsx              # Main trading interface with chart integration
-│
-├── components/
-│   ├── chart/
-│   │   ├── WasmCanvas.tsx         # Core WASM chart integration component
-│   │   └── ChartControls.tsx      # Chart control panel with presets
-│   │
-│   ├── layout/
-│   │   ├── Header.tsx              # Top navigation with symbol search
-│   │   ├── Sidebar.tsx             # Collapsible tools and indicators panel
-│   │   └── StatusBar.tsx           # Bottom status information
-│   │
-│   ├── error/
-│   │   ├── ErrorBoundary.tsx      # React error boundary with recovery
-│   │   ├── ErrorNotificationCenter.tsx # Global error notifications
-│   │   └── index.ts                # Error component exports
-│   │
-│   ├── PresetSection.tsx          # Preset selector with metric toggles
-│   └── index.ts                    # Component barrel exports
-│
-├── hooks/
-│   └── useWasmChart.ts            # WASM chart initialization and lifecycle
-│
-├── store/
-│   └── useAppStore.ts             # Zustand store with subscriptions
-│
-├── config/
-│   └── store-constants.ts         # Store configuration constants
-│
-├── errors/
-│   ├── ErrorTypes.ts              # Error type definitions
-│   ├── ErrorHandler.ts.disabled   # Advanced error handling (disabled)
-│   └── index.ts                   # Error exports
-│
-├── types/
-│   └── global.d.ts                # Global type declarations
-│
-├── styles/
-│   └── globals.css                # Tailwind base and custom styles
-│
-├── utils/
-│   └── performance-monitor.ts     # Performance monitoring utilities
-│
-└── wasm-trigger.ts                # HMR trigger for WASM rebuilds
+gpu-charts/
+├── crates/
+│   ├── shared-types/     # Common types and data structures
+│   ├── config-system/    # Configuration and quality presets
+│   ├── data-manager/     # Data fetching, parsing, and GPU buffers
+│   ├── renderer/         # Pure GPU rendering engine
+│   └── wasm-bridge/      # JavaScript/React integration layer
+├── web/                  # React frontend application
+├── server/               # High-performance data server
+├── logger/      # Real-time market data collector
+└── file_server/          # Legacy development server
 ```
 
-## State Management with Zustand
-
-### Store Architecture
-The application uses Zustand for state management, providing a simple yet powerful state solution without React Context overhead.
-
-#### Core Store Structure (`store/useAppStore.ts`)
-```typescript
-interface StoreState {
-  // Chart configuration
-  preset?: string;              // Active chart preset
-  symbol?: string;              // Current trading symbol
-  startTime: number;            // Chart start timestamp
-  endTime: number;              // Chart end timestamp
-}
-
-interface AppStore extends StoreState {
-  // Subscription management
-  _subscriptions: Map<string, StoreSubscriptionCallbacks>;
-  _lastState: StoreState | null;
-  
-  // Actions
-  setCurrentSymbol: (symbol: string) => void;
-  setPreset: (preset?: string) => void;
-  setTimeRange: (startTime: number, endTime: number) => void;
-  updateChartState: (updates: Partial<StoreState>) => void;
-  resetToDefaults: () => void;
-  
-  // Subscription API
-  subscribe: (id: string, callbacks: StoreSubscriptionCallbacks) => () => void;
-  unsubscribe: (id: string) => void;
-}
+#### Crate Dependencies
+```
+shared-types (foundation - no internal deps)
+    ↑
+├── config-system (depends on: shared-types)
+├── data-manager (depends on: shared-types)
+├── renderer (depends on: shared-types, config-system)
+    ↑
+└── wasm-bridge (depends on: all above crates)
+    ↑
+    JavaScript/React
 ```
 
-### Subscription Pattern
-The store implements a custom subscription system for fine-grained change detection:
-- **Symbol changes**: Track when trading symbol updates
-- **Time range changes**: Monitor chart time window modifications
-- **Preset changes**: Detect quality/metric preset switches
-- **General changes**: Catch-all for any state mutations
+#### Key Architectural Benefits
+- **Clear Separation of Concerns**: Each crate has a single, well-defined responsibility
+- **Testability**: Crates can be tested in isolation
+- **Reusability**: Core logic can be used outside WASM context
+- **Maintainability**: Changes are localized to specific crates
+- **Parallel Development**: Teams can work on different crates independently
 
-### Store Usage Patterns
-```typescript
-// Direct state access
-const { symbol, preset } = useAppStore();
+### Crate Descriptions
 
-// Action usage
-const setCurrentSymbol = useAppStore(state => state.setCurrentSymbol);
+#### 1. **shared-types** (`crates/shared-types/`)
+- Foundation crate with zero dependencies on other workspace crates
+- Common data structures, enums, and types
+- Store state types for React integration
+- Event system types
+- Error definitions
 
-// Subscription hooks
-const chartSubscription = useChartSubscription({
-  onSymbolChange: (newSymbol, oldSymbol) => { /* handle */ },
-  onTimeRangeChange: (newRange, oldRange) => { /* handle */ }
-});
-```
+#### 2. **config-system** (`crates/config-system/`)
+- Manages all configuration and quality presets
+- Defines Low/Medium/High/Ultra quality settings
+- Performance tuning parameters
+- Chart appearance configuration
 
-## WASM Integration Patterns
+#### 3. **data-manager** (`crates/data-manager/`)
+- Handles all data operations
+- HTTP data fetching with caching
+- Binary data parsing
+- GPU buffer creation and management
+- Screen-space coordinate transformations
 
-### Chart Initialization Hook (`hooks/useWasmChart.ts`)
-The `useWasmChart` hook manages the complete WASM lifecycle:
+#### 4. **renderer** (`crates/renderer/`)
+- Pure GPU rendering engine
+- WebGPU pipeline management
+- Specialized renderers (plot, candlestick, axes)
+- WGSL shader management
+- Surface and texture handling
 
-1. **Canvas Detection**: Waits for canvas element availability
-2. **WASM Loading**: Dynamic import of WebAssembly module
-3. **Chart Creation**: Instantiates Rust Chart class
-4. **WebGPU Init**: Initializes GPU context and pipelines
-5. **Render Loop**: Starts animation frame-based rendering
-6. **Cleanup**: Proper disposal on unmount
+#### 5. **wasm-bridge** (`crates/wasm-bridge/`)
+- Central orchestration layer
+- JavaScript/React bindings
+- Event handling and user interactions
+- State synchronization
+- Coordinates all other crates
 
-### WasmCanvas Component (`components/chart/WasmCanvas.tsx`)
-Central component for WASM chart rendering:
+## Development Commands
 
-#### Key Features
-- **Responsive Sizing**: Automatic canvas dimension updates
-- **Event Bridging**: Mouse events forwarded to WASM
-- **Loading States**: Visual feedback during initialization
-- **Error Recovery**: Fallback for WebGPU unavailability
-- **Test Mode Support**: Software rendering for testing
+### Code Quality and Pre-commit Hooks
 
-#### Event Handling
-```typescript
-// Mouse wheel for zoom
-handleMouseWheel(event) → chart.handle_mouse_wheel(deltaY, x, y)
+A comprehensive pre-commit hook is configured to run all code quality checks before allowing commits:
 
-// Mouse move for crosshair
-handleMouseMove(event) → chart.handle_mouse_move(x, y)
-
-// Mouse click for selection
-handleMouseDown/Up(event) → chart.handle_mouse_click(x, y, pressed)
-```
-
-### WASM Module Structure
-The WASM module (`@pkg/wasm_bridge.js`) exposes:
-- `Chart` class with WebGPU rendering
-- Preset management methods
-- Metric visibility controls
-- Performance metrics access
-- Time range updates
-
-## Chart Component Architecture
-
-### WasmCanvas Integration Flow
-1. **Component Mount** → Canvas ref created
-2. **WASM Init** → useWasmChart hook triggered
-3. **Chart Ready** → onChartReady callback fired
-4. **Store Sync** → URL params parsed to store
-5. **Preset Applied** → Chart configured with preset
-6. **Data Fetched** → Automatic data loading
-7. **Render Loop** → Continuous GPU rendering
-
-### ChartControls Component
-Provides user interface for chart configuration:
-- **Symbol Selection**: Dropdown for trading pairs
-- **Preset Management**: Quality and metric presets
-- **Time Range**: Quick time range buttons
-- **Metric Toggles**: Individual chart layer visibility
-- **Reset Controls**: Return to default settings
-
-### PresetSection Component
-Manages chart presets and metrics:
-- Loads available presets from WASM
-- Fetches metrics for active preset
-- Toggles individual metric visibility
-- Syncs preset state with store
-
-## Error Handling and Boundaries
-
-### ErrorBoundary Component
-Comprehensive error catching with recovery:
-
-#### Features
-- **Automatic Recovery**: Exponential backoff retry logic
-- **Error Reporting**: Integration with error tracking
-- **User Feedback**: Clear error UI with actions
-- **State Preservation**: Attempts to maintain app state
-- **Manual Recovery**: User-triggered retry options
-
-#### Error UI Components
-- Error details display with stack trace
-- Recovery status indicators
-- Action buttons (retry, reset, report)
-- Help text with troubleshooting steps
-
-### Error Types
-- **WASM Errors**: WebAssembly initialization failures
-- **WebGPU Errors**: GPU context or rendering issues
-- **Network Errors**: Data fetching failures
-- **React Errors**: Component rendering exceptions
-
-## Layout Components
-
-### Header Component
-Top navigation bar with:
-- Logo and branding
-- Symbol search input
-- Watchlist dropdown
-- Connection status indicator
-- User menu with settings
-
-### Sidebar Component
-Collapsible side panel featuring:
-- Tool selection icons
-- Indicator panel
-- Drawing tools
-- Alert management
-- Chart settings
-- Theme controls
-
-### StatusBar Component
-Bottom information bar showing:
-- Current symbol
-- Connection status
-- Performance metrics
-- System messages
-
-## Page Structure
-
-### HomePage
-Landing page with:
-- Hero section with CTA
-- Feature highlights
-- Performance metrics showcase
-- Navigation to trading app
-
-### TradingApp
-Main application interface:
-- Header navigation
-- Sidebar tools
-- Central chart canvas
-- Control panels
-- Status information
-
-#### URL Parameter Handling
-Parses and applies URL parameters:
-- `topic`: Trading symbol (e.g., BTC-USD)
-- `start`: Start timestamp
-- `end`: End timestamp
-- `preset`: Initial chart preset
-
-## Build and Development Configuration
-
-### Vite Configuration (`vite.config.ts`)
-```typescript
-export default defineConfig({
-  plugins: [
-    react(),                    // React Fast Refresh
-    wasm(),                     // WASM module support
-    topLevelAwait()            // Async module loading
-  ],
-  server: {
-    port: 3000,
-    headers: {
-      'Cross-Origin-Opener-Policy': 'same-origin',
-      'Cross-Origin-Embedder-Policy': 'require-corp'  // Required for SharedArrayBuffer
-    }
-  },
-  resolve: {
-    alias: {
-      '@pkg': './pkg'          // WASM package alias
-    }
-  }
-})
-```
-
-### TypeScript Configuration (`tsconfig.json`)
-- **Target**: ES2020 for modern features
-- **Strict Mode**: Full type safety enabled
-- **Module Resolution**: Bundler mode for Vite
-- **Path Aliases**: `@/` for src, `@pkg/` for WASM
-- **Exclusions**: Disabled experimental features
-
-## CSS and Styling Approach
-
-### Tailwind Configuration
-Custom theme with:
-- **Dark Theme Colors**: Pure black backgrounds
-- **Accent Colors**: High-contrast trading colors
-- **Custom Fonts**: Inter for UI, JetBrains Mono for data
-- **Animations**: Price movements and loading states
-
-### Global Styles (`styles/globals.css`)
-- Tailwind base/components/utilities
-- Custom scrollbar styling
-- Button component classes
-- Input field styling
-- Card containers
-- Text gradients
-
-### Styling Patterns
-- **Utility-First**: Tailwind classes for most styling
-- **Component Classes**: Reusable `.btn-primary`, `.input-primary`
-- **Dark Mode First**: Optimized for dark theme
-- **High Contrast**: Clear visual hierarchy
-
-## Testing Setup
-
-### Playwright Configuration
-- **Browsers**: Chromium, Firefox, WebKit
-- **WebGPU Support**: Software rendering fallback
-- **Test Categories**: Basic, data, performance
-- **Parallel Execution**: Full parallelization
-- **Artifacts**: Screenshots, videos on failure
-
-### Test Server Setup
-- Development server on port 3000
-- Mock data server on port 8080
-- Automatic server startup
-- Reuse existing servers in dev
-
-### Test Categories
-1. **Basic Tests**: Page loading, navigation
-2. **WASM Tests**: WebAssembly initialization
-3. **Data Tests**: Chart data visualization
-4. **Performance Tests**: Memory and load time
-
-## Performance Monitoring
-
-### Built-in Monitoring (`utils/performance-monitor.ts`)
-- Frame rate tracking
-- Memory usage monitoring
-- Load time measurement
-- Render performance metrics
-
-### WebGPU Performance
-- 120fps target frame rate
-- Sub-16ms render times
-- GPU memory management
-- Efficient buffer updates
-
-## Integration with Backend
-
-### API Configuration
-Default API endpoint: `api.rednax.io`
-
-Override via environment variable:
 ```bash
+# The pre-commit hook automatically runs when you commit:
+git commit -m "Your commit message"
+
+# Manual testing of pre-commit checks:
+.git/hooks/pre-commit
+
+# Individual commands the pre-commit hook runs:
+cd logger
+cargo fmt --all -- --check           # Rust formatting check
+cargo clippy --target x86_64-unknown-linux-gnu -- -D warnings  # Linting
+cargo audit                           # Security vulnerability scan
+cargo deny check                      # Dependency and license audit
+cargo build --target x86_64-unknown-linux-gnu   # Build verification
+cargo test --target x86_64-unknown-linux-gnu    # Full test suite
+```
+
+The pre-commit hook ensures:
+- ✅ **Rust formatting** is correct (via `cargo fmt`)
+- ✅ **Clippy linting** passes with no warnings
+- 🔒 **Security audit** passes (via `cargo audit`) - blocks commits if vulnerabilities found
+- ⚠️ **Dependency and license check** (via `cargo deny`) - shows warnings but doesn't block
+- ✅ **Code builds** successfully 
+- ✅ **All tests pass** (49 tests across 6 test files)
+- ✅ **Frontend linting** passes (if web directory exists)
+- ✅ **Server code quality** checks pass (if server directory exists)
+
+If any critical checks fail, the commit is blocked with helpful error messages and fix suggestions.
+
+### Primary Development Workflow (from project root)
+```bash
+# Build WASM module for development (generates files in web/pkg)
+npm run dev:wasm
+
+# Watch Rust files and auto-rebuild WASM with hot reload
+npm run dev:watch
+
+# Build and run the data server (port 8443)
+npm run dev:server
+
+# Full development server (WASM watch + React dev server)
+npm run dev:web
+
+# Complete development stack (WASM + server + React)
+npm run dev:suite
+
+# Complete development stack with data logger
+npm run dev:suite:full
+
+# Set up SSL certificates for local development
+npm run setup:ssl
+
+# Production build (WASM + React)
+npm run build
+
+# Build all components for production
+npm run build:server
+npm run build:logger
+
+# Lint TypeScript/React code
+npm run lint
+
+# Clean all build artifacts
+npm run clean
+```
+
+### Testing (from project root)
+```bash
+# Run default tests (server only - web tests disabled due to current issues)
+npm run test
+
+# Run ALL tests including web frontend (use when web tests are working)
+npm run test:all
+
+# Run server unit and integration tests
+npm run test:server
+
+# Run coinbase logger tests
+npm run test:logger
+
+# Run React/frontend tests
+npm run test:web
+
+# Run specific frontend test suites
+npm run test:data
+npm run test:basic
+```
+
+### Alternative File Server (Legacy)
+```bash
+# Build and run simple file server (serves on port 8080)
+cd file_server && cargo build && cargo run
+```
+
+### Testing the Application
+- **React dev server**: `http://localhost:3000/app?topic=BTC-usd&start=1745322750&end=1745691150`
+- **Production API**: `https://api.rednax.io/api/` (via Cloudflare Tunnel)
+  - `/api/data` - Time-series data endpoint
+  - `/api/symbols` - Available symbols endpoint
+- **Local development API**: `https://localhost:8443/api/` (requires SSL certificates)
+- **Legacy file server**: `http://localhost:8080` with query parameters:
+  - `topic`: data source identifier
+  - `start`: start timestamp  
+  - `end`: end timestamp
+
+Example production API request: `https://api.rednax.io/api/data?symbol=BTC-USD&type=MD&start=1234567890&end=1234567900&columns=time,best_bid`
+
+Example local development: `https://localhost:8443/api/data?symbol=BTC-USD&type=MD&start=1234567890&end=1234567900&columns=time,best_bid`
+
+Example legacy server: `http://localhost:8080?topic=sensor_data&start=1234567890&end=1234567900`
+
+## API Configuration
+
+The application uses `api.rednax.io` as the default API endpoint. To override this:
+
+### Environment Variables (Web App)
+```bash
+# For production deployment
+REACT_APP_API_BASE_URL=https://api.rednax.io
+
+# For local development
 REACT_APP_API_BASE_URL=https://localhost:8443
 ```
 
+## Server Architecture
+
+### Data Server (`/server`)
+A high-performance HTTP/2 TLS server built for ultra-low latency financial data serving:
+
+- **Technology**: Rust with `hyper`, `tokio-rustls`, and `memmap2`
+- **Port**: 8443 (HTTPS only)
+- **Data Storage**: Memory-mapped binary files for zero-copy serving
+- **File Format**: `{column}.{DD}.{MM}.{YY}.bin` (e.g., `best_bid.01.03.25.bin`)
+- **Path Structure**: `/mnt/md/data/{symbol}/{type}/{column}.{DD}.{MM}.{YY}.bin`
+
+#### Endpoints
+- **`GET /api/data`**: Serves time-series data
+  - Query params: `symbol`, `type`, `start`, `end`, `columns`
+  - Returns: JSON header + binary data stream
+  - Columns: `time`, `best_bid`, `best_ask`, `price`, `volume`, `side` (4-byte records each)
+- **`GET /api/symbols`**: Lists available trading symbols
+
+#### Features
+- Memory-mapped file I/O for zero-copy data access
+- Multi-day query support with automatic date range handling
+- TLS encryption with local SSL certificates
+- Memory locking (`mlock`) for ultra-low latency
+- CORS enabled for web frontend integration
+- Comprehensive test coverage with unit and integration tests
+
+#### Testing Infrastructure
+The server includes extensive testing capabilities:
+
+- **Unit Tests** (`server/tests/unit_tests.rs`): 18 tests covering:
+  - Query parameter parsing and validation
+  - Data indexing and binary search algorithms
+  - File I/O and memory-mapped file operations
+  - Edge cases and error handling
+  
+- **Integration Tests** (`server/tests/data_tests.rs`): 8 tests covering:
+  - End-to-end API request handling
+  - Mock data generation and validation
+  - Multi-column data serving scenarios
+  
+- **API Tests** (`server/test_api.sh`): Bash script testing:
+  - Live server endpoints (`/api/data`, `/api/symbols`)
+  - Error handling and HTTP status codes
+  - CORS headers and OPTIONS preflight requests
+  - SSL/TLS connectivity
+
+**Running Tests**: All tests must be run with the native target to avoid WASM compilation issues:
+```bash
+# From project root
+cargo test --target x86_64-unknown-linux-gnu
+
+# Or using npm scripts from web directory
+npm run test:server          # Unit and integration tests
+```
+
+## Key Technical Considerations
+
+### WebAssembly Integration
+- Built as both `cdylib` (for WASM) and `rlib` (for testing)
+- Uses `wasm-bindgen` for JavaScript interop
+- Async operations handled via `wasm-bindgen-futures`
+- Memory management follows Rust ownership patterns
+
 ### Data Flow
-1. **Symbol Selection** → Store update
-2. **Store Change** → WASM notification
-3. **WASM Request** → Backend API call
-4. **Binary Response** → GPU buffer update
-5. **GPU Render** → Canvas display
+1. URL parameters determine initial dataset (topic, time range)
+2. DataRetriever fetches data via HTTP requests
+3. GPU compute shaders calculate min/max bounds
+4. Separate render passes draw plot lines, axes, and labels
+5. User interactions trigger new data fetches and re-rendering
 
-## Development Workflow
+### Performance Optimizations
+- GPU-accelerated calculations using WebGPU compute shaders
+- Efficient buffer management for large time-series datasets
+- Asynchronous data loading and rendering pipeline
 
-### Quick Start
-```bash
-# Install dependencies
-npm install
+## Multi-Component Architecture
 
-# Generate SSL certificates
-npm run setup:ssl
+This project consists of four main components working together:
 
-# Start full development stack
-npm run dev:suite
-```
+### 1. WASM Bridge and Core Libraries (`/crates/`)
+- **Core Engine**: Modular WebAssembly-based charting system built in Rust
+- **Technology**: WebGPU for GPU-accelerated rendering, WASM for web integration
+- **Output**: Built from `crates/wasm-bridge` to `web/pkg/` for React consumption
+- **Features**: Real-time data visualization, interactive controls, high-performance rendering
+- **Development**: Hot reloading via `scripts/dev-build.sh` watching all crate changes
 
-### Hot Module Replacement
-- **React Components**: Instant HMR with state preservation
-- **WASM Changes**: Auto-rebuild via dev-build.sh
-- **Style Changes**: Immediate Tailwind updates
-- **Type Changes**: TypeScript recompilation
+### 2. React Frontend (`/web`)
+- **Frontend**: Modern React app with TypeScript, Tailwind CSS, and Vite
+- **Integration**: Consumes WASM module from `web/pkg/`
+- **State Management**: Zustand store in `web/src/store/`
+- **Components**: React components in `web/src/components/` with chart integration
+- **Data Source**: Connects to local data server via HTTPS API
 
-### Development Scripts
-- `npm run dev`: React dev server only
-- `npm run dev:web`: WASM watch + React
-- `npm run dev:suite`: Full stack development
-- `npm run dev:wasm`: One-time WASM build
-- `npm run dev:watch`: Auto WASM rebuilding
+### 3. Data Server (`/server`)
+- **Backend**: High-performance Rust server with HTTP/2 and TLS
+- **Purpose**: Serves financial time-series data with ultra-low latency
+- **API**: RESTful endpoints for data and symbol queries
+- **Storage**: Memory-mapped binary files for zero-copy data access
+- **Testing**: Comprehensive test suite with 26 total tests (18 unit + 8 integration)
+- **Development**: Must use `--target x86_64-unknown-linux-gnu` for all cargo operations
 
-### Building for Production
-```bash
-npm run build
-```
-Creates optimized production bundle with:
-- Minified JavaScript
-- Optimized WASM module
-- Tree-shaken dependencies
-- Code splitting
-- Source maps
+### 4. Coinbase Logger (`/logger`)
+- **Purpose**: Real-time market data collection from Coinbase WebSocket feed
+- **Output**: Writes binary data files that the server memory-maps
+- **Technology**: Multi-threaded Rust application with WebSocket connections
+- **Integration**: Feeds data directly to server for live visualization
 
-## Best Practices
+### 5. Legacy File Server (`/file_server`)
+- **File Server**: Simple Actix-web server (development only)
+- **Direct WASM**: Traditional web integration without React framework
+- **Legacy Support**: Maintains original URL parameter-based interface
 
-### Component Development
-1. Use functional components with hooks
-2. Implement proper TypeScript types
-3. Follow single responsibility principle
-4. Add error boundaries for robustness
-5. Write Playwright tests for new features
+## File Structure Notes
+- `crates/`: Modular Rust crates for the charting system
+  - `wasm-bridge/`: Central orchestration and JavaScript bridge
+  - `data-manager/`: Data operations and GPU buffer management
+  - `renderer/`: Pure GPU rendering with WGSL shaders
+  - `config-system/`: Configuration and quality presets
+  - `shared-types/`: Common types and interfaces
+- `web/`: React frontend application
+  - `web/pkg/`: Generated WASM modules from wasm-bridge crate
+- `server/`: High-performance data server with SSL certificates
+- `logger/`: Real-time market data collection service
+- `file_server/`: Simple Actix-web development server (legacy mode)
+- `scripts/`: Build and development automation scripts
+  - `dev-build.sh`: Automated WASM rebuilding with file watching (updated paths)
+  - `setup-ssl.sh`: SSL certificate generation and management
+- `package.json`: Top-level orchestration scripts for all components
+- `Cargo.toml`: Workspace configuration for all Rust components
 
-### State Management
-1. Keep store minimal and flat
-2. Use subscriptions for targeted updates
-3. Avoid unnecessary re-renders
-4. Implement optimistic updates
-5. Handle async operations properly
+## Working with Individual Crates
 
-### WASM Integration
-1. Check WebGPU availability
-2. Implement loading states
-3. Handle initialization failures
-4. Clean up on unmount
-5. Monitor performance metrics
+Each crate has its own CLAUDE.md file with specific guidance:
 
-### Performance Optimization
-1. Use React.memo for expensive components
-2. Implement virtualization for lists
-3. Debounce user inputs
-4. Optimize re-render triggers
-5. Monitor bundle size
+- [`crates/shared-types/CLAUDE.md`](crates/shared-types/CLAUDE.md) - Common types and structures
+- [`crates/config-system/CLAUDE.md`](crates/config-system/CLAUDE.md) - Configuration management
+- [`crates/data-manager/CLAUDE.md`](crates/data-manager/CLAUDE.md) - Data operations
+- [`crates/renderer/CLAUDE.md`](crates/renderer/CLAUDE.md) - GPU rendering
+- [`crates/wasm-bridge/CLAUDE.md`](crates/wasm-bridge/CLAUDE.md) - JavaScript integration
 
-### Error Handling
-1. Wrap components in error boundaries
-2. Provide user-friendly error messages
-3. Implement recovery mechanisms
-4. Log errors for debugging
-5. Test error scenarios
+## Best Practices for Modular Development
 
-## Common Issues and Solutions
+1. **Dependency Direction**: Dependencies should only flow upward in the architecture
+2. **Interface Stability**: Changes to shared-types affect all crates - plan carefully
+3. **Testing**: Each crate should have comprehensive unit tests
+4. **Documentation**: Keep crate-specific CLAUDE.md files updated
+5. **Version Management**: Use workspace versioning for consistency
 
-### WASM Loading Failures
-- Check WebGPU browser support
-- Verify WASM module built correctly
-- Ensure correct CORS headers
-- Check canvas element availability
+## Quick Start for New Developers
 
-### Performance Issues
-- Profile with React DevTools
-- Check for unnecessary re-renders
-- Optimize Zustand subscriptions
-- Monitor WebGPU memory usage
+1. **Clone and Setup**:
+   ```bash
+   git clone <repo>
+   cd gpu-charts
+   npm install
+   npm run setup:ssl
+   ```
 
-### Testing Challenges
-- Use software rendering for CI
-- Mock WebGPU unavailable scenarios
-- Test with various viewport sizes
-- Verify cross-browser compatibility
+2. **Start Development**:
+   ```bash
+   npm run dev:suite  # Full stack: WASM + Server + React
+   ```
 
-## Directory-Specific Notes
+3. **Make Changes**:
+   - Rust changes in `/crates/` auto-rebuild via watcher
+   - React changes in `/web/` hot-reload automatically
+   - Server changes require restart
 
-### Package Management
-- Uses npm for dependency management
-- Workspace-aware for monorepo structure
-- Platform-specific optional dependencies
+4. **Test Your Changes**:
+   ```bash
+   npm run test:server  # Test Rust code
+   npm run test:web     # Test React code
+   ```
 
-### Build Artifacts
-- `pkg/`: WASM module output
-- `dist/`: Production build output
-- `playwright-report/`: Test results
-
-### Configuration Files
-- `vite.config.ts`: Build configuration
-- `tsconfig.json`: TypeScript settings
-- `tailwind.config.js`: Styling configuration
-- `playwright.config.ts`: Test setup
-- `eslint.config.js`: Linting rules
-
-This frontend application represents a sophisticated, production-ready React application with cutting-edge WebAssembly integration, comprehensive testing, and professional trading interface design optimized for high-performance financial data visualization.
+5. **Commit**:
+   ```bash
+   git commit -m "feat: your feature"  # Pre-commit hooks run automatically
+   ```

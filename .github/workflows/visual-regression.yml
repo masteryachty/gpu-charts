@@ -1,0 +1,114 @@
+name: Visual Regression Testing
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  visual-regression:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+        
+    - name: Install wasm-pack
+      run: |
+        curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Build WASM module
+      run: npm run build:wasm
+      
+    - name: Start data server
+      run: |
+        npm run dev:server &
+        sleep 10  # Wait for server to start
+        
+    - name: Start React dev server
+      run: |
+        cd web
+        npm run dev &
+        sleep 10  # Wait for React to start
+        
+    - name: Copy package-lock.json to web directory
+      run: cp package-lock.json web/
+        
+    - name: Run Cypress visual regression tests
+      uses: cypress-io/github-action@v6
+      with:
+        working-directory: web
+        command: npm run cy:visual
+        browser: chrome
+        wait-on: 'http://localhost:3000'
+        wait-on-timeout: 120
+        install: false  # Skip install since we already ran npm ci at root
+        
+    - name: Upload screenshots
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: cypress-screenshots
+        path: web/cypress/screenshots
+        
+    - name: Upload visual regression diff images
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: visual-regression-diffs
+        path: web/cypress/snapshots/diff
+        
+    - name: Comment PR with results
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          
+          // Check if there are any diff images
+          const diffPath = 'web/cypress/snapshots/diff';
+          let comment = '## 📸 Visual Regression Test Results\n\n';
+          
+          if (fs.existsSync(diffPath)) {
+            const diffs = fs.readdirSync(diffPath);
+            if (diffs.length > 0) {
+              comment += `⚠️ **${diffs.length} visual differences detected**\n\n`;
+              comment += 'Please review the diff images in the artifacts.\n\n';
+              comment += '### Affected screenshots:\n';
+              diffs.forEach(diff => {
+                comment += `- ${diff}\n`;
+              });
+            }
+          } else {
+            comment += '✅ **All visual regression tests passed!**\n\n';
+            comment += 'No visual differences detected.\n';
+          }
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });

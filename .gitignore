@@ -466,3 +466,13 @@ server/localhost.crt
 !server/certs/.gitkeep
 data/
 .claude/settings.local.json
+
+# Cypress test artifacts
+web/cypress/screenshots/
+web/cypress/videos/
+web/cypress/downloads/
+
+# Keep baseline images
+!web/cypress/fixtures/
+!web/cypress/fixtures/visual-baselines/
+!web/cypress/fixtures/visual-baselines/*.png
