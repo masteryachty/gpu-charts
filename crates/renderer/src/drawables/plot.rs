@@ -51,8 +51,12 @@ impl PlotRenderer {
 
                 // Get visible metrics and apply filter if set
                 let visible_metrics = data_store.get_all_visible_metrics();
+                
+                log::info!("[PlotRenderer] Found {} visible metrics", visible_metrics.len());
 
                 for (data_series, metric) in visible_metrics {
+                    log::info!("[PlotRenderer] Rendering metric: {} (computed: {})", metric.name, metric.is_computed);
+                    
                     // Apply data filter if set
                     if let Some(ref filter) = self.data_filter {
                         let mut should_render = false;
@@ -69,6 +73,12 @@ impl PlotRenderer {
                             continue;
                         }
                     }
+                    
+                    // Check if we have buffers to render
+                    if metric.y_buffers.is_empty() || data_series.x_buffers.is_empty() {
+                        continue;
+                    }
+                    
                     // Create a bind group for this specific metric with its color
                     let bind_group = self.create_bind_group_for_metric(data_store, metric);
                     render_pass.set_bind_group(0, &bind_group, &[]);
@@ -77,7 +87,12 @@ impl PlotRenderer {
                         if let Some(y_buffer) = metric.y_buffers.get(i) {
                             render_pass.set_vertex_buffer(0, x_buffer.slice(..));
                             render_pass.set_vertex_buffer(1, y_buffer.slice(..));
-                            let vertex_count = (x_buffer.size() / 4) as u32;
+                            
+                            // Use the smaller of the two buffer sizes to avoid overrun
+                            let x_count = (x_buffer.size() / 4) as u32;
+                            let y_count = (y_buffer.size() / 4) as u32;
+                            let vertex_count = x_count.min(y_count);
+                            
                             render_pass.draw(0..vertex_count, 0..1);
                         }
                     }

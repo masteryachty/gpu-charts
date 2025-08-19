@@ -44,6 +44,16 @@ struct CacheKey {
 }
 
 impl CandlestickRenderer {
+    /// Get the GPU candles buffer if available
+    pub fn get_candles_buffer(&self) -> Option<&wgpu::Buffer> {
+        self.gpu_candles_buffer.as_ref()
+    }
+    
+    /// Get the number of candles
+    pub fn get_num_candles(&self) -> u32 {
+        self.num_candles
+    }
+    
     /// Calculate the optimal candle timeframe based on the visible time range
     /// Aims to show the most candles while keeping the count under 100
     fn calculate_optimal_timeframe(&self, data_store: &DataStore) -> u32 {
@@ -110,22 +120,28 @@ impl CandlestickRenderer {
             n => format!("{}d", n / 86400),
         }
     }
-    pub fn render(
+    
+    /// Prepare candles without rendering - used by compute engine
+    pub fn prepare_candles(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
-        view: &wgpu::TextureView,
         data_store: &DataStore,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
     ) {
+        log::info!("[CandlestickRenderer] prepare_candles called");
+        
         // Check if we have data
         let data_len = data_store.get_data_len();
+        log::info!("[CandlestickRenderer] Data length: {}", data_len);
         if data_len == 0 {
+            log::warn!("[CandlestickRenderer] No data available, skipping candle preparation");
             return;
         }
 
         // Automatically select optimal candle timeframe based on time range
         self.candle_timeframe = self.calculate_optimal_timeframe(data_store);
+        log::info!("[CandlestickRenderer] Selected candle timeframe: {} seconds", self.candle_timeframe);
 
         // Calculate cache key for current state
         let data_hash = self.calculate_data_hash(data_store);
@@ -140,11 +156,21 @@ impl CandlestickRenderer {
         let needs_reaggregation = self.cache_key.as_ref() != Some(&new_cache_key);
 
         if needs_reaggregation {
-            // Run aggregation in the same encoder as the render pass
+            // Run aggregation
             self.aggregate_ohlc(encoder, device, queue, data_store);
-
             self.cache_key = Some(new_cache_key);
         }
+    }
+    pub fn render(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        view: &wgpu::TextureView,
+        data_store: &DataStore,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) {
+        // Prepare candles if not already done (this is idempotent due to caching)
+        self.prepare_candles(encoder, data_store, device, queue);
 
         // Only render if we have GPU candles
         if self.gpu_candles_buffer.is_none() || self.num_candles == 0 {

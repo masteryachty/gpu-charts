@@ -4,6 +4,7 @@ use data_manager::{DataManager, DataStore};
 use renderer::{
     compute_engine::ComputeEngine, MultiRenderer, MultiRendererBuilder, RenderContext, RenderOrder,
 };
+use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
@@ -21,6 +22,46 @@ struct PendingReadback {
     mapping_completed: Arc<Mutex<bool>>,
 }
 
+/// Wrapper for shared CandlestickRenderer that implements MultiRenderable
+struct CandlestickRendererWrapper {
+    renderer: Rc<RefCell<renderer::CandlestickRenderer>>,
+}
+
+impl renderer::MultiRenderable for CandlestickRendererWrapper {
+    fn render(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        view: &wgpu::TextureView,
+        data_store: &data_manager::DataStore,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) {
+        self.renderer.borrow_mut().render(encoder, view, data_store, device, queue);
+    }
+
+    fn name(&self) -> &str {
+        "CandlestickRenderer"
+    }
+
+    fn priority(&self) -> u32 {
+        50 // Render candles before lines
+    }
+    
+    fn has_compute(&self) -> bool {
+        true // CandlestickRenderer has compute for aggregating candles
+    }
+    
+    fn compute(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        data_store: &data_manager::DataStore,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) {
+        self.renderer.borrow_mut().prepare_candles(encoder, data_store, device, queue);
+    }
+}
+
 pub struct ChartEngine {
     // WebGPU resources managed by RenderContext
     render_context: RenderContext,
@@ -35,6 +76,8 @@ pub struct ChartEngine {
     pub preset_manager: PresetManager,
     pub multi_renderer: Option<MultiRenderer>,
     instance_id: Uuid,
+    // Temporary storage for candlestick renderer to share candle buffer
+    candlestick_renderer: Option<Rc<RefCell<renderer::CandlestickRenderer>>>,
 }
 
 impl ChartEngine {
@@ -144,6 +187,7 @@ impl ChartEngine {
             preset_manager: PresetManager::new(),
             multi_renderer: None,
             instance_id,
+            candlestick_renderer: None,
         })
     }
 
@@ -193,7 +237,30 @@ impl ChartEngine {
 
         // Start GPU bounds calculation if needed
         if self.data_store.gpu_min_y.is_none() && self.data_store.min_max_buffer.is_none() {
-            // Run pre-render compute passes (e.g., compute mid price)
+            // First, run multi-renderer compute passes (e.g., candle aggregation)
+            // This must happen BEFORE the compute engine runs
+            if let Some(ref mut multi_renderer) = self.multi_renderer {
+                multi_renderer.run_compute_passes(
+                    &mut encoder,
+                    &self.data_store,
+                    &self.render_context.device,
+                    &self.render_context.queue
+                );
+            }
+            
+            // Now check if we have a candlestick renderer and get its candle buffer
+            if let Some(candlestick_renderer) = &self.candlestick_renderer {
+                let renderer = candlestick_renderer.borrow();
+                if let Some(candle_buffer) = renderer.get_candles_buffer() {
+                    let num_candles = renderer.get_num_candles();
+                    self.compute_engine.set_candle_buffer(
+                        Some((candle_buffer, num_candles)),
+                        &mut encoder
+                    );
+                }
+            }
+            
+            // Run pre-render compute passes (e.g., compute mid price, EMAs)
             self.compute_engine
                 .run_compute_passes(&mut encoder, &mut self.data_store);
 
@@ -365,7 +432,21 @@ impl ChartEngine {
                     builder = builder.add_renderer(Box::new(triangle_renderer));
                 }
                 config_system::RenderType::Candlestick => {
-                    builder = builder.add_candlestick_renderer();
+                    // Create the candlestick renderer
+                    let candlestick_renderer = renderer::CandlestickRenderer::new(
+                        self.render_context.device.clone(),
+                        self.render_context.queue.clone(),
+                        self.render_context.config.format,
+                    );
+                    
+                    // Store a shared reference for accessing the candle buffer
+                    let candlestick_rc = Rc::new(RefCell::new(candlestick_renderer));
+                    self.candlestick_renderer = Some(candlestick_rc.clone());
+                    
+                    // Add it to the multi-renderer by creating a wrapper
+                    builder = builder.add_renderer(Box::new(CandlestickRendererWrapper {
+                        renderer: candlestick_rc,
+                    }));
                 }
                 config_system::RenderType::Bar => {
                     // TODO: Implement bar renderer
