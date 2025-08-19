@@ -173,13 +173,7 @@ impl EmaCalculator {
                 element_count, period.value());
         }
         
-        // Check cache for existing computation
-        if let Some(cached_buffer) = self.cache.get(&(period, element_count)) {
-            return Ok(ComputeResult {
-                output_buffer: cached_buffer.clone(),
-                element_count,
-            });
-        }
+        // No cache - was unsafe without data content hashing
 
         // Update params
         let params = EmaParams {
@@ -354,7 +348,7 @@ impl EmaCalculator {
 
     /// Clear the cache
     pub fn clear_cache(&mut self) {
-        self.cache.clear();
+        // Cache has been removed to prevent stale data issues
     }
 }
 
