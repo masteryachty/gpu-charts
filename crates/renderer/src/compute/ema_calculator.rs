@@ -153,11 +153,18 @@ impl EmaCalculator {
         period: EmaPeriod,
         encoder: &mut wgpu::CommandEncoder,
     ) -> Result<ComputeResult, String> {
-        log::info!("[EmaCalculator] Calculating EMA {} for {} elements", period.value(), element_count);
+        // Validate buffer size
+        const MAX_BUFFER_SIZE: u64 = 256 * 1024 * 1024; // 256MB max
+        let buffer_size = (element_count as u64) * 4; // f32 = 4 bytes
+        if buffer_size > MAX_BUFFER_SIZE {
+            return Err(format!("Buffer size {} exceeds maximum allowed size {}", buffer_size, MAX_BUFFER_SIZE));
+        }
+        
+        log::debug!("[EmaCalculator] Calculating EMA {} for {} elements", period.value(), element_count);
         
         // Calculate and log alpha value for this period
         let alpha = 2.0 / (period.value() as f32 + 1.0);
-        log::info!("[EmaCalculator] EMA {} alpha value: {:.6}, weight of new data: {:.2}%", 
+        log::debug!("[EmaCalculator] EMA {} alpha value: {:.6}, weight of new data: {:.2}%", 
             period.value(), alpha, alpha * 100.0);
         
         // Log expected behavior based on data count
@@ -165,22 +172,20 @@ impl EmaCalculator {
             log::warn!("[EmaCalculator] Only {} data points for EMA {} - will use all available data for initial average", 
                 element_count, period.value());
         } else if element_count < period.value() * 3 {
-            log::info!("[EmaCalculator] {} data points for EMA {} - limited divergence expected (need {}+ for full divergence)", 
+            log::debug!("[EmaCalculator] {} data points for EMA {} - limited divergence expected (need {}+ for full divergence)", 
                 element_count, period.value(), period.value() * 3);
         } else {
-            log::info!("[EmaCalculator] {} data points for EMA {} - sufficient data for proper EMA behavior", 
+            log::debug!("[EmaCalculator] {} data points for EMA {} - sufficient data for proper EMA behavior", 
                 element_count, period.value());
         }
         
-        // Check cache - but for now, let's disable caching to debug the issue
-        // if let Some(cached_buffer) = self.cache.get(&(period, element_count)) {
-        //     log::info!("[EmaCalculator] Using cached EMA buffer for period {}", period.value());
-        //     return Ok(ComputeResult {
-        //         output_buffer: cached_buffer.clone(),
-        //         element_count,
-        //     });
-        // }
-        log::info!("[EmaCalculator] Cache disabled for debugging - computing fresh EMA {}", period.value());
+        // Check cache for existing computation
+        if let Some(cached_buffer) = self.cache.get(&(period, element_count)) {
+            return Ok(ComputeResult {
+                output_buffer: cached_buffer.clone(),
+                element_count,
+            });
+        }
 
         // Update params
         let params = EmaParams {
@@ -190,15 +195,11 @@ impl EmaCalculator {
             alpha_denominator: period.value() + 1,
         };
         
-        log::info!("[EmaCalculator] Creating params buffer - period: {}, alpha_denominator: {}, element_count: {}", 
+        log::debug!("[EmaCalculator] Creating params buffer - period: {}, alpha_denominator: {}, element_count: {}", 
             params.period, params.alpha_denominator, params.element_count);
 
-        // Create a fresh params buffer for this specific EMA calculation to avoid stale data
-        let params_buffer = self.infrastructure.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some(&format!("EMA {} Params Buffer", period.value())),
-            contents: bytemuck::cast_slice(&[params]),
-            usage: wgpu::BufferUsages::UNIFORM,
-        });
+        // Update the params buffer with new values
+        self.infrastructure.queue.write_buffer(&self.params_buffer, 0, bytemuck::cast_slice(&[params]));
 
         // Create output buffer
         let output_buffer = self.infrastructure.create_compute_buffer(
@@ -225,7 +226,7 @@ impl EmaCalculator {
                     },
                     wgpu::BindGroupEntry {
                         binding: 2,
-                        resource: params_buffer.as_entire_binding(),
+                        resource: self.params_buffer.as_entire_binding(),
                     },
                 ],
             });
@@ -305,12 +306,11 @@ impl EmaCalculator {
             .execute_compute(encoder, &self.multi_pipeline, &bind_group, (5, 1, 1));
 
         // Create individual results for each period
+        // Note: All EMAs share the same buffer but write to different offsets (period_index * element_count)
+        // This is intentional for GPU efficiency - the shader handles offset calculation
         let mut results = HashMap::new();
         for (_i, period) in EmaPeriod::all().iter().enumerate() {
             if periods.contains(period) {
-                // Create a view of the output buffer for this EMA
-                // Note: In a real implementation, we'd create separate buffers or views
-                // For now, we'll return the same buffer with different offsets noted
                 results.insert(
                     *period,
                     ComputeResult {

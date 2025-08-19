@@ -51,7 +51,7 @@ fn candlestick_preset() -> ChartPreset {
                 visible: false,
                 label: "EMA 20".to_string(),
                 style: RenderStyle {
-                    color: Some([0.4, 1.0, 1.0, 1.0]), // Light teal
+                    color: Some([1.0, 0.6, 0.2, 1.0]), // Orange
                     color_options: None,
                     size: 2.0,
                 },
