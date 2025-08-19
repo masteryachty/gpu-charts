@@ -55,8 +55,8 @@ pub struct EmaCalculator {
     multi_pipeline: wgpu::ComputePipeline, // For calculating multiple EMAs at once
     bind_group_layout: wgpu::BindGroupLayout,
     params_buffer: wgpu::Buffer,
-    // Cache for computed EMA buffers
-    cache: HashMap<(EmaPeriod, u32), wgpu::Buffer>, // (period, element_count) -> buffer
+    // Cache disabled - would need data content hash to prevent returning wrong results
+    // cache: HashMap<(EmaPeriod, u32, DataHash), wgpu::Buffer>,
 }
 
 impl EmaCalculator {
@@ -121,18 +121,12 @@ impl EmaCalculator {
             &bind_group_layout,
         )?;
 
-        // Create params buffer
-        let params = EmaParams {
-            element_count: 0,
-            period: 0,
-            alpha_numerator: 2,
-            alpha_denominator: 1,
-        };
-
-        let params_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        // Create params buffer with size for EmaParams struct
+        let params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("EMA Params Buffer"),
-            contents: bytemuck::cast_slice(&[params]),
+            size: std::mem::size_of::<EmaParams>() as u64,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
         });
 
         Ok(Self {
@@ -141,7 +135,7 @@ impl EmaCalculator {
             multi_pipeline,
             bind_group_layout,
             params_buffer,
-            cache: HashMap::new(),
+            // cache: HashMap::new(), // Disabled - needs data hash
         })
     }
 
@@ -235,8 +229,8 @@ impl EmaCalculator {
         self.infrastructure
             .execute_compute(encoder, &self.pipeline, &bind_group, (1, 1, 1));
 
-        // Cache the result
-        self.cache.insert((period, element_count), output_buffer.clone());
+        // Cache disabled - would need data hash to prevent stale results
+        // self.cache.insert((period, element_count, data_hash), output_buffer.clone());
 
         Ok(ComputeResult {
             output_buffer,
@@ -270,8 +264,13 @@ impl EmaCalculator {
             bytemuck::cast_slice(&[params]),
         );
 
-        // Create a large output buffer for all EMAs
+        // Validate buffer size before allocation
+        const MAX_BUFFER_SIZE: u64 = 256 * 1024 * 1024; // 256MB max
         let total_size = (element_count * 4 * 5) as u64; // 5 EMAs max, f32 = 4 bytes
+        if total_size > MAX_BUFFER_SIZE {
+            return Err(format!("Multi-EMA buffer size {} exceeds maximum allowed size {}", total_size, MAX_BUFFER_SIZE));
+        }
+        
         let output_buffer = self.infrastructure.create_compute_buffer(
             total_size,
             wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_SRC,
@@ -308,13 +307,14 @@ impl EmaCalculator {
         // Create individual results for each period
         // Note: All EMAs share the same buffer but write to different offsets (period_index * element_count)
         // This is intentional for GPU efficiency - the shader handles offset calculation
+        // The clone() here is cheap - wgpu::Buffer is reference-counted internally
         let mut results = HashMap::new();
         for (_i, period) in EmaPeriod::all().iter().enumerate() {
             if periods.contains(period) {
                 results.insert(
                     *period,
                     ComputeResult {
-                        output_buffer: output_buffer.clone(),
+                        output_buffer: output_buffer.clone(), // Arc clone - cheap operation
                         element_count,
                     },
                 );
