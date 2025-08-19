@@ -298,6 +298,29 @@ impl DataManager {
 
     fn create_computed_metrics_for_preset(&self, data_store: &mut DataStore) {
         if let Some(preset) = &data_store.preset.clone() {
+            // First, check if we need a separate group for candle-based EMAs
+            let has_candle_emas = preset.chart_types.iter().any(|ct| {
+                if let Some((data_type, column_name)) = ct.data_columns.first() {
+                    data_type == "COMPUTED" && column_name.starts_with("ema_")
+                } else {
+                    false
+                }
+            });
+            
+            // If we have candle-based EMAs, create a placeholder data group for them
+            // This will be populated later when the EMAs are computed
+            let candle_ema_group_index = if has_candle_emas {
+                // Create an empty data group for candle-based metrics
+                // We'll populate the x_buffers later when we compute the EMAs
+                data_store.add_data_group(
+                    (js_sys::ArrayBuffer::new(0), Vec::new()),
+                    false // Not active initially
+                );
+                Some(data_store.data_groups.len() - 1)
+            } else {
+                None
+            };
+            
             // Check each chart type for compute operations
             for chart_type in &preset.chart_types {
                 if let Some(compute_op) = &chart_type.compute_op {
@@ -312,36 +335,61 @@ impl DataManager {
 
                     // Since we don't have named groups, we need to find metrics by name
                     // across all data groups
-                    for (_, column_name) in dependency_columns {
+                    for (_data_type, column_name) in dependency_columns {
+                        let mut found = false;
+                        
                         for (group_idx, group) in data_store.data_groups.iter().enumerate() {
                             for (metric_idx, metric) in group.metrics.iter().enumerate() {
+                                // Check if this metric matches the column we're looking for
+                                // The metric name is just the column name (e.g., "price" not "TRADES.price")
                                 if metric.name == *column_name {
                                     dependencies.push(MetricRef {
                                         group_index: group_idx,
                                         metric_index: metric_idx,
                                     });
+                                    found = true;
                                     break; // Found the metric, move to next column
                                 }
                             }
+                            if found { break; }
                         }
                     }
 
                     // If we have all dependencies, create the computed metric
                     if dependencies.len() == dependency_columns.len() && !dependencies.is_empty() {
-                        // Add the computed metric to the first data group (or create one if needed)
-                        let group_index = if data_store.data_groups.is_empty() {
-                            // This shouldn't happen, but handle it gracefully
-                            log::warn!("No data groups available for computed metric");
-                            return;
+                        // Extract the metric name from data_columns (e.g., "ema_9" from ("COMPUTED", "ema_9"))
+                        let metric_name = if let Some((data_type, column_name)) = chart_type.data_columns.first() {
+                            if data_type == "COMPUTED" {
+                                column_name.clone()
+                            } else {
+                                chart_type.label.clone()
+                            }
                         } else {
-                            0 // Use the first data group
+                            chart_type.label.clone()
+                        };
+                        
+                        // Determine which group to add the metric to
+                        let group_index = if metric_name.starts_with("ema_") && candle_ema_group_index.is_some() {
+                            // Add candle-based EMAs to the special group
+                            candle_ema_group_index.unwrap()
+                        } else {
+                            // Add other computed metrics to the first data group with x_buffers
+                            let mut found_index = 0;
+                            for (idx, group) in data_store.data_groups.iter().enumerate() {
+                                if !group.x_buffers.is_empty() {
+                                    found_index = idx;
+                                    break;
+                                }
+                            }
+                            found_index
                         };
 
                         // Get color and visibility from chart type
                         let color = chart_type.style.color.unwrap_or([0.5, 0.5, 0.5, 1.0]);
+                        
                         data_store.add_computed_metric_to_group_with_visibility(
                             group_index,
-                            chart_type.label.clone(),
+                            metric_name,
                             [color[0], color[1], color[2]],
                             compute_op.clone(),
                             dependencies,

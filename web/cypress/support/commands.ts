@@ -41,6 +41,15 @@ Cypress.Commands.add('panChart', (deltaX: number, deltaY: number = 0) => {
   cy.wait(500);
 });
 
+// Command to wait for chart to render
+Cypress.Commands.add('waitForChartRender', () => {
+  // Wait for canvas to be visible
+  cy.get('canvas').should('be.visible');
+  
+  // Wait for initial render to complete
+  cy.wait(2000);
+});
+
 // Command to check if chart has data
 Cypress.Commands.add('chartShouldHaveData', () => {
   cy.window().then((win) => {
@@ -68,6 +77,7 @@ declare global {
       zoomChart(direction: 'in' | 'out', amount?: number): Chainable<void>;
       panChart(deltaX: number, deltaY?: number): Chainable<void>;
       chartShouldHaveData(): Chainable<void>;
+      waitForChartRender(): Chainable<void>;
     }
   }
 }

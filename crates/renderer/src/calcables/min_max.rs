@@ -103,6 +103,11 @@ pub fn calculate_min_max_y(
                 if additional_only_metrics.contains(&metric.name) {
                     continue;
                 }
+                
+                // Skip computed metrics that don't have data yet
+                if metric.is_computed && metric.y_buffers.is_empty() {
+                    continue;
+                }
 
                 all_y_buffers.extend(&metric.y_buffers);
             }
@@ -158,6 +163,10 @@ pub fn calculate_min_max_y(
     for (group_idx, group) in data_store.data_groups.iter().enumerate() {
         for (metric_idx, metric) in group.metrics.iter().enumerate() {
             if metric.visible && !additional_only_metrics.contains(&metric.name) {
+                // Skip computed metrics that don't have data yet
+                if metric.is_computed && metric.y_buffers.is_empty() {
+                    continue;
+                }
                 for _ in &metric.y_buffers {
                     y_buffer_to_group.push((group_idx, metric_idx));
                 }
@@ -189,6 +198,12 @@ pub fn calculate_min_max_y(
 
         // Create buffers for this y_buffer's first pass
         let partial_first_size = group_num_groups * 2;
+        
+        // Skip if we have no data to process
+        if partial_first_size == 0 || group_sub_range_count == 0 {
+            continue;
+        }
+        
         let partial_first_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Partial First Buffer"),
             size: partial_first_size as u64 * std::mem::size_of::<f32>() as u64,

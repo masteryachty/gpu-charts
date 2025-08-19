@@ -18,7 +18,9 @@
     "cy:visual:presets": "cypress run --spec \"cypress/e2e/visual-regression-presets.cy.ts\"",
     "cy:visual:interactions": "cypress run --spec \"cypress/e2e/visual-regression-interactions.cy.ts\"",
     "cy:visual:viewports": "cypress run --spec \"cypress/e2e/visual-regression-viewports.cy.ts\"",
-    "cy:visual:metrics": "cypress run --spec \"cypress/e2e/visual-regression-metrics.cy.ts\""
+    "cy:visual:metrics": "cypress run --spec \"cypress/e2e/visual-regression-metrics.cy.ts\"",
+    "cy:ema": "cypress run --spec \"cypress/e2e/ema-indicators.cy.ts\"",
+    "cy:ema:open": "cypress open --e2e --browser chrome --spec \"cypress/e2e/ema-indicators.cy.ts\""
   },
   "dependencies": {
     "clsx": "^2.0.0",

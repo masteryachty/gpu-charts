@@ -235,20 +235,26 @@ impl MultiRenderer {
         device: &Device,
         queue: &Queue,
     ) {
-        log::debug!(
+        log::info!(
             "[MultiRenderer] Running compute passes for {} renderers",
             self.renderers.len()
         );
 
         for renderer in &mut self.renderers {
+            log::info!(
+                "[MultiRenderer] Checking renderer '{}' - has_compute: {}",
+                renderer.name(),
+                renderer.has_compute()
+            );
             if renderer.has_compute() {
-                log::debug!(
-                    "[MultiRenderer] Running compute pass for '{}'",
+                log::info!(
+                    "[MultiRenderer] ✓ Running compute pass for '{}'",
                     renderer.name()
                 );
                 renderer.compute(encoder, data_store, device, queue);
             }
         }
+        log::info!("[MultiRenderer] Finished running compute passes");
     }
 
     /// Render all components in the pipeline
@@ -383,6 +389,8 @@ impl MultiRenderable for ConfigurablePlotRenderer {
         _device: &Device,
         _queue: &Queue,
     ) {
+        log::info!("[ConfigurablePlotRenderer] Rendering '{}'", self.name);
+        log::info!("[ConfigurablePlotRenderer]   - Data columns: {:?}", self._data_columns);
         self.renderer.render(encoder, view, data_store);
     }
 
@@ -413,6 +421,22 @@ impl MultiRenderable for crate::CandlestickRenderer {
 
     fn priority(&self) -> u32 {
         50 // Render candles before lines
+    }
+    
+    fn has_compute(&self) -> bool {
+        true // CandlestickRenderer has compute for aggregating candles
+    }
+    
+    fn compute(
+        &mut self,
+        encoder: &mut CommandEncoder,
+        data_store: &DataStore,
+        device: &Device,
+        queue: &Queue,
+    ) {
+        // Only aggregate candles - don't render yet
+        // This creates the candle buffer that the compute engine needs
+        self.prepare_candles(encoder, data_store, device, queue);
     }
 }
 

@@ -1,12 +1,15 @@
 //! Compute engine for managing GPU compute operations on metrics
 //! This handles all pre-render computations like mid price, moving averages, etc.
 
-use crate::compute::MidPriceCalculator;
+use crate::compute::{CloseExtractor, EmaCalculator, EmaPeriod, MidPriceCalculator};
 use config_system::ComputeOp;
 use data_manager::{data_store::MetricRef, DataStore};
 use std::collections::HashMap;
 use std::rc::Rc;
 use wgpu::{CommandEncoder, Device, Queue};
+use wgpu::util::DeviceExt;
+use js_sys;
+use bytemuck;
 
 /// Manages all compute operations for metrics
 pub struct ComputeEngine {
@@ -15,24 +18,62 @@ pub struct ComputeEngine {
 
     // Compute calculators
     mid_price_calculator: Option<MidPriceCalculator>,
+    ema_calculator: Option<EmaCalculator>,
+    close_extractor: Option<CloseExtractor>,
 
     // Track which metrics have been computed this frame
     computed_metrics: HashMap<MetricRef, u64>, // metric_ref -> compute_version
+    
+    // Cache for candle close prices buffer
+    candle_close_buffer: Option<wgpu::Buffer>,
 }
 
 impl ComputeEngine {
     /// Create a new compute engine
     pub fn new(device: Rc<Device>, queue: Rc<Queue>) -> Self {
         let mid_price_calculator = MidPriceCalculator::new(device.clone(), queue.clone()).ok();
+        let ema_calculator = EmaCalculator::new(device.clone(), queue.clone()).ok();
+        
+        // Create close extractor for candle data
+        let infrastructure = Rc::new(
+            crate::compute::ComputeInfrastructure::new(device.clone(), queue.clone())
+        );
+        let close_extractor = CloseExtractor::new(infrastructure).ok();
 
         Self {
             _device: device,
             _queue: queue,
             mid_price_calculator,
+            ema_calculator,
+            close_extractor,
             computed_metrics: HashMap::new(),
+            candle_close_buffer: None,
         }
     }
 
+    /// Set the candle buffer for EMA calculations  
+    pub fn set_candle_buffer(
+        &mut self, 
+        candle_buffer: Option<(&wgpu::Buffer, u32)>,
+        encoder: &mut CommandEncoder
+    ) {
+        if let Some((buffer, count)) = candle_buffer {
+            // Extract close prices from candles if we have the extractor
+            if let Some(extractor) = &self.close_extractor {
+                match extractor.extract(buffer, count, encoder) {
+                    Ok(result) => {
+                        self.candle_close_buffer = Some(result.output_buffer);
+                    }
+                    Err(e) => {
+                        log::error!("[ComputeEngine] Failed to extract close prices: {}", e);
+                    }
+                }
+            }
+        } else {
+            self.candle_close_buffer = None;
+        }
+    }
+    
     /// Run all necessary compute passes before rendering
     /// This should be called BEFORE min/max calculation
     pub fn run_compute_passes(&mut self, encoder: &mut CommandEncoder, data_store: &mut DataStore) {
@@ -172,11 +213,15 @@ impl ComputeEngine {
             ComputeOp::Max => {
                 log::warn!("[ComputeEngine] Max computation not yet implemented");
             }
-            ComputeOp::WeightedAverage { weights } => {
-                log::warn!(
-                    "[ComputeEngine] Weighted average with {} weights not yet implemented",
-                    weights.len()
-                );
+            ComputeOp::WeightedAverage { weights: _ } => {
+                // EMA calculations use WeightedAverage with empty weights array
+                // Check for EMA patterns: "ema_9", "ema_20", etc
+                if name.starts_with("ema_") {
+                    log::info!("[ComputeEngine] Computing EMA for metric: {}", name);
+                    self.compute_ema(encoder, data_store, metric_ref, &name, &dependencies);
+                } else {
+                    log::warn!("[ComputeEngine] Weighted average for {name} not implemented");
+                }
             }
         }
     }
@@ -238,6 +283,156 @@ impl ComputeEngine {
             }
             Err(e) => {
                 log::error!("[ComputeEngine] Failed to compute mid price: {e}");
+            }
+        }
+    }
+
+    /// Compute EMA from price data
+    fn compute_ema(
+        &mut self,
+        encoder: &mut CommandEncoder,
+        data_store: &mut DataStore,
+        metric_ref: &MetricRef,
+        name: &str,
+        dependencies: &[MetricRef],
+    ) {
+        let Some(calculator) = &mut self.ema_calculator else {
+            log::error!("[ComputeEngine] No EMA calculator available");
+            return;
+        };
+
+        // Parse EMA period from name (e.g., "EMA 20" or "ema_20" -> 20)
+        let period_value = name
+            .to_lowercase()
+            .replace("ema", "")
+            .replace("_", "")
+            .trim()
+            .parse::<u32>()
+            .unwrap_or(0);
+
+        let period = match period_value {
+            9 => EmaPeriod::Ema9,
+            20 => EmaPeriod::Ema20,
+            50 => EmaPeriod::Ema50,
+            100 => EmaPeriod::Ema100,
+            200 => EmaPeriod::Ema200,
+            _ => {
+                log::error!("[ComputeEngine] Invalid EMA period: {}", period_value);
+                return;
+            }
+        };
+
+        // Check if we have candle close prices to use instead of raw trades
+        let (price_buffer, element_count) = if let Some(ref candle_close_buffer) = self.candle_close_buffer {
+            let candle_count = (candle_close_buffer.size() / 4) as u32; // f32 = 4 bytes
+            (candle_close_buffer, candle_count)
+        } else {
+            // Fall back to raw trade prices (tick-based)
+            if dependencies.is_empty() {
+                log::error!("[ComputeEngine] No dependencies for EMA calculation");
+                return;
+            }
+
+            let price_buffer = match data_store.get_metric(&dependencies[0]) {
+                Some(metric) => {
+                    match metric.y_buffers.first() {
+                        Some(buffer) => buffer,
+                        None => {
+                            log::error!("[ComputeEngine] No price buffer found for EMA");
+                            return;
+                        }
+                    }
+                },
+                None => {
+                    log::error!("[ComputeEngine] Price metric not found for EMA");
+                    return;
+                }
+            };
+
+            // Get element count from the data group
+            let element_count = data_store
+                .data_groups
+                .first()
+                .map(|g| g.length)
+                .unwrap_or(0);
+            
+            (price_buffer, element_count)
+        };
+
+        if element_count == 0 {
+            log::error!("[ComputeEngine] No data elements for EMA computation");
+            return;
+        }
+
+        // Compute EMA
+        match calculator.calculate_single(price_buffer, element_count, period, encoder) {
+            Ok(result) => {
+                // Create a temporary vector to collect computed values
+                // In a real implementation, we'd schedule async readback
+                let computed_values = vec![0.0f32; element_count as usize];
+
+                // Check if we need to create x_buffers for candle-based EMAs first
+                let group_idx = metric_ref.group_index;
+                let needs_x_buffers = if self.candle_close_buffer.is_some() {
+                    // Check if the group needs x_buffers
+                    data_store.data_groups.get(group_idx)
+                        .map(|g| g.x_buffers.is_empty())
+                        .unwrap_or(false)
+                } else {
+                    false
+                };
+                
+                // Create x_buffers if needed (before updating the metric)
+                if needs_x_buffers {
+                    // Estimate candle period from data range
+                    let start = data_store.start_x;
+                    let period = (data_store.end_x - data_store.start_x) / element_count.max(1);
+                    
+                    // Create timestamps for each candle
+                    let mut timestamps = Vec::with_capacity(element_count as usize);
+                    for i in 0..element_count {
+                        timestamps.push(start + i * period);
+                    }
+                    
+                    // Create JavaScript ArrayBuffer for raw data
+                    let js_array = js_sys::Uint32Array::new_with_length(element_count);
+                    for (i, &ts) in timestamps.iter().enumerate() {
+                        js_array.set_index(i as u32, ts);
+                    }
+                    let x_raw = js_array.buffer();
+                    
+                    // Create GPU buffer
+                    let x_buffer = self._device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("Candle EMA X Buffer"),
+                        contents: bytemuck::cast_slice(&timestamps),
+                        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                    });
+                    
+                    // Update the group with the new x_buffers
+                    if let Some(group) = data_store.data_groups.get_mut(group_idx) {
+                        group.x_buffers = vec![x_buffer];
+                        group.x_raw = x_raw;
+                        group.length = element_count;
+                    }
+                    
+                    // Mark this group as active so it gets rendered
+                    if !data_store.active_data_group_indices.contains(&group_idx) {
+                        data_store.active_data_group_indices.push(group_idx);
+                    }
+                }
+
+                // Update the metric
+                if let Some(metric) = data_store.get_metric_mut(metric_ref) {
+                    metric.set_computed_data(result.output_buffer, computed_values);
+
+                    // Track that we computed this metric
+                    self.computed_metrics
+                        .insert(*metric_ref, metric.compute_version);
+                    
+                }
+            }
+            Err(e) => {
+                log::error!("[ComputeEngine] ✗ Failed to compute {}: {}", name, e);
             }
         }
     }
