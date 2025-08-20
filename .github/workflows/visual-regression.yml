@@ -59,7 +59,8 @@ jobs:
       uses: cypress-io/github-action@v6
       with:
         working-directory: web
-        command: npx cypress run --config-file cypress.config.ci.cjs --spec "cypress/e2e/visual-regression-*.cy.ts"
+        spec: cypress/e2e/visual-regression-*.cy.ts
+        config-file: cypress.config.ci.cjs
         browser: chrome
         wait-on: 'http://localhost:3000'
         wait-on-timeout: 120
