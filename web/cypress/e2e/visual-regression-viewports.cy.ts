@@ -30,7 +30,7 @@ describe('Visual Regression - Different Viewports', () => {
   it('should handle viewport resize', () => {
     // Start with desktop
     cy.viewport(1920, 1080);
-    cy.visit('/app?topic=BTC-USD');
+    cy.visit(createTestUrl('BTC-USD'));
     cy.waitForChartRender();
     cy.compareSnapshot('resize-desktop-initial');
 
@@ -53,7 +53,7 @@ describe('Visual Regression - Different Viewports', () => {
   it('should maintain preset across viewport changes', () => {
     // Start with desktop and set preset
     cy.viewport(1920, 1080);
-    cy.visit('/app?topic=BTC-USD');
+    cy.visit(createTestUrl('BTC-USD'));
     cy.waitForChartRender();
     cy.selectPreset('Candlestick');
     cy.wait(3000);

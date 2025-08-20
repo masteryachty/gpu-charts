@@ -477,3 +477,4 @@ web/cypress/downloads/
 !web/cypress/fixtures/visual-baselines/
 !web/cypress/fixtures/visual-baselines/*.png
 server/benchmark_results
+web/cypress/snapshots/diff/
