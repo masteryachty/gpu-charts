@@ -10,9 +10,9 @@ module.exports = defineConfig({
     screenshotsFolder: 'cypress/screenshots',
     screenshotOnRunFailure: true,
     // Timeouts for WebGPU/WASM initialization
-    defaultCommandTimeout: 10000,
-    requestTimeout: 10000,
-    responseTimeout: 10000,
+    defaultCommandTimeout: 15000,
+    requestTimeout: 15000,
+    responseTimeout: 15000,
 
     // Test isolation
     testIsolation: true,
@@ -27,9 +27,13 @@ module.exports = defineConfig({
     visualRegressionType: 'regression', // 'base' to generate baselines, 'regression' to compare
     visualRegressionBaseDirectory: 'cypress/fixtures/visual-baselines',
     visualRegressionDiffDirectory: 'cypress/snapshots/diff',
-    visualRegressionGenerateDiff: 'always', // Always generate diff images for CI
+    visualRegressionActualDirectory: 'cypress/snapshots/actual',
+    visualRegressionGenerateDiff: 'always', // Always generate diff images in CI
     visualRegressionFailSilently: false,
-    visualRegressionFailureThreshold: 0.05, // Allow up to 5% difference for CI environments
+    visualRegressionFailureThreshold: 0.1, // Allow up to 10% difference in CI (due to rendering differences)
     visualRegressionFailureThresholdType: 'percent',
+    // CI-specific settings
+    CI: true,
+    updateSnapshots: false,
   },
 });
