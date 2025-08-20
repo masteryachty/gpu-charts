@@ -65,12 +65,8 @@ function ChartView() {
     }
   }, [setCurrentSymbol, setTimeRange]); // Include dependencies
   
-  // Update chart time range when store time range changes
-  useEffect(() => {
-    if (chartInstance && chartInstance.setTimeRange) {
-      chartInstance.setTimeRange(startTime, endTime);
-    }
-  }, [chartInstance, startTime, endTime]);
+  // Note: Time range updates are now handled in WasmCanvas component
+  // which watches for startTime/endTime changes and calls update_time_range
 
   return (
     <div className="flex-1 flex">

@@ -1,7 +1,9 @@
+import { createTestUrl } from '../support/test-constants';
+
 describe('EMA Indicators on Candlestick Chart', () => {
   beforeEach(() => {
-    // Visit the app with BTC-USD data
-    cy.visit('/app?topic=BTC-USD');
+    // Visit the app with BTC-USD data and fixed time range
+    cy.visit(createTestUrl('BTC-USD'));
     cy.waitForChartRender();
     
     // Select Candlestick preset

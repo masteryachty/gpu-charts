@@ -78,6 +78,7 @@ declare global {
       panChart(deltaX: number, deltaY?: number): Chainable<void>;
       chartShouldHaveData(): Chainable<void>;
       waitForChartRender(): Chainable<void>;
+      compareSnapshot(name: string, options?: any): Chainable<void>;
     }
   }
 }

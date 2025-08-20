@@ -1,6 +1,8 @@
+import { createTestUrl } from '../support/test-constants';
+
 describe.skip('Visual Regression - Metric Toggles', () => {
   beforeEach(() => {
-    cy.visit('/app?topic=BTC-USD');
+    cy.visit(createTestUrl('BTC-USD'));
     cy.waitForChartRender();
   });
 
@@ -10,7 +12,7 @@ describe.skip('Visual Regression - Metric Toggles', () => {
     cy.wait(3000);
     
     // Initial state with all metrics
-    cy.screenshot('market-data-all-metrics', { capture: 'viewport' });
+    cy.compareSnapshot('market-data-all-metrics');
     
     // Find and toggle checkboxes
     cy.get('input[type="checkbox"]').then(($checkboxes) => {
@@ -18,13 +20,13 @@ describe.skip('Visual Regression - Metric Toggles', () => {
         // Uncheck first metric
         cy.wrap($checkboxes[0]).uncheck();
         cy.wait(2000);
-        cy.screenshot('market-data-first-metric-off', { capture: 'viewport' });
+        cy.compareSnapshot('market-data-first-metric-off');
         
         // Uncheck second metric if exists
         if ($checkboxes.length > 1) {
           cy.wrap($checkboxes[1]).uncheck();
           cy.wait(2000);
-          cy.screenshot('market-data-two-metrics-off', { capture: 'viewport' });
+          cy.compareSnapshot('market-data-two-metrics-off');
         }
         
         // Re-check all
@@ -32,7 +34,7 @@ describe.skip('Visual Regression - Metric Toggles', () => {
           cy.wrap(checkbox).check();
         });
         cy.wait(2000);
-        cy.screenshot('market-data-all-metrics-restored', { capture: 'viewport' });
+        cy.compareSnapshot('market-data-all-metrics-restored');
       }
     });
   });
@@ -48,7 +50,7 @@ describe.skip('Visual Regression - Metric Toggles', () => {
       // Toggle off
       cy.wrap($label).find('input[type="checkbox"]').uncheck();
       cy.wait(2000);
-      cy.screenshot(`metric-${labelText.toLowerCase().replace(/\s+/g, '-')}-off`, { capture: 'viewport' });
+      cy.compareSnapshot(`metric-${labelText.toLowerCase().replace(/\s+/g, '-')}-off`);
       
       // Toggle back on
       cy.wrap($label).find('input[type="checkbox"]').check();
@@ -69,7 +71,7 @@ describe.skip('Visual Regression - Metric Toggles', () => {
     });
     
     cy.wait(3000);
-    cy.screenshot('market-data-bid-ask-only', { capture: 'viewport' });
+    cy.compareSnapshot('market-data-bid-ask-only');
   });
 
   it('should show chart with no metrics', () => {
@@ -79,7 +81,7 @@ describe.skip('Visual Regression - Metric Toggles', () => {
     // Uncheck all metrics
     cy.get('input[type="checkbox"]').uncheck({ multiple: true });
     cy.wait(3000);
-    cy.screenshot('market-data-no-metrics', { capture: 'viewport' });
+    cy.compareSnapshot('market-data-no-metrics');
   });
 
   it('should handle Candlestick preset metrics', () => {
@@ -87,7 +89,7 @@ describe.skip('Visual Regression - Metric Toggles', () => {
     cy.wait(3000);
     
     // Initial state
-    cy.screenshot('candlestick-initial-metrics', { capture: 'viewport' });
+    cy.compareSnapshot('candlestick-initial-metrics');
     
     // Check if there are any toggles
     cy.get('input[type="checkbox"]').then(($checkboxes) => {
@@ -96,7 +98,7 @@ describe.skip('Visual Regression - Metric Toggles', () => {
         $checkboxes.each((index, checkbox) => {
           cy.wrap(checkbox).uncheck();
           cy.wait(2000);
-          cy.screenshot(`candlestick-metric-${index}-off`, { capture: 'viewport' });
+          cy.compareSnapshot(`candlestick-metric-${index}-off`);
           cy.wrap(checkbox).check();
         });
       } else {

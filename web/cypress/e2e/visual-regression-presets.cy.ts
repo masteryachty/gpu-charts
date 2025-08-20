@@ -1,7 +1,9 @@
+import { createTestUrl } from '../support/test-constants';
+
 describe('Visual Regression - Chart Presets', () => {
   beforeEach(() => {
-    // Visit the app with BTC-USD data
-    cy.visit('/app?topic=BTC-USD');
+    // Visit the app with BTC-USD data and fixed time range
+    cy.visit(createTestUrl('BTC-USD'));
     
     // Wait for chart to be ready
     cy.waitForChartRender();
@@ -11,11 +13,11 @@ describe('Visual Regression - Chart Presets', () => {
     // Verify chart is visible
     cy.get('canvas#webgpu-canvas').should('be.visible');
     
-    // Take baseline screenshot
-    cy.screenshot('default-chart-view', { capture: 'viewport' });
+    // Compare with baseline screenshot
+    cy.compareSnapshot('default-chart-view');
     
     // Also capture just the canvas
-    cy.get('canvas#webgpu-canvas').screenshot('default-canvas-only');
+    cy.get('canvas#webgpu-canvas').compareSnapshot('default-canvas-only');
   });
 
   it('should render Market Data preset', () => {
@@ -25,9 +27,9 @@ describe('Visual Regression - Chart Presets', () => {
     // Wait for rendering
     cy.wait(5000);
     
-    // Take screenshots
-    cy.screenshot('market-data-preset', { capture: 'viewport' });
-    cy.get('canvas#webgpu-canvas').screenshot('market-data-canvas');
+    // Compare screenshots
+    cy.compareSnapshot('market-data-preset');
+    cy.get('canvas#webgpu-canvas').compareSnapshot('market-data-canvas');
   });
 
   it('should render Candlestick preset', () => {
@@ -37,26 +39,26 @@ describe('Visual Regression - Chart Presets', () => {
     // Wait for rendering
     cy.wait(5000);
     
-    // Take screenshots
-    cy.screenshot('candlestick-preset', { capture: 'viewport' });
-    cy.get('canvas#webgpu-canvas').screenshot('candlestick-canvas');
+    // Compare screenshots
+    cy.compareSnapshot('candlestick-preset');
+    cy.get('canvas#webgpu-canvas').compareSnapshot('candlestick-canvas');
   });
 
   it('should handle preset switching', () => {
     // Start with Market Data
     cy.selectPreset('Market Data');
     cy.wait(3000);
-    cy.screenshot('preset-market-data-initial', { capture: 'viewport' });
+    cy.compareSnapshot('preset-market-data-initial');
     
     // Switch to Candlestick
     cy.selectPreset('Candlestick');
     cy.wait(3000);
-    cy.screenshot('preset-switched-to-candlestick', { capture: 'viewport' });
+    cy.compareSnapshot('preset-switched-to-candlestick');
     
     // Switch back to Market Data
     cy.selectPreset('Market Data');
     cy.wait(3000);
-    cy.screenshot('preset-switched-back-to-market-data', { capture: 'viewport' });
+    cy.compareSnapshot('preset-switched-back-to-market-data');
   });
 
   it('should show all available presets', () => {
@@ -74,10 +76,10 @@ describe('Visual Regression - Chart Presets', () => {
           // Select preset (includes dynamic waiting)
           cy.selectPreset(preset);
           
-          // Take screenshot for each preset
+          // Compare screenshot for each preset
           const snapshotName = `preset-${preset.toLowerCase().replace(/\s+/g, '-')}`;
-          cy.screenshot(snapshotName, { capture: 'viewport' });
-          cy.get('canvas#webgpu-canvas').screenshot(`${snapshotName}-canvas`);
+          cy.compareSnapshot(snapshotName);
+          cy.get('canvas#webgpu-canvas').compareSnapshot(`${snapshotName}-canvas`);
         }
       });
     });

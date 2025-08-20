@@ -51,12 +51,8 @@ impl PlotRenderer {
 
                 // Get visible metrics and apply filter if set
                 let visible_metrics = data_store.get_all_visible_metrics();
-                
-                log::info!("[PlotRenderer] Found {} visible metrics", visible_metrics.len());
 
                 for (data_series, metric) in visible_metrics {
-                    log::info!("[PlotRenderer] Rendering metric: {} (computed: {})", metric.name, metric.is_computed);
-                    
                     // Apply data filter if set
                     if let Some(ref filter) = self.data_filter {
                         let mut should_render = false;

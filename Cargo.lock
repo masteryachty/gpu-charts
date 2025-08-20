@@ -1195,6 +1195,8 @@ version = "0.15.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5971ac85611da7067dbfcabef3c70ebb5606018acd9e2a3903a0da507521e0d5"
 dependencies = [
+ "allocator-api2",
+ "equivalent",
  "foldhash",
 ]
 
@@ -1729,6 +1731,15 @@ dependencies = [
  "tracing-subscriber",
  "uuid",
  "warp",
+]
+
+[[package]]
+name = "lru"
+version = "0.12.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "234cf4f4a04dc1f57e24b96cc0cd600cf2af460d4161ac5ecdd0af8e1f3b2a38"
+dependencies = [
+ "hashbrown 0.15.4",
 ]
 
 [[package]]
@@ -3465,7 +3476,9 @@ dependencies = [
  "futures",
  "hyper 0.14.32",
  "libc",
+ "lru",
  "memmap2",
+ "once_cell",
  "rustls 0.21.12",
  "rustls-pemfile",
  "serde",

@@ -296,6 +296,10 @@ impl ComputeEngine {
         name: &str,
         dependencies: &[MetricRef],
     ) {
+        log::info!("[ComputeEngine] compute_ema called for '{}'", name);
+        log::info!("[ComputeEngine]   - MetricRef: group={}, metric={}", metric_ref.group_index, metric_ref.metric_index);
+        log::info!("[ComputeEngine]   - Dependencies count: {}", dependencies.len());
+        
         let Some(calculator) = &mut self.ema_calculator else {
             log::error!("[ComputeEngine] No EMA calculator available");
             return;
@@ -309,6 +313,8 @@ impl ComputeEngine {
             .trim()
             .parse::<u32>()
             .unwrap_or(0);
+
+        log::info!("[ComputeEngine] Parsed EMA period from '{}' = {}", name, period_value);
 
         let period = match period_value {
             9 => EmaPeriod::Ema9,
@@ -325,6 +331,8 @@ impl ComputeEngine {
         // Check if we have candle close prices to use instead of raw trades
         let (price_buffer, element_count) = if let Some(ref candle_close_buffer) = self.candle_close_buffer {
             let candle_count = (candle_close_buffer.size() / 4) as u32; // f32 = 4 bytes
+            log::info!("[ComputeEngine] Using candle close buffer: {} candles, buffer size: {} bytes", 
+                candle_count, candle_close_buffer.size());
             (candle_close_buffer, candle_count)
         } else {
             // Fall back to raw trade prices (tick-based)
@@ -365,8 +373,16 @@ impl ComputeEngine {
         }
 
         // Compute EMA
+        log::info!("[ComputeEngine] Calling calculator.calculate_single with:");
+        log::info!("  - price_buffer size: {} bytes", price_buffer.size());
+        log::info!("  - element_count: {}", element_count);
+        log::info!("  - period: {:?} (value={})", period, period.value());
+        
         match calculator.calculate_single(price_buffer, element_count, period, encoder) {
             Ok(result) => {
+                log::info!("[ComputeEngine] EMA calculation successful, output buffer size: {} bytes", 
+                    result.output_buffer.size());
+                
                 // Create a temporary vector to collect computed values
                 // In a real implementation, we'd schedule async readback
                 let computed_values = vec![0.0f32; element_count as usize];
@@ -423,12 +439,16 @@ impl ComputeEngine {
 
                 // Update the metric
                 if let Some(metric) = data_store.get_metric_mut(metric_ref) {
+                    log::info!("[ComputeEngine] Updating metric '{}' with EMA data", metric.name);
                     metric.set_computed_data(result.output_buffer, computed_values);
 
                     // Track that we computed this metric
                     self.computed_metrics
                         .insert(*metric_ref, metric.compute_version);
                     
+                    log::info!("[ComputeEngine] EMA {} computation complete", name);
+                } else {
+                    log::error!("[ComputeEngine] Failed to get metric for updating EMA");
                 }
             }
             Err(e) => {

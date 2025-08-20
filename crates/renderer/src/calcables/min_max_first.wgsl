@@ -54,10 +54,12 @@ fn main(@builtin(workgroup_id) workgroup_id: vec3<u32>,
         if (idx < safe_group_end) {
             let value = input_data[idx];
             
-            // Accept all finite values
+            // Accept all finite values that are not zero or our sentinel values
             // In WGSL, we check if a value is finite by comparing it to itself (NaN != NaN)
             // and checking if it's not infinity
-            if (value == value && value > -3.402823466e+38 && value < 3.402823466e+38) {
+            // Skip zero values and our sentinel value (1.0) which indicate missing data
+            // Only accept values > 1.0 for proper price data
+            if (value == value && value > 1.0 && value < 3.402823466e+38) {
                 thread_min = min(thread_min, value);
                 thread_max = max(thread_max, value);
                 data_count += 1u;

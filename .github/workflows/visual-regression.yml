@@ -59,11 +59,14 @@ jobs:
       uses: cypress-io/github-action@v6
       with:
         working-directory: web
-        command: npm run cy:visual
+        spec: cypress/e2e/visual-regression-*.cy.ts
+        config-file: cypress.config.ci.cjs
         browser: chrome
         wait-on: 'http://localhost:3000'
         wait-on-timeout: 120
         install: false  # Skip install since we already ran npm ci at root
+      env:
+        CYPRESS_CI: true
         
     - name: Upload screenshots
       if: always()
@@ -71,13 +74,27 @@ jobs:
       with:
         name: cypress-screenshots
         path: web/cypress/screenshots
+        retention-days: 7
         
     - name: Upload visual regression diff images
-      if: failure()
+      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: visual-regression-diffs
-        path: web/cypress/snapshots/diff
+        path: |
+          web/cypress/snapshots/diff
+          web/cypress/snapshots/actual
+        retention-days: 7
+        if-no-files-found: ignore
+        
+    - name: Upload visual regression baselines
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: visual-regression-baselines
+        path: web/cypress/fixtures/visual-baselines
+        retention-days: 7
+        if-no-files-found: ignore
         
     - name: Comment PR with results
       if: github.event_name == 'pull_request'
@@ -89,18 +106,38 @@ jobs:
           
           // Check if there are any diff images
           const diffPath = 'web/cypress/snapshots/diff';
+          const screenshotsPath = 'web/cypress/screenshots';
           let comment = '## 📸 Visual Regression Test Results\n\n';
           
-          if (fs.existsSync(diffPath)) {
+          // Check for failed tests from screenshots
+          let failedTests = [];
+          if (fs.existsSync(screenshotsPath)) {
+            const screenshots = fs.readdirSync(screenshotsPath, { recursive: true });
+            failedTests = screenshots.filter(file => 
+              file.toString().includes('(failed)'));
+          }
+          
+          if (failedTests.length > 0) {
+            comment += `⚠️ **${failedTests.length} visual regression tests failed**\n\n`;
+            comment += 'Visual differences exceeded the 5% threshold.\n\n';
+            comment += '### Failed tests:\n';
+            failedTests.forEach(test => {
+              const testName = test.toString().replace('(failed).png', '').replace(/.*\//, '');
+              comment += `- ${testName}\n`;
+            });
+            comment += '\n📦 **Artifacts uploaded:**\n';
+            comment += '- `cypress-screenshots`: All test screenshots\n';
+            comment += '- `visual-regression-diffs`: Difference images (if generated)\n';
+            comment += '- `visual-regression-baselines`: Current baseline images\n';
+            comment += '\n💡 **To update baselines:** Download the screenshots artifact and update the baseline images in `web/cypress/fixtures/visual-baselines/`\n';
+          } else if (fs.existsSync(diffPath) && fs.readdirSync(diffPath).length > 0) {
             const diffs = fs.readdirSync(diffPath);
-            if (diffs.length > 0) {
-              comment += `⚠️ **${diffs.length} visual differences detected**\n\n`;
-              comment += 'Please review the diff images in the artifacts.\n\n';
-              comment += '### Affected screenshots:\n';
-              diffs.forEach(diff => {
-                comment += `- ${diff}\n`;
-              });
-            }
+            comment += `⚠️ **${diffs.length} visual differences detected**\n\n`;
+            comment += 'Please review the diff images in the artifacts.\n\n';
+            comment += '### Affected screenshots:\n';
+            diffs.forEach(diff => {
+              comment += `- ${diff}\n`;
+            });
           } else {
             comment += '✅ **All visual regression tests passed!**\n\n';
             comment += 'No visual differences detected.\n';
