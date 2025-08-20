@@ -1,4 +1,5 @@
 const { defineConfig } = require('cypress');
+const { configureVisualRegression } = require('cypress-visual-regression/dist/plugin');
 
 module.exports = defineConfig({
   e2e: {
@@ -8,36 +9,27 @@ module.exports = defineConfig({
     video: false,
     screenshotsFolder: 'cypress/screenshots',
     screenshotOnRunFailure: true,
-    
-    setupNodeEvents(on, config) {
-      // Enable experimental features for better WebGPU support
-      on('before:browser:launch', (browser, launchOptions) => {
-        if (browser.family === 'chromium' && browser.name !== 'electron') {
-          // Enable WebGPU flags
-          launchOptions.args.push('--enable-unsafe-webgpu');
-          launchOptions.args.push('--enable-features=Vulkan');
-          launchOptions.args.push('--use-angle=vulkan');
-          launchOptions.args.push('--enable-gpu-rasterization');
-          launchOptions.args.push('--enable-zero-copy');
-          
-          // Disable security features that might interfere
-          launchOptions.args.push('--disable-web-security');
-          launchOptions.args.push('--disable-features=IsolateOrigins,site-per-process');
-          
-          console.log('Chrome launch options:', launchOptions.args);
-        }
-        return launchOptions;
-      });
-      
-      return config;
-    },
-    
     // Timeouts for WebGPU/WASM initialization
-    defaultCommandTimeout: 30000,
-    requestTimeout: 30000,
-    responseTimeout: 30000,
-    
+    defaultCommandTimeout: 10000,
+    requestTimeout: 10000,
+    responseTimeout: 10000,
+
     // Test isolation
     testIsolation: true,
+    
+    setupNodeEvents(on, config) {
+      // Add visual regression plugin
+      configureVisualRegression(on);
+      return config;
+    },
+  },
+  env: {
+    visualRegressionType: 'regression', // 'base' to generate baselines, 'regression' to compare
+    visualRegressionBaseDirectory: 'cypress/fixtures/visual-baselines',
+    visualRegressionDiffDirectory: 'cypress/screenshots/diff',
+    visualRegressionGenerateDiff: 'fail', // 'fail' or 'always'
+    visualRegressionFailSilently: false,
+    visualRegressionFailureThreshold: 0.02, // Allow up to 2% difference
+    visualRegressionFailureThresholdType: 'percent',
   },
 });

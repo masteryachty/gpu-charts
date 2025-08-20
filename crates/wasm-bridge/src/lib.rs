@@ -295,6 +295,109 @@ impl Chart {
     }
 
     #[wasm_bindgen]
+    pub fn update_time_range(&mut self, start_time: u32, end_time: u32) -> js_sys::Promise {
+        let instance_id = self.instance_id;
+
+        // Create a promise that resolves when data is fetched with new time range
+        let promise = js_sys::Promise::new(&mut |resolve, reject| {
+            let resolve = resolve.clone();
+            let reject = reject.clone();
+
+            // Spawn async task to handle everything
+            wasm_bindgen_futures::spawn_local(async move {
+                // First check if preset and symbol are set
+                let has_preset_and_symbol = InstanceManager::with_instance(&instance_id, |instance| {
+                    instance.chart_engine.data_store().preset.is_some() && 
+                    instance.chart_engine.data_store().symbol.is_some()
+                }).unwrap_or(false);
+
+                // Update the time range in the data store
+                match InstanceManager::with_instance_mut(&instance_id, |instance| {
+                    instance.chart_engine.data_store_mut().set_x_range(start_time, end_time);
+                    instance.chart_engine.data_store_mut().mark_dirty();
+                    
+                    // Clear GPU bounds to force recalculation
+                    instance.chart_engine.data_store_mut().gpu_min_y = None;
+                    instance.chart_engine.data_store_mut().gpu_max_y = None;
+                }) {
+                    Some(_) => {}
+                    None => {
+                        reject
+                            .call1(
+                                &JsValue::undefined(),
+                                &JsValue::from_str("Chart instance not found"),
+                            )
+                            .unwrap();
+                        return;
+                    }
+                }
+
+                // Only fetch data if preset and symbol are set
+                if !has_preset_and_symbol {
+                    log::debug!("[bridge] Skipping data fetch - preset or symbol not set yet");
+                    resolve
+                        .call1(&JsValue::undefined(), &JsValue::from_bool(true))
+                        .unwrap();
+                    return;
+                }
+
+                // Now fetch data for the new time range
+                async fn fetch_data_with_new_range(
+                    instance_id: Uuid,
+                ) -> Result<(), shared_types::GpuChartsError> {
+                    let instance_opt = InstanceManager::take_instance(&instance_id);
+
+                    if let Some(mut instance) = instance_opt {
+                        let data_store_ptr =
+                            instance.chart_engine.data_store_mut() as *mut DataStore;
+                        let data_store = unsafe { &mut *data_store_ptr };
+
+                        let result = instance
+                            .chart_engine
+                            .data_manager
+                            .fetch_data_for_preset(data_store)
+                            .await;
+
+                        InstanceManager::put_instance(instance_id, instance);
+                        result
+                    } else {
+                        Err(shared_types::GpuChartsError::DataNotFound {
+                            resource: "Chart instance".to_string(),
+                        })
+                    }
+                }
+
+                // Execute the fetch
+                match fetch_data_with_new_range(instance_id).await {
+                    Ok(_) => {
+                        // Trigger render to update the chart
+                        wasm_bindgen_futures::spawn_local(async move {
+                            InstanceManager::with_instance_mut(&instance_id, |instance| {
+                                log::debug!("[bridge] Updated time range and fetched new data");
+                                let _ = instance.chart_engine.render();
+                            });
+                        });
+                        
+                        resolve
+                            .call1(&JsValue::undefined(), &JsValue::from_bool(true))
+                            .unwrap();
+                    }
+                    Err(e) => {
+                        reject
+                            .call1(
+                                &JsValue::undefined(),
+                                &JsValue::from_str(&format!("Failed to fetch data: {e:?}")),
+                            )
+                            .unwrap();
+                    }
+                }
+            });
+        });
+
+        promise
+    }
+
+    #[wasm_bindgen]
     pub fn resize(&self, _width: u32, _height: u32) -> Result<(), JsValue> {
         // InstanceManager::with_instance_mut(&self.instance_id, |instance| {
         //     instance.chart_engine.resized(width, height);

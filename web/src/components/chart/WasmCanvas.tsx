@@ -176,6 +176,31 @@ export default function WasmCanvas({
     }
   }, [chartState.isInitialized, chartState.chart, onChartReady]);
 
+  // Track if this is the initial mount to avoid unnecessary time range updates
+  const isInitialMount = useRef(true);
+  
+  // Update time range when it changes in the store
+  useEffect(() => {
+    // Skip on initial mount since the chart is initialized with these values
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
+    if (chartState.isInitialized && chartState.chart) {
+      if (chartState.chart.update_time_range) {
+        console.log(`[WasmCanvas] Updating time range: ${startTime} - ${endTime}`);
+        chartState.chart.update_time_range(startTime, endTime)
+          .then(() => {
+            console.log(`[WasmCanvas] Time range updated successfully`);
+          })
+          .catch((error: any) => {
+            console.error('[WasmCanvas] Failed to update time range:', error);
+          });
+      }
+    }
+  }, [startTime, endTime, chartState.isInitialized, chartState.chart]);
+
   // Mouse wheel handler for zoom
   const handleMouseWheel = useCallback((event: React.WheelEvent<HTMLCanvasElement>) => {
 
