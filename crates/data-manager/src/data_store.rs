@@ -106,6 +106,12 @@ impl DataStore {
     pub fn add_data_group(&mut self, x_series: (ArrayBuffer, Vec<Buffer>), set_as_active: bool) {
         let f: Uint32Array = Uint32Array::new(&x_series.0);
         let length = f.length();
+        
+        let x_buffer_count = x_series.1.len();
+        let x_buffer_size = if !x_series.1.is_empty() { x_series.1[0].size() } else { 0 };
+        
+        log::info!("[DataStore] Adding data group: x_buffers={}, x_buffer_size={}, length={}, active={}", 
+            x_buffer_count, x_buffer_size, length, set_as_active);
 
         self.data_groups.push(DataSeries {
             x_buffers: x_series.1,
@@ -114,8 +120,10 @@ impl DataStore {
             length,
         });
 
+        let new_index = self.data_groups.len() - 1;
+        log::info!("[DataStore] Data group added at index {}", new_index);
+        
         if set_as_active {
-            let new_index = self.data_groups.len() - 1;
             if !self.active_data_group_indices.contains(&new_index) {
                 self.active_data_group_indices.push(new_index);
             }
@@ -213,7 +221,25 @@ impl DataStore {
     }
 
     pub fn get_all_visible_metrics(&self) -> Vec<(&DataSeries, &MetricSeries)> {
-        self.get_active_data_groups()
+        // First, log which groups are active
+        log::info!("[DataStore] Active group indices: {:?}", self.active_data_group_indices);
+        for (idx, group) in self.data_groups.iter().enumerate() {
+            if self.active_data_group_indices.contains(&idx) {
+                log::info!("[DataStore] Group {}: {} metrics, {} x_buffers, length={}", 
+                    idx, group.metrics.len(), group.x_buffers.len(), group.length);
+                // Log all metrics in the group
+                for (m_idx, metric) in group.metrics.iter().enumerate() {
+                    log::info!("  - Metric[{}]: {} (computed={}, visible={}, y_buffers={})", 
+                        m_idx, metric.name, metric.is_computed, metric.visible, metric.y_buffers.len());
+                    if metric.is_computed && !metric.y_buffers.is_empty() {
+                        log::info!("    - Y buffer[0]: {:p}, size: {} bytes", 
+                            &metric.y_buffers[0] as *const _, metric.y_buffers[0].size());
+                    }
+                }
+            }
+        }
+        
+        let result: Vec<(&DataSeries, &MetricSeries)> = self.get_active_data_groups()
             .into_iter()
             .flat_map(|data_series| {
                 data_series
@@ -222,7 +248,27 @@ impl DataStore {
                     .filter(|metric| metric.visible)
                     .map(move |metric| (data_series, metric))
             })
-            .collect()
+            .collect();
+        
+        // Debug logging for mid price metrics
+        for (i, (series, metric)) in result.iter().enumerate() {
+            if metric.name.to_lowercase().contains("mid") {
+                log::info!("[DataStore] Mid price metric found in result[{}]:", i);
+                log::info!("  - Name: {}", metric.name);
+                log::info!("  - Is computed: {}", metric.is_computed);
+                log::info!("  - X buffers in series: {}", series.x_buffers.len());
+                log::info!("  - Y buffers in metric: {}", metric.y_buffers.len());
+                if !series.x_buffers.is_empty() {
+                    log::info!("  - X buffer[0] size: {} bytes", series.x_buffers[0].size());
+                    log::info!("  - X buffer[0] id: {:?}", &series.x_buffers[0] as *const _);
+                }
+                if !metric.y_buffers.is_empty() {
+                    log::info!("  - Y buffer[0] size: {} bytes", metric.y_buffers[0].size());
+                }
+            }
+        }
+        
+        result
     }
 
     /// Clear GPU bounds calculations (called when new data is loaded)

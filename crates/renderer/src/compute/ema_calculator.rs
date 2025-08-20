@@ -147,6 +147,11 @@ impl EmaCalculator {
         period: EmaPeriod,
         encoder: &mut wgpu::CommandEncoder,
     ) -> Result<ComputeResult, String> {
+        log::info!("[EmaCalculator] calculate_single called:");
+        log::info!("  - period: {:?} (value={})", period, period.value());
+        log::info!("  - element_count: {}", element_count);
+        log::info!("  - price_buffer: {:p}, size: {} bytes", price_buffer, price_buffer.size());
+        
         // Validate buffer size
         const MAX_BUFFER_SIZE: u64 = 256 * 1024 * 1024; // 256MB max
         let buffer_size = (element_count as u64) * 4; // f32 = 4 bytes
@@ -154,7 +159,7 @@ impl EmaCalculator {
             return Err(format!("Buffer size {} exceeds maximum allowed size {}", buffer_size, MAX_BUFFER_SIZE));
         }
         
-        log::debug!("[EmaCalculator] Calculating EMA {} for {} elements", period.value(), element_count);
+        log::info!("[EmaCalculator] Calculating EMA {} for {} elements", period.value(), element_count);
         
         // Calculate and log alpha value for this period
         let alpha = 2.0 / (period.value() as f32 + 1.0);
@@ -183,11 +188,23 @@ impl EmaCalculator {
             alpha_denominator: period.value() + 1,
         };
         
-        log::debug!("[EmaCalculator] Creating params buffer - period: {}, alpha_denominator: {}, element_count: {}", 
-            params.period, params.alpha_denominator, params.element_count);
+        log::info!("[EmaCalculator] EMA params:");
+        log::info!("  - period: {}", params.period);
+        log::info!("  - alpha_numerator: {}", params.alpha_numerator);
+        log::info!("  - alpha_denominator: {}", params.alpha_denominator);
+        log::info!("  - element_count: {}", params.element_count);
+        log::info!("  - alpha value: {:.6}", 2.0 / (params.alpha_denominator as f32));
 
-        // Update the params buffer with new values
-        self.infrastructure.queue.write_buffer(&self.params_buffer, 0, bytemuck::cast_slice(&[params]));
+        // Create a unique params buffer for this EMA calculation to avoid parameter sharing bugs
+        let unique_params_buffer = self.infrastructure.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some(&format!("EMA {} Params Buffer", period.value())),
+            size: std::mem::size_of::<EmaParams>() as u64,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        
+        // Write params to the unique buffer
+        self.infrastructure.queue.write_buffer(&unique_params_buffer, 0, bytemuck::cast_slice(&[params]));
 
         // Create output buffer
         let output_buffer = self.infrastructure.create_compute_buffer(
@@ -196,7 +213,7 @@ impl EmaCalculator {
             &format!("EMA {} Output Buffer", period.value()),
         );
 
-        // Create bind group
+        // Create bind group with the unique params buffer
         let bind_group = self
             .infrastructure
             .device
@@ -214,18 +231,22 @@ impl EmaCalculator {
                     },
                     wgpu::BindGroupEntry {
                         binding: 2,
-                        resource: self.params_buffer.as_entire_binding(),
+                        resource: unique_params_buffer.as_entire_binding(),
                     },
                 ],
             });
 
         // Execute compute pass (single workgroup for sequential calculation)
+        log::info!("[EmaCalculator] Executing compute pass for EMA {}", period.value());
         self.infrastructure
             .execute_compute(encoder, &self.pipeline, &bind_group, (1, 1, 1));
 
         // Cache disabled - would need data hash to prevent stale results
         // self.cache.insert((period, element_count, data_hash), output_buffer.clone());
 
+        log::info!("[EmaCalculator] EMA {} compute pass complete, output buffer: {:p}", 
+            period.value(), &output_buffer);
+        
         Ok(ComputeResult {
             output_buffer,
             element_count,

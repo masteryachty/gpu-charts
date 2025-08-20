@@ -170,17 +170,23 @@ impl DataManager {
         > = std::collections::HashMap::new();
         for chart_type in &preset.chart_types {
             for (data_type, column) in &chart_type.data_columns {
-                data_requirements
-                    .entry(data_type.clone())
-                    .or_default()
-                    .insert(column.clone());
-            }
-            if let Some(additional_cols) = &chart_type.additional_data_columns {
-                for (data_type, column) in additional_cols {
+                // Skip COMPUTED columns - they are created locally, not fetched from API
+                if data_type != "COMPUTED" {
                     data_requirements
                         .entry(data_type.clone())
                         .or_default()
                         .insert(column.clone());
+                }
+            }
+            if let Some(additional_cols) = &chart_type.additional_data_columns {
+                for (data_type, column) in additional_cols {
+                    // Skip COMPUTED columns here too
+                    if data_type != "COMPUTED" {
+                        data_requirements
+                            .entry(data_type.clone())
+                            .or_default()
+                            .insert(column.clone());
+                    }
                 }
             }
         }
@@ -372,8 +378,11 @@ impl DataManager {
                         let group_index = if metric_name.starts_with("ema_") && candle_ema_group_index.is_some() {
                             // Add candle-based EMAs to the special group
                             candle_ema_group_index.unwrap()
+                        } else if metric_name == "Mid" && !dependencies.is_empty() {
+                            // For mid price specifically, add to the same group as bid/ask
+                            dependencies.first().map(|dep| dep.group_index).unwrap_or(0)
                         } else {
-                            // Add other computed metrics to the first data group with x_buffers
+                            // For other computed metrics, use the first group with x_buffers
                             let mut found_index = 0;
                             for (idx, group) in data_store.data_groups.iter().enumerate() {
                                 if !group.x_buffers.is_empty() {
@@ -387,14 +396,22 @@ impl DataManager {
                         // Get color and visibility from chart type
                         let color = chart_type.style.color.unwrap_or([0.5, 0.5, 0.5, 1.0]);
                         
+                        log::info!("[DataManager] Adding computed metric '{}' to group {}", metric_name, group_index);
+                        log::info!("  - Dependencies: {} deps", dependencies.len());
+                        for dep in &dependencies {
+                            log::info!("    - Dep: group={}, metric={}", dep.group_index, dep.metric_index);
+                        }
+                        
                         data_store.add_computed_metric_to_group_with_visibility(
                             group_index,
-                            metric_name,
+                            metric_name.clone(),
                             [color[0], color[1], color[2]],
                             compute_op.clone(),
                             dependencies,
                             chart_type.visible,
                         );
+                        
+                        log::info!("[DataManager] Computed metric '{}' added to group {}", metric_name, group_index);
                     }
                 }
             }

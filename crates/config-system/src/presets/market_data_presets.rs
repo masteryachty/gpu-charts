@@ -20,7 +20,7 @@ fn market_data_preset() -> ChartPreset {
                 render_type: RenderType::Line,
                 data_columns: vec![("MD".to_string(), "best_bid".to_string())],
                 additional_data_columns: None,
-                visible: false,
+                visible: true,
                 label: "Bid".to_string(),
                 style: RenderStyle {
                     color: Some([0.0, 0.8, 0.0, 1.0]), // Green
@@ -34,7 +34,7 @@ fn market_data_preset() -> ChartPreset {
                 render_type: RenderType::Line,
                 data_columns: vec![("MD".to_string(), "best_ask".to_string())],
                 additional_data_columns: None,
-                visible: false,
+                visible: true,
                 label: "Ask".to_string(),
                 style: RenderStyle {
                     color: Some([0.8, 0.0, 0.0, 1.0]), // Red
