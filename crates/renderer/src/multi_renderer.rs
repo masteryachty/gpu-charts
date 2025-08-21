@@ -553,6 +553,18 @@ impl MultiRendererBuilder {
         self.renderers.push(Box::new(renderer));
         self
     }
+    
+    pub fn add_tooltip_renderer(mut self, width: u32, height: u32) -> Self {
+        let renderer = crate::TooltipRenderer::new(
+            self.device.clone(),
+            self.queue.clone(),
+            self.format,
+            width,
+            height,
+        );
+        self.renderers.push(Box::new(renderer));
+        self
+    }
 
     pub fn build(self) -> MultiRenderer {
         let mut renderer = MultiRenderer::new(self.device, self.queue, self.format);

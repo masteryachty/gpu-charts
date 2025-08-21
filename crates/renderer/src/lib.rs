@@ -13,8 +13,8 @@ use shared_types::{GpuChartsError, GpuChartsResult};
 pub use calcables::{candle_aggregator::CandleAggregator, min_max::calculate_min_max_y};
 pub use charts::TriangleRenderer;
 pub use drawables::{
-    candlestick::CandlestickRenderer, plot::PlotRenderer, x_axis::XAxisRenderer,
-    y_axis::YAxisRenderer,
+    candlestick::CandlestickRenderer, plot::PlotRenderer, tooltip::TooltipRenderer,
+    x_axis::XAxisRenderer, y_axis::YAxisRenderer,
 };
 pub use multi_renderer::{
     ConfigurablePlotRenderer, MultiRenderable, MultiRenderer, MultiRendererBuilder, RenderOrder,

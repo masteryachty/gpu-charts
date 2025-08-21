@@ -1,6 +1,7 @@
 use config_system::{ChartPreset, ComputeOp};
 use js_sys::{ArrayBuffer, Uint32Array};
 use nalgebra_glm as glm;
+use shared_types::{TooltipConfig, TooltipState};
 use std::rc::Rc;
 use wgpu::util::DeviceExt;
 use wgpu::{Buffer, Device};
@@ -63,6 +64,8 @@ pub struct DataStore {
     pub min_max_buffer: Option<Rc<wgpu::Buffer>>, // GPU-calculated min/max buffer
     pub gpu_min_y: Option<f32>, // GPU-calculated min Y value
     pub gpu_max_y: Option<f32>, // GPU-calculated max Y value
+    tooltip_state: Option<TooltipState>, // Tooltip display state
+    tooltip_config: TooltipConfig, // Tooltip configuration
 }
 
 // pub struct Coord {
@@ -85,6 +88,8 @@ impl DataStore {
             min_max_buffer: None, // GPU buffer will be created during rendering
             gpu_min_y: None,
             gpu_max_y: None,
+            tooltip_state: None,
+            tooltip_config: TooltipConfig::default(),
         }
     }
 
@@ -633,6 +638,129 @@ impl DataStore {
             self.active_data_group_indices.clear();
             self.clear_gpu_bounds();
         }
+    }
+    
+    /// Get tooltip state
+    pub fn get_tooltip_state(&self) -> Option<&TooltipState> {
+        self.tooltip_state.as_ref()
+    }
+    
+    /// Get mutable tooltip state
+    pub fn get_tooltip_state_mut(&mut self) -> Option<&mut TooltipState> {
+        self.tooltip_state.as_mut()
+    }
+    
+    /// Update tooltip state
+    pub fn set_tooltip_state(&mut self, state: TooltipState) {
+        self.tooltip_state = Some(state);
+    }
+    
+    /// Clear tooltip state
+    pub fn clear_tooltip(&mut self) {
+        if let Some(state) = &mut self.tooltip_state {
+            state.active = false;
+            state.labels.clear();
+        }
+    }
+    
+    /// Get tooltip configuration
+    pub fn get_tooltip_config(&self) -> &TooltipConfig {
+        &self.tooltip_config
+    }
+    
+    /// Update tooltip configuration
+    pub fn set_tooltip_config(&mut self, config: TooltipConfig) {
+        self.tooltip_config = config;
+    }
+    
+    /// Find the closest data point to the given x position
+    /// Returns the timestamp and values for all visible metrics at that point
+    pub fn find_closest_data_point(&self, screen_x: f32) -> Option<(u32, Vec<(String, f32, [f32; 4])>)> {
+        // Convert screen X to world X (timestamp)
+        let world_x = self.screen_to_world_x(screen_x);
+        let target_timestamp = world_x as u32;
+        
+        // Find the active data groups
+        if self.active_data_group_indices.is_empty() || self.data_groups.is_empty() {
+            return None;
+        }
+        
+        let mut all_values = Vec::new();
+        let mut final_timestamp = None;
+        
+        // Check ALL active data groups
+        for &data_group_index in &self.active_data_group_indices {
+            if data_group_index >= self.data_groups.len() {
+                continue;
+            }
+            
+            let data_group = &self.data_groups[data_group_index];
+            
+            // Get time data
+            let time_array = js_sys::Uint32Array::new(&data_group.x_raw);
+            let time_data: Vec<u32> = time_array.to_vec();
+            
+            if time_data.is_empty() {
+                continue;
+            }
+            
+            // Binary search for the closest timestamp that's <= target
+            let index = match time_data.binary_search(&target_timestamp) {
+                Ok(i) => i,  // Exact match
+                Err(i) => {
+                    if i > 0 {
+                        i - 1  // Use the timestamp just before
+                    } else {
+                        0  // Use the first timestamp
+                    }
+                }
+            };
+            
+            if index >= time_data.len() {
+                continue;
+            }
+            
+            let timestamp = time_data[index];
+            if final_timestamp.is_none() {
+                final_timestamp = Some(timestamp);
+            }
+            
+            // Collect values for all visible metrics in this group
+            for metric in &data_group.metrics {
+                if metric.visible {
+                    // Check if we have raw data available
+                    if metric.y_raw.byte_length() > 0 {
+                        let value_array = js_sys::Float32Array::new(&metric.y_raw);
+                        let value_data: Vec<f32> = value_array.to_vec();
+                        
+                        if index < value_data.len() {
+                            let value = value_data[index];
+                            let color = [metric.color[0], metric.color[1], metric.color[2], 1.0];
+                            all_values.push((metric.name.clone(), value, color));
+                        }
+                    } else if metric.is_computed {
+                        // For computed metrics without raw data, skip for now
+                        // TODO: Read from GPU buffer if needed
+                        log::debug!("Skipping computed metric '{}' - no raw data available", metric.name);
+                    }
+                }
+            }
+        }
+        
+        if all_values.is_empty() || final_timestamp.is_none() {
+            None
+        } else {
+            Some((final_timestamp.unwrap(), all_values))
+        }
+    }
+    
+    /// Convert screen X to world X (timestamp)
+    fn screen_to_world_x(&self, screen_x: f32) -> f32 {
+        let normalized_x = screen_x / self.screen_size.width as f32;
+        let world_x = self.start_x as f32 + normalized_x * (self.end_x - self.start_x) as f32;
+        log::trace!("screen_to_world_x: screen_x={}, width={}, start_x={}, end_x={}, normalized={}, world_x={}", 
+            screen_x, self.screen_size.width, self.start_x, self.end_x, normalized_x, world_x);
+        world_x
     }
 }
 

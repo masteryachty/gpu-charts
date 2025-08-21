@@ -3,7 +3,6 @@
 use super::{ComputeInfrastructure, ComputeProcessor, ComputeResult};
 use std::collections::HashMap;
 use std::rc::Rc;
-use wgpu::util::DeviceExt;
 
 /// Available EMA periods
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

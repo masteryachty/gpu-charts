@@ -27,7 +27,7 @@ pub enum ElementState {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum MouseButton {
     Left,
-    // Right,
+    Right,
     // Middle,
     // Other(u16),
 }
