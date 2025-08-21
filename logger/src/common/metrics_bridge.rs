@@ -108,7 +108,6 @@ pub fn process_trade_data(exchange: &str, data: &UnifiedTradeData) {
     let side = match data.side {
         TradeSide::Buy => "buy",
         TradeSide::Sell => "sell",
-        TradeSide::Unknown => "unknown",
     };
     record_trade_volume(exchange, &data.symbol, side, trade_value);
     
