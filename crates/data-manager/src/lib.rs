@@ -396,11 +396,6 @@ impl DataManager {
                         // Get color and visibility from chart type
                         let color = chart_type.style.color.unwrap_or([0.5, 0.5, 0.5, 1.0]);
                         
-                        log::info!("[DataManager] Adding computed metric '{}' to group {}", metric_name, group_index);
-                        log::info!("  - Dependencies: {} deps", dependencies.len());
-                        for dep in &dependencies {
-                            log::info!("    - Dep: group={}, metric={}", dep.group_index, dep.metric_index);
-                        }
                         
                         data_store.add_computed_metric_to_group_with_visibility(
                             group_index,
@@ -411,7 +406,6 @@ impl DataManager {
                             chart_type.visible,
                         );
                         
-                        log::info!("[DataManager] Computed metric '{}' added to group {}", metric_name, group_index);
                     }
                 }
             }
