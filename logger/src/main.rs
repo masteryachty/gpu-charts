@@ -2,7 +2,6 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use logger::{Config, Logger};
 use std::path::PathBuf;
-use std::sync::Arc;
 use tokio::signal;
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
@@ -79,8 +78,11 @@ async fn main() -> Result<()> {
     }
 
     // Load configuration
-    let config_path = cli.config.as_deref();
-    let mut config = Config::load(config_path)?;
+    let mut config = if let Some(config_path) = cli.config.as_deref() {
+        Config::from_file(config_path.to_str().unwrap_or("config.yaml"))?
+    } else {
+        Config::from_env()?
+    };
 
     // Handle commands
     match cli.command {
@@ -88,7 +90,24 @@ async fn main() -> Result<()> {
             if let Some(exchanges) = exchanges {
                 // Override config with command line exchanges
                 let exchange_list: Vec<String> = exchanges.split(',').map(|s| s.trim().to_string()).collect();
-                config.enable_only_exchanges(&exchange_list);
+                // Disable all exchanges first
+                config.exchanges.coinbase.enabled = false;
+                config.exchanges.binance.enabled = false;
+                config.exchanges.okx.enabled = false;
+                config.exchanges.kraken.enabled = false;
+                config.exchanges.bitfinex.enabled = false;
+                
+                // Enable only the specified exchanges
+                for exchange in exchange_list {
+                    match exchange.to_lowercase().as_str() {
+                        "coinbase" => config.exchanges.coinbase.enabled = true,
+                        "binance" => config.exchanges.binance.enabled = true,
+                        "okx" => config.exchanges.okx.enabled = true,
+                        "kraken" => config.exchanges.kraken.enabled = true,
+                        "bitfinex" => config.exchanges.bitfinex.enabled = true,
+                        _ => error!("Unknown exchange: {}", exchange),
+                    }
+                }
             }
             run_logger(config).await?;
         }
@@ -175,95 +194,20 @@ async fn run_logger(config: Config) -> Result<()> {
     Ok(())
 }
 
-async fn test_exchange(exchange_name: &str, config: &Config) -> Result<()> {
-    use logger::exchanges::{Exchange, ExchangeFactory};
-
+async fn test_exchange(exchange_name: &str, _config: &Config) -> Result<()> {
     info!("Testing connection to {}...", exchange_name);
-
-    let factory = ExchangeFactory::new();
-    let exchange = factory.create(exchange_name, config.clone())?;
-
-    // Test fetching symbols
-    info!("Fetching symbols...");
-    match exchange.fetch_symbols().await {
-        Ok(symbols) => {
-            info!("Successfully fetched {} symbols", symbols.len());
-            if symbols.len() > 5 {
-                info!("Sample symbols:");
-                for symbol in symbols.iter().take(5) {
-                    info!("  - {}", symbol.symbol);
-                }
-                info!("  ... and {} more", symbols.len() - 5);
-            } else {
-                for symbol in &symbols {
-                    info!("  - {}", symbol.symbol);
-                }
-            }
-        }
-        Err(e) => {
-            error!("Failed to fetch symbols: {}", e);
-            return Err(e);
-        }
-    }
-
-    // Test creating a connection
-    info!("Testing WebSocket connection...");
-    let channels = vec![];
-    match exchange.create_connection(channels).await {
-        Ok(mut conn) => {
-            match conn.connect().await {
-                Ok(_) => {
-                    info!("Successfully connected to WebSocket");
-                    info!("Connection test passed!");
-                }
-                Err(e) => {
-                    error!("Failed to connect: {}", e);
-                    return Err(e);
-                }
-            }
-        }
-        Err(e) => {
-            error!("Failed to create connection: {}", e);
-            return Err(e);
-        }
-    }
-
+    
+    // TODO: Implement exchange testing
+    error!("Exchange testing not yet implemented for {}", exchange_name);
+    
     Ok(())
 }
 
-async fn list_symbols(exchange_name: &str, config: &Config) -> Result<()> {
-    use logger::exchanges::{Exchange, ExchangeFactory};
-
-    let factory = ExchangeFactory::new();
-    let exchange = factory.create(exchange_name, config.clone())?;
-
-    info!("Fetching symbols for {}...", exchange_name);
-    let symbols = exchange.fetch_symbols().await?;
-
-    info!("Found {} symbols:", symbols.len());
-    for symbol in symbols {
-        let active_str = if symbol.active { "active" } else { "inactive" };
-        let tick_str = symbol
-            .tick_size
-            .map(|t| format!("{}", t))
-            .unwrap_or_else(|| "N/A".to_string());
-        let min_str = symbol
-            .min_size
-            .map(|m| format!("{}", m))
-            .unwrap_or_else(|| "N/A".to_string());
-
-        info!(
-            "  {} - {}/{} ({}) [tick: {}, min: {}]",
-            symbol.symbol,
-            symbol.base_asset,
-            symbol.quote_asset,
-            active_str,
-            tick_str,
-            min_str
-        );
-    }
-
-    info!("Total symbols: {}", symbols.len());
-
+async fn list_symbols(exchange_name: &str, _config: &Config) -> Result<()> {
+    info!("Listing symbols for {}...", exchange_name);
+    
+    // TODO: Implement symbol listing
+    error!("Symbol listing not yet implemented for {}", exchange_name);
+    
     Ok(())
 }

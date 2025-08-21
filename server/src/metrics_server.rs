@@ -2,7 +2,6 @@ use prometheus::{Encoder, TextEncoder, register_counter_vec, register_gauge_vec,
 use prometheus::{CounterVec, GaugeVec, HistogramVec};
 use lazy_static::lazy_static;
 use warp::Filter;
-use tracing::info;
 
 lazy_static! {
     // HTTP metrics
@@ -108,7 +107,7 @@ pub fn record_data_query_duration(symbol: &str, duration: f64) {
 
 /// Start the metrics HTTP server
 pub async fn start_metrics_server(port: u16) {
-    info!("Starting metrics server on port {}", port);
+    println!("Starting metrics server on port {}", port);
     
     // GET /metrics endpoint
     let metrics_route = warp::path("metrics")
@@ -138,7 +137,7 @@ pub async fn start_metrics_server(port: u16) {
     
     let routes = metrics_route.or(health_route);
     
-    info!("Metrics server listening on http://0.0.0.0:{}/metrics", port);
+    println!("Metrics server listening on http://0.0.0.0:{}/metrics", port);
     
     warp::serve(routes)
         .run(([0, 0, 0, 0], port))
