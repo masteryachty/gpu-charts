@@ -121,6 +121,110 @@ impl Chart {
     }
 
     #[wasm_bindgen]
+    pub fn apply_preset_and_symbols(&mut self, preset: &str, symbols: js_sys::Array) -> js_sys::Promise {
+        let instance_id = self.instance_id;
+        let preset_str = preset.to_string();
+        
+        // Convert JS array to Vec<String>
+        let mut symbol_vec = Vec::new();
+        for i in 0..symbols.length() {
+            if let Some(symbol) = symbols.get(i).as_string() {
+                symbol_vec.push(symbol);
+            }
+        }
+        
+        log::info!("[WASM] apply_preset_and_symbols called with {} symbols: {:?}", 
+                   symbol_vec.len(), symbol_vec);
+
+        // Create a promise that resolves when all data is loaded
+        let promise = js_sys::Promise::new(&mut |resolve, reject| {
+            let resolve = resolve.clone();
+            let reject = reject.clone();
+            let preset_str = preset_str.clone();
+            let symbol_vec = symbol_vec.clone();
+
+            // Spawn async task to handle multiple exchanges
+            wasm_bindgen_futures::spawn_local(async move {
+                // Clear data groups at the start for clean slate
+                InstanceManager::with_instance_mut(&instance_id, |instance| {
+                    log::info!("[WASM] Clearing all data groups before multi-exchange fetch");
+                    instance.chart_engine.data_store_mut().data_groups.clear();
+                    instance.chart_engine.data_store_mut().active_data_group_indices.clear();
+                });
+                
+                // Process each symbol
+                for (index, symbol_str) in symbol_vec.iter().enumerate() {
+                    log::info!("[WASM] Processing symbol {}/{}: {}", 
+                               index + 1, symbol_vec.len(), symbol_str);
+                    
+                    // Set preset and fetch data for this symbol
+                    match InstanceManager::with_instance_mut(&instance_id, |instance| {
+                        instance
+                            .chart_engine
+                            .set_preset_and_symbol_multi(Some(preset_str.clone()), 
+                                                         Some(symbol_str.clone()),
+                                                         index);
+                    }) {
+                        Some(_) => {}
+                        None => {
+                            reject
+                                .call1(
+                                    &JsValue::undefined(),
+                                    &JsValue::from_str("Chart instance not found"),
+                                )
+                                .unwrap();
+                            return;
+                        }
+                    }
+
+                    // Fetch data for this symbol
+                    let instance_opt = InstanceManager::take_instance(&instance_id);
+                    if let Some(mut instance) = instance_opt {
+                        // Use raw pointer to avoid borrow checker issues
+                        let data_store_ptr = instance.chart_engine.data_store_mut() as *mut DataStore;
+                        let data_store = unsafe { &mut *data_store_ptr };
+                        
+                        // Log current state before fetch
+                        log::info!("[WASM] Before fetch - groups: {}, active: {:?}", 
+                                  data_store.data_groups.len(), 
+                                  data_store.active_data_group_indices);
+                        
+                        // Fetch data
+                        let result = instance
+                            .chart_engine
+                            .data_manager
+                            .fetch_data_for_preset(data_store)
+                            .await;
+                        
+                        // Log state after fetch
+                        log::info!("[WASM] After fetch - groups: {}, active: {:?}", 
+                                  data_store.data_groups.len(), 
+                                  data_store.active_data_group_indices);
+                        
+                        // Put instance back
+                        InstanceManager::put_instance(instance_id, instance);
+                        
+                        if let Err(e) = result {
+                            log::error!("[WASM] Failed to fetch data for {}: {:?}", symbol_str, e);
+                        }
+                    }
+                }
+                
+                // After all data is loaded, trigger a render
+                InstanceManager::with_instance_mut(&instance_id, |instance| {
+                    let _ = instance.chart_engine.render();
+                });
+                
+                resolve
+                    .call1(&JsValue::undefined(), &JsValue::from_bool(true))
+                    .unwrap();
+            });
+        });
+
+        promise
+    }
+    
+    #[wasm_bindgen]
     pub fn apply_preset_and_symbol(&mut self, preset: &str, symbol: &str) -> js_sys::Promise {
         let instance_id = self.instance_id;
         let preset_str = preset.to_string();

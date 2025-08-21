@@ -169,13 +169,13 @@ export function formatExchangeName(exchange: string): string {
  */
 export function getExchangeColor(exchange: string): string {
   const colorMap: Record<string, string> = {
-    coinbase: '#0052FF',  // Coinbase blue
-    binance: '#F3BA2F',   // Binance yellow
-    bitfinex: '#5CDB95',  // Bitfinex green
-    kraken: '#5741D9',    // Kraken purple
-    okx: '#000000',       // OKX black
+    coinbase: '#0066FF',  // Bright blue
+    binance: '#FFD700',   // Gold yellow
+    bitfinex: '#00FF88',  // Bright green
+    kraken: '#9945FF',    // Bright purple
+    okx: '#FF00FF',       // Magenta
   };
-  return colorMap[exchange.toLowerCase()] || '#6B7280';
+  return colorMap[exchange.toLowerCase()] || '#FF6B6B'; // Coral red for unknown
 }
 
 /**
@@ -235,4 +235,58 @@ export function parseSymbol(symbol: string): { exchange: string; baseSymbol: str
  */
 export function combineSymbol(exchange: string, baseSymbol: string): string {
   return `${exchange}:${baseSymbol}`;
+}
+
+/**
+ * Get available exchanges for a specific symbol
+ * @param baseSymbol - The base symbol (e.g., "BTC-USD")
+ * @returns Array of exchanges that have this symbol
+ */
+export async function getAvailableExchanges(baseSymbol: string): Promise<ExchangeSymbol[]> {
+  try {
+    // Convert exchange-specific format to normalized format for searching
+    // e.g., "BTC-USD" -> "BTC/USD", "ETH-USDT" -> "ETH/USDT"
+    let searchTerm = baseSymbol;
+    
+    // Common patterns to normalize:
+    // Replace dash with slash for pairs like BTC-USD -> BTC/USD
+    if (baseSymbol.includes('-')) {
+      const parts = baseSymbol.split('-');
+      if (parts.length === 2) {
+        // Handle common stablecoin variations
+        const quote = parts[1].replace(/^USD[TC]?$/, 'USD');
+        searchTerm = `${parts[0]}/${quote}`;
+      }
+    }
+    
+    console.log(`Searching for exchanges with symbol: ${searchTerm} (from ${baseSymbol})`);
+    
+    // Search for the symbol to find all exchanges that have it
+    const results = await searchSymbols(searchTerm);
+    
+    // Find the best match - look for normalized_id or display_name match
+    const match = results.find(r => {
+      // Check if normalized_id matches our search term
+      const normalizedMatch = r.normalized_id.toLowerCase() === searchTerm.toLowerCase();
+      // Check if display name matches
+      const displayMatch = r.display_name.toLowerCase() === searchTerm.toLowerCase();
+      // Check if it's the same trading pair (e.g., BTC/USD matches BTC/USDT, BTC/USDC)
+      const [base, quote] = searchTerm.split('/');
+      const pairMatch = r.base.toLowerCase() === base.toLowerCase() && 
+                       r.quote.toLowerCase().startsWith(quote.toLowerCase().replace(/[TC]$/, ''));
+      
+      return normalizedMatch || displayMatch || pairMatch;
+    });
+    
+    if (match) {
+      console.log(`Found ${match.exchanges.length} exchanges for ${baseSymbol}:`, match.exchanges);
+      return match.exchanges;
+    }
+    
+    console.log(`No exchanges found for ${baseSymbol}`);
+    return [];
+  } catch (error) {
+    console.error('Failed to fetch available exchanges:', error);
+    return [];
+  }
 }
