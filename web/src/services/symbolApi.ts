@@ -37,55 +37,83 @@ export async function searchSymbols(query: string): Promise<SearchResult[]> {
     return [];
   }
 
-  // Normalize the query for the API
-  // Convert spaces to slashes for pair searching (e.g., "btc usd" -> "btc/usd")
-  let searchQuery = query.trim();
+  const normalizedQuery = query.trim().toLowerCase();
   
-  // Check if user entered multiple terms separated by space
-  if (searchQuery.includes(' ') && !searchQuery.includes('/')) {
-    // Convert "btc usd" to "btc/usd" for the API
-    const terms = searchQuery.split(/\s+/).filter(term => term.length > 0);
-    if (terms.length === 2) {
-      // For exactly 2 terms, use slash notation which the API supports
-      searchQuery = `${terms[0]}/${terms[1]}`;
-    }
-  }
-
   // Check cache first
-  const cacheKey = searchQuery.toLowerCase();
-  const cached = searchCache.get(cacheKey);
+  const cached = searchCache.get(normalizedQuery);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
     return cached.data;
   }
 
   try {
-    console.log(`Searching for: ${searchQuery}`);
-    const response = await fetch(
-      `${API_BASE_URL}/api/symbol-search?q=${encodeURIComponent(searchQuery)}`,
-      {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-        },
-      }
-    );
+    let results: SearchResult[] = [];
+    
+    // Check if user entered multiple terms separated by space or slash
+    const terms = normalizedQuery.split(/[\s\/]+/).filter(term => term.length > 0);
+    
+    if (terms.length === 2) {
+      // For two terms, try both orders since API only matches exact order
+      // e.g., "usd btc" should also find "BTC/USD"
+      const searches = [
+        `${terms[0]}/${terms[1]}`, // Original order: btc/usd
+        `${terms[1]}/${terms[0]}`  // Reversed order: usd/btc
+      ];
+      
+      console.log(`Searching for pairs: ${searches.join(' and ')}`);
+      
+      // Try both orders in parallel
+      const searchPromises = searches.map(searchQuery => 
+        fetch(`${API_BASE_URL}/api/symbol-search?q=${encodeURIComponent(searchQuery)}`, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' },
+        }).then(res => res.ok ? res.json() : { results: [] })
+          .catch(() => ({ results: [] }))
+      );
+      
+      const responses = await Promise.all(searchPromises);
+      
+      // Combine and deduplicate results
+      const allResults = responses.flatMap(r => r.results || []);
+      const uniqueResults = new Map<string, SearchResult>();
+      
+      allResults.forEach(result => {
+        if (!uniqueResults.has(result.normalized_id)) {
+          uniqueResults.set(result.normalized_id, result);
+        }
+      });
+      
+      results = Array.from(uniqueResults.values());
+      
+      // Sort by relevance score
+      results.sort((a, b) => b.relevance_score - a.relevance_score);
+    } else {
+      // For single term or more than 2 terms, use original query
+      console.log(`Searching for: ${normalizedQuery}`);
+      const response = await fetch(
+        `${API_BASE_URL}/api/symbol-search?q=${encodeURIComponent(normalizedQuery)}`,
+        {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' },
+        }
+      );
 
-    if (!response.ok) {
-      throw new Error(`Search failed: ${response.statusText}`);
+      if (!response.ok) {
+        throw new Error(`Search failed: ${response.statusText}`);
+      }
+
+      const data: SymbolSearchResponse = await response.json();
+      results = data.results;
     }
 
-    const data: SymbolSearchResponse = await response.json();
-
     // Cache the results
-    searchCache.set(cacheKey, {
-      data: data.results,
+    searchCache.set(normalizedQuery, {
+      data: results,
       timestamp: Date.now(),
     });
 
-    return data.results;
+    return results;
   } catch (error) {
     console.error('Symbol search error:', error);
-    // Return empty array on error to allow graceful degradation
     return [];
   }
 }

@@ -314,70 +314,112 @@ impl SymbolSearchService {
         let query_lower = query.to_lowercase();
         let mut results_map: HashMap<String, (SearchResult, f32)> = HashMap::new();
         
-        // Search in different indices and accumulate scores
+        // Check if query contains multiple terms (space or slash separated)
+        let terms: Vec<&str> = query_lower.split(|c| c == ' ' || c == '/').filter(|s| !s.is_empty()).collect();
         
-        // Exact normalized ID match (highest score)
-        for (id, metadata) in &self.normalized_symbols {
-            if id.to_lowercase().contains(&query_lower) {
-                let score = if id.to_lowercase() == query_lower { 150.0 } else { 120.0 };
-                self.add_or_update_result(&mut results_map, id, metadata, score);
+        if terms.len() == 2 {
+            // Multi-term search: look for pairs containing both terms
+            // Try both as normalized ID (e.g., "btc/usd" or "usd/btc")
+            let forward_pair = format!("{}/{}", terms[0], terms[1]);
+            let reverse_pair = format!("{}/{}", terms[1], terms[0]);
+            
+            // Check for exact normalized ID matches
+            for (id, metadata) in &self.normalized_symbols {
+                let id_lower = id.to_lowercase();
+                if id_lower == forward_pair || id_lower == reverse_pair {
+                    self.add_or_update_result(&mut results_map, id, metadata, 150.0);
+                }
             }
-        }
-        
-        // Base currency match
-        if let Some(ids) = self.search_indices.by_base.get(&query_lower) {
-            for id in ids {
-                if let Some(metadata) = self.normalized_symbols.get(id) {
+            
+            // Find symbols that contain both terms (AND logic)
+            for (id, metadata) in &self.normalized_symbols {
+                let base_lower = metadata.base.to_lowercase();
+                let quote_lower = metadata.quote.to_lowercase();
+                
+                // Check if both terms match base and quote (in any order)
+                if (base_lower == terms[0] && quote_lower == terms[1]) ||
+                   (base_lower == terms[1] && quote_lower == terms[0]) {
+                    self.add_or_update_result(&mut results_map, id, metadata, 140.0);
+                }
+                
+                // Check if both terms are present in the symbol data
+                let searchable_text = format!("{} {} {} {} {}", 
+                    id.to_lowercase(),
+                    base_lower,
+                    quote_lower,
+                    metadata.display_name.to_lowercase(),
+                    metadata.description.to_lowercase()
+                );
+                
+                if terms.iter().all(|term| searchable_text.contains(term)) {
                     self.add_or_update_result(&mut results_map, id, metadata, 100.0);
                 }
             }
-        }
-        
-        // Quote currency match
-        if let Some(ids) = self.search_indices.by_quote.get(&query_lower) {
-            for id in ids {
-                if let Some(metadata) = self.normalized_symbols.get(id) {
-                    self.add_or_update_result(&mut results_map, id, metadata, 90.0);
+        } else {
+            // Single term search (original logic)
+            // Exact normalized ID match (highest score)
+            for (id, metadata) in &self.normalized_symbols {
+                if id.to_lowercase().contains(&query_lower) {
+                    let score = if id.to_lowercase() == query_lower { 150.0 } else { 120.0 };
+                    self.add_or_update_result(&mut results_map, id, metadata, score);
                 }
             }
-        }
-        
-        // Tag match
-        if let Some(ids) = self.search_indices.by_tag.get(&query_lower) {
-            for id in ids {
-                if let Some(metadata) = self.normalized_symbols.get(id) {
-                    self.add_or_update_result(&mut results_map, id, metadata, 80.0);
-                }
-            }
-        }
-        
-        // Partial matches in tags
-        for (tag, ids) in &self.search_indices.by_tag {
-            if tag.contains(&query_lower) {
+            
+            // Base currency match
+            if let Some(ids) = self.search_indices.by_base.get(&query_lower) {
                 for id in ids {
                     if let Some(metadata) = self.normalized_symbols.get(id) {
-                        self.add_or_update_result(&mut results_map, id, metadata, 60.0);
+                        self.add_or_update_result(&mut results_map, id, metadata, 100.0);
                     }
                 }
             }
-        }
-        
-        // Text token matches
-        for (token, ids) in &self.search_indices.text_tokens {
-            if token.contains(&query_lower) {
+            
+            // Quote currency match
+            if let Some(ids) = self.search_indices.by_quote.get(&query_lower) {
                 for id in ids {
                     if let Some(metadata) = self.normalized_symbols.get(id) {
-                        let score = if token == &query_lower { 50.0 } else { 40.0 };
-                        self.add_or_update_result(&mut results_map, id, metadata, score);
+                        self.add_or_update_result(&mut results_map, id, metadata, 90.0);
                     }
                 }
             }
-        }
-        
-        // Display name partial match
-        for (id, metadata) in &self.normalized_symbols {
-            if metadata.display_name.to_lowercase().contains(&query_lower) {
-                self.add_or_update_result(&mut results_map, id, metadata, 70.0);
+            
+            // Tag match
+            if let Some(ids) = self.search_indices.by_tag.get(&query_lower) {
+                for id in ids {
+                    if let Some(metadata) = self.normalized_symbols.get(id) {
+                        self.add_or_update_result(&mut results_map, id, metadata, 80.0);
+                    }
+                }
+            }
+            
+            // Partial matches in tags
+            for (tag, ids) in &self.search_indices.by_tag {
+                if tag.contains(&query_lower) {
+                    for id in ids {
+                        if let Some(metadata) = self.normalized_symbols.get(id) {
+                            self.add_or_update_result(&mut results_map, id, metadata, 60.0);
+                        }
+                    }
+                }
+            }
+            
+            // Text token matches
+            for (token, ids) in &self.search_indices.text_tokens {
+                if token.contains(&query_lower) {
+                    for id in ids {
+                        if let Some(metadata) = self.normalized_symbols.get(id) {
+                            let score = if token == &query_lower { 50.0 } else { 40.0 };
+                            self.add_or_update_result(&mut results_map, id, metadata, score);
+                        }
+                    }
+                }
+            }
+            
+            // Display name partial match
+            for (id, metadata) in &self.normalized_symbols {
+                if metadata.display_name.to_lowercase().contains(&query_lower) {
+                    self.add_or_update_result(&mut results_map, id, metadata, 70.0);
+                }
             }
         }
         
