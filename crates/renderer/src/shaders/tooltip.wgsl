@@ -200,7 +200,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 @fragment
 fn fs_background(input: VertexOutput) -> @location(0) vec4<f32> {
     // Define different border thickness for each side
-    let border_top = 0.008;      // Top border (perfect as you said)
+    let border_top = 0.012;      // Top border (thicker for better visibility)
     let border_bottom = 0.015;    // Bottom border (thicker to ensure visibility)
     let border_sides = 0.004;    // Left and right borders (thinner)
     
