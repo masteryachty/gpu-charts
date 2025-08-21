@@ -10,7 +10,7 @@ use tokio::sync::Mutex;
 use tokio_tungstenite::{
     connect_async, tungstenite::protocol::Message as WsMessage, MaybeTlsStream, WebSocketStream,
 };
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, warn};
 
 type WsStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
@@ -131,12 +131,12 @@ impl OkxConnection {
 #[async_trait]
 impl ExchangeConnection for OkxConnection {
     async fn connect(&mut self) -> Result<()> {
-        info!("Connecting to OKX WebSocket: {}", self.url);
+        debug!("Connecting to OKX WebSocket: {}", self.url);
 
         let (ws_stream, _) = connect_async(&self.url).await?;
         self.ws_stream = Some(Arc::new(Mutex::new(ws_stream)));
 
-        info!("Connected to OKX WebSocket");
+        debug!("Connected to OKX WebSocket");
         Ok(())
     }
 
@@ -166,7 +166,7 @@ impl ExchangeConnection for OkxConnection {
         });
 
         self.send_json(subscribe_msg).await?;
-        info!("Subscribed to {} symbols on OKX", self.symbols.len());
+        debug!("Subscribed to {} symbols on OKX", self.symbols.len());
 
         Ok(())
     }

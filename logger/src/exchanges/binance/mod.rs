@@ -17,7 +17,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::time::interval;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, warn};
 
 pub struct BinanceExchange {
     config: Arc<Config>,
@@ -93,7 +93,7 @@ impl Exchange for BinanceExchange {
             }
         }
 
-        info!("Fetched {} active symbols from Binance", symbols.len());
+        debug!("Fetched {} active symbols from Binance", symbols.len());
         Ok(symbols)
     }
 
@@ -139,7 +139,7 @@ impl Exchange for BinanceExchange {
     }
 
     async fn run(&self) -> Result<()> {
-        info!("Starting Binance exchange logger");
+        debug!("Starting Binance exchange logger");
 
         // Fetch all symbols
         let symbols = if let Some(ref configured_symbols) = self.config.exchanges.binance.symbols {
@@ -152,7 +152,7 @@ impl Exchange for BinanceExchange {
                 .collect()
         };
 
-        info!("Will monitor {} Binance symbols", symbols.len());
+        debug!("Will monitor {} Binance symbols", symbols.len());
 
         // Distribute symbols across connections
         let symbol_batches = distribute_symbols(symbols, self.max_symbols_per_connection()).await;
@@ -189,7 +189,7 @@ impl Exchange for BinanceExchange {
                 let max_backoff_secs = 60u64;
 
                 loop {
-                    info!("Connection {} attempting to connect to Binance", idx);
+                    // Attempting to connect (actual connection logging happens in connect())
                     
                     // For Binance, connect and subscribe are combined
                     if let Err(e) = connection
@@ -213,7 +213,7 @@ impl Exchange for BinanceExchange {
                         continue;
                     }
 
-                    info!("Connection {} successfully connected and subscribed to Binance", idx);
+                    debug!("Connection {} successfully connected and subscribed to Binance", idx);
                     metrics.record_connection_status("binance", true);
                     consecutive_failures = 0;
                     backoff_secs = 1;
@@ -234,7 +234,7 @@ impl Exchange for BinanceExchange {
                     };
 
                     // Read messages
-                    info!("Connection {} started reading messages", idx);
+                    debug!("Connection {} started reading messages", idx);
                     let mut last_message_time = tokio::time::Instant::now();
                     let timeout_duration = Duration::from_secs(60); // 60 second timeout
 

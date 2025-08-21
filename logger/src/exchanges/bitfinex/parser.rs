@@ -4,7 +4,7 @@ use crate::common::{
 };
 use anyhow::Result;
 use serde_json::Value;
-use tracing::warn;
+use tracing::debug;
 
 pub fn parse_bitfinex_ticker(_value: &Value) -> Result<Option<UnifiedMarketData>> {
     // This function is for REST API responses, not WebSocket
@@ -57,7 +57,7 @@ pub fn parse_bitfinex_ticker_update(
                 }
             })
             .unwrap_or_else(|| {
-                warn!("Failed to parse Bitfinex bid price from ticker (null or missing)");
+                debug!("Failed to parse Bitfinex bid price from ticker (null or missing)");
                 0.0
             }) as f32;
             
@@ -70,7 +70,7 @@ pub fn parse_bitfinex_ticker_update(
                 }
             })
             .unwrap_or_else(|| {
-                warn!("Failed to parse Bitfinex ask price from ticker (null or missing)");
+                debug!("Failed to parse Bitfinex ask price from ticker (null or missing)");
                 0.0
             }) as f32;
             
@@ -83,7 +83,7 @@ pub fn parse_bitfinex_ticker_update(
                 }
             })
             .unwrap_or_else(|| {
-                warn!("Failed to parse Bitfinex last price from ticker (null or missing)");
+                debug!("Failed to parse Bitfinex last price from ticker (null or missing)");
                 0.0
             }) as f32;
             
@@ -96,7 +96,7 @@ pub fn parse_bitfinex_ticker_update(
                 }
             })
             .unwrap_or_else(|| {
-                warn!("Failed to parse Bitfinex volume from ticker (null or missing)");
+                debug!("Failed to parse Bitfinex volume from ticker (null or missing)");
                 0.0
             }) as f32;
 
@@ -110,7 +110,7 @@ pub fn parse_bitfinex_ticker_update(
                 }
             })
             .unwrap_or_else(|| {
-                warn!("Failed to parse Bitfinex daily change from ticker (null or missing)");
+                debug!("Failed to parse Bitfinex daily change from ticker (null or missing)");
                 0.0
             });
         data.side = if daily_change >= 0.0 {
@@ -189,7 +189,7 @@ fn parse_single_trade(trade_data: &[Value], symbol: &str) -> Result<Option<Unifi
             }
         })
         .unwrap_or_else(|| {
-            warn!("Failed to parse Bitfinex trade ID (null or missing)");
+            debug!("Failed to parse Bitfinex trade ID (null or missing)");
             0
         }) as u64;
         
@@ -202,7 +202,7 @@ fn parse_single_trade(trade_data: &[Value], symbol: &str) -> Result<Option<Unifi
             }
         })
         .unwrap_or_else(|| {
-            warn!("Failed to parse Bitfinex trade timestamp (null or missing)");
+            debug!("Failed to parse Bitfinex trade timestamp (null or missing)");
             0
         }) as u64;
         
@@ -215,7 +215,7 @@ fn parse_single_trade(trade_data: &[Value], symbol: &str) -> Result<Option<Unifi
             }
         })
         .unwrap_or_else(|| {
-            warn!("Failed to parse Bitfinex trade amount (null or missing)");
+            debug!("Failed to parse Bitfinex trade amount (null or missing)");
             0.0
         });
         
@@ -228,7 +228,7 @@ fn parse_single_trade(trade_data: &[Value], symbol: &str) -> Result<Option<Unifi
             }
         })
         .unwrap_or_else(|| {
-            warn!("Failed to parse Bitfinex trade price (null or missing)");
+            debug!("Failed to parse Bitfinex trade price (null or missing)");
             0.0
         });
 
