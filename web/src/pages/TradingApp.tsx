@@ -6,6 +6,7 @@ import Sidebar from '../components/layout/Sidebar';
 import StatusBar from '../components/layout/StatusBar';
 import WasmCanvas from '../components/chart/WasmCanvas';
 import ChartControls from '../components/chart/ChartControls';
+import ChartLegend from '../components/chart/ChartLegend';
 import { Chart } from '@pkg/wasm_bridge.js';
 // import DataFetchingMonitor from '../components/monitoring/DataFetchingMonitor'; // Disabled temporarily
 
@@ -14,7 +15,7 @@ function ChartView() {
   const [appliedPreset, setAppliedPreset] = useState<string | undefined>(undefined);
 
   // Get store state and actions
-  const { symbol, preset, startTime, endTime, setCurrentSymbol, setTimeRange, setPreset } = useAppStore();
+  const { symbol, preset, startTime, endTime, setCurrentSymbol, setTimeRange, setPreset, setBaseSymbol } = useAppStore();
   const [activePreset, setActivePreset] = useState<string | undefined>(preset);
 
 
@@ -46,6 +47,9 @@ function ChartView() {
     const topic = urlParams.get('topic');
     if (topic) {
       setCurrentSymbol(topic);
+      // Extract base symbol from the topic (e.g., "coinbase:BTC-USD" -> "BTC-USD")
+      const baseSymbol = topic.includes(':') ? topic.split(':')[1] : topic;
+      setBaseSymbol(baseSymbol);
     }
 
     // Parse start and end timestamps
@@ -63,7 +67,7 @@ function ChartView() {
       } else {
       }
     }
-  }, [setCurrentSymbol, setTimeRange]); // Include dependencies
+  }, [setCurrentSymbol, setTimeRange, setBaseSymbol]); // Include dependencies
   
   // Note: Time range updates are now handled in WasmCanvas component
   // which watches for startTime/endTime changes and calls update_time_range
@@ -105,9 +109,15 @@ function ChartView() {
 
               {/* Main Chart Area */}
               <div className="flex-1 flex flex-col">
-                <WasmCanvas
-                  onChartReady={setChartInstance}
-                />
+                {/* Chart Legend - positioned over the chart */}
+                <div className="relative">
+                  <WasmCanvas
+                    onChartReady={setChartInstance}
+                  />
+                  <div className="absolute top-4 right-4 z-10">
+                    <ChartLegend />
+                  </div>
+                </div>
               </div>
             </div>
           </div>

@@ -6,6 +6,11 @@ export interface StoreState {
   symbol?: string;
   startTime: number;
   endTime: number;
+  isConnected?: boolean;
+  // Multi-exchange comparison support
+  comparisonMode?: boolean;
+  selectedExchanges?: string[];
+  baseSymbol?: string; // Base symbol without exchange prefix (e.g., "BTC-USD")
 }
 
 // // WASM integration types
@@ -30,8 +35,14 @@ interface AppStore extends StoreState {
   // Core actions
   setCurrentSymbol: (symbol: string) => void;
   setPreset: (preset?: string) => void;
+  setIsConnected: (connected: boolean) => void;
   // Enhanced actions with time range management
   setTimeRange: (startTime: number, endTime: number) => void;
+  // Multi-exchange comparison actions
+  setComparisonMode: (enabled: boolean) => void;
+  toggleExchange: (exchange: string) => void;
+  setSelectedExchanges: (exchanges: string[]) => void;
+  setBaseSymbol: (symbol: string) => void;
   // Batch operations
   updateChartState: (updates: Partial<StoreState>) => void;
   resetToDefaults: () => void;
@@ -46,10 +57,14 @@ interface AppStore extends StoreState {
 
 // Default configuration values
 const DEFAULT_CONFIG: StoreState = {
-  symbol: 'BTC-USD',
+  symbol: 'coinbase:BTC-USD',
   startTime: Math.floor(Date.now() / 1000) - 24 * 60 * 60, // 24 hours ago
   endTime: Math.floor(Date.now() / 1000), // Now
   preset: 'Market Data',
+  isConnected: false,
+  comparisonMode: false,
+  selectedExchanges: ['coinbase'],
+  baseSymbol: 'BTC-USD',
 };
 
 export const useAppStore = create<AppStore>((set, get) => ({
@@ -61,6 +76,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
   preset: DEFAULT_CONFIG.preset,
   startTime: DEFAULT_CONFIG.startTime,
   endTime: DEFAULT_CONFIG.endTime,
+  isConnected: DEFAULT_CONFIG.isConnected,
+  comparisonMode: DEFAULT_CONFIG.comparisonMode,
+  selectedExchanges: DEFAULT_CONFIG.selectedExchanges,
+  baseSymbol: DEFAULT_CONFIG.baseSymbol,
 
   // Subscription management
   _subscriptions: new Map(),
@@ -70,6 +89,19 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setCurrentSymbol: (symbol) => {
     const oldState = get();
     set({ symbol });
+    
+    // Also extract and set the base symbol when symbol changes
+    if (symbol) {
+      const baseSymbol = symbol.includes(':') ? symbol.split(':')[1] : symbol;
+      set({ baseSymbol });
+      
+      // Update selected exchange if not in comparison mode
+      if (!oldState.comparisonMode && symbol.includes(':')) {
+        const exchange = symbol.split(':')[0];
+        set({ selectedExchanges: [exchange] });
+      }
+    }
+    
     const newState = get();
     newState._triggerSubscriptions(newState, oldState);
   },
@@ -77,6 +109,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setPreset: (preset) => {
     const oldState = get();
     set({ preset });
+    const newState = get();
+    newState._triggerSubscriptions(newState, oldState);
+  },
+
+  setIsConnected: (isConnected) => {
+    const oldState = get();
+    set({ isConnected });
     const newState = get();
     newState._triggerSubscriptions(newState, oldState);
   },
@@ -100,6 +139,69 @@ export const useAppStore = create<AppStore>((set, get) => ({
   resetToDefaults: () => {
     const oldState = get();
     set({ ...DEFAULT_CONFIG });
+    const newState = get();
+    newState._triggerSubscriptions(newState, oldState);
+  },
+
+  // Multi-exchange comparison actions
+  setComparisonMode: (enabled) => {
+    const oldState = get();
+    set({ comparisonMode: enabled });
+    const newState = get();
+    newState._triggerSubscriptions(newState, oldState);
+  },
+
+  toggleExchange: (exchange) => {
+    const oldState = get();
+    const currentExchanges = oldState.selectedExchanges || [];
+    let newExchanges: string[];
+    
+    if (oldState.comparisonMode) {
+      // In comparison mode, toggle the exchange
+      if (currentExchanges.includes(exchange)) {
+        // Remove exchange (but keep at least one)
+        newExchanges = currentExchanges.filter(e => e !== exchange);
+        if (newExchanges.length === 0) {
+          newExchanges = [exchange]; // Keep at least one exchange
+        }
+      } else {
+        // Add exchange (max 2 for comparison)
+        newExchanges = [...currentExchanges, exchange].slice(0, 2);
+      }
+    } else {
+      // In single mode, just select this exchange
+      newExchanges = [exchange];
+    }
+    
+    set({ selectedExchanges: newExchanges });
+    
+    // Update symbol to reflect first selected exchange if not in comparison mode
+    if (!oldState.comparisonMode && newExchanges.length > 0) {
+      const baseSymbol = oldState.baseSymbol || 'BTC-USD';
+      set({ symbol: `${newExchanges[0]}:${baseSymbol}` });
+    }
+    
+    const newState = get();
+    newState._triggerSubscriptions(newState, oldState);
+  },
+
+  setSelectedExchanges: (exchanges) => {
+    const oldState = get();
+    set({ selectedExchanges: exchanges });
+    const newState = get();
+    newState._triggerSubscriptions(newState, oldState);
+  },
+
+  setBaseSymbol: (symbol) => {
+    const oldState = get();
+    set({ baseSymbol: symbol });
+    
+    // Update current symbol if not in comparison mode
+    if (!oldState.comparisonMode) {
+      const exchanges = oldState.selectedExchanges || ['coinbase'];
+      set({ symbol: `${exchanges[0]}:${symbol}` });
+    }
+    
     const newState = get();
     newState._triggerSubscriptions(newState, oldState);
   },

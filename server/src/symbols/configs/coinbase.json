@@ -1,0 +1,5873 @@
+{
+  "00-USD": {
+    "normalized_id": "00/USD",
+    "base": "00",
+    "quote": "USD",
+    "display_name": "00 / US Dollar",
+    "description": "00 to US Dollar spot trading pair",
+    "tags": [
+      "00",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "1INCH-EUR": {
+    "normalized_id": "1INCH/EUR",
+    "base": "1INCH",
+    "quote": "EUR",
+    "display_name": "1INCH / Euro",
+    "description": "1INCH to Euro spot trading pair",
+    "tags": [
+      "1inch",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "1INCH-GBP": {
+    "normalized_id": "1INCH/GBP",
+    "base": "1INCH",
+    "quote": "GBP",
+    "display_name": "1INCH / British Pound",
+    "description": "1INCH to British Pound spot trading pair",
+    "tags": [
+      "1inch",
+      "gbp",
+      "fiat",
+      "british pound"
+    ],
+    "category": "crypto"
+  },
+  "1INCH-USD": {
+    "normalized_id": "1INCH/USD",
+    "base": "1INCH",
+    "quote": "USD",
+    "display_name": "1INCH / US Dollar",
+    "description": "1INCH to US Dollar spot trading pair",
+    "tags": [
+      "1inch",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "A8-USD": {
+    "normalized_id": "A8/USD",
+    "base": "A8",
+    "quote": "USD",
+    "display_name": "A8 / US Dollar",
+    "description": "A8 to US Dollar spot trading pair",
+    "tags": [
+      "a8",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "AAVE-BTC": {
+    "normalized_id": "AAVE/BTC",
+    "base": "AAVE",
+    "quote": "BTC",
+    "display_name": "Aave / Bitcoin",
+    "description": "Aave to Bitcoin spot trading pair",
+    "tags": [
+      "aave",
+      "defi",
+      "btc"
+    ],
+    "category": "crypto"
+  },
+  "AAVE-EUR": {
+    "normalized_id": "AAVE/EUR",
+    "base": "AAVE",
+    "quote": "EUR",
+    "display_name": "Aave / Euro",
+    "description": "Aave to Euro spot trading pair",
+    "tags": [
+      "aave",
+      "defi",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "AAVE-GBP": {
+    "normalized_id": "AAVE/GBP",
+    "base": "AAVE",
+    "quote": "GBP",
+    "display_name": "Aave / British Pound",
+    "description": "Aave to British Pound spot trading pair",
+    "tags": [
+      "aave",
+      "defi",
+      "gbp",
+      "fiat",
+      "british pound"
+    ],
+    "category": "crypto"
+  },
+  "AAVE-USD": {
+    "normalized_id": "AAVE/USD",
+    "base": "AAVE",
+    "quote": "USD",
+    "display_name": "Aave / US Dollar",
+    "description": "Aave to US Dollar spot trading pair",
+    "tags": [
+      "aave",
+      "defi",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ABT-USD": {
+    "normalized_id": "ABT/USD",
+    "base": "ABT",
+    "quote": "USD",
+    "display_name": "ABT / US Dollar",
+    "description": "ABT to US Dollar spot trading pair",
+    "tags": [
+      "abt",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ACH-USD": {
+    "normalized_id": "ACH/USD",
+    "base": "ACH",
+    "quote": "USD",
+    "display_name": "ACH / US Dollar",
+    "description": "ACH to US Dollar spot trading pair",
+    "tags": [
+      "ach",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ACS-USD": {
+    "normalized_id": "ACS/USD",
+    "base": "ACS",
+    "quote": "USD",
+    "display_name": "ACS / US Dollar",
+    "description": "ACS to US Dollar spot trading pair",
+    "tags": [
+      "acs",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ACX-USD": {
+    "normalized_id": "ACX/USD",
+    "base": "ACX",
+    "quote": "USD",
+    "display_name": "ACX / US Dollar",
+    "description": "ACX to US Dollar spot trading pair",
+    "tags": [
+      "acx",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ADA-BTC": {
+    "normalized_id": "ADA/BTC",
+    "base": "ADA",
+    "quote": "BTC",
+    "display_name": "Cardano / Bitcoin",
+    "description": "Cardano to Bitcoin spot trading pair",
+    "tags": [
+      "ada",
+      "cardano",
+      "btc"
+    ],
+    "category": "crypto"
+  },
+  "ADA-ETH": {
+    "normalized_id": "ADA/ETH",
+    "base": "ADA",
+    "quote": "ETH",
+    "display_name": "Cardano / Ethereum",
+    "description": "Cardano to Ethereum spot trading pair",
+    "tags": [
+      "ada",
+      "cardano",
+      "eth"
+    ],
+    "category": "crypto"
+  },
+  "ADA-EUR": {
+    "normalized_id": "ADA/EUR",
+    "base": "ADA",
+    "quote": "EUR",
+    "display_name": "Cardano / Euro",
+    "description": "Cardano to Euro spot trading pair",
+    "tags": [
+      "ada",
+      "cardano",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "ADA-GBP": {
+    "normalized_id": "ADA/GBP",
+    "base": "ADA",
+    "quote": "GBP",
+    "display_name": "Cardano / British Pound",
+    "description": "Cardano to British Pound spot trading pair",
+    "tags": [
+      "ada",
+      "cardano",
+      "gbp",
+      "fiat",
+      "british pound"
+    ],
+    "category": "crypto"
+  },
+  "ADA-USD": {
+    "normalized_id": "ADA/USD",
+    "base": "ADA",
+    "quote": "USD",
+    "display_name": "Cardano / US Dollar",
+    "description": "Cardano to US Dollar spot trading pair",
+    "tags": [
+      "ada",
+      "cardano",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ADA-USDT": {
+    "normalized_id": "ADA/USD",
+    "base": "ADA",
+    "quote": "USD",
+    "display_name": "Cardano / US Dollar",
+    "description": "Cardano to US Dollar spot trading pair",
+    "tags": [
+      "ada",
+      "cardano",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "AERGO-USD": {
+    "normalized_id": "AERGO/USD",
+    "base": "AERGO",
+    "quote": "USD",
+    "display_name": "AERGO / US Dollar",
+    "description": "AERGO to US Dollar spot trading pair",
+    "tags": [
+      "aergo",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "AERO-USD": {
+    "normalized_id": "AERO/USD",
+    "base": "AERO",
+    "quote": "USD",
+    "display_name": "AERO / US Dollar",
+    "description": "AERO to US Dollar spot trading pair",
+    "tags": [
+      "aero",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "AGLD-USD": {
+    "normalized_id": "AGLD/USD",
+    "base": "AGLD",
+    "quote": "USD",
+    "display_name": "AGLD / US Dollar",
+    "description": "AGLD to US Dollar spot trading pair",
+    "tags": [
+      "agld",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "AIOZ-USD": {
+    "normalized_id": "AIOZ/USD",
+    "base": "AIOZ",
+    "quote": "USD",
+    "display_name": "AIOZ / US Dollar",
+    "description": "AIOZ to US Dollar spot trading pair",
+    "tags": [
+      "aioz",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "AKT-USD": {
+    "normalized_id": "AKT/USD",
+    "base": "AKT",
+    "quote": "USD",
+    "display_name": "AKT / US Dollar",
+    "description": "AKT to US Dollar spot trading pair",
+    "tags": [
+      "akt",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ALCX-USD": {
+    "normalized_id": "ALCX/USD",
+    "base": "ALCX",
+    "quote": "USD",
+    "display_name": "ALCX / US Dollar",
+    "description": "ALCX to US Dollar spot trading pair",
+    "tags": [
+      "alcx",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ALEO-USD": {
+    "normalized_id": "ALEO/USD",
+    "base": "ALEO",
+    "quote": "USD",
+    "display_name": "ALEO / US Dollar",
+    "description": "ALEO to US Dollar spot trading pair",
+    "tags": [
+      "aleo",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ALEPH-USD": {
+    "normalized_id": "ALEPH/USD",
+    "base": "ALEPH",
+    "quote": "USD",
+    "display_name": "ALEPH / US Dollar",
+    "description": "ALEPH to US Dollar spot trading pair",
+    "tags": [
+      "aleph",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ALGO-BTC": {
+    "normalized_id": "ALGO/BTC",
+    "base": "ALGO",
+    "quote": "BTC",
+    "display_name": "Algorand / Bitcoin",
+    "description": "Algorand to Bitcoin spot trading pair",
+    "tags": [
+      "algo",
+      "algorand",
+      "layer1",
+      "btc"
+    ],
+    "category": "crypto"
+  },
+  "ALGO-EUR": {
+    "normalized_id": "ALGO/EUR",
+    "base": "ALGO",
+    "quote": "EUR",
+    "display_name": "Algorand / Euro",
+    "description": "Algorand to Euro spot trading pair",
+    "tags": [
+      "algo",
+      "algorand",
+      "layer1",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "ALGO-GBP": {
+    "normalized_id": "ALGO/GBP",
+    "base": "ALGO",
+    "quote": "GBP",
+    "display_name": "Algorand / British Pound",
+    "description": "Algorand to British Pound spot trading pair",
+    "tags": [
+      "algo",
+      "algorand",
+      "layer1",
+      "gbp",
+      "fiat",
+      "british pound"
+    ],
+    "category": "crypto"
+  },
+  "ALGO-USD": {
+    "normalized_id": "ALGO/USD",
+    "base": "ALGO",
+    "quote": "USD",
+    "display_name": "Algorand / US Dollar",
+    "description": "Algorand to US Dollar spot trading pair",
+    "tags": [
+      "algo",
+      "algorand",
+      "layer1",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ALICE-USD": {
+    "normalized_id": "ALICE/USD",
+    "base": "ALICE",
+    "quote": "USD",
+    "display_name": "ALICE / US Dollar",
+    "description": "ALICE to US Dollar spot trading pair",
+    "tags": [
+      "alice",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ALT-USD": {
+    "normalized_id": "ALT/USD",
+    "base": "ALT",
+    "quote": "USD",
+    "display_name": "ALT / US Dollar",
+    "description": "ALT to US Dollar spot trading pair",
+    "tags": [
+      "alt",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "AMP-USD": {
+    "normalized_id": "AMP/USD",
+    "base": "AMP",
+    "quote": "USD",
+    "display_name": "AMP / US Dollar",
+    "description": "AMP to US Dollar spot trading pair",
+    "tags": [
+      "amp",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ANKR-EUR": {
+    "normalized_id": "ANKR/EUR",
+    "base": "ANKR",
+    "quote": "EUR",
+    "display_name": "ANKR / Euro",
+    "description": "ANKR to Euro spot trading pair",
+    "tags": [
+      "ankr",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "ANKR-GBP": {
+    "normalized_id": "ANKR/GBP",
+    "base": "ANKR",
+    "quote": "GBP",
+    "display_name": "ANKR / British Pound",
+    "description": "ANKR to British Pound spot trading pair",
+    "tags": [
+      "ankr",
+      "gbp",
+      "fiat",
+      "british pound"
+    ],
+    "category": "crypto"
+  },
+  "ANKR-USD": {
+    "normalized_id": "ANKR/USD",
+    "base": "ANKR",
+    "quote": "USD",
+    "display_name": "ANKR / US Dollar",
+    "description": "ANKR to US Dollar spot trading pair",
+    "tags": [
+      "ankr",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "APE-EUR": {
+    "normalized_id": "APE/EUR",
+    "base": "APE",
+    "quote": "EUR",
+    "display_name": "APE / Euro",
+    "description": "APE to Euro spot trading pair",
+    "tags": [
+      "ape",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "APE-USD": {
+    "normalized_id": "APE/USD",
+    "base": "APE",
+    "quote": "USD",
+    "display_name": "APE / US Dollar",
+    "description": "APE to US Dollar spot trading pair",
+    "tags": [
+      "ape",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "APE-USDT": {
+    "normalized_id": "APE/USD",
+    "base": "APE",
+    "quote": "USD",
+    "display_name": "APE / US Dollar",
+    "description": "APE to US Dollar spot trading pair",
+    "tags": [
+      "ape",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "API3-USD": {
+    "normalized_id": "API3/USD",
+    "base": "API3",
+    "quote": "USD",
+    "display_name": "API3 / US Dollar",
+    "description": "API3 to US Dollar spot trading pair",
+    "tags": [
+      "api3",
+      "oracle",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "APT-USD": {
+    "normalized_id": "APT/USD",
+    "base": "APT",
+    "quote": "USD",
+    "display_name": "Aptos / US Dollar",
+    "description": "Aptos to US Dollar spot trading pair",
+    "tags": [
+      "apt",
+      "aptos",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "APT-USDT": {
+    "normalized_id": "APT/USD",
+    "base": "APT",
+    "quote": "USD",
+    "display_name": "Aptos / US Dollar",
+    "description": "Aptos to US Dollar spot trading pair",
+    "tags": [
+      "apt",
+      "aptos",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ARB-USD": {
+    "normalized_id": "ARB/USD",
+    "base": "ARB",
+    "quote": "USD",
+    "display_name": "Arbitrum / US Dollar",
+    "description": "Arbitrum to US Dollar spot trading pair",
+    "tags": [
+      "arb",
+      "arbitrum",
+      "layer2",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ARKM-USD": {
+    "normalized_id": "ARKM/USD",
+    "base": "ARKM",
+    "quote": "USD",
+    "display_name": "ARKM / US Dollar",
+    "description": "ARKM to US Dollar spot trading pair",
+    "tags": [
+      "arkm",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ARPA-USD": {
+    "normalized_id": "ARPA/USD",
+    "base": "ARPA",
+    "quote": "USD",
+    "display_name": "ARPA / US Dollar",
+    "description": "ARPA to US Dollar spot trading pair",
+    "tags": [
+      "arpa",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ASM-USD": {
+    "normalized_id": "ASM/USD",
+    "base": "ASM",
+    "quote": "USD",
+    "display_name": "ASM / US Dollar",
+    "description": "ASM to US Dollar spot trading pair",
+    "tags": [
+      "asm",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "AST-USD": {
+    "normalized_id": "AST/USD",
+    "base": "AST",
+    "quote": "USD",
+    "display_name": "AST / US Dollar",
+    "description": "AST to US Dollar spot trading pair",
+    "tags": [
+      "ast",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ATH-USD": {
+    "normalized_id": "ATH/USD",
+    "base": "ATH",
+    "quote": "USD",
+    "display_name": "ATH / US Dollar",
+    "description": "ATH to US Dollar spot trading pair",
+    "tags": [
+      "ath",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ATOM-BTC": {
+    "normalized_id": "ATOM/BTC",
+    "base": "ATOM",
+    "quote": "BTC",
+    "display_name": "Cosmos / Bitcoin",
+    "description": "Cosmos to Bitcoin spot trading pair",
+    "tags": [
+      "atom",
+      "cosmos",
+      "layer1",
+      "btc"
+    ],
+    "category": "crypto"
+  },
+  "ATOM-EUR": {
+    "normalized_id": "ATOM/EUR",
+    "base": "ATOM",
+    "quote": "EUR",
+    "display_name": "Cosmos / Euro",
+    "description": "Cosmos to Euro spot trading pair",
+    "tags": [
+      "atom",
+      "cosmos",
+      "layer1",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "ATOM-GBP": {
+    "normalized_id": "ATOM/GBP",
+    "base": "ATOM",
+    "quote": "GBP",
+    "display_name": "Cosmos / British Pound",
+    "description": "Cosmos to British Pound spot trading pair",
+    "tags": [
+      "atom",
+      "cosmos",
+      "layer1",
+      "gbp",
+      "fiat",
+      "british pound"
+    ],
+    "category": "crypto"
+  },
+  "ATOM-USD": {
+    "normalized_id": "ATOM/USD",
+    "base": "ATOM",
+    "quote": "USD",
+    "display_name": "Cosmos / US Dollar",
+    "description": "Cosmos to US Dollar spot trading pair",
+    "tags": [
+      "atom",
+      "cosmos",
+      "layer1",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ATOM-USDT": {
+    "normalized_id": "ATOM/USD",
+    "base": "ATOM",
+    "quote": "USD",
+    "display_name": "Cosmos / US Dollar",
+    "description": "Cosmos to US Dollar spot trading pair",
+    "tags": [
+      "atom",
+      "cosmos",
+      "layer1",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "AUCTION-USD": {
+    "normalized_id": "AUCTION/USD",
+    "base": "AUCTION",
+    "quote": "USD",
+    "display_name": "AUCTION / US Dollar",
+    "description": "AUCTION to US Dollar spot trading pair",
+    "tags": [
+      "auction",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "AUDIO-USD": {
+    "normalized_id": "AUDIO/USD",
+    "base": "AUDIO",
+    "quote": "USD",
+    "display_name": "AUDIO / US Dollar",
+    "description": "AUDIO to US Dollar spot trading pair",
+    "tags": [
+      "audio",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "AURORA-USD": {
+    "normalized_id": "AURORA/USD",
+    "base": "AURORA",
+    "quote": "USD",
+    "display_name": "AURORA / US Dollar",
+    "description": "AURORA to US Dollar spot trading pair",
+    "tags": [
+      "aurora",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "AVAX-BTC": {
+    "normalized_id": "AVAX/BTC",
+    "base": "AVAX",
+    "quote": "BTC",
+    "display_name": "Avalanche / Bitcoin",
+    "description": "Avalanche to Bitcoin spot trading pair",
+    "tags": [
+      "avax",
+      "avalanche",
+      "layer1",
+      "btc"
+    ],
+    "category": "crypto"
+  },
+  "AVAX-EUR": {
+    "normalized_id": "AVAX/EUR",
+    "base": "AVAX",
+    "quote": "EUR",
+    "display_name": "Avalanche / Euro",
+    "description": "Avalanche to Euro spot trading pair",
+    "tags": [
+      "avax",
+      "avalanche",
+      "layer1",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "AVAX-USD": {
+    "normalized_id": "AVAX/USD",
+    "base": "AVAX",
+    "quote": "USD",
+    "display_name": "Avalanche / US Dollar",
+    "description": "Avalanche to US Dollar spot trading pair",
+    "tags": [
+      "avax",
+      "avalanche",
+      "layer1",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "AVAX-USDT": {
+    "normalized_id": "AVAX/USD",
+    "base": "AVAX",
+    "quote": "USD",
+    "display_name": "Avalanche / US Dollar",
+    "description": "Avalanche to US Dollar spot trading pair",
+    "tags": [
+      "avax",
+      "avalanche",
+      "layer1",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "AVT-USD": {
+    "normalized_id": "AVT/USD",
+    "base": "AVT",
+    "quote": "USD",
+    "display_name": "AVT / US Dollar",
+    "description": "AVT to US Dollar spot trading pair",
+    "tags": [
+      "avt",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "AXL-USD": {
+    "normalized_id": "AXL/USD",
+    "base": "AXL",
+    "quote": "USD",
+    "display_name": "AXL / US Dollar",
+    "description": "AXL to US Dollar spot trading pair",
+    "tags": [
+      "axl",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "AXS-BTC": {
+    "normalized_id": "AXS/BTC",
+    "base": "AXS",
+    "quote": "BTC",
+    "display_name": "Axie Infinity / Bitcoin",
+    "description": "Axie Infinity to Bitcoin spot trading pair",
+    "tags": [
+      "axs",
+      "axie infinity",
+      "gaming",
+      "btc"
+    ],
+    "category": "crypto"
+  },
+  "AXS-EUR": {
+    "normalized_id": "AXS/EUR",
+    "base": "AXS",
+    "quote": "EUR",
+    "display_name": "Axie Infinity / Euro",
+    "description": "Axie Infinity to Euro spot trading pair",
+    "tags": [
+      "axs",
+      "axie infinity",
+      "gaming",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "AXS-USD": {
+    "normalized_id": "AXS/USD",
+    "base": "AXS",
+    "quote": "USD",
+    "display_name": "Axie Infinity / US Dollar",
+    "description": "Axie Infinity to US Dollar spot trading pair",
+    "tags": [
+      "axs",
+      "axie infinity",
+      "gaming",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "AXS-USDT": {
+    "normalized_id": "AXS/USD",
+    "base": "AXS",
+    "quote": "USD",
+    "display_name": "Axie Infinity / US Dollar",
+    "description": "Axie Infinity to US Dollar spot trading pair",
+    "tags": [
+      "axs",
+      "axie infinity",
+      "gaming",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "B3-USD": {
+    "normalized_id": "B3/USD",
+    "base": "B3",
+    "quote": "USD",
+    "display_name": "B3 / US Dollar",
+    "description": "B3 to US Dollar spot trading pair",
+    "tags": [
+      "b3",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "BADGER-USD": {
+    "normalized_id": "BADGER/USD",
+    "base": "BADGER",
+    "quote": "USD",
+    "display_name": "BADGER / US Dollar",
+    "description": "BADGER to US Dollar spot trading pair",
+    "tags": [
+      "badger",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "BAL-USD": {
+    "normalized_id": "BAL/USD",
+    "base": "BAL",
+    "quote": "USD",
+    "display_name": "BAL / US Dollar",
+    "description": "BAL to US Dollar spot trading pair",
+    "tags": [
+      "bal",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "BAND-USD": {
+    "normalized_id": "BAND/USD",
+    "base": "BAND",
+    "quote": "USD",
+    "display_name": "BAND / US Dollar",
+    "description": "BAND to US Dollar spot trading pair",
+    "tags": [
+      "band",
+      "oracle",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "BAT-BTC": {
+    "normalized_id": "BAT/BTC",
+    "base": "BAT",
+    "quote": "BTC",
+    "display_name": "Basic Attention Token / Bitcoin",
+    "description": "Basic Attention Token to Bitcoin spot trading pair",
+    "tags": [
+      "bat",
+      "basic attention token",
+      "btc"
+    ],
+    "category": "crypto"
+  },
+  "BAT-ETH": {
+    "normalized_id": "BAT/ETH",
+    "base": "BAT",
+    "quote": "ETH",
+    "display_name": "Basic Attention Token / Ethereum",
+    "description": "Basic Attention Token to Ethereum spot trading pair",
+    "tags": [
+      "bat",
+      "basic attention token",
+      "eth"
+    ],
+    "category": "crypto"
+  },
+  "BAT-EUR": {
+    "normalized_id": "BAT/EUR",
+    "base": "BAT",
+    "quote": "EUR",
+    "display_name": "Basic Attention Token / Euro",
+    "description": "Basic Attention Token to Euro spot trading pair",
+    "tags": [
+      "bat",
+      "basic attention token",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "BAT-USD": {
+    "normalized_id": "BAT/USD",
+    "base": "BAT",
+    "quote": "USD",
+    "display_name": "Basic Attention Token / US Dollar",
+    "description": "Basic Attention Token to US Dollar spot trading pair",
+    "tags": [
+      "bat",
+      "basic attention token",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "BCH-BTC": {
+    "normalized_id": "BCH/BTC",
+    "base": "BCH",
+    "quote": "BTC",
+    "display_name": "Bitcoin Cash / Bitcoin",
+    "description": "Bitcoin Cash to Bitcoin spot trading pair",
+    "tags": [
+      "bch",
+      "bitcoin cash",
+      "btc"
+    ],
+    "category": "crypto"
+  },
+  "BCH-EUR": {
+    "normalized_id": "BCH/EUR",
+    "base": "BCH",
+    "quote": "EUR",
+    "display_name": "Bitcoin Cash / Euro",
+    "description": "Bitcoin Cash to Euro spot trading pair",
+    "tags": [
+      "bch",
+      "bitcoin cash",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "BCH-GBP": {
+    "normalized_id": "BCH/GBP",
+    "base": "BCH",
+    "quote": "GBP",
+    "display_name": "Bitcoin Cash / British Pound",
+    "description": "Bitcoin Cash to British Pound spot trading pair",
+    "tags": [
+      "bch",
+      "bitcoin cash",
+      "gbp",
+      "fiat",
+      "british pound"
+    ],
+    "category": "crypto"
+  },
+  "BCH-USD": {
+    "normalized_id": "BCH/USD",
+    "base": "BCH",
+    "quote": "USD",
+    "display_name": "Bitcoin Cash / US Dollar",
+    "description": "Bitcoin Cash to US Dollar spot trading pair",
+    "tags": [
+      "bch",
+      "bitcoin cash",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "BERA-USD": {
+    "normalized_id": "BERA/USD",
+    "base": "BERA",
+    "quote": "USD",
+    "display_name": "BERA / US Dollar",
+    "description": "BERA to US Dollar spot trading pair",
+    "tags": [
+      "bera",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "BICO-USD": {
+    "normalized_id": "BICO/USD",
+    "base": "BICO",
+    "quote": "USD",
+    "display_name": "BICO / US Dollar",
+    "description": "BICO to US Dollar spot trading pair",
+    "tags": [
+      "bico",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "BIGTIME-USD": {
+    "normalized_id": "BIGTIME/USD",
+    "base": "BIGTIME",
+    "quote": "USD",
+    "display_name": "BIGTIME / US Dollar",
+    "description": "BIGTIME to US Dollar spot trading pair",
+    "tags": [
+      "bigtime",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "BIO-USD": {
+    "normalized_id": "BIO/USD",
+    "base": "BIO",
+    "quote": "USD",
+    "display_name": "BIO / US Dollar",
+    "description": "BIO to US Dollar spot trading pair",
+    "tags": [
+      "bio",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "BLAST-USD": {
+    "normalized_id": "BLAST/USD",
+    "base": "BLAST",
+    "quote": "USD",
+    "display_name": "BLAST / US Dollar",
+    "description": "BLAST to US Dollar spot trading pair",
+    "tags": [
+      "blast",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "BLUR-USD": {
+    "normalized_id": "BLUR/USD",
+    "base": "BLUR",
+    "quote": "USD",
+    "display_name": "BLUR / US Dollar",
+    "description": "BLUR to US Dollar spot trading pair",
+    "tags": [
+      "blur",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "BLZ-USD": {
+    "normalized_id": "BLZ/USD",
+    "base": "BLZ",
+    "quote": "USD",
+    "display_name": "BLZ / US Dollar",
+    "description": "BLZ to US Dollar spot trading pair",
+    "tags": [
+      "blz",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "BNKR-USD": {
+    "normalized_id": "BNKR/USD",
+    "base": "BNKR",
+    "quote": "USD",
+    "display_name": "BNKR / US Dollar",
+    "description": "BNKR to US Dollar spot trading pair",
+    "tags": [
+      "bnkr",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "BNT-USD": {
+    "normalized_id": "BNT/USD",
+    "base": "BNT",
+    "quote": "USD",
+    "display_name": "BNT / US Dollar",
+    "description": "BNT to US Dollar spot trading pair",
+    "tags": [
+      "bnt",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "BOBA-USD": {
+    "normalized_id": "BOBA/USD",
+    "base": "BOBA",
+    "quote": "USD",
+    "display_name": "BOBA / US Dollar",
+    "description": "BOBA to US Dollar spot trading pair",
+    "tags": [
+      "boba",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "BONK-USD": {
+    "normalized_id": "BONK/USD",
+    "base": "BONK",
+    "quote": "USD",
+    "display_name": "Bonk / US Dollar",
+    "description": "Bonk to US Dollar spot trading pair",
+    "tags": [
+      "bonk",
+      "meme",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "BTC-EUR": {
+    "normalized_id": "BTC/EUR",
+    "base": "BTC",
+    "quote": "EUR",
+    "display_name": "Bitcoin / Euro",
+    "description": "Bitcoin to Euro spot trading pair",
+    "tags": [
+      "btc",
+      "bitcoin",
+      "major",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "BTC-GBP": {
+    "normalized_id": "BTC/GBP",
+    "base": "BTC",
+    "quote": "GBP",
+    "display_name": "Bitcoin / British Pound",
+    "description": "Bitcoin to British Pound spot trading pair",
+    "tags": [
+      "btc",
+      "bitcoin",
+      "major",
+      "gbp",
+      "fiat",
+      "british pound"
+    ],
+    "category": "crypto"
+  },
+  "BTC-USD": {
+    "normalized_id": "BTC/USD",
+    "base": "BTC",
+    "quote": "USD",
+    "display_name": "Bitcoin / US Dollar",
+    "description": "Bitcoin to US Dollar spot trading pair",
+    "tags": [
+      "btc",
+      "bitcoin",
+      "major",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "BTC-USDT": {
+    "normalized_id": "BTC/USD",
+    "base": "BTC",
+    "quote": "USD",
+    "display_name": "Bitcoin / US Dollar",
+    "description": "Bitcoin to US Dollar spot trading pair",
+    "tags": [
+      "btc",
+      "bitcoin",
+      "major",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "BTRST-USD": {
+    "normalized_id": "BTRST/USD",
+    "base": "BTRST",
+    "quote": "USD",
+    "display_name": "BTRST / US Dollar",
+    "description": "BTRST to US Dollar spot trading pair",
+    "tags": [
+      "btrst",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "C98-USD": {
+    "normalized_id": "C98/USD",
+    "base": "C98",
+    "quote": "USD",
+    "display_name": "C98 / US Dollar",
+    "description": "C98 to US Dollar spot trading pair",
+    "tags": [
+      "c98",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "CAKE-USD": {
+    "normalized_id": "CAKE/USD",
+    "base": "CAKE",
+    "quote": "USD",
+    "display_name": "CAKE / US Dollar",
+    "description": "CAKE to US Dollar spot trading pair",
+    "tags": [
+      "cake",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "CBETH-ETH": {
+    "normalized_id": "CBETH/ETH",
+    "base": "CBETH",
+    "quote": "ETH",
+    "display_name": "CBETH / Ethereum",
+    "description": "CBETH to Ethereum spot trading pair",
+    "tags": [
+      "cbeth",
+      "eth"
+    ],
+    "category": "crypto"
+  },
+  "CBETH-USD": {
+    "normalized_id": "CBETH/USD",
+    "base": "CBETH",
+    "quote": "USD",
+    "display_name": "CBETH / US Dollar",
+    "description": "CBETH to US Dollar spot trading pair",
+    "tags": [
+      "cbeth",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "CELR-USD": {
+    "normalized_id": "CELR/USD",
+    "base": "CELR",
+    "quote": "USD",
+    "display_name": "CELR / US Dollar",
+    "description": "CELR to US Dollar spot trading pair",
+    "tags": [
+      "celr",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "CGLD-EUR": {
+    "normalized_id": "CGLD/EUR",
+    "base": "CGLD",
+    "quote": "EUR",
+    "display_name": "CGLD / Euro",
+    "description": "CGLD to Euro spot trading pair",
+    "tags": [
+      "cgld",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "CGLD-GBP": {
+    "normalized_id": "CGLD/GBP",
+    "base": "CGLD",
+    "quote": "GBP",
+    "display_name": "CGLD / British Pound",
+    "description": "CGLD to British Pound spot trading pair",
+    "tags": [
+      "cgld",
+      "gbp",
+      "fiat",
+      "british pound"
+    ],
+    "category": "crypto"
+  },
+  "CGLD-USD": {
+    "normalized_id": "CGLD/USD",
+    "base": "CGLD",
+    "quote": "USD",
+    "display_name": "CGLD / US Dollar",
+    "description": "CGLD to US Dollar spot trading pair",
+    "tags": [
+      "cgld",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "CHZ-EUR": {
+    "normalized_id": "CHZ/EUR",
+    "base": "CHZ",
+    "quote": "EUR",
+    "display_name": "Chiliz / Euro",
+    "description": "Chiliz to Euro spot trading pair",
+    "tags": [
+      "chz",
+      "chiliz",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "CHZ-GBP": {
+    "normalized_id": "CHZ/GBP",
+    "base": "CHZ",
+    "quote": "GBP",
+    "display_name": "Chiliz / British Pound",
+    "description": "Chiliz to British Pound spot trading pair",
+    "tags": [
+      "chz",
+      "chiliz",
+      "gbp",
+      "fiat",
+      "british pound"
+    ],
+    "category": "crypto"
+  },
+  "CHZ-USD": {
+    "normalized_id": "CHZ/USD",
+    "base": "CHZ",
+    "quote": "USD",
+    "display_name": "Chiliz / US Dollar",
+    "description": "Chiliz to US Dollar spot trading pair",
+    "tags": [
+      "chz",
+      "chiliz",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "CHZ-USDT": {
+    "normalized_id": "CHZ/USD",
+    "base": "CHZ",
+    "quote": "USD",
+    "display_name": "Chiliz / US Dollar",
+    "description": "Chiliz to US Dollar spot trading pair",
+    "tags": [
+      "chz",
+      "chiliz",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "CLANKER-USD": {
+    "normalized_id": "CLANKER/USD",
+    "base": "CLANKER",
+    "quote": "USD",
+    "display_name": "CLANKER / US Dollar",
+    "description": "CLANKER to US Dollar spot trading pair",
+    "tags": [
+      "clanker",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "CLV-USD": {
+    "normalized_id": "CLV/USD",
+    "base": "CLV",
+    "quote": "USD",
+    "display_name": "CLV / US Dollar",
+    "description": "CLV to US Dollar spot trading pair",
+    "tags": [
+      "clv",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "COMP-BTC": {
+    "normalized_id": "COMP/BTC",
+    "base": "COMP",
+    "quote": "BTC",
+    "display_name": "Compound / Bitcoin",
+    "description": "Compound to Bitcoin spot trading pair",
+    "tags": [
+      "comp",
+      "compound",
+      "defi",
+      "btc"
+    ],
+    "category": "crypto"
+  },
+  "COMP-USD": {
+    "normalized_id": "COMP/USD",
+    "base": "COMP",
+    "quote": "USD",
+    "display_name": "Compound / US Dollar",
+    "description": "Compound to US Dollar spot trading pair",
+    "tags": [
+      "comp",
+      "compound",
+      "defi",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "COOKIE-USD": {
+    "normalized_id": "COOKIE/USD",
+    "base": "COOKIE",
+    "quote": "USD",
+    "display_name": "COOKIE / US Dollar",
+    "description": "COOKIE to US Dollar spot trading pair",
+    "tags": [
+      "cookie",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "CORECHAIN-USD": {
+    "normalized_id": "CORECHAIN/USD",
+    "base": "CORECHAIN",
+    "quote": "USD",
+    "display_name": "CORECHAIN / US Dollar",
+    "description": "CORECHAIN to US Dollar spot trading pair",
+    "tags": [
+      "corechain",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "COSMOSDYDX-USD": {
+    "normalized_id": "COSMOSDYDX/USD",
+    "base": "COSMOSDYDX",
+    "quote": "USD",
+    "display_name": "COSMOSDYDX / US Dollar",
+    "description": "COSMOSDYDX to US Dollar spot trading pair",
+    "tags": [
+      "cosmosdydx",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "COTI-USD": {
+    "normalized_id": "COTI/USD",
+    "base": "COTI",
+    "quote": "USD",
+    "display_name": "COTI / US Dollar",
+    "description": "COTI to US Dollar spot trading pair",
+    "tags": [
+      "coti",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "COW-USD": {
+    "normalized_id": "COW/USD",
+    "base": "COW",
+    "quote": "USD",
+    "display_name": "COW / US Dollar",
+    "description": "COW to US Dollar spot trading pair",
+    "tags": [
+      "cow",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "CRO-EUR": {
+    "normalized_id": "CRO/EUR",
+    "base": "CRO",
+    "quote": "EUR",
+    "display_name": "CRO / Euro",
+    "description": "CRO to Euro spot trading pair",
+    "tags": [
+      "cro",
+      "exchange",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "CRO-USD": {
+    "normalized_id": "CRO/USD",
+    "base": "CRO",
+    "quote": "USD",
+    "display_name": "CRO / US Dollar",
+    "description": "CRO to US Dollar spot trading pair",
+    "tags": [
+      "cro",
+      "exchange",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "CRO-USDT": {
+    "normalized_id": "CRO/USD",
+    "base": "CRO",
+    "quote": "USD",
+    "display_name": "CRO / US Dollar",
+    "description": "CRO to US Dollar spot trading pair",
+    "tags": [
+      "cro",
+      "exchange",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "CRV-BTC": {
+    "normalized_id": "CRV/BTC",
+    "base": "CRV",
+    "quote": "BTC",
+    "display_name": "Curve / Bitcoin",
+    "description": "Curve to Bitcoin spot trading pair",
+    "tags": [
+      "crv",
+      "curve",
+      "defi",
+      "btc"
+    ],
+    "category": "crypto"
+  },
+  "CRV-EUR": {
+    "normalized_id": "CRV/EUR",
+    "base": "CRV",
+    "quote": "EUR",
+    "display_name": "Curve / Euro",
+    "description": "Curve to Euro spot trading pair",
+    "tags": [
+      "crv",
+      "curve",
+      "defi",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "CRV-GBP": {
+    "normalized_id": "CRV/GBP",
+    "base": "CRV",
+    "quote": "GBP",
+    "display_name": "Curve / British Pound",
+    "description": "Curve to British Pound spot trading pair",
+    "tags": [
+      "crv",
+      "curve",
+      "defi",
+      "gbp",
+      "fiat",
+      "british pound"
+    ],
+    "category": "crypto"
+  },
+  "CRV-USD": {
+    "normalized_id": "CRV/USD",
+    "base": "CRV",
+    "quote": "USD",
+    "display_name": "Curve / US Dollar",
+    "description": "Curve to US Dollar spot trading pair",
+    "tags": [
+      "crv",
+      "curve",
+      "defi",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "CTSI-USD": {
+    "normalized_id": "CTSI/USD",
+    "base": "CTSI",
+    "quote": "USD",
+    "display_name": "CTSI / US Dollar",
+    "description": "CTSI to US Dollar spot trading pair",
+    "tags": [
+      "ctsi",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "CTX-USD": {
+    "normalized_id": "CTX/USD",
+    "base": "CTX",
+    "quote": "USD",
+    "display_name": "CTX / US Dollar",
+    "description": "CTX to US Dollar spot trading pair",
+    "tags": [
+      "ctx",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "CVC-USD": {
+    "normalized_id": "CVC/USD",
+    "base": "CVC",
+    "quote": "USD",
+    "display_name": "CVC / US Dollar",
+    "description": "CVC to US Dollar spot trading pair",
+    "tags": [
+      "cvc",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "CVX-USD": {
+    "normalized_id": "CVX/USD",
+    "base": "CVX",
+    "quote": "USD",
+    "display_name": "CVX / US Dollar",
+    "description": "CVX to US Dollar spot trading pair",
+    "tags": [
+      "cvx",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "DAI-USD": {
+    "normalized_id": "DAI/USD",
+    "base": "DAI",
+    "quote": "USD",
+    "display_name": "Dai / US Dollar",
+    "description": "Dai to US Dollar spot trading pair",
+    "tags": [
+      "dai",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "DASH-BTC": {
+    "normalized_id": "DASH/BTC",
+    "base": "DASH",
+    "quote": "BTC",
+    "display_name": "DASH / Bitcoin",
+    "description": "DASH to Bitcoin spot trading pair",
+    "tags": [
+      "dash",
+      "privacy",
+      "btc"
+    ],
+    "category": "crypto"
+  },
+  "DASH-USD": {
+    "normalized_id": "DASH/USD",
+    "base": "DASH",
+    "quote": "USD",
+    "display_name": "DASH / US Dollar",
+    "description": "DASH to US Dollar spot trading pair",
+    "tags": [
+      "dash",
+      "privacy",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "DEGEN-USD": {
+    "normalized_id": "DEGEN/USD",
+    "base": "DEGEN",
+    "quote": "USD",
+    "display_name": "DEGEN / US Dollar",
+    "description": "DEGEN to US Dollar spot trading pair",
+    "tags": [
+      "degen",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "DEXT-USD": {
+    "normalized_id": "DEXT/USD",
+    "base": "DEXT",
+    "quote": "USD",
+    "display_name": "DEXT / US Dollar",
+    "description": "DEXT to US Dollar spot trading pair",
+    "tags": [
+      "dext",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "DIA-USD": {
+    "normalized_id": "DIA/USD",
+    "base": "DIA",
+    "quote": "USD",
+    "display_name": "DIA / US Dollar",
+    "description": "DIA to US Dollar spot trading pair",
+    "tags": [
+      "dia",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "DIMO-USD": {
+    "normalized_id": "DIMO/USD",
+    "base": "DIMO",
+    "quote": "USD",
+    "display_name": "DIMO / US Dollar",
+    "description": "DIMO to US Dollar spot trading pair",
+    "tags": [
+      "dimo",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "DNT-USD": {
+    "normalized_id": "DNT/USD",
+    "base": "DNT",
+    "quote": "USD",
+    "display_name": "DNT / US Dollar",
+    "description": "DNT to US Dollar spot trading pair",
+    "tags": [
+      "dnt",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "DOGE-BTC": {
+    "normalized_id": "DOGE/BTC",
+    "base": "DOGE",
+    "quote": "BTC",
+    "display_name": "Dogecoin / Bitcoin",
+    "description": "Dogecoin to Bitcoin spot trading pair",
+    "tags": [
+      "doge",
+      "dogecoin",
+      "meme",
+      "btc"
+    ],
+    "category": "crypto"
+  },
+  "DOGE-EUR": {
+    "normalized_id": "DOGE/EUR",
+    "base": "DOGE",
+    "quote": "EUR",
+    "display_name": "Dogecoin / Euro",
+    "description": "Dogecoin to Euro spot trading pair",
+    "tags": [
+      "doge",
+      "dogecoin",
+      "meme",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "DOGE-GBP": {
+    "normalized_id": "DOGE/GBP",
+    "base": "DOGE",
+    "quote": "GBP",
+    "display_name": "Dogecoin / British Pound",
+    "description": "Dogecoin to British Pound spot trading pair",
+    "tags": [
+      "doge",
+      "dogecoin",
+      "meme",
+      "gbp",
+      "fiat",
+      "british pound"
+    ],
+    "category": "crypto"
+  },
+  "DOGE-USD": {
+    "normalized_id": "DOGE/USD",
+    "base": "DOGE",
+    "quote": "USD",
+    "display_name": "Dogecoin / US Dollar",
+    "description": "Dogecoin to US Dollar spot trading pair",
+    "tags": [
+      "doge",
+      "dogecoin",
+      "meme",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "DOGE-USDT": {
+    "normalized_id": "DOGE/USD",
+    "base": "DOGE",
+    "quote": "USD",
+    "display_name": "Dogecoin / US Dollar",
+    "description": "Dogecoin to US Dollar spot trading pair",
+    "tags": [
+      "doge",
+      "dogecoin",
+      "meme",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "DOGINME-USD": {
+    "normalized_id": "DOGINME/USD",
+    "base": "DOGINME",
+    "quote": "USD",
+    "display_name": "DOGINME / US Dollar",
+    "description": "DOGINME to US Dollar spot trading pair",
+    "tags": [
+      "doginme",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "DOT-BTC": {
+    "normalized_id": "DOT/BTC",
+    "base": "DOT",
+    "quote": "BTC",
+    "display_name": "Polkadot / Bitcoin",
+    "description": "Polkadot to Bitcoin spot trading pair",
+    "tags": [
+      "dot",
+      "polkadot",
+      "layer1",
+      "btc"
+    ],
+    "category": "crypto"
+  },
+  "DOT-EUR": {
+    "normalized_id": "DOT/EUR",
+    "base": "DOT",
+    "quote": "EUR",
+    "display_name": "Polkadot / Euro",
+    "description": "Polkadot to Euro spot trading pair",
+    "tags": [
+      "dot",
+      "polkadot",
+      "layer1",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "DOT-GBP": {
+    "normalized_id": "DOT/GBP",
+    "base": "DOT",
+    "quote": "GBP",
+    "display_name": "Polkadot / British Pound",
+    "description": "Polkadot to British Pound spot trading pair",
+    "tags": [
+      "dot",
+      "polkadot",
+      "layer1",
+      "gbp",
+      "fiat",
+      "british pound"
+    ],
+    "category": "crypto"
+  },
+  "DOT-USD": {
+    "normalized_id": "DOT/USD",
+    "base": "DOT",
+    "quote": "USD",
+    "display_name": "Polkadot / US Dollar",
+    "description": "Polkadot to US Dollar spot trading pair",
+    "tags": [
+      "dot",
+      "polkadot",
+      "layer1",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "DOT-USDT": {
+    "normalized_id": "DOT/USD",
+    "base": "DOT",
+    "quote": "USD",
+    "display_name": "Polkadot / US Dollar",
+    "description": "Polkadot to US Dollar spot trading pair",
+    "tags": [
+      "dot",
+      "polkadot",
+      "layer1",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "DRIFT-USD": {
+    "normalized_id": "DRIFT/USD",
+    "base": "DRIFT",
+    "quote": "USD",
+    "display_name": "DRIFT / US Dollar",
+    "description": "DRIFT to US Dollar spot trading pair",
+    "tags": [
+      "drift",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "EDGE-USD": {
+    "normalized_id": "EDGE/USD",
+    "base": "EDGE",
+    "quote": "USD",
+    "display_name": "EDGE / US Dollar",
+    "description": "EDGE to US Dollar spot trading pair",
+    "tags": [
+      "edge",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "EGLD-USD": {
+    "normalized_id": "EGLD/USD",
+    "base": "EGLD",
+    "quote": "USD",
+    "display_name": "MultiversX / US Dollar",
+    "description": "MultiversX to US Dollar spot trading pair",
+    "tags": [
+      "egld",
+      "multiversx",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "EIGEN-USD": {
+    "normalized_id": "EIGEN/USD",
+    "base": "EIGEN",
+    "quote": "USD",
+    "display_name": "EIGEN / US Dollar",
+    "description": "EIGEN to US Dollar spot trading pair",
+    "tags": [
+      "eigen",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ELA-USD": {
+    "normalized_id": "ELA/USD",
+    "base": "ELA",
+    "quote": "USD",
+    "display_name": "ELA / US Dollar",
+    "description": "ELA to US Dollar spot trading pair",
+    "tags": [
+      "ela",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ENA-USD": {
+    "normalized_id": "ENA/USD",
+    "base": "ENA",
+    "quote": "USD",
+    "display_name": "ENA / US Dollar",
+    "description": "ENA to US Dollar spot trading pair",
+    "tags": [
+      "ena",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ENS-EUR": {
+    "normalized_id": "ENS/EUR",
+    "base": "ENS",
+    "quote": "EUR",
+    "display_name": "ENS / Euro",
+    "description": "ENS to Euro spot trading pair",
+    "tags": [
+      "ens",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "ENS-USD": {
+    "normalized_id": "ENS/USD",
+    "base": "ENS",
+    "quote": "USD",
+    "display_name": "ENS / US Dollar",
+    "description": "ENS to US Dollar spot trading pair",
+    "tags": [
+      "ens",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ENS-USDT": {
+    "normalized_id": "ENS/USD",
+    "base": "ENS",
+    "quote": "USD",
+    "display_name": "ENS / US Dollar",
+    "description": "ENS to US Dollar spot trading pair",
+    "tags": [
+      "ens",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "EOS-BTC": {
+    "normalized_id": "EOS/BTC",
+    "base": "EOS",
+    "quote": "BTC",
+    "display_name": "EOS / Bitcoin",
+    "description": "EOS to Bitcoin spot trading pair",
+    "tags": [
+      "eos",
+      "btc"
+    ],
+    "category": "crypto"
+  },
+  "EOS-EUR": {
+    "normalized_id": "EOS/EUR",
+    "base": "EOS",
+    "quote": "EUR",
+    "display_name": "EOS / Euro",
+    "description": "EOS to Euro spot trading pair",
+    "tags": [
+      "eos",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "EOS-USD": {
+    "normalized_id": "EOS/USD",
+    "base": "EOS",
+    "quote": "USD",
+    "display_name": "EOS / US Dollar",
+    "description": "EOS to US Dollar spot trading pair",
+    "tags": [
+      "eos",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ERA-USD": {
+    "normalized_id": "ERA/USD",
+    "base": "ERA",
+    "quote": "USD",
+    "display_name": "ERA / US Dollar",
+    "description": "ERA to US Dollar spot trading pair",
+    "tags": [
+      "era",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ERN-USD": {
+    "normalized_id": "ERN/USD",
+    "base": "ERN",
+    "quote": "USD",
+    "display_name": "ERN / US Dollar",
+    "description": "ERN to US Dollar spot trading pair",
+    "tags": [
+      "ern",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ETC-BTC": {
+    "normalized_id": "ETC/BTC",
+    "base": "ETC",
+    "quote": "BTC",
+    "display_name": "ETC / Bitcoin",
+    "description": "ETC to Bitcoin spot trading pair",
+    "tags": [
+      "etc",
+      "btc"
+    ],
+    "category": "crypto"
+  },
+  "ETC-EUR": {
+    "normalized_id": "ETC/EUR",
+    "base": "ETC",
+    "quote": "EUR",
+    "display_name": "ETC / Euro",
+    "description": "ETC to Euro spot trading pair",
+    "tags": [
+      "etc",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "ETC-GBP": {
+    "normalized_id": "ETC/GBP",
+    "base": "ETC",
+    "quote": "GBP",
+    "display_name": "ETC / British Pound",
+    "description": "ETC to British Pound spot trading pair",
+    "tags": [
+      "etc",
+      "gbp",
+      "fiat",
+      "british pound"
+    ],
+    "category": "crypto"
+  },
+  "ETC-USD": {
+    "normalized_id": "ETC/USD",
+    "base": "ETC",
+    "quote": "USD",
+    "display_name": "ETC / US Dollar",
+    "description": "ETC to US Dollar spot trading pair",
+    "tags": [
+      "etc",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ETH-BTC": {
+    "normalized_id": "ETH/BTC",
+    "base": "ETH",
+    "quote": "BTC",
+    "display_name": "Ethereum / Bitcoin",
+    "description": "Ethereum to Bitcoin spot trading pair",
+    "tags": [
+      "eth",
+      "ethereum",
+      "major",
+      "btc"
+    ],
+    "category": "crypto"
+  },
+  "ETH-DAI": {
+    "normalized_id": "ETH/DAI",
+    "base": "ETH",
+    "quote": "DAI",
+    "display_name": "Ethereum / Dai",
+    "description": "Ethereum to Dai spot trading pair",
+    "tags": [
+      "eth",
+      "ethereum",
+      "major",
+      "dai"
+    ],
+    "category": "crypto"
+  },
+  "ETH-EUR": {
+    "normalized_id": "ETH/EUR",
+    "base": "ETH",
+    "quote": "EUR",
+    "display_name": "Ethereum / Euro",
+    "description": "Ethereum to Euro spot trading pair",
+    "tags": [
+      "eth",
+      "ethereum",
+      "major",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "ETH-GBP": {
+    "normalized_id": "ETH/GBP",
+    "base": "ETH",
+    "quote": "GBP",
+    "display_name": "Ethereum / British Pound",
+    "description": "Ethereum to British Pound spot trading pair",
+    "tags": [
+      "eth",
+      "ethereum",
+      "major",
+      "gbp",
+      "fiat",
+      "british pound"
+    ],
+    "category": "crypto"
+  },
+  "ETH-USD": {
+    "normalized_id": "ETH/USD",
+    "base": "ETH",
+    "quote": "USD",
+    "display_name": "Ethereum / US Dollar",
+    "description": "Ethereum to US Dollar spot trading pair",
+    "tags": [
+      "eth",
+      "ethereum",
+      "major",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ETH-USDT": {
+    "normalized_id": "ETH/USD",
+    "base": "ETH",
+    "quote": "USD",
+    "display_name": "Ethereum / US Dollar",
+    "description": "Ethereum to US Dollar spot trading pair",
+    "tags": [
+      "eth",
+      "ethereum",
+      "major",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ETHFI-USD": {
+    "normalized_id": "ETHFI/USD",
+    "base": "ETHFI",
+    "quote": "USD",
+    "display_name": "ETHFI / US Dollar",
+    "description": "ETHFI to US Dollar spot trading pair",
+    "tags": [
+      "ethfi",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "EUL-USD": {
+    "normalized_id": "EUL/USD",
+    "base": "EUL",
+    "quote": "USD",
+    "display_name": "EUL / US Dollar",
+    "description": "EUL to US Dollar spot trading pair",
+    "tags": [
+      "eul",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "EURC-USDC": {
+    "normalized_id": "EURC/USD",
+    "base": "EURC",
+    "quote": "USD",
+    "display_name": "EURC / US Dollar",
+    "description": "EURC to US Dollar spot trading pair",
+    "tags": [
+      "eurc",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "FAI-USD": {
+    "normalized_id": "FAI/USD",
+    "base": "FAI",
+    "quote": "USD",
+    "display_name": "FAI / US Dollar",
+    "description": "FAI to US Dollar spot trading pair",
+    "tags": [
+      "fai",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "FARM-USD": {
+    "normalized_id": "FARM/USD",
+    "base": "FARM",
+    "quote": "USD",
+    "display_name": "FARM / US Dollar",
+    "description": "FARM to US Dollar spot trading pair",
+    "tags": [
+      "farm",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "FARTCOIN-USD": {
+    "normalized_id": "FARTCOIN/USD",
+    "base": "FARTCOIN",
+    "quote": "USD",
+    "display_name": "FARTCOIN / US Dollar",
+    "description": "FARTCOIN to US Dollar spot trading pair",
+    "tags": [
+      "fartcoin",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "FET-USD": {
+    "normalized_id": "FET/USD",
+    "base": "FET",
+    "quote": "USD",
+    "display_name": "FET / US Dollar",
+    "description": "FET to US Dollar spot trading pair",
+    "tags": [
+      "fet",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "FET-USDT": {
+    "normalized_id": "FET/USD",
+    "base": "FET",
+    "quote": "USD",
+    "display_name": "FET / US Dollar",
+    "description": "FET to US Dollar spot trading pair",
+    "tags": [
+      "fet",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "FIDA-USD": {
+    "normalized_id": "FIDA/USD",
+    "base": "FIDA",
+    "quote": "USD",
+    "display_name": "FIDA / US Dollar",
+    "description": "FIDA to US Dollar spot trading pair",
+    "tags": [
+      "fida",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "FIL-BTC": {
+    "normalized_id": "FIL/BTC",
+    "base": "FIL",
+    "quote": "BTC",
+    "display_name": "Filecoin / Bitcoin",
+    "description": "Filecoin to Bitcoin spot trading pair",
+    "tags": [
+      "fil",
+      "filecoin",
+      "storage",
+      "btc"
+    ],
+    "category": "crypto"
+  },
+  "FIL-EUR": {
+    "normalized_id": "FIL/EUR",
+    "base": "FIL",
+    "quote": "EUR",
+    "display_name": "Filecoin / Euro",
+    "description": "Filecoin to Euro spot trading pair",
+    "tags": [
+      "fil",
+      "filecoin",
+      "storage",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "FIL-GBP": {
+    "normalized_id": "FIL/GBP",
+    "base": "FIL",
+    "quote": "GBP",
+    "display_name": "Filecoin / British Pound",
+    "description": "Filecoin to British Pound spot trading pair",
+    "tags": [
+      "fil",
+      "filecoin",
+      "storage",
+      "gbp",
+      "fiat",
+      "british pound"
+    ],
+    "category": "crypto"
+  },
+  "FIL-USD": {
+    "normalized_id": "FIL/USD",
+    "base": "FIL",
+    "quote": "USD",
+    "display_name": "Filecoin / US Dollar",
+    "description": "Filecoin to US Dollar spot trading pair",
+    "tags": [
+      "fil",
+      "filecoin",
+      "storage",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "FIS-USD": {
+    "normalized_id": "FIS/USD",
+    "base": "FIS",
+    "quote": "USD",
+    "display_name": "FIS / US Dollar",
+    "description": "FIS to US Dollar spot trading pair",
+    "tags": [
+      "fis",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "FLOKI-USD": {
+    "normalized_id": "FLOKI/USD",
+    "base": "FLOKI",
+    "quote": "USD",
+    "display_name": "Floki / US Dollar",
+    "description": "Floki to US Dollar spot trading pair",
+    "tags": [
+      "floki",
+      "meme",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "FLOW-USD": {
+    "normalized_id": "FLOW/USD",
+    "base": "FLOW",
+    "quote": "USD",
+    "display_name": "Flow / US Dollar",
+    "description": "Flow to US Dollar spot trading pair",
+    "tags": [
+      "flow",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "FLOW-USDT": {
+    "normalized_id": "FLOW/USD",
+    "base": "FLOW",
+    "quote": "USD",
+    "display_name": "Flow / US Dollar",
+    "description": "Flow to US Dollar spot trading pair",
+    "tags": [
+      "flow",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "FLR-USD": {
+    "normalized_id": "FLR/USD",
+    "base": "FLR",
+    "quote": "USD",
+    "display_name": "FLR / US Dollar",
+    "description": "FLR to US Dollar spot trading pair",
+    "tags": [
+      "flr",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "FORT-USD": {
+    "normalized_id": "FORT/USD",
+    "base": "FORT",
+    "quote": "USD",
+    "display_name": "FORT / US Dollar",
+    "description": "FORT to US Dollar spot trading pair",
+    "tags": [
+      "fort",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "FORTH-USD": {
+    "normalized_id": "FORTH/USD",
+    "base": "FORTH",
+    "quote": "USD",
+    "display_name": "FORTH / US Dollar",
+    "description": "FORTH to US Dollar spot trading pair",
+    "tags": [
+      "forth",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "FOX-USD": {
+    "normalized_id": "FOX/USD",
+    "base": "FOX",
+    "quote": "USD",
+    "display_name": "FOX / US Dollar",
+    "description": "FOX to US Dollar spot trading pair",
+    "tags": [
+      "fox",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "G-USD": {
+    "normalized_id": "G/USD",
+    "base": "G",
+    "quote": "USD",
+    "display_name": "G / US Dollar",
+    "description": "G to US Dollar spot trading pair",
+    "tags": [
+      "g",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "GFI-USD": {
+    "normalized_id": "GFI/USD",
+    "base": "GFI",
+    "quote": "USD",
+    "display_name": "GFI / US Dollar",
+    "description": "GFI to US Dollar spot trading pair",
+    "tags": [
+      "gfi",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "GHST-USD": {
+    "normalized_id": "GHST/USD",
+    "base": "GHST",
+    "quote": "USD",
+    "display_name": "GHST / US Dollar",
+    "description": "GHST to US Dollar spot trading pair",
+    "tags": [
+      "ghst",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "GIGA-USD": {
+    "normalized_id": "GIGA/USD",
+    "base": "GIGA",
+    "quote": "USD",
+    "display_name": "GIGA / US Dollar",
+    "description": "GIGA to US Dollar spot trading pair",
+    "tags": [
+      "giga",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "GLM-USD": {
+    "normalized_id": "GLM/USD",
+    "base": "GLM",
+    "quote": "USD",
+    "display_name": "GLM / US Dollar",
+    "description": "GLM to US Dollar spot trading pair",
+    "tags": [
+      "glm",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "GMT-USD": {
+    "normalized_id": "GMT/USD",
+    "base": "GMT",
+    "quote": "USD",
+    "display_name": "GMT / US Dollar",
+    "description": "GMT to US Dollar spot trading pair",
+    "tags": [
+      "gmt",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "GMT-USDT": {
+    "normalized_id": "GMT/USD",
+    "base": "GMT",
+    "quote": "USD",
+    "display_name": "GMT / US Dollar",
+    "description": "GMT to US Dollar spot trading pair",
+    "tags": [
+      "gmt",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "GNO-USD": {
+    "normalized_id": "GNO/USD",
+    "base": "GNO",
+    "quote": "USD",
+    "display_name": "GNO / US Dollar",
+    "description": "GNO to US Dollar spot trading pair",
+    "tags": [
+      "gno",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "GODS-USD": {
+    "normalized_id": "GODS/USD",
+    "base": "GODS",
+    "quote": "USD",
+    "display_name": "GODS / US Dollar",
+    "description": "GODS to US Dollar spot trading pair",
+    "tags": [
+      "gods",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "GRT-BTC": {
+    "normalized_id": "GRT/BTC",
+    "base": "GRT",
+    "quote": "BTC",
+    "display_name": "GRT / Bitcoin",
+    "description": "GRT to Bitcoin spot trading pair",
+    "tags": [
+      "grt",
+      "btc"
+    ],
+    "category": "crypto"
+  },
+  "GRT-EUR": {
+    "normalized_id": "GRT/EUR",
+    "base": "GRT",
+    "quote": "EUR",
+    "display_name": "GRT / Euro",
+    "description": "GRT to Euro spot trading pair",
+    "tags": [
+      "grt",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "GRT-GBP": {
+    "normalized_id": "GRT/GBP",
+    "base": "GRT",
+    "quote": "GBP",
+    "display_name": "GRT / British Pound",
+    "description": "GRT to British Pound spot trading pair",
+    "tags": [
+      "grt",
+      "gbp",
+      "fiat",
+      "british pound"
+    ],
+    "category": "crypto"
+  },
+  "GRT-USD": {
+    "normalized_id": "GRT/USD",
+    "base": "GRT",
+    "quote": "USD",
+    "display_name": "GRT / US Dollar",
+    "description": "GRT to US Dollar spot trading pair",
+    "tags": [
+      "grt",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "GST-USD": {
+    "normalized_id": "GST/USD",
+    "base": "GST",
+    "quote": "USD",
+    "display_name": "GST / US Dollar",
+    "description": "GST to US Dollar spot trading pair",
+    "tags": [
+      "gst",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "GTC-USD": {
+    "normalized_id": "GTC/USD",
+    "base": "GTC",
+    "quote": "USD",
+    "display_name": "GTC / US Dollar",
+    "description": "GTC to US Dollar spot trading pair",
+    "tags": [
+      "gtc",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "HBAR-USD": {
+    "normalized_id": "HBAR/USD",
+    "base": "HBAR",
+    "quote": "USD",
+    "display_name": "Hedera / US Dollar",
+    "description": "Hedera to US Dollar spot trading pair",
+    "tags": [
+      "hbar",
+      "hedera",
+      "layer1",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "HBAR-USDT": {
+    "normalized_id": "HBAR/USD",
+    "base": "HBAR",
+    "quote": "USD",
+    "display_name": "Hedera / US Dollar",
+    "description": "Hedera to US Dollar spot trading pair",
+    "tags": [
+      "hbar",
+      "hedera",
+      "layer1",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "HFT-USD": {
+    "normalized_id": "HFT/USD",
+    "base": "HFT",
+    "quote": "USD",
+    "display_name": "HFT / US Dollar",
+    "description": "HFT to US Dollar spot trading pair",
+    "tags": [
+      "hft",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "HIGH-USD": {
+    "normalized_id": "HIGH/USD",
+    "base": "HIGH",
+    "quote": "USD",
+    "display_name": "HIGH / US Dollar",
+    "description": "HIGH to US Dollar spot trading pair",
+    "tags": [
+      "high",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "HNT-USD": {
+    "normalized_id": "HNT/USD",
+    "base": "HNT",
+    "quote": "USD",
+    "display_name": "HNT / US Dollar",
+    "description": "HNT to US Dollar spot trading pair",
+    "tags": [
+      "hnt",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "HOME-USD": {
+    "normalized_id": "HOME/USD",
+    "base": "HOME",
+    "quote": "USD",
+    "display_name": "HOME / US Dollar",
+    "description": "HOME to US Dollar spot trading pair",
+    "tags": [
+      "home",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "HONEY-USD": {
+    "normalized_id": "HONEY/USD",
+    "base": "HONEY",
+    "quote": "USD",
+    "display_name": "HONEY / US Dollar",
+    "description": "HONEY to US Dollar spot trading pair",
+    "tags": [
+      "honey",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "HOPR-USD": {
+    "normalized_id": "HOPR/USD",
+    "base": "HOPR",
+    "quote": "USD",
+    "display_name": "HOPR / US Dollar",
+    "description": "HOPR to US Dollar spot trading pair",
+    "tags": [
+      "hopr",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ICP-BTC": {
+    "normalized_id": "ICP/BTC",
+    "base": "ICP",
+    "quote": "BTC",
+    "display_name": "Internet Computer / Bitcoin",
+    "description": "Internet Computer to Bitcoin spot trading pair",
+    "tags": [
+      "icp",
+      "internet computer",
+      "btc"
+    ],
+    "category": "crypto"
+  },
+  "ICP-EUR": {
+    "normalized_id": "ICP/EUR",
+    "base": "ICP",
+    "quote": "EUR",
+    "display_name": "Internet Computer / Euro",
+    "description": "Internet Computer to Euro spot trading pair",
+    "tags": [
+      "icp",
+      "internet computer",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "ICP-GBP": {
+    "normalized_id": "ICP/GBP",
+    "base": "ICP",
+    "quote": "GBP",
+    "display_name": "Internet Computer / British Pound",
+    "description": "Internet Computer to British Pound spot trading pair",
+    "tags": [
+      "icp",
+      "internet computer",
+      "gbp",
+      "fiat",
+      "british pound"
+    ],
+    "category": "crypto"
+  },
+  "ICP-USD": {
+    "normalized_id": "ICP/USD",
+    "base": "ICP",
+    "quote": "USD",
+    "display_name": "Internet Computer / US Dollar",
+    "description": "Internet Computer to US Dollar spot trading pair",
+    "tags": [
+      "icp",
+      "internet computer",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ICP-USDT": {
+    "normalized_id": "ICP/USD",
+    "base": "ICP",
+    "quote": "USD",
+    "display_name": "Internet Computer / US Dollar",
+    "description": "Internet Computer to US Dollar spot trading pair",
+    "tags": [
+      "icp",
+      "internet computer",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "IDEX-USD": {
+    "normalized_id": "IDEX/USD",
+    "base": "IDEX",
+    "quote": "USD",
+    "display_name": "IDEX / US Dollar",
+    "description": "IDEX to US Dollar spot trading pair",
+    "tags": [
+      "idex",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ILV-USD": {
+    "normalized_id": "ILV/USD",
+    "base": "ILV",
+    "quote": "USD",
+    "display_name": "ILV / US Dollar",
+    "description": "ILV to US Dollar spot trading pair",
+    "tags": [
+      "ilv",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "IMX-USD": {
+    "normalized_id": "IMX/USD",
+    "base": "IMX",
+    "quote": "USD",
+    "display_name": "IMX / US Dollar",
+    "description": "IMX to US Dollar spot trading pair",
+    "tags": [
+      "imx",
+      "layer2",
+      "gaming",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "IMX-USDT": {
+    "normalized_id": "IMX/USD",
+    "base": "IMX",
+    "quote": "USD",
+    "display_name": "IMX / US Dollar",
+    "description": "IMX to US Dollar spot trading pair",
+    "tags": [
+      "imx",
+      "layer2",
+      "gaming",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "INDEX-USD": {
+    "normalized_id": "INDEX/USD",
+    "base": "INDEX",
+    "quote": "USD",
+    "display_name": "INDEX / US Dollar",
+    "description": "INDEX to US Dollar spot trading pair",
+    "tags": [
+      "index",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "INJ-USD": {
+    "normalized_id": "INJ/USD",
+    "base": "INJ",
+    "quote": "USD",
+    "display_name": "Injective / US Dollar",
+    "description": "Injective to US Dollar spot trading pair",
+    "tags": [
+      "inj",
+      "injective",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "INV-USD": {
+    "normalized_id": "INV/USD",
+    "base": "INV",
+    "quote": "USD",
+    "display_name": "INV / US Dollar",
+    "description": "INV to US Dollar spot trading pair",
+    "tags": [
+      "inv",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "IO-USD": {
+    "normalized_id": "IO/USD",
+    "base": "IO",
+    "quote": "USD",
+    "display_name": "IO / US Dollar",
+    "description": "IO to US Dollar spot trading pair",
+    "tags": [
+      "io",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "IOTX-USD": {
+    "normalized_id": "IOTX/USD",
+    "base": "IOTX",
+    "quote": "USD",
+    "display_name": "IOTX / US Dollar",
+    "description": "IOTX to US Dollar spot trading pair",
+    "tags": [
+      "iotx",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "IP-USD": {
+    "normalized_id": "IP/USD",
+    "base": "IP",
+    "quote": "USD",
+    "display_name": "IP / US Dollar",
+    "description": "IP to US Dollar spot trading pair",
+    "tags": [
+      "ip",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "JASMY-USD": {
+    "normalized_id": "JASMY/USD",
+    "base": "JASMY",
+    "quote": "USD",
+    "display_name": "JASMY / US Dollar",
+    "description": "JASMY to US Dollar spot trading pair",
+    "tags": [
+      "jasmy",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "JASMY-USDT": {
+    "normalized_id": "JASMY/USD",
+    "base": "JASMY",
+    "quote": "USD",
+    "display_name": "JASMY / US Dollar",
+    "description": "JASMY to US Dollar spot trading pair",
+    "tags": [
+      "jasmy",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "JITOSOL-USD": {
+    "normalized_id": "JITOSOL/USD",
+    "base": "JITOSOL",
+    "quote": "USD",
+    "display_name": "JITOSOL / US Dollar",
+    "description": "JITOSOL to US Dollar spot trading pair",
+    "tags": [
+      "jitosol",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "JTO-USD": {
+    "normalized_id": "JTO/USD",
+    "base": "JTO",
+    "quote": "USD",
+    "display_name": "JTO / US Dollar",
+    "description": "JTO to US Dollar spot trading pair",
+    "tags": [
+      "jto",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "KAITO-USD": {
+    "normalized_id": "KAITO/USD",
+    "base": "KAITO",
+    "quote": "USD",
+    "display_name": "KAITO / US Dollar",
+    "description": "KAITO to US Dollar spot trading pair",
+    "tags": [
+      "kaito",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "KARRAT-USD": {
+    "normalized_id": "KARRAT/USD",
+    "base": "KARRAT",
+    "quote": "USD",
+    "display_name": "KARRAT / US Dollar",
+    "description": "KARRAT to US Dollar spot trading pair",
+    "tags": [
+      "karrat",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "KAVA-USD": {
+    "normalized_id": "KAVA/USD",
+    "base": "KAVA",
+    "quote": "USD",
+    "display_name": "KAVA / US Dollar",
+    "description": "KAVA to US Dollar spot trading pair",
+    "tags": [
+      "kava",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "KERNEL-USD": {
+    "normalized_id": "KERNEL/USD",
+    "base": "KERNEL",
+    "quote": "USD",
+    "display_name": "KERNEL / US Dollar",
+    "description": "KERNEL to US Dollar spot trading pair",
+    "tags": [
+      "kernel",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "KEYCAT-USD": {
+    "normalized_id": "KEYCAT/USD",
+    "base": "KEYCAT",
+    "quote": "USD",
+    "display_name": "KEYCAT / US Dollar",
+    "description": "KEYCAT to US Dollar spot trading pair",
+    "tags": [
+      "keycat",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "KNC-USD": {
+    "normalized_id": "KNC/USD",
+    "base": "KNC",
+    "quote": "USD",
+    "display_name": "KNC / US Dollar",
+    "description": "KNC to US Dollar spot trading pair",
+    "tags": [
+      "knc",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "KRL-USD": {
+    "normalized_id": "KRL/USD",
+    "base": "KRL",
+    "quote": "USD",
+    "display_name": "KRL / US Dollar",
+    "description": "KRL to US Dollar spot trading pair",
+    "tags": [
+      "krl",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "KSM-USD": {
+    "normalized_id": "KSM/USD",
+    "base": "KSM",
+    "quote": "USD",
+    "display_name": "KSM / US Dollar",
+    "description": "KSM to US Dollar spot trading pair",
+    "tags": [
+      "ksm",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "L3-USD": {
+    "normalized_id": "L3/USD",
+    "base": "L3",
+    "quote": "USD",
+    "display_name": "L3 / US Dollar",
+    "description": "L3 to US Dollar spot trading pair",
+    "tags": [
+      "l3",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "LA-USD": {
+    "normalized_id": "LA/USD",
+    "base": "LA",
+    "quote": "USD",
+    "display_name": "LA / US Dollar",
+    "description": "LA to US Dollar spot trading pair",
+    "tags": [
+      "la",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "LCX-USD": {
+    "normalized_id": "LCX/USD",
+    "base": "LCX",
+    "quote": "USD",
+    "display_name": "LCX / US Dollar",
+    "description": "LCX to US Dollar spot trading pair",
+    "tags": [
+      "lcx",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "LDO-USD": {
+    "normalized_id": "LDO/USD",
+    "base": "LDO",
+    "quote": "USD",
+    "display_name": "LDO / US Dollar",
+    "description": "LDO to US Dollar spot trading pair",
+    "tags": [
+      "ldo",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "LINK-BTC": {
+    "normalized_id": "LINK/BTC",
+    "base": "LINK",
+    "quote": "BTC",
+    "display_name": "Chainlink / Bitcoin",
+    "description": "Chainlink to Bitcoin spot trading pair",
+    "tags": [
+      "link",
+      "chainlink",
+      "oracle",
+      "btc"
+    ],
+    "category": "crypto"
+  },
+  "LINK-ETH": {
+    "normalized_id": "LINK/ETH",
+    "base": "LINK",
+    "quote": "ETH",
+    "display_name": "Chainlink / Ethereum",
+    "description": "Chainlink to Ethereum spot trading pair",
+    "tags": [
+      "link",
+      "chainlink",
+      "oracle",
+      "eth"
+    ],
+    "category": "crypto"
+  },
+  "LINK-EUR": {
+    "normalized_id": "LINK/EUR",
+    "base": "LINK",
+    "quote": "EUR",
+    "display_name": "Chainlink / Euro",
+    "description": "Chainlink to Euro spot trading pair",
+    "tags": [
+      "link",
+      "chainlink",
+      "oracle",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "LINK-GBP": {
+    "normalized_id": "LINK/GBP",
+    "base": "LINK",
+    "quote": "GBP",
+    "display_name": "Chainlink / British Pound",
+    "description": "Chainlink to British Pound spot trading pair",
+    "tags": [
+      "link",
+      "chainlink",
+      "oracle",
+      "gbp",
+      "fiat",
+      "british pound"
+    ],
+    "category": "crypto"
+  },
+  "LINK-USD": {
+    "normalized_id": "LINK/USD",
+    "base": "LINK",
+    "quote": "USD",
+    "display_name": "Chainlink / US Dollar",
+    "description": "Chainlink to US Dollar spot trading pair",
+    "tags": [
+      "link",
+      "chainlink",
+      "oracle",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "LINK-USDT": {
+    "normalized_id": "LINK/USD",
+    "base": "LINK",
+    "quote": "USD",
+    "display_name": "Chainlink / US Dollar",
+    "description": "Chainlink to US Dollar spot trading pair",
+    "tags": [
+      "link",
+      "chainlink",
+      "oracle",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "LOKA-USD": {
+    "normalized_id": "LOKA/USD",
+    "base": "LOKA",
+    "quote": "USD",
+    "display_name": "LOKA / US Dollar",
+    "description": "LOKA to US Dollar spot trading pair",
+    "tags": [
+      "loka",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "LPT-USD": {
+    "normalized_id": "LPT/USD",
+    "base": "LPT",
+    "quote": "USD",
+    "display_name": "LPT / US Dollar",
+    "description": "LPT to US Dollar spot trading pair",
+    "tags": [
+      "lpt",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "LQTY-USD": {
+    "normalized_id": "LQTY/USD",
+    "base": "LQTY",
+    "quote": "USD",
+    "display_name": "LQTY / US Dollar",
+    "description": "LQTY to US Dollar spot trading pair",
+    "tags": [
+      "lqty",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "LRC-BTC": {
+    "normalized_id": "LRC/BTC",
+    "base": "LRC",
+    "quote": "BTC",
+    "display_name": "LRC / Bitcoin",
+    "description": "LRC to Bitcoin spot trading pair",
+    "tags": [
+      "lrc",
+      "btc"
+    ],
+    "category": "crypto"
+  },
+  "LRC-USD": {
+    "normalized_id": "LRC/USD",
+    "base": "LRC",
+    "quote": "USD",
+    "display_name": "LRC / US Dollar",
+    "description": "LRC to US Dollar spot trading pair",
+    "tags": [
+      "lrc",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "LRC-USDT": {
+    "normalized_id": "LRC/USD",
+    "base": "LRC",
+    "quote": "USD",
+    "display_name": "LRC / US Dollar",
+    "description": "LRC to US Dollar spot trading pair",
+    "tags": [
+      "lrc",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "LRDS-USD": {
+    "normalized_id": "LRDS/USD",
+    "base": "LRDS",
+    "quote": "USD",
+    "display_name": "LRDS / US Dollar",
+    "description": "LRDS to US Dollar spot trading pair",
+    "tags": [
+      "lrds",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "LSETH-ETH": {
+    "normalized_id": "LSETH/ETH",
+    "base": "LSETH",
+    "quote": "ETH",
+    "display_name": "LSETH / Ethereum",
+    "description": "LSETH to Ethereum spot trading pair",
+    "tags": [
+      "lseth",
+      "eth"
+    ],
+    "category": "crypto"
+  },
+  "LSETH-USD": {
+    "normalized_id": "LSETH/USD",
+    "base": "LSETH",
+    "quote": "USD",
+    "display_name": "LSETH / US Dollar",
+    "description": "LSETH to US Dollar spot trading pair",
+    "tags": [
+      "lseth",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "LTC-BTC": {
+    "normalized_id": "LTC/BTC",
+    "base": "LTC",
+    "quote": "BTC",
+    "display_name": "Litecoin / Bitcoin",
+    "description": "Litecoin to Bitcoin spot trading pair",
+    "tags": [
+      "ltc",
+      "litecoin",
+      "btc"
+    ],
+    "category": "crypto"
+  },
+  "LTC-EUR": {
+    "normalized_id": "LTC/EUR",
+    "base": "LTC",
+    "quote": "EUR",
+    "display_name": "Litecoin / Euro",
+    "description": "Litecoin to Euro spot trading pair",
+    "tags": [
+      "ltc",
+      "litecoin",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "LTC-GBP": {
+    "normalized_id": "LTC/GBP",
+    "base": "LTC",
+    "quote": "GBP",
+    "display_name": "Litecoin / British Pound",
+    "description": "Litecoin to British Pound spot trading pair",
+    "tags": [
+      "ltc",
+      "litecoin",
+      "gbp",
+      "fiat",
+      "british pound"
+    ],
+    "category": "crypto"
+  },
+  "LTC-USD": {
+    "normalized_id": "LTC/USD",
+    "base": "LTC",
+    "quote": "USD",
+    "display_name": "Litecoin / US Dollar",
+    "description": "Litecoin to US Dollar spot trading pair",
+    "tags": [
+      "ltc",
+      "litecoin",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "MAGIC-USD": {
+    "normalized_id": "MAGIC/USD",
+    "base": "MAGIC",
+    "quote": "USD",
+    "display_name": "MAGIC / US Dollar",
+    "description": "MAGIC to US Dollar spot trading pair",
+    "tags": [
+      "magic",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "MAMO-USD": {
+    "normalized_id": "MAMO/USD",
+    "base": "MAMO",
+    "quote": "USD",
+    "display_name": "MAMO / US Dollar",
+    "description": "MAMO to US Dollar spot trading pair",
+    "tags": [
+      "mamo",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "MANA-ETH": {
+    "normalized_id": "MANA/ETH",
+    "base": "MANA",
+    "quote": "ETH",
+    "display_name": "Decentraland / Ethereum",
+    "description": "Decentraland to Ethereum spot trading pair",
+    "tags": [
+      "mana",
+      "decentraland",
+      "gaming",
+      "eth"
+    ],
+    "category": "crypto"
+  },
+  "MANA-EUR": {
+    "normalized_id": "MANA/EUR",
+    "base": "MANA",
+    "quote": "EUR",
+    "display_name": "Decentraland / Euro",
+    "description": "Decentraland to Euro spot trading pair",
+    "tags": [
+      "mana",
+      "decentraland",
+      "gaming",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "MANA-USD": {
+    "normalized_id": "MANA/USD",
+    "base": "MANA",
+    "quote": "USD",
+    "display_name": "Decentraland / US Dollar",
+    "description": "Decentraland to US Dollar spot trading pair",
+    "tags": [
+      "mana",
+      "decentraland",
+      "gaming",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "MANTLE-USD": {
+    "normalized_id": "MANTLE/USD",
+    "base": "MANTLE",
+    "quote": "USD",
+    "display_name": "MANTLE / US Dollar",
+    "description": "MANTLE to US Dollar spot trading pair",
+    "tags": [
+      "mantle",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "MASK-EUR": {
+    "normalized_id": "MASK/EUR",
+    "base": "MASK",
+    "quote": "EUR",
+    "display_name": "MASK / Euro",
+    "description": "MASK to Euro spot trading pair",
+    "tags": [
+      "mask",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "MASK-GBP": {
+    "normalized_id": "MASK/GBP",
+    "base": "MASK",
+    "quote": "GBP",
+    "display_name": "MASK / British Pound",
+    "description": "MASK to British Pound spot trading pair",
+    "tags": [
+      "mask",
+      "gbp",
+      "fiat",
+      "british pound"
+    ],
+    "category": "crypto"
+  },
+  "MASK-USD": {
+    "normalized_id": "MASK/USD",
+    "base": "MASK",
+    "quote": "USD",
+    "display_name": "MASK / US Dollar",
+    "description": "MASK to US Dollar spot trading pair",
+    "tags": [
+      "mask",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "MASK-USDT": {
+    "normalized_id": "MASK/USD",
+    "base": "MASK",
+    "quote": "USD",
+    "display_name": "MASK / US Dollar",
+    "description": "MASK to US Dollar spot trading pair",
+    "tags": [
+      "mask",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "MATH-USD": {
+    "normalized_id": "MATH/USD",
+    "base": "MATH",
+    "quote": "USD",
+    "display_name": "MATH / US Dollar",
+    "description": "MATH to US Dollar spot trading pair",
+    "tags": [
+      "math",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "MATIC-BTC": {
+    "normalized_id": "MATIC/BTC",
+    "base": "MATIC",
+    "quote": "BTC",
+    "display_name": "Polygon / Bitcoin",
+    "description": "Polygon to Bitcoin spot trading pair",
+    "tags": [
+      "matic",
+      "polygon",
+      "layer2",
+      "btc"
+    ],
+    "category": "crypto"
+  },
+  "MATIC-EUR": {
+    "normalized_id": "MATIC/EUR",
+    "base": "MATIC",
+    "quote": "EUR",
+    "display_name": "Polygon / Euro",
+    "description": "Polygon to Euro spot trading pair",
+    "tags": [
+      "matic",
+      "polygon",
+      "layer2",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "MATIC-GBP": {
+    "normalized_id": "MATIC/GBP",
+    "base": "MATIC",
+    "quote": "GBP",
+    "display_name": "Polygon / British Pound",
+    "description": "Polygon to British Pound spot trading pair",
+    "tags": [
+      "matic",
+      "polygon",
+      "layer2",
+      "gbp",
+      "fiat",
+      "british pound"
+    ],
+    "category": "crypto"
+  },
+  "MATIC-USD": {
+    "normalized_id": "MATIC/USD",
+    "base": "MATIC",
+    "quote": "USD",
+    "display_name": "Polygon / US Dollar",
+    "description": "Polygon to US Dollar spot trading pair",
+    "tags": [
+      "matic",
+      "polygon",
+      "layer2",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "MATIC-USDT": {
+    "normalized_id": "MATIC/USD",
+    "base": "MATIC",
+    "quote": "USD",
+    "display_name": "Polygon / US Dollar",
+    "description": "Polygon to US Dollar spot trading pair",
+    "tags": [
+      "matic",
+      "polygon",
+      "layer2",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "MDT-USD": {
+    "normalized_id": "MDT/USD",
+    "base": "MDT",
+    "quote": "USD",
+    "display_name": "MDT / US Dollar",
+    "description": "MDT to US Dollar spot trading pair",
+    "tags": [
+      "mdt",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ME-USD": {
+    "normalized_id": "ME/USD",
+    "base": "ME",
+    "quote": "USD",
+    "display_name": "ME / US Dollar",
+    "description": "ME to US Dollar spot trading pair",
+    "tags": [
+      "me",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "METIS-USD": {
+    "normalized_id": "METIS/USD",
+    "base": "METIS",
+    "quote": "USD",
+    "display_name": "METIS / US Dollar",
+    "description": "METIS to US Dollar spot trading pair",
+    "tags": [
+      "metis",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "MINA-EUR": {
+    "normalized_id": "MINA/EUR",
+    "base": "MINA",
+    "quote": "EUR",
+    "display_name": "MINA / Euro",
+    "description": "MINA to Euro spot trading pair",
+    "tags": [
+      "mina",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "MINA-USD": {
+    "normalized_id": "MINA/USD",
+    "base": "MINA",
+    "quote": "USD",
+    "display_name": "MINA / US Dollar",
+    "description": "MINA to US Dollar spot trading pair",
+    "tags": [
+      "mina",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "MINA-USDT": {
+    "normalized_id": "MINA/USD",
+    "base": "MINA",
+    "quote": "USD",
+    "display_name": "MINA / US Dollar",
+    "description": "MINA to US Dollar spot trading pair",
+    "tags": [
+      "mina",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "MKR-BTC": {
+    "normalized_id": "MKR/BTC",
+    "base": "MKR",
+    "quote": "BTC",
+    "display_name": "Maker / Bitcoin",
+    "description": "Maker to Bitcoin spot trading pair",
+    "tags": [
+      "mkr",
+      "maker",
+      "defi",
+      "btc"
+    ],
+    "category": "crypto"
+  },
+  "MKR-USD": {
+    "normalized_id": "MKR/USD",
+    "base": "MKR",
+    "quote": "USD",
+    "display_name": "Maker / US Dollar",
+    "description": "Maker to US Dollar spot trading pair",
+    "tags": [
+      "mkr",
+      "maker",
+      "defi",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "MLN-USD": {
+    "normalized_id": "MLN/USD",
+    "base": "MLN",
+    "quote": "USD",
+    "display_name": "MLN / US Dollar",
+    "description": "MLN to US Dollar spot trading pair",
+    "tags": [
+      "mln",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "MNDE-USD": {
+    "normalized_id": "MNDE/USD",
+    "base": "MNDE",
+    "quote": "USD",
+    "display_name": "MNDE / US Dollar",
+    "description": "MNDE to US Dollar spot trading pair",
+    "tags": [
+      "mnde",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "MOG-USD": {
+    "normalized_id": "MOG/USD",
+    "base": "MOG",
+    "quote": "USD",
+    "display_name": "MOG / US Dollar",
+    "description": "MOG to US Dollar spot trading pair",
+    "tags": [
+      "mog",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "MOODENG-USD": {
+    "normalized_id": "MOODENG/USD",
+    "base": "MOODENG",
+    "quote": "USD",
+    "display_name": "MOODENG / US Dollar",
+    "description": "MOODENG to US Dollar spot trading pair",
+    "tags": [
+      "moodeng",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "MORPHO-USD": {
+    "normalized_id": "MORPHO/USD",
+    "base": "MORPHO",
+    "quote": "USD",
+    "display_name": "MORPHO / US Dollar",
+    "description": "MORPHO to US Dollar spot trading pair",
+    "tags": [
+      "morpho",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "MPLX-USD": {
+    "normalized_id": "MPLX/USD",
+    "base": "MPLX",
+    "quote": "USD",
+    "display_name": "MPLX / US Dollar",
+    "description": "MPLX to US Dollar spot trading pair",
+    "tags": [
+      "mplx",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "MSOL-USD": {
+    "normalized_id": "MSOL/USD",
+    "base": "MSOL",
+    "quote": "USD",
+    "display_name": "MSOL / US Dollar",
+    "description": "MSOL to US Dollar spot trading pair",
+    "tags": [
+      "msol",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "MUSE-USD": {
+    "normalized_id": "MUSE/USD",
+    "base": "MUSE",
+    "quote": "USD",
+    "display_name": "MUSE / US Dollar",
+    "description": "MUSE to US Dollar spot trading pair",
+    "tags": [
+      "muse",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "NCT-USD": {
+    "normalized_id": "NCT/USD",
+    "base": "NCT",
+    "quote": "USD",
+    "display_name": "NCT / US Dollar",
+    "description": "NCT to US Dollar spot trading pair",
+    "tags": [
+      "nct",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "NEAR-USD": {
+    "normalized_id": "NEAR/USD",
+    "base": "NEAR",
+    "quote": "USD",
+    "display_name": "NEAR Protocol / US Dollar",
+    "description": "NEAR Protocol to US Dollar spot trading pair",
+    "tags": [
+      "near",
+      "near protocol",
+      "layer1",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "NEAR-USDT": {
+    "normalized_id": "NEAR/USD",
+    "base": "NEAR",
+    "quote": "USD",
+    "display_name": "NEAR Protocol / US Dollar",
+    "description": "NEAR Protocol to US Dollar spot trading pair",
+    "tags": [
+      "near",
+      "near protocol",
+      "layer1",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "NEON-USD": {
+    "normalized_id": "NEON/USD",
+    "base": "NEON",
+    "quote": "USD",
+    "display_name": "NEON / US Dollar",
+    "description": "NEON to US Dollar spot trading pair",
+    "tags": [
+      "neon",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "NEWT-USD": {
+    "normalized_id": "NEWT/USD",
+    "base": "NEWT",
+    "quote": "USD",
+    "display_name": "NEWT / US Dollar",
+    "description": "NEWT to US Dollar spot trading pair",
+    "tags": [
+      "newt",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "NKN-USD": {
+    "normalized_id": "NKN/USD",
+    "base": "NKN",
+    "quote": "USD",
+    "display_name": "NKN / US Dollar",
+    "description": "NKN to US Dollar spot trading pair",
+    "tags": [
+      "nkn",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "NMR-USD": {
+    "normalized_id": "NMR/USD",
+    "base": "NMR",
+    "quote": "USD",
+    "display_name": "NMR / US Dollar",
+    "description": "NMR to US Dollar spot trading pair",
+    "tags": [
+      "nmr",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "OCEAN-USD": {
+    "normalized_id": "OCEAN/USD",
+    "base": "OCEAN",
+    "quote": "USD",
+    "display_name": "OCEAN / US Dollar",
+    "description": "OCEAN to US Dollar spot trading pair",
+    "tags": [
+      "ocean",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "OGN-USD": {
+    "normalized_id": "OGN/USD",
+    "base": "OGN",
+    "quote": "USD",
+    "display_name": "OGN / US Dollar",
+    "description": "OGN to US Dollar spot trading pair",
+    "tags": [
+      "ogn",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "OMNI-USD": {
+    "normalized_id": "OMNI/USD",
+    "base": "OMNI",
+    "quote": "USD",
+    "display_name": "OMNI / US Dollar",
+    "description": "OMNI to US Dollar spot trading pair",
+    "tags": [
+      "omni",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ONDO-USD": {
+    "normalized_id": "ONDO/USD",
+    "base": "ONDO",
+    "quote": "USD",
+    "display_name": "ONDO / US Dollar",
+    "description": "ONDO to US Dollar spot trading pair",
+    "tags": [
+      "ondo",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "OP-USD": {
+    "normalized_id": "OP/USD",
+    "base": "OP",
+    "quote": "USD",
+    "display_name": "Optimism / US Dollar",
+    "description": "Optimism to US Dollar spot trading pair",
+    "tags": [
+      "op",
+      "optimism",
+      "layer2",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "OP-USDT": {
+    "normalized_id": "OP/USD",
+    "base": "OP",
+    "quote": "USD",
+    "display_name": "Optimism / US Dollar",
+    "description": "Optimism to US Dollar spot trading pair",
+    "tags": [
+      "op",
+      "optimism",
+      "layer2",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ORCA-USD": {
+    "normalized_id": "ORCA/USD",
+    "base": "ORCA",
+    "quote": "USD",
+    "display_name": "ORCA / US Dollar",
+    "description": "ORCA to US Dollar spot trading pair",
+    "tags": [
+      "orca",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "OSMO-USD": {
+    "normalized_id": "OSMO/USD",
+    "base": "OSMO",
+    "quote": "USD",
+    "display_name": "OSMO / US Dollar",
+    "description": "OSMO to US Dollar spot trading pair",
+    "tags": [
+      "osmo",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "OXT-USD": {
+    "normalized_id": "OXT/USD",
+    "base": "OXT",
+    "quote": "USD",
+    "display_name": "OXT / US Dollar",
+    "description": "OXT to US Dollar spot trading pair",
+    "tags": [
+      "oxt",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "PAX-USD": {
+    "normalized_id": "PAX/USD",
+    "base": "PAX",
+    "quote": "USD",
+    "display_name": "PAX / US Dollar",
+    "description": "PAX to US Dollar spot trading pair",
+    "tags": [
+      "pax",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "PAXG-USD": {
+    "normalized_id": "PAXG/USD",
+    "base": "PAXG",
+    "quote": "USD",
+    "display_name": "PAXG / US Dollar",
+    "description": "PAXG to US Dollar spot trading pair",
+    "tags": [
+      "paxg",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "PENDLE-USD": {
+    "normalized_id": "PENDLE/USD",
+    "base": "PENDLE",
+    "quote": "USD",
+    "display_name": "PENDLE / US Dollar",
+    "description": "PENDLE to US Dollar spot trading pair",
+    "tags": [
+      "pendle",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "PENGU-USD": {
+    "normalized_id": "PENGU/USD",
+    "base": "PENGU",
+    "quote": "USD",
+    "display_name": "PENGU / US Dollar",
+    "description": "PENGU to US Dollar spot trading pair",
+    "tags": [
+      "pengu",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "PEPE-USD": {
+    "normalized_id": "PEPE/USD",
+    "base": "PEPE",
+    "quote": "USD",
+    "display_name": "Pepe / US Dollar",
+    "description": "Pepe to US Dollar spot trading pair",
+    "tags": [
+      "pepe",
+      "meme",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "PERP-USD": {
+    "normalized_id": "PERP/USD",
+    "base": "PERP",
+    "quote": "USD",
+    "display_name": "PERP / US Dollar",
+    "description": "PERP to US Dollar spot trading pair",
+    "tags": [
+      "perp",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "PIRATE-USD": {
+    "normalized_id": "PIRATE/USD",
+    "base": "PIRATE",
+    "quote": "USD",
+    "display_name": "PIRATE / US Dollar",
+    "description": "PIRATE to US Dollar spot trading pair",
+    "tags": [
+      "pirate",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "PLU-USD": {
+    "normalized_id": "PLU/USD",
+    "base": "PLU",
+    "quote": "USD",
+    "display_name": "PLU / US Dollar",
+    "description": "PLU to US Dollar spot trading pair",
+    "tags": [
+      "plu",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "PNG-USD": {
+    "normalized_id": "PNG/USD",
+    "base": "PNG",
+    "quote": "USD",
+    "display_name": "PNG / US Dollar",
+    "description": "PNG to US Dollar spot trading pair",
+    "tags": [
+      "png",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "PNUT-USD": {
+    "normalized_id": "PNUT/USD",
+    "base": "PNUT",
+    "quote": "USD",
+    "display_name": "PNUT / US Dollar",
+    "description": "PNUT to US Dollar spot trading pair",
+    "tags": [
+      "pnut",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "POL-USD": {
+    "normalized_id": "POL/USD",
+    "base": "POL",
+    "quote": "USD",
+    "display_name": "POL / US Dollar",
+    "description": "POL to US Dollar spot trading pair",
+    "tags": [
+      "pol",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "POLS-USD": {
+    "normalized_id": "POLS/USD",
+    "base": "POLS",
+    "quote": "USD",
+    "display_name": "POLS / US Dollar",
+    "description": "POLS to US Dollar spot trading pair",
+    "tags": [
+      "pols",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "POND-USD": {
+    "normalized_id": "POND/USD",
+    "base": "POND",
+    "quote": "USD",
+    "display_name": "POND / US Dollar",
+    "description": "POND to US Dollar spot trading pair",
+    "tags": [
+      "pond",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "POPCAT-USD": {
+    "normalized_id": "POPCAT/USD",
+    "base": "POPCAT",
+    "quote": "USD",
+    "display_name": "POPCAT / US Dollar",
+    "description": "POPCAT to US Dollar spot trading pair",
+    "tags": [
+      "popcat",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "POWR-USD": {
+    "normalized_id": "POWR/USD",
+    "base": "POWR",
+    "quote": "USD",
+    "display_name": "POWR / US Dollar",
+    "description": "POWR to US Dollar spot trading pair",
+    "tags": [
+      "powr",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "PRCL-USD": {
+    "normalized_id": "PRCL/USD",
+    "base": "PRCL",
+    "quote": "USD",
+    "display_name": "PRCL / US Dollar",
+    "description": "PRCL to US Dollar spot trading pair",
+    "tags": [
+      "prcl",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "PRIME-USD": {
+    "normalized_id": "PRIME/USD",
+    "base": "PRIME",
+    "quote": "USD",
+    "display_name": "PRIME / US Dollar",
+    "description": "PRIME to US Dollar spot trading pair",
+    "tags": [
+      "prime",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "PRO-USD": {
+    "normalized_id": "PRO/USD",
+    "base": "PRO",
+    "quote": "USD",
+    "display_name": "PRO / US Dollar",
+    "description": "PRO to US Dollar spot trading pair",
+    "tags": [
+      "pro",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "PROMPT-USD": {
+    "normalized_id": "PROMPT/USD",
+    "base": "PROMPT",
+    "quote": "USD",
+    "display_name": "PROMPT / US Dollar",
+    "description": "PROMPT to US Dollar spot trading pair",
+    "tags": [
+      "prompt",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "PROVE-USD": {
+    "normalized_id": "PROVE/USD",
+    "base": "PROVE",
+    "quote": "USD",
+    "display_name": "PROVE / US Dollar",
+    "description": "PROVE to US Dollar spot trading pair",
+    "tags": [
+      "prove",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "PUMP-USD": {
+    "normalized_id": "PUMP/USD",
+    "base": "PUMP",
+    "quote": "USD",
+    "display_name": "PUMP / US Dollar",
+    "description": "PUMP to US Dollar spot trading pair",
+    "tags": [
+      "pump",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "PUNDIX-USD": {
+    "normalized_id": "PUNDIX/USD",
+    "base": "PUNDIX",
+    "quote": "USD",
+    "display_name": "PUNDIX / US Dollar",
+    "description": "PUNDIX to US Dollar spot trading pair",
+    "tags": [
+      "pundix",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "PYR-USD": {
+    "normalized_id": "PYR/USD",
+    "base": "PYR",
+    "quote": "USD",
+    "display_name": "PYR / US Dollar",
+    "description": "PYR to US Dollar spot trading pair",
+    "tags": [
+      "pyr",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "PYTH-USD": {
+    "normalized_id": "PYTH/USD",
+    "base": "PYTH",
+    "quote": "USD",
+    "display_name": "Pyth Network / US Dollar",
+    "description": "Pyth Network to US Dollar spot trading pair",
+    "tags": [
+      "pyth",
+      "pyth network",
+      "oracle",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "QI-USD": {
+    "normalized_id": "QI/USD",
+    "base": "QI",
+    "quote": "USD",
+    "display_name": "QI / US Dollar",
+    "description": "QI to US Dollar spot trading pair",
+    "tags": [
+      "qi",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "QNT-USD": {
+    "normalized_id": "QNT/USD",
+    "base": "QNT",
+    "quote": "USD",
+    "display_name": "Quant / US Dollar",
+    "description": "Quant to US Dollar spot trading pair",
+    "tags": [
+      "qnt",
+      "quant",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "QNT-USDT": {
+    "normalized_id": "QNT/USD",
+    "base": "QNT",
+    "quote": "USD",
+    "display_name": "Quant / US Dollar",
+    "description": "Quant to US Dollar spot trading pair",
+    "tags": [
+      "qnt",
+      "quant",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "RAD-USD": {
+    "normalized_id": "RAD/USD",
+    "base": "RAD",
+    "quote": "USD",
+    "display_name": "RAD / US Dollar",
+    "description": "RAD to US Dollar spot trading pair",
+    "tags": [
+      "rad",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "RARE-USD": {
+    "normalized_id": "RARE/USD",
+    "base": "RARE",
+    "quote": "USD",
+    "display_name": "RARE / US Dollar",
+    "description": "RARE to US Dollar spot trading pair",
+    "tags": [
+      "rare",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "RARI-USD": {
+    "normalized_id": "RARI/USD",
+    "base": "RARI",
+    "quote": "USD",
+    "display_name": "RARI / US Dollar",
+    "description": "RARI to US Dollar spot trading pair",
+    "tags": [
+      "rari",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "RED-USD": {
+    "normalized_id": "RED/USD",
+    "base": "RED",
+    "quote": "USD",
+    "display_name": "RED / US Dollar",
+    "description": "RED to US Dollar spot trading pair",
+    "tags": [
+      "red",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "RENDER-USD": {
+    "normalized_id": "RENDER/USD",
+    "base": "RENDER",
+    "quote": "USD",
+    "display_name": "RENDER / US Dollar",
+    "description": "RENDER to US Dollar spot trading pair",
+    "tags": [
+      "render",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "REQ-USD": {
+    "normalized_id": "REQ/USD",
+    "base": "REQ",
+    "quote": "USD",
+    "display_name": "REQ / US Dollar",
+    "description": "REQ to US Dollar spot trading pair",
+    "tags": [
+      "req",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "REZ-USD": {
+    "normalized_id": "REZ/USD",
+    "base": "REZ",
+    "quote": "USD",
+    "display_name": "REZ / US Dollar",
+    "description": "REZ to US Dollar spot trading pair",
+    "tags": [
+      "rez",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "RLC-USD": {
+    "normalized_id": "RLC/USD",
+    "base": "RLC",
+    "quote": "USD",
+    "display_name": "RLC / US Dollar",
+    "description": "RLC to US Dollar spot trading pair",
+    "tags": [
+      "rlc",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "RONIN-USD": {
+    "normalized_id": "RONIN/USD",
+    "base": "RONIN",
+    "quote": "USD",
+    "display_name": "RONIN / US Dollar",
+    "description": "RONIN to US Dollar spot trading pair",
+    "tags": [
+      "ronin",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ROSE-USD": {
+    "normalized_id": "ROSE/USD",
+    "base": "ROSE",
+    "quote": "USD",
+    "display_name": "ROSE / US Dollar",
+    "description": "ROSE to US Dollar spot trading pair",
+    "tags": [
+      "rose",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ROSE-USDT": {
+    "normalized_id": "ROSE/USD",
+    "base": "ROSE",
+    "quote": "USD",
+    "display_name": "ROSE / US Dollar",
+    "description": "ROSE to US Dollar spot trading pair",
+    "tags": [
+      "rose",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "RPL-USD": {
+    "normalized_id": "RPL/USD",
+    "base": "RPL",
+    "quote": "USD",
+    "display_name": "RPL / US Dollar",
+    "description": "RPL to US Dollar spot trading pair",
+    "tags": [
+      "rpl",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "RSC-USD": {
+    "normalized_id": "RSC/USD",
+    "base": "RSC",
+    "quote": "USD",
+    "display_name": "RSC / US Dollar",
+    "description": "RSC to US Dollar spot trading pair",
+    "tags": [
+      "rsc",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "RSR-USD": {
+    "normalized_id": "RSR/USD",
+    "base": "RSR",
+    "quote": "USD",
+    "display_name": "RSR / US Dollar",
+    "description": "RSR to US Dollar spot trading pair",
+    "tags": [
+      "rsr",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "S-USD": {
+    "normalized_id": "S/USD",
+    "base": "S",
+    "quote": "USD",
+    "display_name": "S / US Dollar",
+    "description": "S to US Dollar spot trading pair",
+    "tags": [
+      "s",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "SAFE-USD": {
+    "normalized_id": "SAFE/USD",
+    "base": "SAFE",
+    "quote": "USD",
+    "display_name": "SAFE / US Dollar",
+    "description": "SAFE to US Dollar spot trading pair",
+    "tags": [
+      "safe",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "SAND-USD": {
+    "normalized_id": "SAND/USD",
+    "base": "SAND",
+    "quote": "USD",
+    "display_name": "The Sandbox / US Dollar",
+    "description": "The Sandbox to US Dollar spot trading pair",
+    "tags": [
+      "sand",
+      "the sandbox",
+      "gaming",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "SAND-USDT": {
+    "normalized_id": "SAND/USD",
+    "base": "SAND",
+    "quote": "USD",
+    "display_name": "The Sandbox / US Dollar",
+    "description": "The Sandbox to US Dollar spot trading pair",
+    "tags": [
+      "sand",
+      "the sandbox",
+      "gaming",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "SD-USD": {
+    "normalized_id": "SD/USD",
+    "base": "SD",
+    "quote": "USD",
+    "display_name": "SD / US Dollar",
+    "description": "SD to US Dollar spot trading pair",
+    "tags": [
+      "sd",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "SEAM-USD": {
+    "normalized_id": "SEAM/USD",
+    "base": "SEAM",
+    "quote": "USD",
+    "display_name": "SEAM / US Dollar",
+    "description": "SEAM to US Dollar spot trading pair",
+    "tags": [
+      "seam",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "SEI-USD": {
+    "normalized_id": "SEI/USD",
+    "base": "SEI",
+    "quote": "USD",
+    "display_name": "Sei / US Dollar",
+    "description": "Sei to US Dollar spot trading pair",
+    "tags": [
+      "sei",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "SHDW-USD": {
+    "normalized_id": "SHDW/USD",
+    "base": "SHDW",
+    "quote": "USD",
+    "display_name": "SHDW / US Dollar",
+    "description": "SHDW to US Dollar spot trading pair",
+    "tags": [
+      "shdw",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "SHIB-EUR": {
+    "normalized_id": "SHIB/EUR",
+    "base": "SHIB",
+    "quote": "EUR",
+    "display_name": "Shiba Inu / Euro",
+    "description": "Shiba Inu to Euro spot trading pair",
+    "tags": [
+      "shib",
+      "shiba inu",
+      "meme",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "SHIB-GBP": {
+    "normalized_id": "SHIB/GBP",
+    "base": "SHIB",
+    "quote": "GBP",
+    "display_name": "Shiba Inu / British Pound",
+    "description": "Shiba Inu to British Pound spot trading pair",
+    "tags": [
+      "shib",
+      "shiba inu",
+      "meme",
+      "gbp",
+      "fiat",
+      "british pound"
+    ],
+    "category": "crypto"
+  },
+  "SHIB-USD": {
+    "normalized_id": "SHIB/USD",
+    "base": "SHIB",
+    "quote": "USD",
+    "display_name": "Shiba Inu / US Dollar",
+    "description": "Shiba Inu to US Dollar spot trading pair",
+    "tags": [
+      "shib",
+      "shiba inu",
+      "meme",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "SHIB-USDT": {
+    "normalized_id": "SHIB/USD",
+    "base": "SHIB",
+    "quote": "USD",
+    "display_name": "Shiba Inu / US Dollar",
+    "description": "Shiba Inu to US Dollar spot trading pair",
+    "tags": [
+      "shib",
+      "shiba inu",
+      "meme",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "SHPING-USD": {
+    "normalized_id": "SHPING/USD",
+    "base": "SHPING",
+    "quote": "USD",
+    "display_name": "SHPING / US Dollar",
+    "description": "SHPING to US Dollar spot trading pair",
+    "tags": [
+      "shping",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "SKL-USD": {
+    "normalized_id": "SKL/USD",
+    "base": "SKL",
+    "quote": "USD",
+    "display_name": "SKL / US Dollar",
+    "description": "SKL to US Dollar spot trading pair",
+    "tags": [
+      "skl",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "SKY-USD": {
+    "normalized_id": "SKY/USD",
+    "base": "SKY",
+    "quote": "USD",
+    "display_name": "SKY / US Dollar",
+    "description": "SKY to US Dollar spot trading pair",
+    "tags": [
+      "sky",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "SNX-BTC": {
+    "normalized_id": "SNX/BTC",
+    "base": "SNX",
+    "quote": "BTC",
+    "display_name": "Synthetix / Bitcoin",
+    "description": "Synthetix to Bitcoin spot trading pair",
+    "tags": [
+      "snx",
+      "synthetix",
+      "defi",
+      "btc"
+    ],
+    "category": "crypto"
+  },
+  "SNX-EUR": {
+    "normalized_id": "SNX/EUR",
+    "base": "SNX",
+    "quote": "EUR",
+    "display_name": "Synthetix / Euro",
+    "description": "Synthetix to Euro spot trading pair",
+    "tags": [
+      "snx",
+      "synthetix",
+      "defi",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "SNX-GBP": {
+    "normalized_id": "SNX/GBP",
+    "base": "SNX",
+    "quote": "GBP",
+    "display_name": "Synthetix / British Pound",
+    "description": "Synthetix to British Pound spot trading pair",
+    "tags": [
+      "snx",
+      "synthetix",
+      "defi",
+      "gbp",
+      "fiat",
+      "british pound"
+    ],
+    "category": "crypto"
+  },
+  "SNX-USD": {
+    "normalized_id": "SNX/USD",
+    "base": "SNX",
+    "quote": "USD",
+    "display_name": "Synthetix / US Dollar",
+    "description": "Synthetix to US Dollar spot trading pair",
+    "tags": [
+      "snx",
+      "synthetix",
+      "defi",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "SOL-BTC": {
+    "normalized_id": "SOL/BTC",
+    "base": "SOL",
+    "quote": "BTC",
+    "display_name": "Solana / Bitcoin",
+    "description": "Solana to Bitcoin spot trading pair",
+    "tags": [
+      "sol",
+      "solana",
+      "layer1",
+      "btc"
+    ],
+    "category": "crypto"
+  },
+  "SOL-ETH": {
+    "normalized_id": "SOL/ETH",
+    "base": "SOL",
+    "quote": "ETH",
+    "display_name": "Solana / Ethereum",
+    "description": "Solana to Ethereum spot trading pair",
+    "tags": [
+      "sol",
+      "solana",
+      "layer1",
+      "eth"
+    ],
+    "category": "crypto"
+  },
+  "SOL-EUR": {
+    "normalized_id": "SOL/EUR",
+    "base": "SOL",
+    "quote": "EUR",
+    "display_name": "Solana / Euro",
+    "description": "Solana to Euro spot trading pair",
+    "tags": [
+      "sol",
+      "solana",
+      "layer1",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "SOL-GBP": {
+    "normalized_id": "SOL/GBP",
+    "base": "SOL",
+    "quote": "GBP",
+    "display_name": "Solana / British Pound",
+    "description": "Solana to British Pound spot trading pair",
+    "tags": [
+      "sol",
+      "solana",
+      "layer1",
+      "gbp",
+      "fiat",
+      "british pound"
+    ],
+    "category": "crypto"
+  },
+  "SOL-USD": {
+    "normalized_id": "SOL/USD",
+    "base": "SOL",
+    "quote": "USD",
+    "display_name": "Solana / US Dollar",
+    "description": "Solana to US Dollar spot trading pair",
+    "tags": [
+      "sol",
+      "solana",
+      "layer1",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "SOL-USDT": {
+    "normalized_id": "SOL/USD",
+    "base": "SOL",
+    "quote": "USD",
+    "display_name": "Solana / US Dollar",
+    "description": "Solana to US Dollar spot trading pair",
+    "tags": [
+      "sol",
+      "solana",
+      "layer1",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "SPA-USD": {
+    "normalized_id": "SPA/USD",
+    "base": "SPA",
+    "quote": "USD",
+    "display_name": "SPA / US Dollar",
+    "description": "SPA to US Dollar spot trading pair",
+    "tags": [
+      "spa",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "SPELL-USD": {
+    "normalized_id": "SPELL/USD",
+    "base": "SPELL",
+    "quote": "USD",
+    "display_name": "SPELL / US Dollar",
+    "description": "SPELL to US Dollar spot trading pair",
+    "tags": [
+      "spell",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "SPK-USD": {
+    "normalized_id": "SPK/USD",
+    "base": "SPK",
+    "quote": "USD",
+    "display_name": "SPK / US Dollar",
+    "description": "SPK to US Dollar spot trading pair",
+    "tags": [
+      "spk",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "SQD-USD": {
+    "normalized_id": "SQD/USD",
+    "base": "SQD",
+    "quote": "USD",
+    "display_name": "SQD / US Dollar",
+    "description": "SQD to US Dollar spot trading pair",
+    "tags": [
+      "sqd",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "STG-USD": {
+    "normalized_id": "STG/USD",
+    "base": "STG",
+    "quote": "USD",
+    "display_name": "STG / US Dollar",
+    "description": "STG to US Dollar spot trading pair",
+    "tags": [
+      "stg",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "STORJ-USD": {
+    "normalized_id": "STORJ/USD",
+    "base": "STORJ",
+    "quote": "USD",
+    "display_name": "STORJ / US Dollar",
+    "description": "STORJ to US Dollar spot trading pair",
+    "tags": [
+      "storj",
+      "storage",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "STRK-USD": {
+    "normalized_id": "STRK/USD",
+    "base": "STRK",
+    "quote": "USD",
+    "display_name": "STRK / US Dollar",
+    "description": "STRK to US Dollar spot trading pair",
+    "tags": [
+      "strk",
+      "layer2",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "STX-USD": {
+    "normalized_id": "STX/USD",
+    "base": "STX",
+    "quote": "USD",
+    "display_name": "STX / US Dollar",
+    "description": "STX to US Dollar spot trading pair",
+    "tags": [
+      "stx",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "STX-USDT": {
+    "normalized_id": "STX/USD",
+    "base": "STX",
+    "quote": "USD",
+    "display_name": "STX / US Dollar",
+    "description": "STX to US Dollar spot trading pair",
+    "tags": [
+      "stx",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "SUI-USD": {
+    "normalized_id": "SUI/USD",
+    "base": "SUI",
+    "quote": "USD",
+    "display_name": "Sui / US Dollar",
+    "description": "Sui to US Dollar spot trading pair",
+    "tags": [
+      "sui",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "SUKU-USD": {
+    "normalized_id": "SUKU/USD",
+    "base": "SUKU",
+    "quote": "USD",
+    "display_name": "SUKU / US Dollar",
+    "description": "SUKU to US Dollar spot trading pair",
+    "tags": [
+      "suku",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "SUPER-USD": {
+    "normalized_id": "SUPER/USD",
+    "base": "SUPER",
+    "quote": "USD",
+    "display_name": "SUPER / US Dollar",
+    "description": "SUPER to US Dollar spot trading pair",
+    "tags": [
+      "super",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "SUSHI-USD": {
+    "normalized_id": "SUSHI/USD",
+    "base": "SUSHI",
+    "quote": "USD",
+    "display_name": "SUSHI / US Dollar",
+    "description": "SUSHI to US Dollar spot trading pair",
+    "tags": [
+      "sushi",
+      "defi",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "SWELL-USD": {
+    "normalized_id": "SWELL/USD",
+    "base": "SWELL",
+    "quote": "USD",
+    "display_name": "SWELL / US Dollar",
+    "description": "SWELL to US Dollar spot trading pair",
+    "tags": [
+      "swell",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "SWFTC-USD": {
+    "normalized_id": "SWFTC/USD",
+    "base": "SWFTC",
+    "quote": "USD",
+    "display_name": "SWFTC / US Dollar",
+    "description": "SWFTC to US Dollar spot trading pair",
+    "tags": [
+      "swftc",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "SXT-USD": {
+    "normalized_id": "SXT/USD",
+    "base": "SXT",
+    "quote": "USD",
+    "display_name": "SXT / US Dollar",
+    "description": "SXT to US Dollar spot trading pair",
+    "tags": [
+      "sxt",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "SYRUP-USD": {
+    "normalized_id": "SYRUP/USD",
+    "base": "SYRUP",
+    "quote": "USD",
+    "display_name": "SYRUP / US Dollar",
+    "description": "SYRUP to US Dollar spot trading pair",
+    "tags": [
+      "syrup",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "T-USD": {
+    "normalized_id": "T/USD",
+    "base": "T",
+    "quote": "USD",
+    "display_name": "T / US Dollar",
+    "description": "T to US Dollar spot trading pair",
+    "tags": [
+      "t",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "TAO-USD": {
+    "normalized_id": "TAO/USD",
+    "base": "TAO",
+    "quote": "USD",
+    "display_name": "TAO / US Dollar",
+    "description": "TAO to US Dollar spot trading pair",
+    "tags": [
+      "tao",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "TIA-USD": {
+    "normalized_id": "TIA/USD",
+    "base": "TIA",
+    "quote": "USD",
+    "display_name": "Celestia / US Dollar",
+    "description": "Celestia to US Dollar spot trading pair",
+    "tags": [
+      "tia",
+      "celestia",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "TIME-USD": {
+    "normalized_id": "TIME/USD",
+    "base": "TIME",
+    "quote": "USD",
+    "display_name": "TIME / US Dollar",
+    "description": "TIME to US Dollar spot trading pair",
+    "tags": [
+      "time",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "TNSR-USD": {
+    "normalized_id": "TNSR/USD",
+    "base": "TNSR",
+    "quote": "USD",
+    "display_name": "TNSR / US Dollar",
+    "description": "TNSR to US Dollar spot trading pair",
+    "tags": [
+      "tnsr",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "TOSHI-USD": {
+    "normalized_id": "TOSHI/USD",
+    "base": "TOSHI",
+    "quote": "USD",
+    "display_name": "TOSHI / US Dollar",
+    "description": "TOSHI to US Dollar spot trading pair",
+    "tags": [
+      "toshi",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "TOWNS-USD": {
+    "normalized_id": "TOWNS/USD",
+    "base": "TOWNS",
+    "quote": "USD",
+    "display_name": "TOWNS / US Dollar",
+    "description": "TOWNS to US Dollar spot trading pair",
+    "tags": [
+      "towns",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "TRAC-USD": {
+    "normalized_id": "TRAC/USD",
+    "base": "TRAC",
+    "quote": "USD",
+    "display_name": "TRAC / US Dollar",
+    "description": "TRAC to US Dollar spot trading pair",
+    "tags": [
+      "trac",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "TRB-USD": {
+    "normalized_id": "TRB/USD",
+    "base": "TRB",
+    "quote": "USD",
+    "display_name": "TRB / US Dollar",
+    "description": "TRB to US Dollar spot trading pair",
+    "tags": [
+      "trb",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "TREE-USD": {
+    "normalized_id": "TREE/USD",
+    "base": "TREE",
+    "quote": "USD",
+    "display_name": "TREE / US Dollar",
+    "description": "TREE to US Dollar spot trading pair",
+    "tags": [
+      "tree",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "TRU-USD": {
+    "normalized_id": "TRU/USD",
+    "base": "TRU",
+    "quote": "USD",
+    "display_name": "TRU / US Dollar",
+    "description": "TRU to US Dollar spot trading pair",
+    "tags": [
+      "tru",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "TRUMP-USD": {
+    "normalized_id": "TRUMP/USD",
+    "base": "TRUMP",
+    "quote": "USD",
+    "display_name": "TRUMP / US Dollar",
+    "description": "TRUMP to US Dollar spot trading pair",
+    "tags": [
+      "trump",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "TURBO-USD": {
+    "normalized_id": "TURBO/USD",
+    "base": "TURBO",
+    "quote": "USD",
+    "display_name": "TURBO / US Dollar",
+    "description": "TURBO to US Dollar spot trading pair",
+    "tags": [
+      "turbo",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "UMA-USD": {
+    "normalized_id": "UMA/USD",
+    "base": "UMA",
+    "quote": "USD",
+    "display_name": "UMA / US Dollar",
+    "description": "UMA to US Dollar spot trading pair",
+    "tags": [
+      "uma",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "UNI-BTC": {
+    "normalized_id": "UNI/BTC",
+    "base": "UNI",
+    "quote": "BTC",
+    "display_name": "Uniswap / Bitcoin",
+    "description": "Uniswap to Bitcoin spot trading pair",
+    "tags": [
+      "uni",
+      "uniswap",
+      "defi",
+      "btc"
+    ],
+    "category": "crypto"
+  },
+  "UNI-EUR": {
+    "normalized_id": "UNI/EUR",
+    "base": "UNI",
+    "quote": "EUR",
+    "display_name": "Uniswap / Euro",
+    "description": "Uniswap to Euro spot trading pair",
+    "tags": [
+      "uni",
+      "uniswap",
+      "defi",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "UNI-GBP": {
+    "normalized_id": "UNI/GBP",
+    "base": "UNI",
+    "quote": "GBP",
+    "display_name": "Uniswap / British Pound",
+    "description": "Uniswap to British Pound spot trading pair",
+    "tags": [
+      "uni",
+      "uniswap",
+      "defi",
+      "gbp",
+      "fiat",
+      "british pound"
+    ],
+    "category": "crypto"
+  },
+  "UNI-USD": {
+    "normalized_id": "UNI/USD",
+    "base": "UNI",
+    "quote": "USD",
+    "display_name": "Uniswap / US Dollar",
+    "description": "Uniswap to US Dollar spot trading pair",
+    "tags": [
+      "uni",
+      "uniswap",
+      "defi",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "USDC-EUR": {
+    "normalized_id": "USDC/EUR",
+    "base": "USDC",
+    "quote": "EUR",
+    "display_name": "USD Coin / Euro",
+    "description": "USD Coin to Euro spot trading pair",
+    "tags": [
+      "usdc",
+      "usd coin",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "USDC-GBP": {
+    "normalized_id": "USDC/GBP",
+    "base": "USDC",
+    "quote": "GBP",
+    "display_name": "USD Coin / British Pound",
+    "description": "USD Coin to British Pound spot trading pair",
+    "tags": [
+      "usdc",
+      "usd coin",
+      "gbp",
+      "fiat",
+      "british pound"
+    ],
+    "category": "crypto"
+  },
+  "USDS-USD": {
+    "normalized_id": "USDS/USD",
+    "base": "USDS",
+    "quote": "USD",
+    "display_name": "USDS / US Dollar",
+    "description": "USDS to US Dollar spot trading pair",
+    "tags": [
+      "usds",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "USDT-EUR": {
+    "normalized_id": "USDT/EUR",
+    "base": "USDT",
+    "quote": "EUR",
+    "display_name": "Tether / Euro",
+    "description": "Tether to Euro spot trading pair",
+    "tags": [
+      "usdt",
+      "tether",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "USDT-GBP": {
+    "normalized_id": "USDT/GBP",
+    "base": "USDT",
+    "quote": "GBP",
+    "display_name": "Tether / British Pound",
+    "description": "Tether to British Pound spot trading pair",
+    "tags": [
+      "usdt",
+      "tether",
+      "gbp",
+      "fiat",
+      "british pound"
+    ],
+    "category": "crypto"
+  },
+  "USDT-USD": {
+    "normalized_id": "USDT/USD",
+    "base": "USDT",
+    "quote": "USD",
+    "display_name": "Tether / US Dollar",
+    "description": "Tether to US Dollar spot trading pair",
+    "tags": [
+      "usdt",
+      "tether",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "USDT-USDC": {
+    "normalized_id": "USDT/USD",
+    "base": "USDT",
+    "quote": "USD",
+    "display_name": "Tether / US Dollar",
+    "description": "Tether to US Dollar spot trading pair",
+    "tags": [
+      "usdt",
+      "tether",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "VARA-USD": {
+    "normalized_id": "VARA/USD",
+    "base": "VARA",
+    "quote": "USD",
+    "display_name": "VARA / US Dollar",
+    "description": "VARA to US Dollar spot trading pair",
+    "tags": [
+      "vara",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "VELO-USD": {
+    "normalized_id": "VELO/USD",
+    "base": "VELO",
+    "quote": "USD",
+    "display_name": "VELO / US Dollar",
+    "description": "VELO to US Dollar spot trading pair",
+    "tags": [
+      "velo",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "VET-USD": {
+    "normalized_id": "VET/USD",
+    "base": "VET",
+    "quote": "USD",
+    "display_name": "VeChain / US Dollar",
+    "description": "VeChain to US Dollar spot trading pair",
+    "tags": [
+      "vet",
+      "vechain",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "VOXEL-USD": {
+    "normalized_id": "VOXEL/USD",
+    "base": "VOXEL",
+    "quote": "USD",
+    "display_name": "VOXEL / US Dollar",
+    "description": "VOXEL to US Dollar spot trading pair",
+    "tags": [
+      "voxel",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "VTHO-USD": {
+    "normalized_id": "VTHO/USD",
+    "base": "VTHO",
+    "quote": "USD",
+    "display_name": "VTHO / US Dollar",
+    "description": "VTHO to US Dollar spot trading pair",
+    "tags": [
+      "vtho",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "VVV-USD": {
+    "normalized_id": "VVV/USD",
+    "base": "VVV",
+    "quote": "USD",
+    "display_name": "VVV / US Dollar",
+    "description": "VVV to US Dollar spot trading pair",
+    "tags": [
+      "vvv",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "W-USD": {
+    "normalized_id": "W/USD",
+    "base": "W",
+    "quote": "USD",
+    "display_name": "W / US Dollar",
+    "description": "W to US Dollar spot trading pair",
+    "tags": [
+      "w",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "WAXL-USD": {
+    "normalized_id": "WAXL/USD",
+    "base": "WAXL",
+    "quote": "USD",
+    "display_name": "WAXL / US Dollar",
+    "description": "WAXL to US Dollar spot trading pair",
+    "tags": [
+      "waxl",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "WCFG-USD": {
+    "normalized_id": "WCFG/USD",
+    "base": "WCFG",
+    "quote": "USD",
+    "display_name": "WCFG / US Dollar",
+    "description": "WCFG to US Dollar spot trading pair",
+    "tags": [
+      "wcfg",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "WCT-USD": {
+    "normalized_id": "WCT/USD",
+    "base": "WCT",
+    "quote": "USD",
+    "display_name": "WCT / US Dollar",
+    "description": "WCT to US Dollar spot trading pair",
+    "tags": [
+      "wct",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "WELL-USD": {
+    "normalized_id": "WELL/USD",
+    "base": "WELL",
+    "quote": "USD",
+    "display_name": "WELL / US Dollar",
+    "description": "WELL to US Dollar spot trading pair",
+    "tags": [
+      "well",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "WIF-USD": {
+    "normalized_id": "WIF/USD",
+    "base": "WIF",
+    "quote": "USD",
+    "display_name": "dogwifhat / US Dollar",
+    "description": "dogwifhat to US Dollar spot trading pair",
+    "tags": [
+      "wif",
+      "dogwifhat",
+      "meme",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "WLD-USD": {
+    "normalized_id": "WLD/USD",
+    "base": "WLD",
+    "quote": "USD",
+    "display_name": "WLD / US Dollar",
+    "description": "WLD to US Dollar spot trading pair",
+    "tags": [
+      "wld",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "XCN-USD": {
+    "normalized_id": "XCN/USD",
+    "base": "XCN",
+    "quote": "USD",
+    "display_name": "XCN / US Dollar",
+    "description": "XCN to US Dollar spot trading pair",
+    "tags": [
+      "xcn",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "XLM-BTC": {
+    "normalized_id": "XLM/BTC",
+    "base": "XLM",
+    "quote": "BTC",
+    "display_name": "Stellar / Bitcoin",
+    "description": "Stellar to Bitcoin spot trading pair",
+    "tags": [
+      "xlm",
+      "stellar",
+      "btc"
+    ],
+    "category": "crypto"
+  },
+  "XLM-EUR": {
+    "normalized_id": "XLM/EUR",
+    "base": "XLM",
+    "quote": "EUR",
+    "display_name": "Stellar / Euro",
+    "description": "Stellar to Euro spot trading pair",
+    "tags": [
+      "xlm",
+      "stellar",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "XLM-USD": {
+    "normalized_id": "XLM/USD",
+    "base": "XLM",
+    "quote": "USD",
+    "display_name": "Stellar / US Dollar",
+    "description": "Stellar to US Dollar spot trading pair",
+    "tags": [
+      "xlm",
+      "stellar",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "XLM-USDT": {
+    "normalized_id": "XLM/USD",
+    "base": "XLM",
+    "quote": "USD",
+    "display_name": "Stellar / US Dollar",
+    "description": "Stellar to US Dollar spot trading pair",
+    "tags": [
+      "xlm",
+      "stellar",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "XRP-EUR": {
+    "normalized_id": "XRP/EUR",
+    "base": "XRP",
+    "quote": "EUR",
+    "display_name": "Ripple / Euro",
+    "description": "Ripple to Euro spot trading pair",
+    "tags": [
+      "xrp",
+      "ripple",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "XRP-USD": {
+    "normalized_id": "XRP/USD",
+    "base": "XRP",
+    "quote": "USD",
+    "display_name": "Ripple / US Dollar",
+    "description": "Ripple to US Dollar spot trading pair",
+    "tags": [
+      "xrp",
+      "ripple",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "XRP-USDT": {
+    "normalized_id": "XRP/USD",
+    "base": "XRP",
+    "quote": "USD",
+    "display_name": "Ripple / US Dollar",
+    "description": "Ripple to US Dollar spot trading pair",
+    "tags": [
+      "xrp",
+      "ripple",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "XTZ-BTC": {
+    "normalized_id": "XTZ/BTC",
+    "base": "XTZ",
+    "quote": "BTC",
+    "display_name": "Tezos / Bitcoin",
+    "description": "Tezos to Bitcoin spot trading pair",
+    "tags": [
+      "xtz",
+      "tezos",
+      "btc"
+    ],
+    "category": "crypto"
+  },
+  "XTZ-EUR": {
+    "normalized_id": "XTZ/EUR",
+    "base": "XTZ",
+    "quote": "EUR",
+    "display_name": "Tezos / Euro",
+    "description": "Tezos to Euro spot trading pair",
+    "tags": [
+      "xtz",
+      "tezos",
+      "eur",
+      "fiat",
+      "euro"
+    ],
+    "category": "crypto"
+  },
+  "XTZ-GBP": {
+    "normalized_id": "XTZ/GBP",
+    "base": "XTZ",
+    "quote": "GBP",
+    "display_name": "Tezos / British Pound",
+    "description": "Tezos to British Pound spot trading pair",
+    "tags": [
+      "xtz",
+      "tezos",
+      "gbp",
+      "fiat",
+      "british pound"
+    ],
+    "category": "crypto"
+  },
+  "XTZ-USD": {
+    "normalized_id": "XTZ/USD",
+    "base": "XTZ",
+    "quote": "USD",
+    "display_name": "Tezos / US Dollar",
+    "description": "Tezos to US Dollar spot trading pair",
+    "tags": [
+      "xtz",
+      "tezos",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "XYO-USD": {
+    "normalized_id": "XYO/USD",
+    "base": "XYO",
+    "quote": "USD",
+    "display_name": "XYO / US Dollar",
+    "description": "XYO to US Dollar spot trading pair",
+    "tags": [
+      "xyo",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "YFI-BTC": {
+    "normalized_id": "YFI/BTC",
+    "base": "YFI",
+    "quote": "BTC",
+    "display_name": "YFI / Bitcoin",
+    "description": "YFI to Bitcoin spot trading pair",
+    "tags": [
+      "yfi",
+      "defi",
+      "btc"
+    ],
+    "category": "crypto"
+  },
+  "YFI-USD": {
+    "normalized_id": "YFI/USD",
+    "base": "YFI",
+    "quote": "USD",
+    "display_name": "YFI / US Dollar",
+    "description": "YFI to US Dollar spot trading pair",
+    "tags": [
+      "yfi",
+      "defi",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ZEC-USD": {
+    "normalized_id": "ZEC/USD",
+    "base": "ZEC",
+    "quote": "USD",
+    "display_name": "ZEC / US Dollar",
+    "description": "ZEC to US Dollar spot trading pair",
+    "tags": [
+      "zec",
+      "privacy",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ZEN-USD": {
+    "normalized_id": "ZEN/USD",
+    "base": "ZEN",
+    "quote": "USD",
+    "display_name": "ZEN / US Dollar",
+    "description": "ZEN to US Dollar spot trading pair",
+    "tags": [
+      "zen",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ZETA-USD": {
+    "normalized_id": "ZETA/USD",
+    "base": "ZETA",
+    "quote": "USD",
+    "display_name": "ZETA / US Dollar",
+    "description": "ZETA to US Dollar spot trading pair",
+    "tags": [
+      "zeta",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ZETACHAIN-USD": {
+    "normalized_id": "ZETACHAIN/USD",
+    "base": "ZETACHAIN",
+    "quote": "USD",
+    "display_name": "ZETACHAIN / US Dollar",
+    "description": "ZETACHAIN to US Dollar spot trading pair",
+    "tags": [
+      "zetachain",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ZK-USD": {
+    "normalized_id": "ZK/USD",
+    "base": "ZK",
+    "quote": "USD",
+    "display_name": "ZK / US Dollar",
+    "description": "ZK to US Dollar spot trading pair",
+    "tags": [
+      "zk",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ZORA-USD": {
+    "normalized_id": "ZORA/USD",
+    "base": "ZORA",
+    "quote": "USD",
+    "display_name": "ZORA / US Dollar",
+    "description": "ZORA to US Dollar spot trading pair",
+    "tags": [
+      "zora",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ZRO-USD": {
+    "normalized_id": "ZRO/USD",
+    "base": "ZRO",
+    "quote": "USD",
+    "display_name": "ZRO / US Dollar",
+    "description": "ZRO to US Dollar spot trading pair",
+    "tags": [
+      "zro",
+      "usd"
+    ],
+    "category": "crypto"
+  },
+  "ZRX-USD": {
+    "normalized_id": "ZRX/USD",
+    "base": "ZRX",
+    "quote": "USD",
+    "display_name": "0x / US Dollar",
+    "description": "0x to US Dollar spot trading pair",
+    "tags": [
+      "zrx",
+      "0x",
+      "usd"
+    ],
+    "category": "crypto"
+  }
+}
