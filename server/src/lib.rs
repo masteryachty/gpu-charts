@@ -1,7 +1,7 @@
 pub mod data;
-pub mod metrics;
+pub mod metrics_server;
 pub mod symbols;
 
 pub use data::*;
-pub use metrics::*;
+pub use metrics_server::*;
 pub use symbols::*;

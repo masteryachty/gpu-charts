@@ -1,7 +1,7 @@
 /// Bridge between the existing MarketMetrics system and Prometheus metrics
 use crate::common::analytics::MarketMetrics;
 use crate::common::data_types::{TradeSide, UnifiedMarketData, UnifiedTradeData};
-use crate::metrics_exporter::helpers::*;
+use crate::metrics_server::*;
 use std::sync::Arc;
 use tracing::debug;
 
