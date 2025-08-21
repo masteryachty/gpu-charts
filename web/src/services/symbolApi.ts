@@ -37,23 +37,29 @@ export async function searchSymbols(query: string): Promise<SearchResult[]> {
     return [];
   }
 
-  // Split query by space or slash to handle multi-term searches
-  // e.g., "btc usd" or "btc/usd" becomes ["btc", "usd"]
-  const searchTerms = query.trim().toLowerCase().split(/[\s\/]+/).filter(term => term.length > 0);
+  // Normalize the query for the API
+  // Convert spaces to slashes for pair searching (e.g., "btc usd" -> "btc/usd")
+  let searchQuery = query.trim();
   
-  // If multiple terms, join them with space for the API
-  // The API should handle this as AND logic
-  const searchQuery = searchTerms.join(' ');
+  // Check if user entered multiple terms separated by space
+  if (searchQuery.includes(' ') && !searchQuery.includes('/')) {
+    // Convert "btc usd" to "btc/usd" for the API
+    const terms = searchQuery.split(/\s+/).filter(term => term.length > 0);
+    if (terms.length === 2) {
+      // For exactly 2 terms, use slash notation which the API supports
+      searchQuery = `${terms[0]}/${terms[1]}`;
+    }
+  }
 
   // Check cache first
-  const cacheKey = searchQuery;
+  const cacheKey = searchQuery.toLowerCase();
   const cached = searchCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
     return cached.data;
   }
 
   try {
-    console.log(API_BASE_URL)
+    console.log(`Searching for: ${searchQuery}`);
     const response = await fetch(
       `${API_BASE_URL}/api/symbol-search?q=${encodeURIComponent(searchQuery)}`,
       {
@@ -69,33 +75,14 @@ export async function searchSymbols(query: string): Promise<SearchResult[]> {
     }
 
     const data: SymbolSearchResponse = await response.json();
-    
-    // If we have multiple search terms, perform client-side filtering
-    // to ensure ALL terms match (AND logic)
-    let results = data.results;
-    if (searchTerms.length > 1) {
-      results = data.results.filter(result => {
-        // Check if all search terms are present in the symbol data
-        const searchableText = [
-          result.normalized_id,
-          result.display_name,
-          result.base,
-          result.quote,
-          result.description
-        ].join(' ').toLowerCase();
-        
-        // All terms must be found
-        return searchTerms.every(term => searchableText.includes(term));
-      });
-    }
 
     // Cache the results
     searchCache.set(cacheKey, {
-      data: results,
+      data: data.results,
       timestamp: Date.now(),
     });
 
-    return results;
+    return data.results;
   } catch (error) {
     console.error('Symbol search error:', error);
     // Return empty array on error to allow graceful degradation

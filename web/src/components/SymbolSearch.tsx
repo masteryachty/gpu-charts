@@ -221,9 +221,9 @@ export default function SymbolSearch({
           {!isLoading && !error && results.length === 0 && query && (
             <div className="p-4 text-center text-text-tertiary">
               <div>No results found for "{query}"</div>
-              {query.includes(' ') || query.includes('/') ? (
+              {query.includes(' ') && !query.includes('/') ? (
                 <div className="text-xs mt-1 text-text-quaternary">
-                  Searching for symbols containing all terms
+                  Tip: Searching for "{query.split(/\s+/).join('/')}" pairs
                 </div>
               ) : null}
             </div>
@@ -337,8 +337,8 @@ export default function SymbolSearch({
               <div className="flex items-center justify-between text-xs text-text-tertiary">
                 <span>
                   {results.length} result{results.length !== 1 ? 's' : ''} found
-                  {(query.includes(' ') || query.includes('/')) && (
-                    <span className="ml-1 text-accent-primary">(AND search)</span>
+                  {(query.includes(' ') || query.includes('/')) && query.split(/[\s\/]+/).length === 2 && (
+                    <span className="ml-1 text-accent-primary">(pair search)</span>
                   )}
                 </span>
                 <div className="flex items-center gap-3">
