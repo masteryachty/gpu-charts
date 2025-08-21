@@ -6,14 +6,24 @@ use config_system::ComputeOp;
 use data_manager::{data_store::MetricRef, DataStore};
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::cell::RefCell;
 use wgpu::{CommandEncoder, Device, Queue};
 use wgpu::util::DeviceExt;
 use js_sys;
 use bytemuck;
 
+/// Structure to hold pending GPU readback operations
+struct PendingReadback {
+    staging_buffer: wgpu::Buffer,
+    metric_ref: MetricRef,
+    element_count: u32,
+    mapping_started: bool,
+    mapping_complete: Rc<RefCell<bool>>,
+}
+
 /// Manages all compute operations for metrics
 pub struct ComputeEngine {
-    _device: Rc<Device>,
+    device: Rc<Device>,
     _queue: Rc<Queue>,
 
     // Compute calculators
@@ -26,6 +36,9 @@ pub struct ComputeEngine {
     
     // Cache for candle close prices buffer
     candle_close_buffer: Option<wgpu::Buffer>,
+    
+    // Pending GPU readback operations
+    pending_readbacks: Vec<PendingReadback>,
 }
 
 impl ComputeEngine {
@@ -41,13 +54,14 @@ impl ComputeEngine {
         let close_extractor = CloseExtractor::new(infrastructure).ok();
 
         Self {
-            _device: device,
+            device,
             _queue: queue,
             mid_price_calculator,
             ema_calculator,
             close_extractor,
             computed_metrics: HashMap::new(),
             candle_close_buffer: None,
+            pending_readbacks: Vec::new(),
         }
     }
 
@@ -217,7 +231,7 @@ impl ComputeEngine {
                 // EMA calculations use WeightedAverage with empty weights array
                 // Check for EMA patterns: "ema_9", "ema_20", etc
                 if name.starts_with("ema_") {
-                    log::info!("[ComputeEngine] Computing EMA for metric: {}", name);
+                    // Computing EMA for metric
                     self.compute_ema(encoder, data_store, metric_ref, &name, &dependencies);
                 } else {
                     log::warn!("[ComputeEngine] Weighted average for {name} not implemented");
@@ -268,15 +282,37 @@ impl ComputeEngine {
         // Compute mid price
         match calculator.calculate(dep_buffers[0], dep_buffers[1], element_count, encoder) {
             Ok(result) => {
-                // Create a temporary vector to collect computed values
-                // In a real implementation, we'd schedule async readback
-                let computed_values = vec![0.0f32; element_count as usize];
-
-                // Update the metric
+                // Create staging buffer for CPU readback
+                let staging_buffer_size = (element_count * 4) as u64; // 4 bytes per f32
+                let staging_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+                    label: Some("Mid Price Staging Buffer"),
+                    size: staging_buffer_size,
+                    usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+                    mapped_at_creation: false,
+                });
+                
+                // Copy computed data from GPU buffer to staging buffer
+                encoder.copy_buffer_to_buffer(
+                    &result.output_buffer,
+                    0,
+                    &staging_buffer,
+                    0,
+                    staging_buffer_size,
+                );
+                
+                // Store buffer for later readback
+                self.pending_readbacks.push(PendingReadback {
+                    staging_buffer,
+                    metric_ref: *metric_ref,
+                    element_count,
+                    mapping_started: false,
+                    mapping_complete: Rc::new(RefCell::new(false)),
+                });
+                
+                // Store the GPU buffer in the metric
                 if let Some(metric) = data_store.get_metric_mut(metric_ref) {
-                    metric.set_computed_data(result.output_buffer, computed_values);
-
-                    // Track that we computed this metric
+                    // Store the GPU buffer, CPU data will be filled after readback
+                    metric.set_computed_data(result.output_buffer, vec![]);
                     self.computed_metrics
                         .insert(*metric_ref, metric.compute_version);
                 }
@@ -296,9 +332,7 @@ impl ComputeEngine {
         name: &str,
         dependencies: &[MetricRef],
     ) {
-        log::info!("[ComputeEngine] compute_ema called for '{}'", name);
-        log::info!("[ComputeEngine]   - MetricRef: group={}, metric={}", metric_ref.group_index, metric_ref.metric_index);
-        log::info!("[ComputeEngine]   - Dependencies count: {}", dependencies.len());
+        // Computing EMA for metric
         
         let Some(calculator) = &mut self.ema_calculator else {
             log::error!("[ComputeEngine] No EMA calculator available");
@@ -418,7 +452,7 @@ impl ComputeEngine {
                     let x_raw = js_array.buffer();
                     
                     // Create GPU buffer
-                    let x_buffer = self._device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    let x_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                         label: Some("Candle EMA X Buffer"),
                         contents: bytemuck::cast_slice(&timestamps),
                         usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
@@ -460,5 +494,94 @@ impl ComputeEngine {
     /// Clear computed metrics tracking (call at start of frame)
     pub fn clear_frame_cache(&mut self) {
         self.computed_metrics.clear();
+    }
+    
+    /// Process pending GPU readbacks asynchronously
+    /// This should be called periodically (e.g., each frame) to check readback status
+    pub fn process_readbacks(&mut self, data_store: &mut DataStore) {
+        if self.pending_readbacks.is_empty() {
+            return;
+        }
+        
+        // Keep track of completed readbacks
+        let mut completed_indices = Vec::new();
+        
+        for (index, readback) in self.pending_readbacks.iter_mut().enumerate() {
+            if !readback.mapping_started {
+                // Start the async mapping
+                let buffer_slice = readback.staging_buffer.slice(..);
+                
+                // Clone the completion flag for the callback
+                let completion_flag = readback.mapping_complete.clone();
+                let metric_ref = readback.metric_ref;
+                let element_count = readback.element_count;
+                
+                // Start async mapping
+                buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
+                    match result {
+                        Ok(_) => {
+                            log::info!("[ComputeEngine] GPU readback ready for metric {:?} with {} elements", 
+                                metric_ref, element_count);
+                            *completion_flag.borrow_mut() = true;
+                        }
+                        Err(e) => {
+                            log::error!("[ComputeEngine] GPU readback failed: {:?}", e);
+                        }
+                    }
+                });
+                
+                readback.mapping_started = true;
+                log::info!("[ComputeEngine] Started async GPU readback for metric {:?}", readback.metric_ref);
+            }
+            
+            // Poll the device to make progress on async operations (non-blocking)
+            self.device.poll(wgpu::Maintain::Poll);
+            
+            // Check if the mapping callback has been called
+            if *readback.mapping_complete.borrow() {
+                // Mapping is complete! Get the mapped data
+                let buffer_slice = readback.staging_buffer.slice(..);
+                let data = buffer_slice.get_mapped_range();
+                
+                // Process the data
+                let float_data: Vec<f32> = data
+                    .chunks_exact(4)
+                    .map(|bytes| f32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
+                    .collect();
+                
+                // Create JavaScript ArrayBuffer
+                let js_array = js_sys::Float32Array::new_with_length(readback.element_count);
+                for (i, &value) in float_data.iter().enumerate() {
+                    js_array.set_index(i as u32, value);
+                }
+                
+                // Update the metric
+                if let Some(metric) = data_store.get_metric_mut(&readback.metric_ref) {
+                    metric.y_raw = js_array.buffer();
+                    
+                    log::info!("[ComputeEngine] ✅ GPU readback complete for '{}' - {} values updated", 
+                        metric.name, float_data.len());
+                    
+                    // Log sample values
+                    if !float_data.is_empty() {
+                        let sample_size = float_data.len().min(5);
+                        log::info!("[ComputeEngine] Sample values for '{}': {:?}", 
+                            metric.name, &float_data[..sample_size]);
+                    }
+                }
+                
+                // Unmap the buffer
+                drop(data);
+                readback.staging_buffer.unmap();
+                
+                // Mark for removal
+                completed_indices.push(index);
+            }
+        }
+        
+        // Remove completed readbacks (in reverse order to maintain indices)
+        for &index in completed_indices.iter().rev() {
+            self.pending_readbacks.remove(index);
+        }
     }
 }

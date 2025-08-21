@@ -1,6 +1,7 @@
 use config_system::{ChartPreset, ComputeOp};
 use js_sys::{ArrayBuffer, Uint32Array};
 use nalgebra_glm as glm;
+use shared_types::{TooltipConfig, TooltipState};
 use std::rc::Rc;
 use wgpu::util::DeviceExt;
 use wgpu::{Buffer, Device};
@@ -63,6 +64,8 @@ pub struct DataStore {
     pub min_max_buffer: Option<Rc<wgpu::Buffer>>, // GPU-calculated min/max buffer
     pub gpu_min_y: Option<f32>, // GPU-calculated min Y value
     pub gpu_max_y: Option<f32>, // GPU-calculated max Y value
+    tooltip_state: Option<TooltipState>, // Tooltip display state
+    tooltip_config: TooltipConfig, // Tooltip configuration
 }
 
 // pub struct Coord {
@@ -85,6 +88,8 @@ impl DataStore {
             min_max_buffer: None, // GPU buffer will be created during rendering
             gpu_min_y: None,
             gpu_max_y: None,
+            tooltip_state: None,
+            tooltip_config: TooltipConfig::default(),
         }
     }
 
@@ -221,25 +226,7 @@ impl DataStore {
     }
 
     pub fn get_all_visible_metrics(&self) -> Vec<(&DataSeries, &MetricSeries)> {
-        // First, log which groups are active
-        log::info!("[DataStore] Active group indices: {:?}", self.active_data_group_indices);
-        for (idx, group) in self.data_groups.iter().enumerate() {
-            if self.active_data_group_indices.contains(&idx) {
-                log::info!("[DataStore] Group {}: {} metrics, {} x_buffers, length={}", 
-                    idx, group.metrics.len(), group.x_buffers.len(), group.length);
-                // Log all metrics in the group
-                for (m_idx, metric) in group.metrics.iter().enumerate() {
-                    log::info!("  - Metric[{}]: {} (computed={}, visible={}, y_buffers={})", 
-                        m_idx, metric.name, metric.is_computed, metric.visible, metric.y_buffers.len());
-                    if metric.is_computed && !metric.y_buffers.is_empty() {
-                        log::info!("    - Y buffer[0]: {:p}, size: {} bytes", 
-                            &metric.y_buffers[0] as *const _, metric.y_buffers[0].size());
-                    }
-                }
-            }
-        }
-        
-        let result: Vec<(&DataSeries, &MetricSeries)> = self.get_active_data_groups()
+        self.get_active_data_groups()
             .into_iter()
             .flat_map(|data_series| {
                 data_series
@@ -248,27 +235,7 @@ impl DataStore {
                     .filter(|metric| metric.visible)
                     .map(move |metric| (data_series, metric))
             })
-            .collect();
-        
-        // Debug logging for mid price metrics
-        for (i, (series, metric)) in result.iter().enumerate() {
-            if metric.name.to_lowercase().contains("mid") {
-                log::info!("[DataStore] Mid price metric found in result[{}]:", i);
-                log::info!("  - Name: {}", metric.name);
-                log::info!("  - Is computed: {}", metric.is_computed);
-                log::info!("  - X buffers in series: {}", series.x_buffers.len());
-                log::info!("  - Y buffers in metric: {}", metric.y_buffers.len());
-                if !series.x_buffers.is_empty() {
-                    log::info!("  - X buffer[0] size: {} bytes", series.x_buffers[0].size());
-                    log::info!("  - X buffer[0] id: {:?}", &series.x_buffers[0] as *const _);
-                }
-                if !metric.y_buffers.is_empty() {
-                    log::info!("  - Y buffer[0] size: {} bytes", metric.y_buffers[0].size());
-                }
-            }
-        }
-        
-        result
+            .collect()
     }
 
     /// Clear GPU bounds calculations (called when new data is loaded)
@@ -633,6 +600,179 @@ impl DataStore {
             self.active_data_group_indices.clear();
             self.clear_gpu_bounds();
         }
+    }
+    
+    /// Get tooltip state
+    pub fn get_tooltip_state(&self) -> Option<&TooltipState> {
+        self.tooltip_state.as_ref()
+    }
+    
+    /// Get mutable tooltip state
+    pub fn get_tooltip_state_mut(&mut self) -> Option<&mut TooltipState> {
+        self.tooltip_state.as_mut()
+    }
+    
+    /// Update tooltip state
+    pub fn set_tooltip_state(&mut self, state: TooltipState) {
+        self.tooltip_state = Some(state);
+    }
+    
+    /// Clear tooltip state
+    pub fn clear_tooltip(&mut self) {
+        if let Some(state) = &mut self.tooltip_state {
+            state.active = false;
+            state.labels.clear();
+        }
+    }
+    
+    /// Get tooltip configuration
+    pub fn get_tooltip_config(&self) -> &TooltipConfig {
+        &self.tooltip_config
+    }
+    
+    /// Update tooltip configuration
+    pub fn set_tooltip_config(&mut self, config: TooltipConfig) {
+        self.tooltip_config = config;
+    }
+    
+    /// Find the closest data point to the given x position
+    /// Returns the timestamp and values for all visible metrics at that point
+    pub fn find_closest_data_point(&self, screen_x: f64) -> Option<(u32, Vec<(String, f32, [f32; 4])>)> {
+        // Convert screen X to world X (timestamp) - keep full precision with f64
+        let world_x_f64 = self.screen_to_world_x(screen_x as f32);
+        let target_timestamp = world_x_f64 as u32;  // Keep truncation to get base timestamp
+        let _fractional_part = (world_x_f64 - target_timestamp as f64) as f32;
+        
+        // Calculate target timestamp and fractional part for interpolation
+        
+        // Find the active data groups
+        if self.active_data_group_indices.is_empty() || self.data_groups.is_empty() {
+            return None;
+        }
+        
+        let mut all_values = Vec::new();
+        let mut final_timestamp = None;
+        
+        // Check ALL active data groups
+        for &data_group_index in &self.active_data_group_indices {
+            if data_group_index >= self.data_groups.len() {
+                continue;
+            }
+            
+            let data_group = &self.data_groups[data_group_index];
+            
+            // Get time data
+            let time_array = js_sys::Uint32Array::new(&data_group.x_raw);
+            let time_data: Vec<u32> = time_array.to_vec();
+            
+            if time_data.is_empty() {
+                continue;
+            }
+            
+            // Validate data range
+            
+            // Clamp target to the data range
+            let clamped_target = if target_timestamp < time_data[0] {
+                time_data[0]
+            } else if target_timestamp > time_data[time_data.len() - 1] {
+                time_data[time_data.len() - 1]
+            } else {
+                target_timestamp
+            };
+            
+            // Binary search for the closest timestamp that's <= target
+            let index = match time_data.binary_search(&clamped_target) {
+                Ok(i) => i,  // Exact match
+                Err(i) => {
+                    if i > 0 {
+                        i - 1  // Use the timestamp just before
+                    } else {
+                        0  // Use the first timestamp
+                    }
+                }
+            };
+            
+            if index >= time_data.len() {
+                continue;
+            }
+            
+            let timestamp = time_data[index];
+            
+            // Check if we should interpolate for better precision when zoomed in
+            let next_index = if index + 1 < time_data.len() { index + 1 } else { index };
+            let next_timestamp = time_data[next_index];
+            
+            // Calculate interpolation factor
+            // If we're looking for a timestamp between two data points, interpolate
+            let interpolation_factor = if next_timestamp > timestamp && target_timestamp >= timestamp {
+                // Calculate how far between the two timestamps we are
+                // world_x_f64 gives us the exact position including fraction
+                let exact_position = world_x_f64;
+                let fraction = ((exact_position - timestamp as f64) / (next_timestamp - timestamp) as f64) as f32;
+                fraction.min(1.0).max(0.0)
+            } else {
+                0.0
+            };
+            
+            // Found data point at index with interpolation factor
+            
+            // Use the exact timestamp we're looking for if interpolating
+            if interpolation_factor > 0.0 && interpolation_factor < 1.0 {
+                final_timestamp = Some(clamped_target);
+            } else if final_timestamp.is_none() {
+                final_timestamp = Some(timestamp);
+            }
+            
+            // Collect values for all visible metrics in this group
+            for metric in &data_group.metrics {
+                if metric.visible {
+                    // Check if we have raw data available
+                    if metric.y_raw.byte_length() > 0 {
+                        let value_array = js_sys::Float32Array::new(&metric.y_raw);
+                        let value_data: Vec<f32> = value_array.to_vec();
+                        
+                        if index < value_data.len() {
+                            // Interpolate value if needed
+                            let value = if interpolation_factor > 0.0 && interpolation_factor < 1.0 && next_index < value_data.len() {
+                                let current_value = value_data[index];
+                                let next_value = value_data[next_index];
+                                current_value + (next_value - current_value) * interpolation_factor
+                            } else {
+                                value_data[index]
+                            };
+                            let color = [metric.color[0], metric.color[1], metric.color[2], 1.0];
+                            all_values.push((metric.name.clone(), value, color));
+                        }
+                    } else if metric.is_computed {
+                        // For computed metrics without raw data, skip for now
+                        // TODO: Read from GPU buffer if needed
+                        // Skip computed metrics without raw data - TODO: Read from GPU buffer if needed
+                    }
+                }
+            }
+        }
+        
+        if all_values.is_empty() || final_timestamp.is_none() {
+            None
+        } else {
+            Some((final_timestamp.unwrap(), all_values))
+        }
+    }
+    
+    /// Convert screen X to world X (timestamp) - returns f64 for full precision
+    fn screen_to_world_x(&self, screen_x: f32) -> f64 {
+        // Use f64 throughout for higher precision with large timestamp values
+        let screen_x_f64 = screen_x as f64;
+        let width_f64 = self.screen_size.width as f64;
+        let start_f64 = self.start_x as f64;
+        let end_f64 = self.end_x as f64;
+        
+        let normalized_x = screen_x_f64 / width_f64;
+        let world_x_f64 = start_f64 + normalized_x * (end_f64 - start_f64);
+        
+        // Convert screen coordinates to world timestamp with full f64 precision
+        
+        world_x_f64
     }
 }
 

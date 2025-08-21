@@ -478,3 +478,14 @@ web/cypress/downloads/
 !web/cypress/fixtures/visual-baselines/*.png
 server/benchmark_results
 web/cypress/snapshots/diff/
+# Test artifacts
+web/cypress/screenshots/
+web/cypress/videos/
+web/cypress/snapshots/
+tooltip-test-screenshots/
+screenshots/
+debug-screenshot.png
+debug-wasm.js
+cypress.config.js
+cypress/
+nul

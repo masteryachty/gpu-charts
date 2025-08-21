@@ -481,6 +481,77 @@ impl Chart {
 
         Ok(())
     }
+    
+    #[wasm_bindgen]
+    pub fn handle_mouse_right_click(&self, _x: f64, _y: f64, pressed: bool) -> Result<(), JsValue> {
+        InstanceManager::with_instance_mut(&self.instance_id, |instance| {
+            let window_event = WindowEvent::MouseInput {
+                state: if pressed {
+                    ElementState::Pressed
+                } else {
+                    ElementState::Released
+                },
+                button: MouseButton::Right,
+            };
+            instance.chart_engine.handle_cursor_event(window_event);
+            
+            // Trigger render to show/hide tooltip
+            if instance.chart_engine.data_store().is_dirty() {
+                let _ = instance.chart_engine.render();
+            }
+        })
+        .ok_or_else(|| JsValue::from_str("Chart instance not found"))?;
+
+        Ok(())
+    }
+    
+    #[wasm_bindgen]
+    pub fn get_tooltip_data(&self, x: f64, _y: f64) -> Result<JsValue, JsValue> {
+        InstanceManager::with_instance(&self.instance_id, |instance| {
+            // Get tooltip data from the data store
+            let data_store = instance.chart_engine.data_store();
+            
+            // Find closest data point at this x position
+            if let Some((timestamp, values)) = data_store.find_closest_data_point(x) {
+                // Create JavaScript object with tooltip data
+                let obj = js_sys::Object::new();
+                
+                // Format timestamp as readable date string in UTC
+                // The timestamp is Unix seconds, convert to milliseconds for JavaScript Date
+                let date = js_sys::Date::new(&JsValue::from_f64((timestamp as f64) * 1000.0));
+                
+                // Create a more readable format in UTC: "YYYY-MM-DD HH:MM:SS UTC"
+                let year = date.get_utc_full_year();
+                let month = format!("{:02}", date.get_utc_month() + 1); // getUTCMonth is 0-indexed
+                let day = format!("{:02}", date.get_utc_date());
+                let hours = format!("{:02}", date.get_utc_hours());
+                let minutes = format!("{:02}", date.get_utc_minutes());
+                let seconds = format!("{:02}", date.get_utc_seconds());
+                
+                let time_str = format!("{}-{}-{} {}:{}:{} UTC", year, month, day, hours, minutes, seconds);
+                
+                js_sys::Reflect::set(&obj, &JsValue::from_str("time"), &JsValue::from_str(&time_str))?;
+                
+                // Add best bid and best ask if available
+                for (name, value, _) in &values {
+                    if name.to_lowercase().contains("bid") {
+                        js_sys::Reflect::set(&obj, &JsValue::from_str("best_bid"), &JsValue::from_f64(*value as f64))?;
+                    } else if name.to_lowercase().contains("ask") {
+                        js_sys::Reflect::set(&obj, &JsValue::from_str("best_ask"), &JsValue::from_f64(*value as f64))?;
+                    }
+                    
+                    // Also set individual metric values by name
+                    let safe_name = name.replace(" ", "_").to_lowercase();
+                    js_sys::Reflect::set(&obj, &JsValue::from_str(&safe_name), &JsValue::from_f64(*value as f64))?;
+                }
+                
+                Ok(JsValue::from(obj))
+            } else {
+                Ok(JsValue::NULL)
+            }
+        })
+        .ok_or_else(|| JsValue::from_str("Chart instance not found"))?
+    }
 }
 
 #[wasm_bindgen]

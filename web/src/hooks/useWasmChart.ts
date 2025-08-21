@@ -142,6 +142,8 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
         }
 
       } catch (wasmImportError) {
+        console.error('[useWasmChart] Failed to import or initialize WASM:', wasmImportError);
+        throw wasmImportError;
       }
 
       if (!mountedRef.current) return false;
@@ -157,6 +159,7 @@ export function useWasmChart(options: UseWasmChartOptions): [WasmChartState, Was
 
       return true;
     } catch (error) {
+      console.error('[useWasmChart] Initialize failed:', error);
       return false;
     }
   }, [canvasId, width, height]);

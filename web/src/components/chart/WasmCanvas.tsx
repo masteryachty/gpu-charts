@@ -1,6 +1,9 @@
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
 import { useWasmChart } from '../../hooks/useWasmChart';
 import { useAppStore } from '../../store/useAppStore';
+// import { ChartTooltip, TooltipData } from './ChartTooltip'; // GPU rendering now
+// Temporary type def until we remove completely
+type TooltipData = any;
 
 interface WasmCanvasProps {
   width?: number;
@@ -16,10 +19,13 @@ export default function WasmCanvas({
 }: WasmCanvasProps) {
   const { startTime, endTime } = useAppStore();
 
-
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const initializingRef = useRef<boolean>(false);
+  
+  // Tooltip state - now handled entirely by GPU rendering
+  // const [tooltipData, setTooltipData] = useState<TooltipData | null>(null);
+  const tooltipActiveRef = useRef<boolean>(false);
 
   // Initialize WASM chart with proper configuration
   const [chartState, chartAPI] = useWasmChart({
@@ -122,7 +128,13 @@ export default function WasmCanvas({
           try {
 
             const success = await chartAPI.initialize(startTime, endTime);
+            if (success) {
+              console.log('[WasmCanvas] Chart initialized successfully');
+            } else {
+              console.error('[WasmCanvas] Chart initialization returned false');
+            }
           } catch (error) {
+            console.error('[WasmCanvas] Chart initialization error:', error);
           } finally {
             initializingRef.current = false;
           }
@@ -228,11 +240,14 @@ export default function WasmCanvas({
         if (chartState.chart.handle_mouse_move) {
           chartState.chart.handle_mouse_move(x, y);
         }
+        
+        // Tooltip position is now updated in GPU rendering
+        // Data calculation happens in WASM/GPU
       }
     }
   }, [chartState.chart, chartState.isInitialized]);
 
-  // Mouse down handler (start of drag)
+  // Mouse down handler (start of drag or tooltip)
   const handleMouseDown = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     if (chartState.chart && chartState.isInitialized) {
       const rect = canvasRef.current?.getBoundingClientRect();
@@ -245,17 +260,28 @@ export default function WasmCanvas({
           chartState.chart.handle_mouse_move(x, y);
         }
 
-        // Then handle mouse press
-        if (chartState.chart.handle_mouse_click) {
-          chartState.chart.handle_mouse_click(x, y, true); // pressed = true
-
+        // Handle right-click for tooltip
+        if (event.button === 2) { // Right mouse button
+          event.preventDefault();
+          tooltipActiveRef.current = true;
+          
+          // Tooltip data is now calculated and rendered entirely in GPU
+          // No need to fetch or set data here
+          
+          if (chartState.chart.handle_mouse_right_click) {
+            chartState.chart.handle_mouse_right_click(x, y, true);
+          }
+        } else if (event.button === 0) { // Left mouse button
+          // Handle left-click for drag
+          if (chartState.chart.handle_mouse_click) {
+            chartState.chart.handle_mouse_click(x, y, true); // pressed = true
+          }
         }
-
       }
     }
   }, [chartState.chart, chartState.isInitialized]);
 
-  // Mouse up handler (end of drag)
+  // Mouse up handler (end of drag or tooltip)
   const handleMouseUp = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     if (chartState.chart && chartState.isInitialized) {
       const rect = canvasRef.current?.getBoundingClientRect();
@@ -268,19 +294,34 @@ export default function WasmCanvas({
           chartState.chart.handle_mouse_move(x, y);
         }
 
-        // Then handle mouse release
-        if (chartState.chart.handle_mouse_click) {
-          chartState.chart.handle_mouse_click(x, y, false); // pressed = false
+        // Handle right-click release for tooltip
+        if (event.button === 2) { // Right mouse button
+          tooltipActiveRef.current = false;
+          // Tooltip is now handled by GPU rendering
+          
+          if (chartState.chart.handle_mouse_right_click) {
+            chartState.chart.handle_mouse_right_click(x, y, false);
+          }
+        } else if (event.button === 0) { // Left mouse button
+          // Handle left-click release
+          if (chartState.chart.handle_mouse_click) {
+            chartState.chart.handle_mouse_click(x, y, false); // pressed = false
+          }
         }
-
       }
     }
   }, [chartState.chart, chartState.isInitialized]);
+  
+  // Prevent context menu on right-click
+  const handleContextMenu = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
+    event.preventDefault();
+    return false;
+  }, []);
 
   return (
     <div
       ref={containerRef}
-      className="flex-1 bg-gray-900"
+      className="flex-1 bg-gray-900 relative"
       style={{ minWidth: '200px', minHeight: '150px' }}
       data-chart-ready={chartState.isInitialized ? 'true' : undefined}
     >
@@ -299,6 +340,7 @@ export default function WasmCanvas({
         onMouseMove={handleMouseMove}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
+        onContextMenu={handleContextMenu}
         data-testid="wasm-canvas"
         data-initialized={chartState.isInitialized ? 'true' : 'false'}
       />
@@ -313,6 +355,8 @@ export default function WasmCanvas({
           </div>
         </div>
       )}
+      
+      {/* Tooltip is now rendered entirely on GPU via WebGPU */}
 
     </div>
   );

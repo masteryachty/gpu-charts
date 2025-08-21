@@ -86,7 +86,7 @@ impl CloseExtractor {
         candle_count: u32,
         encoder: &mut wgpu::CommandEncoder,
     ) -> Result<ComputeResult, String> {
-        log::info!("[CloseExtractor] Extracting close prices from {} candles", candle_count);
+        // Extract close prices from candles
 
         // Create output buffer for close prices
         let output_buffer = self.infrastructure.create_compute_buffer(

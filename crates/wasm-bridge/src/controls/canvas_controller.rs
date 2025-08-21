@@ -64,4 +64,9 @@ impl CanvasController {
     pub fn clear_drag(&mut self) {
         self.start_drag_pos = None;
     }
+    
+    /// Get current cursor position
+    pub fn current_position(&self) -> Position {
+        self.position
+    }
 }

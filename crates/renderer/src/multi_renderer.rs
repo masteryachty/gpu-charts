@@ -235,26 +235,12 @@ impl MultiRenderer {
         device: &Device,
         queue: &Queue,
     ) {
-        log::info!(
-            "[MultiRenderer] Running compute passes for {} renderers",
-            self.renderers.len()
-        );
 
         for renderer in &mut self.renderers {
-            log::info!(
-                "[MultiRenderer] Checking renderer '{}' - has_compute: {}",
-                renderer.name(),
-                renderer.has_compute()
-            );
             if renderer.has_compute() {
-                log::info!(
-                    "[MultiRenderer] ✓ Running compute pass for '{}'",
-                    renderer.name()
-                );
                 renderer.compute(encoder, data_store, device, queue);
             }
         }
-        log::info!("[MultiRenderer] Finished running compute passes");
     }
 
     /// Render all components in the pipeline
@@ -300,22 +286,10 @@ impl MultiRenderer {
         }
 
         // Execute each renderer in order
-        let renderer_count = self.renderers.len();
-        for (index, renderer) in self.renderers.iter_mut().enumerate() {
+        for renderer in self.renderers.iter_mut() {
             if !renderer.is_ready() {
-                log::debug!(
-                    "MultiRenderer: Skipping renderer '{}' (not ready)",
-                    renderer.name()
-                );
                 continue;
             }
-
-            log::trace!(
-                "MultiRenderer: Executing renderer {} of {}: '{}'",
-                index + 1,
-                renderer_count,
-                renderer.name()
-            );
 
             renderer.render(encoder, view, data_store, &self.device, &self.queue);
         }
@@ -389,8 +363,6 @@ impl MultiRenderable for ConfigurablePlotRenderer {
         _device: &Device,
         _queue: &Queue,
     ) {
-        log::info!("[ConfigurablePlotRenderer] Rendering '{}'", self.name);
-        log::info!("[ConfigurablePlotRenderer]   - Data columns: {:?}", self._data_columns);
         self.renderer.render(encoder, view, data_store);
     }
 
@@ -544,6 +516,18 @@ impl MultiRendererBuilder {
 
     pub fn add_y_axis_renderer(mut self, width: u32, height: u32) -> Self {
         let renderer = crate::YAxisRenderer::new(
+            self.device.clone(),
+            self.queue.clone(),
+            self.format,
+            width,
+            height,
+        );
+        self.renderers.push(Box::new(renderer));
+        self
+    }
+    
+    pub fn add_tooltip_renderer(mut self, width: u32, height: u32) -> Self {
+        let renderer = crate::TooltipRenderer::new(
             self.device.clone(),
             self.queue.clone(),
             self.format,

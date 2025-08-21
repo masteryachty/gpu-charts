@@ -4,6 +4,7 @@ use data_manager::{DataManager, DataStore};
 use renderer::{
     compute_engine::ComputeEngine, MultiRenderer, MultiRendererBuilder, RenderContext, RenderOrder,
 };
+use shared_types::TooltipLabel;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -216,6 +217,10 @@ impl ChartEngine {
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
+        // Check for completed GPU readbacks on each frame
+        // This is non-blocking and will update metrics when data is ready
+        self.compute_engine.process_readbacks(&mut self.data_store);
+        
         // Check if rendering is needed
         if !self.data_store.is_dirty() {
             return Ok(());
@@ -227,21 +232,21 @@ impl ChartEngine {
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
-        // Create command encoder
-        let mut encoder =
-            self.render_context
-                .device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("Render Encoder"),
-                });
-
         // Start GPU bounds calculation if needed
         if self.data_store.gpu_min_y.is_none() && self.data_store.min_max_buffer.is_none() {
+            // Create command encoder for compute operations
+            let mut compute_encoder =
+                self.render_context
+                    .device
+                    .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                        label: Some("Compute Encoder"),
+                    });
+
             // First, run multi-renderer compute passes (e.g., candle aggregation)
             // This must happen BEFORE the compute engine runs
             if let Some(ref mut multi_renderer) = self.multi_renderer {
                 multi_renderer.run_compute_passes(
-                    &mut encoder,
+                    &mut compute_encoder,
                     &self.data_store,
                     &self.render_context.device,
                     &self.render_context.queue
@@ -255,25 +260,41 @@ impl ChartEngine {
                     let num_candles = renderer.get_num_candles();
                     self.compute_engine.set_candle_buffer(
                         Some((candle_buffer, num_candles)),
-                        &mut encoder
+                        &mut compute_encoder
                     );
                 }
             }
             
             // Run pre-render compute passes (e.g., compute mid price, EMAs)
             self.compute_engine
-                .run_compute_passes(&mut encoder, &mut self.data_store);
+                .run_compute_passes(&mut compute_encoder, &mut self.data_store);
+            
+            // Submit the compute commands and process GPU readbacks
+            self.render_context.queue.submit(Some(compute_encoder.finish()));
+            
+            // Process any pending GPU readbacks from compute operations
+            self.compute_engine.process_readbacks(&mut self.data_store);
+            
+            // Create a new encoder for min/max calculation
+            let mut minmax_encoder = self.render_context.device.create_command_encoder(
+                &wgpu::CommandEncoderDescriptor {
+                    label: Some("MinMax Encoder"),
+                }
+            );
 
             // Calculate Y bounds using GPU
             let (x_min, x_max) = (self.data_store.start_x, self.data_store.end_x);
             let (min_max_buffer, staging_buffer) = renderer::calculate_min_max_y(
                 &self.render_context.device,
                 &self.render_context.queue,
-                &mut encoder,
+                &mut minmax_encoder,
                 &self.data_store,
                 x_min,
                 x_max,
             );
+
+            // Submit min/max commands
+            self.render_context.queue.submit(Some(minmax_encoder.finish()));
 
             // Store buffers
             self.data_store.min_max_buffer = Some(Rc::new(min_max_buffer));
@@ -286,6 +307,14 @@ impl ChartEngine {
                 mapping_completed: Arc::new(Mutex::new(false)),
             });
         }
+
+        // Create command encoder for rendering
+        let mut encoder =
+            self.render_context
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("Render Encoder"),
+                });
 
         // Let MultiRenderer handle all rendering
         if let Some(ref mut multi_renderer) = self.multi_renderer {
@@ -457,10 +486,11 @@ impl ChartEngine {
             }
         }
 
-        // Always add axes
+        // Always add axes and tooltip renderer
         builder = builder
             .add_x_axis_renderer(width, height)
-            .add_y_axis_renderer(width, height);
+            .add_y_axis_renderer(width, height)
+            .add_tooltip_renderer(width, height);
 
         // Build and replace the multi-renderer
         let new_multi_renderer = builder.build();
@@ -613,6 +643,154 @@ impl ChartEngine {
     }
 
     /// Handle cursor events with simplified canvas controller
+    fn activate_tooltip(&mut self) {
+        use shared_types::{TooltipLabel, TooltipState};
+        
+        // Get current mouse position
+        let mouse_pos = self.canvas_controller.current_position();
+        
+        // Create or update tooltip state
+        let mut tooltip_state = TooltipState::default();
+        tooltip_state.active = true;
+        tooltip_state.x_position = mouse_pos.x as f32;
+        tooltip_state.y_position = mouse_pos.y as f32;
+        
+        // Find closest data point and update labels
+        if let Some((timestamp, mut values)) = self.data_store.find_closest_data_point(mouse_pos.x) {
+            tooltip_state.timestamp = Some(timestamp);
+            
+            // Sort values by magnitude (largest to smallest)
+            values.sort_by(|a, b| {
+                // Compare absolute values in reverse order (largest first)
+                b.1.abs().partial_cmp(&a.1.abs()).unwrap_or(std::cmp::Ordering::Equal)
+            });
+            
+            // Create labels with stacking
+            let mut y_offset = 20.0; // Start below the cursor
+            for (name, value, color) in values {
+                let label = TooltipLabel {
+                    series_name: name,
+                    value,
+                    screen_y: mouse_pos.y as f32 + y_offset,
+                    color,
+                    visible: true,
+                    data_index: 0, // We could track this in find_closest_data_point if needed
+                };
+                tooltip_state.labels.push(label);
+                y_offset += 25.0; // Stack labels with padding
+            }
+        } else {
+            log::warn!("[Tooltip] No data found at position {}", mouse_pos.x);
+        }
+        
+        self.data_store.set_tooltip_state(tooltip_state);
+        self.data_store.mark_dirty();
+    }
+    
+    fn deactivate_tooltip(&mut self) {
+        self.data_store.clear_tooltip();
+        self.data_store.mark_dirty();
+    }
+    
+    fn update_tooltip_position(&mut self, x: f32, y: f32) {
+        // Check throttling
+        let current_time = web_sys::window()
+            .and_then(|w| w.performance())
+            .map(|p| p.now())
+            .unwrap_or(0.0);
+        
+        // Get config and check throttling first
+        let config = self.data_store.get_tooltip_config().clone();
+        
+        let should_update = if let Some(tooltip_state) = self.data_store.get_tooltip_state() {
+            let time_since_last = current_time - tooltip_state.last_update_ms;
+            time_since_last >= config.update_throttle_ms
+        } else {
+            false
+        };
+        
+        if !should_update {
+            // Even if we skip the full update, still update the position for visual feedback
+            if let Some(tooltip_state) = self.data_store.get_tooltip_state_mut() {
+                tooltip_state.x_position = x;
+                tooltip_state.y_position = y;
+                self.data_store.mark_dirty();
+            }
+            return;
+        }
+        
+        // ALWAYS update the position first for smooth visual feedback
+        if let Some(tooltip_state) = self.data_store.get_tooltip_state_mut() {
+            tooltip_state.last_update_ms = current_time;
+            tooltip_state.x_position = x;
+            tooltip_state.y_position = y;
+        }
+        
+        // Find new data point at this position
+        let data_result = self.data_store.find_closest_data_point(x as f64);
+        
+        // Calculate Y positions for values
+        let mut label_data = Vec::new();
+        if let Some((timestamp, mut values)) = data_result {
+            // Sort values by magnitude (largest to smallest)
+            values.sort_by(|a, b| {
+                // Compare absolute values in reverse order (largest first)
+                b.1.abs().partial_cmp(&a.1.abs()).unwrap_or(std::cmp::Ordering::Equal)
+            });
+            
+            // Stack labels with improved algorithm
+            let mut y_positions: Vec<f32> = Vec::new();
+            let label_height = 22.0;
+            let label_padding = config.label_padding;
+            
+            for (i, (name, value, color)) in values.iter().enumerate() {
+                // Calculate Y position from value
+                let value_y = self.data_store.y_to_screen_position(*value);
+                
+                // Check for overlaps and adjust
+                let mut final_y = value_y;
+                for existing_y in &y_positions {
+                    if (final_y - existing_y).abs() < label_height + label_padding {
+                        // Overlap detected, stack above or below
+                        if final_y < *existing_y {
+                            final_y = existing_y - label_height - label_padding;
+                        } else {
+                            final_y = existing_y + label_height + label_padding;
+                        }
+                    }
+                }
+                
+                y_positions.push(final_y);
+                
+                let label = TooltipLabel {
+                    series_name: name.clone(),
+                    value: *value,
+                    screen_y: final_y,
+                    color: *color,
+                    visible: true,
+                    data_index: i as u32,
+                };
+                label_data.push((timestamp, label));
+            }
+        }
+        
+        // Update the tooltip data if we found any
+        if let Some(tooltip_state) = self.data_store.get_tooltip_state_mut() {
+            // Update with the collected data
+            if !label_data.is_empty() {
+                let (timestamp, _) = label_data[0];
+                tooltip_state.timestamp = Some(timestamp);
+                tooltip_state.labels.clear();
+                
+                for (_, label) in label_data {
+                    tooltip_state.labels.push(label);
+                }
+            }
+        }
+        
+        self.data_store.mark_dirty();
+    }
+
     pub fn handle_cursor_event(&mut self, event: shared_types::events::WindowEvent) {
         use shared_types::events::{ElementState, MouseScrollDelta, WindowEvent};
 
@@ -674,34 +852,62 @@ impl ChartEngine {
             }
             WindowEvent::CursorMoved { position, .. } => {
                 self.canvas_controller.update_position(position.into());
+                
+                // Update tooltip if it's active
+                if let Some(tooltip_state) = self.data_store.get_tooltip_state() {
+                    if tooltip_state.active {
+                        self.update_tooltip_position(position.x as f32, position.y as f32);
+                        // Always force immediate render to update the vertical line position
+                        let _ = self.render();
+                    }
+                }
             }
             WindowEvent::MouseInput {
-                state, button: _, ..
+                state, button, ..
             } => {
-                match state {
-                    ElementState::Pressed => {
-                        self.canvas_controller.start_drag();
+                use shared_types::events::MouseButton;
+                
+                match button {
+                    MouseButton::Left => {
+                        match state {
+                            ElementState::Pressed => {
+                                self.canvas_controller.start_drag();
+                            }
+                            ElementState::Released => {
+                                if let Some((start_pos, end_pos)) = self.canvas_controller.end_drag() {
+                                    // Apply drag zoom
+                                    let start_ts = self.data_store.screen_to_world_with_margin(
+                                        start_pos.x as f32,
+                                        start_pos.y as f32,
+                                    );
+                                    let end_ts = self
+                                        .data_store
+                                        .screen_to_world_with_margin(end_pos.x as f32, end_pos.y as f32);
+
+                                    // Ensure start is less than end
+                                    let (new_start, new_end) = if start_ts.0 < end_ts.0 {
+                                        (start_ts.0 as u32, end_ts.0 as u32)
+                                    } else {
+                                        (end_ts.0 as u32, start_ts.0 as u32)
+                                    };
+
+                                    self.data_store.set_x_range(new_start, new_end);
+                                    self.data_store.mark_dirty();
+                                }
+                            }
+                        }
                     }
-                    ElementState::Released => {
-                        if let Some((start_pos, end_pos)) = self.canvas_controller.end_drag() {
-                            // Apply drag zoom
-                            let start_ts = self.data_store.screen_to_world_with_margin(
-                                start_pos.x as f32,
-                                start_pos.y as f32,
-                            );
-                            let end_ts = self
-                                .data_store
-                                .screen_to_world_with_margin(end_pos.x as f32, end_pos.y as f32);
-
-                            // Ensure start is less than end
-                            let (new_start, new_end) = if start_ts.0 < end_ts.0 {
-                                (start_ts.0 as u32, end_ts.0 as u32)
-                            } else {
-                                (end_ts.0 as u32, start_ts.0 as u32)
-                            };
-
-                            self.data_store.set_x_range(new_start, new_end);
-                            self.data_store.mark_dirty();
+                    MouseButton::Right => {
+                        // Handle right-click for tooltip
+                        match state {
+                            ElementState::Pressed => {
+                                // Right-click pressed - activate tooltip
+                                self.activate_tooltip();
+                            }
+                            ElementState::Released => {
+                                // Right-click released - deactivate tooltip
+                                self.deactivate_tooltip();
+                            }
                         }
                     }
                 }
