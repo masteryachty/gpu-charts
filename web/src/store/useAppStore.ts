@@ -6,6 +6,7 @@ export interface StoreState {
   symbol?: string;
   startTime: number;
   endTime: number;
+  isConnected?: boolean;
 }
 
 // // WASM integration types
@@ -30,6 +31,7 @@ interface AppStore extends StoreState {
   // Core actions
   setCurrentSymbol: (symbol: string) => void;
   setPreset: (preset?: string) => void;
+  setIsConnected: (connected: boolean) => void;
   // Enhanced actions with time range management
   setTimeRange: (startTime: number, endTime: number) => void;
   // Batch operations
@@ -50,6 +52,7 @@ const DEFAULT_CONFIG: StoreState = {
   startTime: Math.floor(Date.now() / 1000) - 24 * 60 * 60, // 24 hours ago
   endTime: Math.floor(Date.now() / 1000), // Now
   preset: 'Market Data',
+  isConnected: false,
 };
 
 export const useAppStore = create<AppStore>((set, get) => ({
@@ -61,6 +64,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   preset: DEFAULT_CONFIG.preset,
   startTime: DEFAULT_CONFIG.startTime,
   endTime: DEFAULT_CONFIG.endTime,
+  isConnected: DEFAULT_CONFIG.isConnected,
 
   // Subscription management
   _subscriptions: new Map(),
@@ -77,6 +81,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setPreset: (preset) => {
     const oldState = get();
     set({ preset });
+    const newState = get();
+    newState._triggerSubscriptions(newState, oldState);
+  },
+
+  setIsConnected: (isConnected) => {
+    const oldState = get();
+    set({ isConnected });
     const newState = get();
     newState._triggerSubscriptions(newState, oldState);
   },

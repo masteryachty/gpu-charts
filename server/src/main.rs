@@ -15,7 +15,7 @@ mod symbols;
 
 use data::handle_data_request;
 use status::handle_status_request;
-use symbols::handle_symbols_request;
+use symbols::{handle_symbols_request, handle_symbol_search_request, initialize_search_service};
 
 /// Our top–level service function. It dispatches GET requests on "/api/data" to our handler.
 async fn service_handler(req: Request<Body>) -> Result<Response<Body>, Infallible> {
@@ -51,6 +51,13 @@ async fn service_handler(req: Request<Body>) -> Result<Response<Body>, Infallibl
         }
         (&Method::GET, "/api/status") => {
             let mut response = handle_status_request(req).await?;
+            response
+                .headers_mut()
+                .insert("Access-Control-Allow-Origin", "*".parse().unwrap());
+            Ok(response)
+        }
+        (&Method::GET, "/api/symbol-search") => {
+            let mut response = handle_symbol_search_request(req).await?;
             response
                 .headers_mut()
                 .insert("Access-Control-Allow-Origin", "*".parse().unwrap());
@@ -113,6 +120,9 @@ fn load_private_key(path: &str) -> Result<PrivateKey, Box<dyn std::error::Error>
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load symbol registry at startup
     symbols::load_symbols_at_startup().await?;
+    
+    // Initialize the symbol search service
+    symbols::initialize_search_service().await?;
     
     // Check if we should use TLS or plain HTTP
     let use_tls = std::env::var("USE_TLS")

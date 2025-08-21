@@ -1,3 +1,14 @@
+mod search;
+
+pub use search::{
+    SymbolSearchService, 
+    SearchResult, 
+    ExchangeSymbol,
+    initialize_search_service,
+    SEARCH_SERVICE
+};
+
+// Re-export existing symbols functionality
 use serde_json::json;
 use std::collections::HashMap;
 use std::convert::Infallible;
@@ -156,5 +167,59 @@ pub async fn handle_symbols_request(
         .header("X-Cache-Status", "MEMORY")
         .header("X-Fetch-Time-Ms", "0")
         .body(Body::from(filtered_response.to_string()))
+        .unwrap())
+}
+
+/// Handler for the /api/symbol-search endpoint
+pub async fn handle_symbol_search_request(
+    req: hyper::Request<Body>,
+) -> Result<Response<Body>, Infallible> {
+    // Parse query parameters
+    let query = req.uri().query().unwrap_or("");
+    let mut search_query = "";
+    
+    if !query.is_empty() {
+        for pair in query.split('&') {
+            if let Some((key, value)) = pair.split_once('=') {
+                if key == "q" {
+                    search_query = value;
+                    break;
+                }
+            }
+        }
+    }
+    
+    // If no query provided, return empty results
+    if search_query.is_empty() {
+        let response = json!({
+            "results": []
+        });
+        
+        return Ok(Response::builder()
+            .status(StatusCode::OK)
+            .header(header::CONTENT_TYPE, "application/json")
+            .header("Access-Control-Allow-Origin", "*")
+            .body(Body::from(response.to_string()))
+            .unwrap());
+    }
+    
+    // URL decode the query
+    let decoded_query = urlencoding::decode(search_query)
+        .unwrap_or_else(|_| std::borrow::Cow::Borrowed(search_query))
+        .to_string();
+    
+    // Perform search
+    let service = SEARCH_SERVICE.read().await;
+    let results = service.search(&decoded_query);
+    
+    let response = json!({
+        "results": results
+    });
+    
+    Ok(Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "application/json")
+        .header("Access-Control-Allow-Origin", "*")
+        .body(Body::from(response.to_string()))
         .unwrap())
 }
