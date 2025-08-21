@@ -21,8 +21,7 @@ export interface SymbolSearchResponse {
 }
 
 // Get API base URL from environment or use default
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-  (window.location.hostname === 'localhost' ? 'https://localhost:8443' : 'https://api.rednax.io');
+const API_BASE_URL = 'https://api.rednax.io';
 
 // Cache for search results
 const searchCache = new Map<string, { data: SearchResult[]; timestamp: number }>();
@@ -38,16 +37,25 @@ export async function searchSymbols(query: string): Promise<SearchResult[]> {
     return [];
   }
 
+  // Split query by space or slash to handle multi-term searches
+  // e.g., "btc usd" or "btc/usd" becomes ["btc", "usd"]
+  const searchTerms = query.trim().toLowerCase().split(/[\s\/]+/).filter(term => term.length > 0);
+  
+  // If multiple terms, join them with space for the API
+  // The API should handle this as AND logic
+  const searchQuery = searchTerms.join(' ');
+
   // Check cache first
-  const cacheKey = query.toLowerCase();
+  const cacheKey = searchQuery;
   const cached = searchCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
     return cached.data;
   }
 
   try {
+    console.log(API_BASE_URL)
     const response = await fetch(
-      `${API_BASE_URL}/api/symbol-search?q=${encodeURIComponent(query)}`,
+      `${API_BASE_URL}/api/symbol-search?q=${encodeURIComponent(searchQuery)}`,
       {
         method: 'GET',
         headers: {
@@ -62,13 +70,32 @@ export async function searchSymbols(query: string): Promise<SearchResult[]> {
 
     const data: SymbolSearchResponse = await response.json();
     
+    // If we have multiple search terms, perform client-side filtering
+    // to ensure ALL terms match (AND logic)
+    let results = data.results;
+    if (searchTerms.length > 1) {
+      results = data.results.filter(result => {
+        // Check if all search terms are present in the symbol data
+        const searchableText = [
+          result.normalized_id,
+          result.display_name,
+          result.base,
+          result.quote,
+          result.description
+        ].join(' ').toLowerCase();
+        
+        // All terms must be found
+        return searchTerms.every(term => searchableText.includes(term));
+      });
+    }
+
     // Cache the results
     searchCache.set(cacheKey, {
-      data: data.results,
+      data: results,
       timestamp: Date.now(),
     });
 
-    return data.results;
+    return results;
   } catch (error) {
     console.error('Symbol search error:', error);
     // Return empty array on error to allow graceful degradation
@@ -141,7 +168,7 @@ export function getExchangeColor(exchange: string): string {
  */
 export function groupResultsByCategory(results: SearchResult[]): Record<string, SearchResult[]> {
   const grouped: Record<string, SearchResult[]> = {};
-  
+
   results.forEach(result => {
     const category = result.category || 'Other';
     if (!grouped[category]) {
@@ -163,7 +190,7 @@ export function getRelevanceIndicator(score: number): {
 } {
   const maxScore = 150; // Maximum possible score
   const percentage = Math.min(100, (score / maxScore) * 100);
-  
+
   if (score >= 120) {
     return { label: 'Exact Match', color: '#10B981', percentage }; // Green
   } else if (score >= 80) {
@@ -173,4 +200,24 @@ export function getRelevanceIndicator(score: number): {
   } else {
     return { label: 'Partial Match', color: '#6B7280', percentage }; // Gray
   }
+}
+
+/**
+ * Parse exchange and symbol from a combined string
+ * Format: "exchange:SYMBOL" or just "SYMBOL"
+ */
+export function parseSymbol(symbol: string): { exchange: string; baseSymbol: string } {
+  if (symbol.includes(':')) {
+    const [exchange, baseSymbol] = symbol.split(':');
+    return { exchange, baseSymbol };
+  }
+  // Default to coinbase for backward compatibility
+  return { exchange: 'coinbase', baseSymbol: symbol };
+}
+
+/**
+ * Combine exchange and symbol into a single string
+ */
+export function combineSymbol(exchange: string, baseSymbol: string): string {
+  return `${exchange}:${baseSymbol}`;
 }

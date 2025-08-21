@@ -48,7 +48,7 @@ interface AppStore extends StoreState {
 
 // Default configuration values
 const DEFAULT_CONFIG: StoreState = {
-  symbol: 'BTC-USD',
+  symbol: 'coinbase:BTC-USD',
   startTime: Math.floor(Date.now() / 1000) - 24 * 60 * 60, // 24 hours ago
   endTime: Math.floor(Date.now() / 1000), // Now
   preset: 'Market Data',

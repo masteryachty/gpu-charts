@@ -19,7 +19,7 @@ interface SymbolSearchProps {
 
 export default function SymbolSearch({ 
   className, 
-  placeholder = "Search symbols...",
+  placeholder = "Search symbols... (e.g. 'btc usd' or 'eth/usdt')",
   onSymbolSelect 
 }: SymbolSearchProps) {
   const { currentSymbol, setCurrentSymbol } = useAppStore();
@@ -74,13 +74,19 @@ export default function SymbolSearch({
     }
   };
 
-  const handleSelectSymbol = useCallback((result: SearchResult) => {
-    // Find the first exchange's symbol to use
-    const firstExchange = result.exchanges[0];
-    if (firstExchange) {
-      const symbolToUse = firstExchange.symbol;
+  const handleSelectSymbol = useCallback((result: SearchResult, exchangeSymbol?: string) => {
+    // Use specific exchange symbol if provided, otherwise first exchange
+    const symbolToUse = exchangeSymbol || result.exchanges[0]?.symbol;
+    if (symbolToUse) {
       setCurrentSymbol(symbolToUse);
       onSymbolSelect?.(symbolToUse);
+      
+      // Update URL with new symbol
+      const urlParams = new URLSearchParams(window.location.search);
+      urlParams.set('topic', symbolToUse);
+      const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
+      window.history.pushState({}, '', newUrl);
+      
       setQuery('');
       setIsOpen(false);
       setResults([]);
@@ -109,7 +115,7 @@ export default function SymbolSearch({
       case 'Enter':
         e.preventDefault();
         if (selectedIndex >= 0 && selectedIndex < results.length) {
-          handleSelectSymbol(results[selectedIndex]);
+          handleSelectSymbol(results[selectedIndex], undefined);
         }
         break;
         
@@ -214,7 +220,12 @@ export default function SymbolSearch({
 
           {!isLoading && !error && results.length === 0 && query && (
             <div className="p-4 text-center text-text-tertiary">
-              No results found for "{query}"
+              <div>No results found for "{query}"</div>
+              {query.includes(' ') || query.includes('/') ? (
+                <div className="text-xs mt-1 text-text-quaternary">
+                  Searching for symbols containing all terms
+                </div>
+              ) : null}
             </div>
           )}
 
@@ -228,16 +239,15 @@ export default function SymbolSearch({
                   <div
                     key={`${result.normalized_id}-${index}`}
                     data-result-item
-                    onClick={() => handleSelectSymbol(result)}
                     onMouseEnter={() => setSelectedIndex(index)}
                     className={clsx(
-                      "px-4 py-3 cursor-pointer transition-all duration-150",
+                      "px-4 py-3 transition-all duration-150",
                       "border-b border-border/50 last:border-b-0",
-                      isSelected ? "bg-bg-secondary" : "hover:bg-bg-secondary/50"
+                      isSelected ? "bg-bg-secondary" : ""
                     )}
                   >
                     {/* Main Row */}
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
                         {/* Category Icon */}
                         <div className="text-text-tertiary">
@@ -247,7 +257,7 @@ export default function SymbolSearch({
                         {/* Symbol Info */}
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="text-text-primary font-semibold">
+                            <span className="text-text-primary font-semibold text-lg">
                               {result.normalized_id}
                             </span>
                             <span className="text-text-secondary text-sm">
@@ -283,25 +293,37 @@ export default function SymbolSearch({
                       </div>
                     </div>
 
-                    {/* Exchange Pills */}
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                      {result.exchanges.map((exchange, idx) => (
-                        <div
-                          key={`${exchange.exchange}-${idx}`}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs"
-                          style={{
-                            backgroundColor: `${getExchangeColor(exchange.exchange)}15`,
-                            borderLeft: `2px solid ${getExchangeColor(exchange.exchange)}`
-                          }}
-                        >
-                          <span className="font-medium text-text-secondary">
-                            {formatExchangeName(exchange.exchange)}
-                          </span>
-                          <span className="text-text-tertiary">
-                            {exchange.symbol}
-                          </span>
-                        </div>
-                      ))}
+                    {/* Exchange Selection Grid */}
+                    <div className="space-y-1.5">
+                      <div className="text-xs text-text-tertiary mb-1">Available on:</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {result.exchanges.map((exchange, idx) => (
+                          <button
+                            key={`${exchange.exchange}-${idx}`}
+                            onClick={() => handleSelectSymbol(result, exchange.symbol)}
+                            className="flex items-center justify-between px-3 py-2 rounded text-sm transition-all duration-150 hover:scale-[1.02] active:scale-[0.98]"
+                            style={{
+                              backgroundColor: `${getExchangeColor(exchange.exchange)}10`,
+                              border: `1px solid ${getExchangeColor(exchange.exchange)}30`,
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = `${getExchangeColor(exchange.exchange)}20`;
+                              e.currentTarget.style.borderColor = `${getExchangeColor(exchange.exchange)}50`;
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = `${getExchangeColor(exchange.exchange)}10`;
+                              e.currentTarget.style.borderColor = `${getExchangeColor(exchange.exchange)}30`;
+                            }}
+                          >
+                            <span className="font-medium text-text-primary">
+                              {formatExchangeName(exchange.exchange)}
+                            </span>
+                            <span className="text-text-tertiary text-xs font-mono">
+                              {exchange.symbol}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 );
@@ -315,6 +337,9 @@ export default function SymbolSearch({
               <div className="flex items-center justify-between text-xs text-text-tertiary">
                 <span>
                   {results.length} result{results.length !== 1 ? 's' : ''} found
+                  {(query.includes(' ') || query.includes('/')) && (
+                    <span className="ml-1 text-accent-primary">(AND search)</span>
+                  )}
                 </span>
                 <div className="flex items-center gap-3">
                   <span>↑↓ Navigate</span>
