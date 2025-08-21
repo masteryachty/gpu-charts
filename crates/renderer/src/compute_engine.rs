@@ -24,7 +24,7 @@ struct PendingReadback {
 /// Manages all compute operations for metrics
 pub struct ComputeEngine {
     device: Rc<Device>,
-    queue: Rc<Queue>,
+    _queue: Rc<Queue>,
 
     // Compute calculators
     mid_price_calculator: Option<MidPriceCalculator>,
@@ -55,7 +55,7 @@ impl ComputeEngine {
 
         Self {
             device,
-            queue,
+            _queue: queue,
             mid_price_calculator,
             ema_calculator,
             close_extractor,

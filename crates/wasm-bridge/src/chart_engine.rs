@@ -656,7 +656,7 @@ impl ChartEngine {
         tooltip_state.y_position = mouse_pos.y as f32;
         
         // Find closest data point and update labels
-        if let Some((timestamp, mut values)) = self.data_store.find_closest_data_point(mouse_pos.x as f32) {
+        if let Some((timestamp, mut values)) = self.data_store.find_closest_data_point(mouse_pos.x) {
             tooltip_state.timestamp = Some(timestamp);
             
             // Sort values by magnitude (largest to smallest)
@@ -727,7 +727,7 @@ impl ChartEngine {
         }
         
         // Find new data point at this position
-        let data_result = self.data_store.find_closest_data_point(x);
+        let data_result = self.data_store.find_closest_data_point(x as f64);
         
         // Calculate Y positions for values
         let mut label_data = Vec::new();

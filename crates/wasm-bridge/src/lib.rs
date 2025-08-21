@@ -512,7 +512,7 @@ impl Chart {
             let data_store = instance.chart_engine.data_store();
             
             // Find closest data point at this x position
-            if let Some((timestamp, values)) = data_store.find_closest_data_point(x as f32) {
+            if let Some((timestamp, values)) = data_store.find_closest_data_point(x) {
                 // Create JavaScript object with tooltip data
                 let obj = js_sys::Object::new();
                 

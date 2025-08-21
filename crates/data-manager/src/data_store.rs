@@ -637,9 +637,9 @@ impl DataStore {
     
     /// Find the closest data point to the given x position
     /// Returns the timestamp and values for all visible metrics at that point
-    pub fn find_closest_data_point(&self, screen_x: f32) -> Option<(u32, Vec<(String, f32, [f32; 4])>)> {
+    pub fn find_closest_data_point(&self, screen_x: f64) -> Option<(u32, Vec<(String, f32, [f32; 4])>)> {
         // Convert screen X to world X (timestamp) - keep full precision with f64
-        let world_x_f64 = self.screen_to_world_x(screen_x);
+        let world_x_f64 = self.screen_to_world_x(screen_x as f32);
         let target_timestamp = world_x_f64 as u32;  // Keep truncation to get base timestamp
         let _fractional_part = (world_x_f64 - target_timestamp as f64) as f32;
         
