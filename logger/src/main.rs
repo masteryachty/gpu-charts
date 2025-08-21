@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use logger::{Config, Logger, MetricsExporter};
+use logger::{Config, Logger};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::signal;
@@ -48,56 +48,60 @@ enum Commands {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    // Initialize logging
-    let filter = if cli.debug {
-        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("debug"))
+    // Initialize tracing
+    let log_level = if cli.debug { "debug" } else { "info" };
+    
+    // Check if we're running under systemd/Docker (they add timestamps)
+    let is_systemd = std::env::var("INVOCATION_ID").is_ok() || std::env::var("JOURNAL_STREAM").is_ok();
+    let is_docker = std::path::Path::new("/.dockerenv").exists();
+    
+    if is_systemd || is_docker {
+        // Use compact format without timestamps for systemd/Docker
+        tracing_subscriber::fmt()
+            .with_env_filter(EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| EnvFilter::new(log_level)))
+            .with_target(false)
+            .without_time()
+            .init();
     } else {
-        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"))
-    };
-
-    tracing_subscriber::registry()
-        .with(filter)
-        .with(tracing_subscriber::fmt::layer())
-        .init();
+        // Use full format with timestamps for direct execution
+        tracing_subscriber::fmt()
+            .with_env_filter(EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| EnvFilter::new(log_level)))
+            .with_target(false)
+            .init();
+    }
 
     // Load configuration
-    let config = if let Some(config_path) = cli.config {
-        Config::from_file(config_path.to_str().unwrap())?
-    } else {
-        Config::from_env()?
-    };
+    let config_path = cli.config.as_deref();
+    let mut config = Config::load(config_path)?;
 
+    // Handle commands
     match cli.command {
         Some(Commands::Run { exchanges }) => {
-            run_logger(config, exchanges).await?;
+            if let Some(exchanges) = exchanges {
+                // Override config with command line exchanges
+                let exchange_list: Vec<String> = exchanges.split(',').map(|s| s.trim().to_string()).collect();
+                config.enable_only_exchanges(&exchange_list);
+            }
+            run_logger(config).await?;
         }
         Some(Commands::Test { exchange }) => {
-            test_exchange(&exchange, config).await?;
+            test_exchange(&exchange, &config).await?;
         }
         Some(Commands::Symbols { exchange }) => {
-            list_symbols(&exchange, config).await?;
+            list_symbols(&exchange, &config).await?;
         }
         None => {
-            // Default: run all enabled exchanges
-            run_logger(config, None).await?;
+            // Default to run command
+            run_logger(config).await?;
         }
     }
 
     Ok(())
 }
 
-async fn run_logger(mut config: Config, exchanges: Option<String>) -> Result<()> {
-    // Override enabled exchanges if specified
-    if let Some(exchanges_str) = exchanges {
-        let exchanges: Vec<&str> = exchanges_str.split(',').collect();
-
-        config.exchanges.coinbase.enabled = exchanges.contains(&"coinbase");
-        config.exchanges.binance.enabled = exchanges.contains(&"binance");
-        config.exchanges.okx.enabled = exchanges.contains(&"okx");
-        config.exchanges.kraken.enabled = exchanges.contains(&"kraken");
-        config.exchanges.bitfinex.enabled = exchanges.contains(&"bitfinex");
-    }
-
+async fn run_logger(config: Config) -> Result<()> {
     info!("Starting multi-exchange logger");
     info!("Enabled exchanges:");
     if config.exchanges.coinbase.enabled {
@@ -118,32 +122,18 @@ async fn run_logger(mut config: Config, exchanges: Option<String>) -> Result<()>
 
     let logger = Logger::new(config.clone())?;
 
-    // Start metrics exporter if enabled
-    let metrics_handle = if config.metrics.enabled {
-        let instance_name = config.metrics.instance_name.clone()
-            .unwrap_or_else(|| hostname::get()
-                .unwrap_or_else(|_| std::ffi::OsString::from("unknown"))
-                .to_string_lossy()
-                .to_string());
-        
-        let exporter = Arc::new(MetricsExporter::new(
-            config.metrics.push_gateway_url.clone(),
-            instance_name,
-        ));
-        
-        let handle = {
-            let exporter = exporter.clone();
-            tokio::spawn(async move {
-                exporter.start().await;
-            })
-        };
-        
-        info!("Metrics exporter started, pushing to {}", config.metrics.push_gateway_url);
-        Some(handle)
-    } else {
-        info!("Metrics exporter disabled");
-        None
-    };
+    // Start metrics server on configured port (default 9090)
+    let metrics_port = std::env::var("METRICS_PORT")
+        .unwrap_or_else(|_| "9090".to_string())
+        .parse::<u16>()
+        .unwrap_or(9090);
+    
+    tokio::spawn(async move {
+        logger::metrics_server::start_metrics_server(metrics_port).await;
+    });
+    
+    info!("Metrics server started on port {}", metrics_port);
+    info!("Prometheus can scrape metrics from http://localhost:{}/metrics", metrics_port);
 
     // Start health check server
     let health_port = config.logger.health_check_port;
@@ -174,96 +164,96 @@ async fn run_logger(mut config: Config, exchanges: Option<String>) -> Result<()>
     }
 
     health_server.abort();
-    if let Some(handle) = metrics_handle {
-        handle.abort();
-    }
-    info!("Shutdown complete");
+    info!("Logger shutdown complete");
 
     Ok(())
 }
 
-async fn test_exchange(exchange: &str, config: Config) -> Result<()> {
-    use logger::exchanges::Exchange;
+async fn test_exchange(exchange_name: &str, config: &Config) -> Result<()> {
+    use logger::exchanges::{Exchange, ExchangeFactory};
 
-    let exchange_impl: Box<dyn Exchange> = match exchange.to_lowercase().as_str() {
-        "coinbase" => Box::new(logger::exchanges::coinbase::CoinbaseExchange::new(
-            std::sync::Arc::new(config),
-        )?),
-        "binance" => Box::new(logger::exchanges::binance::BinanceExchange::new(
-            std::sync::Arc::new(config),
-        )?),
-        "okx" => Box::new(logger::exchanges::okx::OkxExchange::new(
-            std::sync::Arc::new(config),
-        )?),
-        "kraken" => Box::new(logger::exchanges::kraken::KrakenExchange::new(
-            std::sync::Arc::new(config),
-        )?),
-        "bitfinex" => Box::new(logger::exchanges::bitfinex::BitfinexExchange::new(
-            std::sync::Arc::new(config),
-        )?),
-        _ => {
-            error!("Unknown exchange: {}", exchange);
-            return Ok(());
-        }
-    };
+    info!("Testing connection to {}...", exchange_name);
 
-    info!("Testing {} connection...", exchange_impl.name());
+    let factory = ExchangeFactory::new();
+    let exchange = factory.create(exchange_name, config.clone())?;
 
-    // Test symbol fetching
-    match exchange_impl.fetch_symbols().await {
+    // Test fetching symbols
+    info!("Fetching symbols...");
+    match exchange.fetch_symbols().await {
         Ok(symbols) => {
             info!("Successfully fetched {} symbols", symbols.len());
-            info!("Sample symbols:");
-            for symbol in symbols.iter().take(5) {
-                info!("  {}", symbol.symbol);
+            if symbols.len() > 5 {
+                info!("Sample symbols:");
+                for symbol in symbols.iter().take(5) {
+                    info!("  - {}", symbol.symbol);
+                }
+                info!("  ... and {} more", symbols.len() - 5);
+            } else {
+                for symbol in &symbols {
+                    info!("  - {}", symbol.symbol);
+                }
             }
         }
         Err(e) => {
             error!("Failed to fetch symbols: {}", e);
+            return Err(e);
+        }
+    }
+
+    // Test creating a connection
+    info!("Testing WebSocket connection...");
+    let channels = vec![];
+    match exchange.create_connection(channels).await {
+        Ok(mut conn) => {
+            match conn.connect().await {
+                Ok(_) => {
+                    info!("Successfully connected to WebSocket");
+                    info!("Connection test passed!");
+                }
+                Err(e) => {
+                    error!("Failed to connect: {}", e);
+                    return Err(e);
+                }
+            }
+        }
+        Err(e) => {
+            error!("Failed to create connection: {}", e);
+            return Err(e);
         }
     }
 
     Ok(())
 }
 
-async fn list_symbols(exchange: &str, config: Config) -> Result<()> {
-    use logger::exchanges::Exchange;
+async fn list_symbols(exchange_name: &str, config: &Config) -> Result<()> {
+    use logger::exchanges::{Exchange, ExchangeFactory};
 
-    let exchange_impl: Box<dyn Exchange> = match exchange.to_lowercase().as_str() {
-        "coinbase" => Box::new(logger::exchanges::coinbase::CoinbaseExchange::new(
-            std::sync::Arc::new(config),
-        )?),
-        "binance" => Box::new(logger::exchanges::binance::BinanceExchange::new(
-            std::sync::Arc::new(config),
-        )?),
-        "okx" => Box::new(logger::exchanges::okx::OkxExchange::new(
-            std::sync::Arc::new(config),
-        )?),
-        "kraken" => Box::new(logger::exchanges::kraken::KrakenExchange::new(
-            std::sync::Arc::new(config),
-        )?),
-        "bitfinex" => Box::new(logger::exchanges::bitfinex::BitfinexExchange::new(
-            std::sync::Arc::new(config),
-        )?),
-        _ => {
-            error!("Unknown exchange: {}", exchange);
-            return Ok(());
-        }
-    };
+    let factory = ExchangeFactory::new();
+    let exchange = factory.create(exchange_name, config.clone())?;
 
-    info!("Fetching symbols from {}...", exchange_impl.name());
+    info!("Fetching symbols for {}...", exchange_name);
+    let symbols = exchange.fetch_symbols().await?;
 
-    let symbols = exchange_impl.fetch_symbols().await?;
+    info!("Found {} symbols:", symbols.len());
+    for symbol in symbols {
+        let active_str = if symbol.active { "active" } else { "inactive" };
+        let tick_str = symbol
+            .tick_size
+            .map(|t| format!("{}", t))
+            .unwrap_or_else(|| "N/A".to_string());
+        let min_str = symbol
+            .min_size
+            .map(|m| format!("{}", m))
+            .unwrap_or_else(|| "N/A".to_string());
 
-    println!("Exchange,Symbol,Base,Quote,Status");
-    for symbol in &symbols {
-        println!(
-            "{},{},{},{},{}",
-            exchange,
+        info!(
+            "  {} - {}/{} ({}) [tick: {}, min: {}]",
             symbol.symbol,
             symbol.base_asset,
             symbol.quote_asset,
-            if symbol.active { "active" } else { "inactive" }
+            active_str,
+            tick_str,
+            min_str
         );
     }
 

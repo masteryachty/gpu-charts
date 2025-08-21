@@ -10,14 +10,35 @@ use tokio::net::TcpListener;
 use tokio_rustls::TlsAcceptor;
 
 mod data;
-mod metrics;
+mod metrics_server;
 mod status;
 mod symbols;
 
 use data::handle_data_request;
-use metrics::{MetricsExporter, MetricsMiddleware};
 use status::handle_status_request;
 use symbols::handle_symbols_request;
+
+/// Middleware to track HTTP metrics
+struct MetricsMiddleware {
+    method: String,
+    endpoint: String,
+    start: std::time::Instant,
+}
+
+impl MetricsMiddleware {
+    fn new(method: &str, endpoint: &str) -> Self {
+        Self {
+            method: method.to_string(),
+            endpoint: endpoint.to_string(),
+            start: std::time::Instant::now(),
+        }
+    }
+
+    fn complete(self, status: u16) {
+        let duration = self.start.elapsed().as_secs_f64();
+        metrics_server::record_http_request(&self.method, &self.endpoint, status, duration);
+    }
+}
 
 /// Our top–level service function. It dispatches GET requests on "/api/data" to our handler.
 async fn service_handler(req: Request<Body>) -> Result<Response<Body>, Infallible> {
@@ -34,7 +55,7 @@ async fn service_handler(req: Request<Body>) -> Result<Response<Body>, Infallibl
             .header("Access-Control-Allow-Headers", "Content-Type")
             .body(Body::empty())
             .unwrap();
-        metrics_middleware.complete(200, 0);
+        metrics_middleware.complete(200);
         return Ok(response);
     }
 
@@ -71,9 +92,7 @@ async fn service_handler(req: Request<Body>) -> Result<Response<Body>, Infallibl
     
     // Record metrics
     let status = response.status().as_u16();
-    // Estimate response size (actual size would require consuming the body)
-    let response_size = 0; // TODO: Implement proper response size tracking
-    metrics_middleware.complete(status, response_size);
+    metrics_middleware.complete(status);
     
     Ok(response)
 }
@@ -128,26 +147,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load symbol registry at startup
     symbols::load_symbols_at_startup().await?;
     
-    // Start metrics exporter
-    let prometheus_url = std::env::var("PROMETHEUS_PUSH_GATEWAY_URL")
-        .unwrap_or_else(|_| "http://prometheus.rednax.io".to_string());
+    // Start metrics server on separate port
+    let metrics_port = std::env::var("METRICS_PORT")
+        .unwrap_or_else(|_| "9091".to_string())
+        .parse::<u16>()
+        .unwrap_or(9091);
     
-    let instance_name = hostname::get()
-        .unwrap_or_else(|_| std::ffi::OsString::from("unknown"))
-        .to_string_lossy()
-        .to_string();
+    tokio::spawn(async move {
+        metrics_server::start_metrics_server(metrics_port).await;
+    });
     
-    let metrics_exporter = Arc::new(MetricsExporter::new(prometheus_url.clone(), instance_name));
-    
-    // Spawn metrics push task
-    {
-        let exporter = metrics_exporter.clone();
-        tokio::spawn(async move {
-            exporter.start().await;
-        });
-    }
-    
-    println!("Metrics exporter started, pushing to {}", prometheus_url);
+    println!("Metrics server started on port {}", metrics_port);
+    println!("Prometheus can scrape metrics from http://localhost:{}/metrics", metrics_port);
     
     // Check if we should use TLS or plain HTTP
     let use_tls = std::env::var("USE_TLS")
