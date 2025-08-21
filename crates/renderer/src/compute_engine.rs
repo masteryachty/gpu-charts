@@ -217,7 +217,7 @@ impl ComputeEngine {
                 // EMA calculations use WeightedAverage with empty weights array
                 // Check for EMA patterns: "ema_9", "ema_20", etc
                 if name.starts_with("ema_") {
-                    log::info!("[ComputeEngine] Computing EMA for metric: {}", name);
+                    // Computing EMA for metric
                     self.compute_ema(encoder, data_store, metric_ref, &name, &dependencies);
                 } else {
                     log::warn!("[ComputeEngine] Weighted average for {name} not implemented");
@@ -296,9 +296,7 @@ impl ComputeEngine {
         name: &str,
         dependencies: &[MetricRef],
     ) {
-        log::info!("[ComputeEngine] compute_ema called for '{}'", name);
-        log::info!("[ComputeEngine]   - MetricRef: group={}, metric={}", metric_ref.group_index, metric_ref.metric_index);
-        log::info!("[ComputeEngine]   - Dependencies count: {}", dependencies.len());
+        // Computing EMA for metric
         
         let Some(calculator) = &mut self.ema_calculator else {
             log::error!("[ComputeEngine] No EMA calculator available");

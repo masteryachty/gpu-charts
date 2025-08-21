@@ -630,12 +630,12 @@ impl ChartEngine {
         // Find closest data point and update labels
         if let Some((timestamp, values)) = self.data_store.find_closest_data_point(mouse_pos.x as f32) {
             tooltip_state.timestamp = Some(timestamp);
-            log::info!("[ChartEngine] Found {} values at timestamp {}", values.len(), timestamp);
+            
+            // Tooltip values collected at timestamp
             
             // Create labels with stacking
             let mut y_offset = 20.0; // Start below the cursor
             for (name, value, color) in values {
-                log::debug!("[ChartEngine] Adding label: {} = {}", name, value);
                 let label = TooltipLabel {
                     series_name: name,
                     value,
@@ -648,7 +648,7 @@ impl ChartEngine {
                 y_offset += 25.0; // Stack labels with padding
             }
         } else {
-            log::warn!("[ChartEngine] No data found at position {}", mouse_pos.x);
+            log::warn!("[Tooltip] No data found at position {}", mouse_pos.x);
         }
         
         self.data_store.set_tooltip_state(tooltip_state);
@@ -669,24 +669,30 @@ impl ChartEngine {
         
         // Get config and check throttling first
         let config = self.data_store.get_tooltip_config().clone();
+        
         let should_update = if let Some(tooltip_state) = self.data_store.get_tooltip_state() {
             let time_since_last = current_time - tooltip_state.last_update_ms;
-            let should = time_since_last >= config.update_throttle_ms;
-            if !should {
-                log::trace!("[ChartEngine] Skipping tooltip update due to throttling ({:.1}ms < {:.1}ms)", 
-                    time_since_last, config.update_throttle_ms);
-            }
-            should
+            time_since_last >= config.update_throttle_ms
         } else {
-            log::warn!("[ChartEngine] No tooltip state found in update_tooltip_position");
             false
         };
         
         if !should_update {
+            // Even if we skip the full update, still update the position for visual feedback
+            if let Some(tooltip_state) = self.data_store.get_tooltip_state_mut() {
+                tooltip_state.x_position = x;
+                tooltip_state.y_position = y;
+                self.data_store.mark_dirty();
+            }
             return;
         }
         
-        log::debug!("[ChartEngine] Updating tooltip to position ({}, {})", x, y);
+        // ALWAYS update the position first for smooth visual feedback
+        if let Some(tooltip_state) = self.data_store.get_tooltip_state_mut() {
+            tooltip_state.last_update_ms = current_time;
+            tooltip_state.x_position = x;
+            tooltip_state.y_position = y;
+        }
         
         // Find new data point at this position
         let data_result = self.data_store.find_closest_data_point(x);
@@ -730,12 +736,8 @@ impl ChartEngine {
             }
         }
         
-        // Now update the tooltip state
+        // Update the tooltip data if we found any
         if let Some(tooltip_state) = self.data_store.get_tooltip_state_mut() {
-            tooltip_state.last_update_ms = current_time;
-            tooltip_state.x_position = x;
-            tooltip_state.y_position = y;
-            
             // Update with the collected data
             if !label_data.is_empty() {
                 let (timestamp, _) = label_data[0];
@@ -816,12 +818,9 @@ impl ChartEngine {
                 // Update tooltip if it's active
                 if let Some(tooltip_state) = self.data_store.get_tooltip_state() {
                     if tooltip_state.active {
-                        log::debug!("[ChartEngine] Updating tooltip position to ({}, {})", position.x, position.y);
                         self.update_tooltip_position(position.x as f32, position.y as f32);
-                        // Force immediate render to update the vertical line position
-                        if self.data_store.is_dirty() {
-                            let _ = self.render();
-                        }
+                        // Always force immediate render to update the vertical line position
+                        let _ = self.render();
                     }
                 }
             }
@@ -864,11 +863,11 @@ impl ChartEngine {
                         // Handle right-click for tooltip
                         match state {
                             ElementState::Pressed => {
-                                log::info!("[ChartEngine] Right-click pressed - activating tooltip");
+                                // Right-click pressed - activate tooltip
                                 self.activate_tooltip();
                             }
                             ElementState::Released => {
-                                log::info!("[ChartEngine] Right-click released - deactivating tooltip");
+                                // Right-click released - deactivate tooltip
                                 self.deactivate_tooltip();
                             }
                         }

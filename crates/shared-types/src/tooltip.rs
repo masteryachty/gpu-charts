@@ -108,7 +108,7 @@ pub struct TooltipConfig {
 impl Default for TooltipConfig {
     fn default() -> Self {
         Self {
-            update_throttle_ms: 16.0, // ~60 FPS
+            update_throttle_ms: 8.0, // ~120 FPS for more responsive updates
             line_width: 1.0,
             label_padding: 2.0,
             box_padding: 4.0,

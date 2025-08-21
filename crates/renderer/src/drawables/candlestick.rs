@@ -129,11 +129,10 @@ impl CandlestickRenderer {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
     ) {
-        log::info!("[CandlestickRenderer] prepare_candles called");
+        // Prepare candles for rendering
         
         // Check if we have data
         let data_len = data_store.get_data_len();
-        log::info!("[CandlestickRenderer] Data length: {}", data_len);
         if data_len == 0 {
             log::warn!("[CandlestickRenderer] No data available, skipping candle preparation");
             return;
@@ -141,7 +140,6 @@ impl CandlestickRenderer {
 
         // Automatically select optimal candle timeframe based on time range
         self.candle_timeframe = self.calculate_optimal_timeframe(data_store);
-        log::info!("[CandlestickRenderer] Selected candle timeframe: {} seconds", self.candle_timeframe);
 
         // Calculate cache key for current state
         let data_hash = self.calculate_data_hash(data_store);
