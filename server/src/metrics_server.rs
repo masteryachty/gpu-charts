@@ -2,7 +2,7 @@ use prometheus::{Encoder, TextEncoder, register_counter_vec, register_gauge_vec,
 use prometheus::{CounterVec, GaugeVec, HistogramVec};
 use lazy_static::lazy_static;
 use warp::Filter;
-use tracing::{info, error};
+use tracing::info;
 
 lazy_static! {
     // HTTP metrics

@@ -135,13 +135,13 @@ pub fn record_data_write(exchange: &str, data_type: &str, bytes: usize) {
 
 /// Set the number of symbols being monitored
 pub fn set_monitored_symbols(exchange: &str, count: usize) {
-    set_symbols_monitored(exchange, count);
+    set_symbols_monitored(exchange, count as f64);
     debug!("Monitoring {} symbols on {}", count, exchange);
 }
 
 /// Set the number of active WebSocket connections
 pub fn set_active_connections(exchange: &str, count: usize) {
-    set_websocket_connections(exchange, count);
+    set_websocket_connections(exchange, count as f64);
     debug!("{} active WebSocket connections for {}", count, exchange);
 }
 

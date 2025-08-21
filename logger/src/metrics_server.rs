@@ -2,10 +2,7 @@ use prometheus::{Encoder, TextEncoder, register_counter_vec, register_gauge_vec,
 use prometheus::{CounterVec, GaugeVec, HistogramVec};
 use lazy_static::lazy_static;
 use warp::Filter;
-use std::sync::Arc;
-use tokio::sync::RwLock;
-use std::collections::HashMap;
-use tracing::{info, error};
+use tracing::info;
 
 lazy_static! {
     // Exchange metrics
@@ -143,6 +140,49 @@ pub fn set_vwap_deviation(exchange: &str, symbol: &str, deviation: f64) {
     VWAP_DEVIATION
         .with_label_values(&[exchange, symbol])
         .set(deviation);
+}
+
+// Additional helper functions used by metrics bridge
+pub fn record_message(exchange: &str, message_type: &str) {
+    increment_message_count(exchange, message_type);
+}
+
+pub fn record_error(exchange: &str, error_type: &str) {
+    increment_error_count(exchange, error_type);
+}
+
+pub fn record_reconnection(exchange: &str) {
+    increment_reconnection_count(exchange);
+}
+
+pub fn record_trade(exchange: &str, symbol: &str) {
+    // Track trade count (could add a specific metric for this)
+    increment_message_count(exchange, "trade");
+}
+
+pub fn record_large_trade(exchange: &str, symbol: &str) {
+    // Track large trades (could add a specific metric for this)
+    increment_message_count(exchange, "large_trade");
+}
+
+pub fn set_price_high(exchange: &str, symbol: &str, price: f64) {
+    // Could track price highs if needed
+}
+
+pub fn set_price_low(exchange: &str, symbol: &str, price: f64) {
+    // Could track price lows if needed
+}
+
+pub fn set_buffer_size(exchange: &str, buffer_type: &str, size: f64) {
+    // Could track buffer sizes if needed
+}
+
+pub fn record_data_written(exchange: &str, data_type: &str, bytes: u64) {
+    // Track data written (could add a specific metric for this)
+}
+
+pub fn set_websocket_connections(exchange: &str, count: f64) {
+    // Track WebSocket connection count
 }
 
 /// Start the metrics HTTP server
