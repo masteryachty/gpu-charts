@@ -1,7 +1,9 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { useWasmChart } from '../../hooks/useWasmChart';
 import { useAppStore } from '../../store/useAppStore';
-import { ChartTooltip, TooltipData } from './ChartTooltip';
+// import { ChartTooltip, TooltipData } from './ChartTooltip'; // GPU rendering now
+// Temporary type def until we remove completely
+type TooltipData = any;
 
 interface WasmCanvasProps {
   width?: number;
@@ -21,8 +23,8 @@ export default function WasmCanvas({
   const containerRef = useRef<HTMLDivElement>(null);
   const initializingRef = useRef<boolean>(false);
   
-  // Tooltip state
-  const [tooltipData, setTooltipData] = useState<TooltipData | null>(null);
+  // Tooltip state - now handled entirely by GPU rendering
+  // const [tooltipData, setTooltipData] = useState<TooltipData | null>(null);
   const tooltipActiveRef = useRef<boolean>(false);
 
   // Initialize WASM chart with proper configuration
@@ -239,35 +241,11 @@ export default function WasmCanvas({
           chartState.chart.handle_mouse_move(x, y);
         }
         
-        // Update tooltip position if active
-        if (tooltipActiveRef.current && tooltipData) {
-          // Get data at current position from WASM
-          if (chartState.chart.get_tooltip_data) {
-            try {
-              const data = chartState.chart.get_tooltip_data(x, y);
-              if (data) {
-                setTooltipData({
-                  x,
-                  y,
-                  time: data.time || new Date().toISOString(),
-                  volume: data.volume,
-                  side: data.side,
-                  bestBid: data.best_bid,
-                  bestAsk: data.best_ask,
-                  visible: true
-                });
-              }
-            } catch (err) {
-              console.error('[WasmCanvas] Error getting tooltip data:', err);
-            }
-          } else {
-            // Fallback: just update position
-            setTooltipData(prev => prev ? { ...prev, x, y } : null);
-          }
-        }
+        // Tooltip position is now updated in GPU rendering
+        // Data calculation happens in WASM/GPU
       }
     }
-  }, [chartState.chart, chartState.isInitialized, tooltipData]);
+  }, [chartState.chart, chartState.isInitialized]);
 
   // Mouse down handler (start of drag or tooltip)
   const handleMouseDown = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
@@ -287,52 +265,8 @@ export default function WasmCanvas({
           event.preventDefault();
           tooltipActiveRef.current = true;
           
-          // Get tooltip data from WASM if available
-          if (chartState.chart.get_tooltip_data) {
-            try {
-              const data = chartState.chart.get_tooltip_data(x, y);
-              if (data) {
-                setTooltipData({
-                  x,
-                  y,
-                  time: data.time || new Date().toISOString(),
-                  volume: data.volume,
-                  side: data.side,
-                  bestBid: data.best_bid,
-                  bestAsk: data.best_ask,
-                  visible: true
-                });
-              } else {
-                // Fallback data for testing
-                setTooltipData({
-                  x,
-                  y,
-                  time: new Date().toISOString(),
-                  price: 50000 + Math.random() * 10000,
-                  visible: true
-                });
-              }
-            } catch (err) {
-              console.error('[WasmCanvas] Error getting tooltip data:', err);
-              // Fallback data for testing
-              setTooltipData({
-                x,
-                y,
-                time: new Date().toISOString(),
-                price: 50000 + Math.random() * 10000,
-                visible: true
-              });
-            }
-          } else {
-            // Fallback data for testing when WASM method not available
-            setTooltipData({
-              x,
-              y,
-              time: new Date().toISOString(),
-              price: 50000 + Math.random() * 10000,
-              visible: true
-            });
-          }
+          // Tooltip data is now calculated and rendered entirely in GPU
+          // No need to fetch or set data here
           
           if (chartState.chart.handle_mouse_right_click) {
             chartState.chart.handle_mouse_right_click(x, y, true);
@@ -363,7 +297,7 @@ export default function WasmCanvas({
         // Handle right-click release for tooltip
         if (event.button === 2) { // Right mouse button
           tooltipActiveRef.current = false;
-          setTooltipData(null);
+          // Tooltip is now handled by GPU rendering
           
           if (chartState.chart.handle_mouse_right_click) {
             chartState.chart.handle_mouse_right_click(x, y, false);
@@ -422,8 +356,7 @@ export default function WasmCanvas({
         </div>
       )}
       
-      {/* Tooltip */}
-      <ChartTooltip data={tooltipData} containerRef={containerRef} />
+      {/* Tooltip is now rendered entirely on GPU via WebGPU */}
 
     </div>
   );

@@ -5,6 +5,10 @@ struct Uniforms {
     screen_size: vec2<f32>,
     line_x: f32,
     is_active: f32,
+    tooltip_box_x: f32,
+    tooltip_box_y: f32,
+    tooltip_box_width: f32,
+    tooltip_box_height: f32,
 }
 
 struct VertexOutput {
@@ -125,8 +129,98 @@ fn vs_label(
     return output;
 }
 
-// Fragment shader
+// Vertex shader for background box
+@vertex
+fn vs_background(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
+    var output: VertexOutput;
+    
+    // Only render if tooltip is active
+    if uniforms.is_active < 0.5 {
+        output.position = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+        return output;
+    }
+    
+    let box_x = uniforms.tooltip_box_x;
+    let box_y = uniforms.tooltip_box_y;
+    let box_width = uniforms.tooltip_box_width;
+    let box_height = uniforms.tooltip_box_height;
+    
+    // Create quad vertices (triangle strip)
+    var x: f32;
+    var y: f32;
+    
+    if (vertex_index == 0u) { // Top-left
+        x = box_x;
+        y = box_y;
+    } else if (vertex_index == 1u) { // Top-right
+        x = box_x + box_width;
+        y = box_y;
+    } else if (vertex_index == 2u) { // Bottom-left
+        x = box_x;
+        y = box_y + box_height;
+    } else { // Bottom-right
+        x = box_x + box_width;
+        y = box_y + box_height;
+    }
+    
+    // Convert to NDC
+    let x_ndc = (x / uniforms.screen_size.x) * 2.0 - 1.0;
+    let y_ndc = 1.0 - (y / uniforms.screen_size.y) * 2.0;
+    
+    output.position = vec4<f32>(x_ndc, y_ndc, 0.0, 1.0);
+    
+    // Dark semi-transparent background
+    output.color = vec4<f32>(0.15, 0.15, 0.18, 0.95);
+    
+    // Calculate UV coordinates for border detection
+    var u: f32;
+    var v: f32;
+    if (vertex_index == 0u || vertex_index == 2u) {
+        u = 0.0; // Left side
+    } else {
+        u = 1.0; // Right side
+    }
+    if (vertex_index == 0u || vertex_index == 1u) {
+        v = 0.0; // Top
+    } else {
+        v = 1.0; // Bottom
+    }
+    output.uv = vec2<f32>(u, v);
+    
+    return output;
+}
+
+// Fragment shader for line
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     return input.color;
+}
+
+// Fragment shader for background with border
+@fragment
+fn fs_background(input: VertexOutput) -> @location(0) vec4<f32> {
+    // Define different border thickness for each side
+    let border_top = 0.008;      // Top border (perfect as you said)
+    let border_bottom = 0.015;    // Bottom border (thicker to ensure visibility)
+    let border_sides = 0.004;    // Left and right borders (thinner)
+    
+    // Check if we're in the border region
+    let u = input.uv.x;
+    let v = input.uv.y;
+    
+    // Check each border separately with different thicknesses
+    let is_left_border = u < border_sides;
+    let is_right_border = u > (1.0 - border_sides);
+    let is_top_border = v < border_top;
+    let is_bottom_border = v > (1.0 - border_bottom);
+    
+    let is_border = is_left_border || is_right_border || is_top_border || is_bottom_border;
+    
+    if (is_border) {
+        // White thin border with slight transparency
+        return vec4<f32>(1.0, 1.0, 1.0, 0.9);
+    } else {
+        // Dark semi-transparent background
+        return input.color;
+    }
 }

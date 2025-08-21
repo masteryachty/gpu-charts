@@ -217,6 +217,10 @@ impl ChartEngine {
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
+        // Check for completed GPU readbacks on each frame
+        // This is non-blocking and will update metrics when data is ready
+        self.compute_engine.process_readbacks(&mut self.data_store);
+        
         // Check if rendering is needed
         if !self.data_store.is_dirty() {
             return Ok(());
@@ -228,21 +232,21 @@ impl ChartEngine {
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
-        // Create command encoder
-        let mut encoder =
-            self.render_context
-                .device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("Render Encoder"),
-                });
-
         // Start GPU bounds calculation if needed
         if self.data_store.gpu_min_y.is_none() && self.data_store.min_max_buffer.is_none() {
+            // Create command encoder for compute operations
+            let mut compute_encoder =
+                self.render_context
+                    .device
+                    .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                        label: Some("Compute Encoder"),
+                    });
+
             // First, run multi-renderer compute passes (e.g., candle aggregation)
             // This must happen BEFORE the compute engine runs
             if let Some(ref mut multi_renderer) = self.multi_renderer {
                 multi_renderer.run_compute_passes(
-                    &mut encoder,
+                    &mut compute_encoder,
                     &self.data_store,
                     &self.render_context.device,
                     &self.render_context.queue
@@ -256,25 +260,41 @@ impl ChartEngine {
                     let num_candles = renderer.get_num_candles();
                     self.compute_engine.set_candle_buffer(
                         Some((candle_buffer, num_candles)),
-                        &mut encoder
+                        &mut compute_encoder
                     );
                 }
             }
             
             // Run pre-render compute passes (e.g., compute mid price, EMAs)
             self.compute_engine
-                .run_compute_passes(&mut encoder, &mut self.data_store);
+                .run_compute_passes(&mut compute_encoder, &mut self.data_store);
+            
+            // Submit the compute commands and process GPU readbacks
+            self.render_context.queue.submit(Some(compute_encoder.finish()));
+            
+            // Process any pending GPU readbacks from compute operations
+            self.compute_engine.process_readbacks(&mut self.data_store);
+            
+            // Create a new encoder for min/max calculation
+            let mut minmax_encoder = self.render_context.device.create_command_encoder(
+                &wgpu::CommandEncoderDescriptor {
+                    label: Some("MinMax Encoder"),
+                }
+            );
 
             // Calculate Y bounds using GPU
             let (x_min, x_max) = (self.data_store.start_x, self.data_store.end_x);
             let (min_max_buffer, staging_buffer) = renderer::calculate_min_max_y(
                 &self.render_context.device,
                 &self.render_context.queue,
-                &mut encoder,
+                &mut minmax_encoder,
                 &self.data_store,
                 x_min,
                 x_max,
             );
+
+            // Submit min/max commands
+            self.render_context.queue.submit(Some(minmax_encoder.finish()));
 
             // Store buffers
             self.data_store.min_max_buffer = Some(Rc::new(min_max_buffer));
@@ -287,6 +307,14 @@ impl ChartEngine {
                 mapping_completed: Arc::new(Mutex::new(false)),
             });
         }
+
+        // Create command encoder for rendering
+        let mut encoder =
+            self.render_context
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("Render Encoder"),
+                });
 
         // Let MultiRenderer handle all rendering
         if let Some(ref mut multi_renderer) = self.multi_renderer {
@@ -628,10 +656,14 @@ impl ChartEngine {
         tooltip_state.y_position = mouse_pos.y as f32;
         
         // Find closest data point and update labels
-        if let Some((timestamp, values)) = self.data_store.find_closest_data_point(mouse_pos.x as f32) {
+        if let Some((timestamp, mut values)) = self.data_store.find_closest_data_point(mouse_pos.x as f32) {
             tooltip_state.timestamp = Some(timestamp);
             
-            // Tooltip values collected at timestamp
+            // Sort values by magnitude (largest to smallest)
+            values.sort_by(|a, b| {
+                // Compare absolute values in reverse order (largest first)
+                b.1.abs().partial_cmp(&a.1.abs()).unwrap_or(std::cmp::Ordering::Equal)
+            });
             
             // Create labels with stacking
             let mut y_offset = 20.0; // Start below the cursor
@@ -699,7 +731,13 @@ impl ChartEngine {
         
         // Calculate Y positions for values
         let mut label_data = Vec::new();
-        if let Some((timestamp, values)) = data_result {
+        if let Some((timestamp, mut values)) = data_result {
+            // Sort values by magnitude (largest to smallest)
+            values.sort_by(|a, b| {
+                // Compare absolute values in reverse order (largest first)
+                b.1.abs().partial_cmp(&a.1.abs()).unwrap_or(std::cmp::Ordering::Equal)
+            });
+            
             // Stack labels with improved algorithm
             let mut y_positions: Vec<f32> = Vec::new();
             let label_height = 22.0;

@@ -2,6 +2,11 @@
 
 use std::rc::Rc;
 use wgpu::util::DeviceExt;
+use wgpu_text::{
+    glyph_brush::{ab_glyph::FontRef, Section as TextSection, Text},
+    BrushBuilder, TextBrush,
+};
+use chrono;
 
 use data_manager::DataStore;
 use shared_types::{TooltipConfig, TooltipLabelGpu, TooltipState};
@@ -12,13 +17,26 @@ pub struct TooltipRenderer {
     device: Rc<wgpu::Device>,
     queue: Rc<wgpu::Queue>,
     pipeline_line: wgpu::RenderPipeline,
+    pipeline_background: wgpu::RenderPipeline,
     bind_group_layout: wgpu::BindGroupLayout,
     bind_group: Option<wgpu::BindGroup>,
     uniform_buffer: wgpu::Buffer,
     label_buffer: Option<wgpu::Buffer>,
+    text_brush: TextBrush<FontRef<'static>>,
     _config: TooltipConfig,
     screen_width: f32,
     screen_height: f32,
+    // Cache for tooltip text content
+    cached_texts: Vec<TooltipText>,
+}
+
+#[derive(Debug, Clone)]
+struct TooltipText {
+    label: String,
+    value: String,
+    x: f32,
+    y: f32,
+    color: [f32; 4],
 }
 
 #[repr(C)]
@@ -28,6 +46,11 @@ struct TooltipUniforms {
     screen_size: [f32; 2],
     line_x: f32,
     is_active: f32,
+    // Tooltip box position and size
+    tooltip_box_x: f32,
+    tooltip_box_y: f32,
+    tooltip_box_width: f32,
+    tooltip_box_height: f32,
 }
 
 impl TooltipRenderer {
@@ -111,6 +134,41 @@ impl TooltipRenderer {
             cache: None,
         });
 
+        // Create pipeline for tooltip background box
+        let pipeline_background = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Tooltip Background Pipeline"),
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_background"),
+                buffers: &[],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_background"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format,
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: Default::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleStrip,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                unclipped_depth: false,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+            cache: None,
+        });
+
         // Create uniform buffer
         let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Tooltip Uniform Buffer"),
@@ -119,25 +177,102 @@ impl TooltipRenderer {
             mapped_at_creation: false,
         });
 
+        // Initialize text rendering
+        let font_data = include_bytes!("Roboto.ttf");
+        let font = FontRef::try_from_slice(font_data).expect("Failed to load font");
+        
+        let text_brush = BrushBuilder::using_font(font)
+            .build(&device, width, height, format);
+
         Self {
             device,
             queue,
             pipeline_line,
+            pipeline_background,
             bind_group_layout,
             bind_group: None,
             uniform_buffer,
             label_buffer: None,
+            text_brush,
             _config: TooltipConfig::default(),
             screen_width: width as f32,
             screen_height: height as f32,
+            cached_texts: Vec::new(),
         }
     }
 
     pub fn update_tooltip_state(&mut self, state: &TooltipState) {
         if !state.active {
+            self.cached_texts.clear();
             return;
         }
 
+        // Calculate tooltip box dimensions based on content
+        let line_spacing = 20.0;
+        let padding = 10.0;
+        let padding_right = 20.0; // More padding on the right
+        let char_width = 8.0; // Approximate character width
+        
+        // Clear cached texts and rebuild
+        self.cached_texts.clear();
+        
+        // Add timestamp if available
+        let mut y_offset = state.y_position + padding;
+        let mut max_width: f32 = 0.0;
+        
+        if let Some(timestamp) = state.timestamp {
+            if let Some(dt) = chrono::DateTime::from_timestamp(timestamp as i64, 0) {
+                let time_str = dt.format("%Y-%m-%d %H:%M:%S").to_string();
+                let width = time_str.len() as f32 * char_width;
+                max_width = max_width.max(width);
+                
+                self.cached_texts.push(TooltipText {
+                    label: "Time".to_string(),
+                    value: time_str,
+                    x: state.x_position + padding + 15.0,
+                    y: y_offset,
+                    color: [0.9, 0.9, 0.9, 1.0],
+                });
+                y_offset += line_spacing;
+            }
+        }
+        
+        // Add data labels
+        for label in &state.labels {
+            if label.visible {
+                let value_str = format!("{:.2}", label.value);
+                let text_width = (label.series_name.len() + value_str.len() + 2) as f32 * char_width;
+                max_width = max_width.max(text_width);
+                
+                self.cached_texts.push(TooltipText {
+                    label: label.series_name.clone(),
+                    value: value_str,
+                    x: state.x_position + padding + 15.0,
+                    y: y_offset,
+                    color: label.color,
+                });
+                y_offset += line_spacing;
+            }
+        }
+        
+        // Calculate box dimensions with extra right padding
+        let box_width = max_width + padding + padding_right + 15.0; // Extra space for content + right padding
+        let box_height = (self.cached_texts.len() as f32 * line_spacing) + padding * 3.0 + 2.0; // Extra height for bottom border visibility
+        
+        // Position box to avoid going off-screen
+        let mut box_x = state.x_position + 10.0;
+        let mut box_y = state.y_position - 10.0;
+        
+        if box_x + box_width > self.screen_width {
+            box_x = state.x_position - box_width - 10.0;
+        }
+        if box_y + box_height > self.screen_height {
+            box_y = self.screen_height - box_height - 10.0;
+        }
+        if box_y < 0.0 {
+            box_y = 10.0;
+        }
+        
         // Update uniforms
         let uniforms = TooltipUniforms {
             view_matrix: [
@@ -149,6 +284,10 @@ impl TooltipRenderer {
             screen_size: [self.screen_width, self.screen_height],
             line_x: state.x_position,
             is_active: if state.active { 1.0 } else { 0.0 },
+            tooltip_box_x: box_x,
+            tooltip_box_y: box_y,
+            tooltip_box_width: box_width,
+            tooltip_box_height: box_height,
         };
 
         self.queue.write_buffer(
@@ -221,6 +360,7 @@ impl TooltipRenderer {
     pub fn resize(&mut self, width: u32, height: u32) {
         self.screen_width = width as f32;
         self.screen_height = height as f32;
+        self.text_brush.resize_view(width as f32, height as f32, self.queue.as_ref());
     }
 }
 
@@ -262,12 +402,75 @@ impl MultiRenderable for TooltipRenderer {
 
             render_pass.set_bind_group(0, self.bind_group.as_ref().unwrap(), &[]);
 
+            // Draw background box first
+            render_pass.set_pipeline(&self.pipeline_background);
+            render_pass.draw(0..4, 0..1);
+
             // Draw vertical line
             render_pass.set_pipeline(&self.pipeline_line);
             render_pass.draw(0..2, 0..1);
-
-            // Skip drawing labels - we only want the vertical line
-            // The React tooltip component handles displaying the data
+        }
+        
+        // Render text on top of everything
+        if !self.cached_texts.is_empty() {
+            // Prepare all text strings first (they need to outlive the sections)
+            let mut text_strings = Vec::new();
+            for text_item in &self.cached_texts {
+                text_strings.push((format!("{}: ", text_item.label), text_item.value.clone()));
+            }
+            
+            // Queue text for rendering
+            let mut sections = Vec::new();
+            for (i, text_item) in self.cached_texts.iter().enumerate() {
+                let (label_text, value_text) = &text_strings[i];
+                
+                // Add label
+                sections.push(TextSection {
+                    screen_position: (text_item.x, text_item.y),
+                    text: vec![Text::new(label_text)
+                        .with_color(text_item.color)
+                        .with_scale(14.0)],
+                    ..Default::default()
+                });
+                
+                // Add value (slightly offset to the right)
+                let label_width = text_item.label.len() as f32 * 8.0 + 16.0;
+                sections.push(TextSection {
+                    screen_position: (text_item.x + label_width, text_item.y),
+                    text: vec![Text::new(value_text)
+                        .with_color([1.0, 1.0, 1.0, 1.0])
+                        .with_scale(14.0)],
+                    ..Default::default()
+                });
+            }
+            
+            // Queue all text at once
+            if let Err(e) = self.text_brush.queue(
+                self.device.as_ref(),
+                self.queue.as_ref(),
+                sections
+            ) {
+                log::error!("Failed to queue tooltip text: {:?}", e);
+            }
+            
+            // Create a render pass for text
+            let mut text_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Tooltip Text Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+            
+            // Draw the text
+            self.text_brush.draw(&mut text_pass);
         }
     }
 
