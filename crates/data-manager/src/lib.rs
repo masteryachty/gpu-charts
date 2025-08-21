@@ -172,12 +172,24 @@ impl DataManager {
         let preset = data_store.preset.clone().unwrap();
         let start_time = data_store.start_x;
         let end_time = data_store.end_x;
+        
+        log::info!("[DataManager] 🎯 fetch_data_for_preset called:");
+        log::info!("  Symbol: {}", symbol);
+        log::info!("  Preset: {}", preset.name);
+        log::info!("  Time range: {} to {}", start_time, end_time);
+        
 
         let mut data_requirements: std::collections::HashMap<
             String,
             std::collections::HashSet<String>,
         > = std::collections::HashMap::new();
         for chart_type in &preset.chart_types {
+            // Only process visible chart types to avoid creating unnecessary data groups
+            if !chart_type.visible {
+                log::info!("[DataManager] Skipping invisible chart type: {:?}", chart_type.data_columns);
+                continue;
+            }
+            
             for (data_type, column) in &chart_type.data_columns {
                 // Skip COMPUTED columns - they are created locally, not fetched from API
                 if data_type != "COMPUTED" {
@@ -201,11 +213,15 @@ impl DataManager {
         }
 
         // Removed unused fetch_results variable
+        log::info!("[DataManager] Data requirements for preset '{}': {:?}", preset.name, data_requirements.keys().collect::<Vec<_>>());
+        
         for (data_type, columns) in data_requirements {
             let mut all_columns = vec!["time"];
             let columns_vec: Vec<String> = columns.into_iter().collect();
             all_columns.extend(columns_vec.iter().map(|s| s.as_str()));
 
+            log::info!("[DataManager] Fetching {} data for symbol: {}", data_type, symbol);
+            
             // let instance_opt = InstanceManager::take_instance(&instance_id);
             let result = self
                 .fetch_data(
@@ -218,6 +234,7 @@ impl DataManager {
                 .await;
             match result {
                 Ok(data_handle) => {
+                    log::info!("[DataManager] Successfully fetched {} data, processing...", data_type);
                     let _ = self.process_data_handle(&data_handle, data_store);
                 }
                 Err(e) => {
@@ -257,6 +274,24 @@ impl DataManager {
             }
         })?;
 
+        // Determine exchange color based on symbol prefix
+        let symbol_ref = &data_handle.metadata.symbol;
+        let exchange_color = if symbol_ref.contains(":coinbase:") || symbol_ref.starts_with("coinbase:") {
+            [0.0, 0.4, 1.0]  // Bright blue for Coinbase
+        } else if symbol_ref.contains(":binance:") || symbol_ref.starts_with("binance:") {
+            [1.0, 0.84, 0.0]  // Gold for Binance
+        } else if symbol_ref.contains(":kraken:") || symbol_ref.starts_with("kraken:") {
+            [0.6, 0.27, 1.0]  // Purple for Kraken
+        } else if symbol_ref.contains(":bitfinex:") || symbol_ref.starts_with("bitfinex:") {
+            [0.0, 1.0, 0.53]  // Bright green for Bitfinex
+        } else if symbol_ref.contains(":okx:") || symbol_ref.starts_with("okx:") {
+            [1.0, 0.0, 1.0]  // Magenta for OKX
+        } else {
+            [0.0, 0.5, 1.0]  // Default blue
+        };
+        
+        log::info!("  Exchange color for {}: {:?}", symbol_ref, exchange_color);
+        
         // Add a new data group for this data type
         // Each data type has its own time series, so needs its own group
         data_store.add_data_group((time_buffer.clone(), time_gpu_buffers.clone()), true);
@@ -289,15 +324,21 @@ impl DataManager {
                     let color = chart_type_info
                         .and_then(|ct| ct.style.color)
                         .map(|c| [c[0], c[1], c[2]])
-                        .unwrap_or([0.0, 0.5, 1.0]);
+                        .unwrap_or_else(|| {
+                            // Use exchange-specific color if no preset color
+                            exchange_color
+                        });
 
                     let visible = chart_type_info.map(|ct| ct.visible).unwrap_or(true);
 
                     (color, visible)
                 } else {
-                    ([0.0, 0.5, 1.0], true) // Default blue and visible
+                    (exchange_color, true) // Use exchange color and visible
                 };
 
+                log::info!("[DataManager] 📊 Adding metric '{}' to group {} (color: {:?}, visible: {})", 
+                          column_name, data_group_index, color, visible);
+                
                 data_store.add_metric_to_group_with_visibility(
                     data_group_index,
                     (raw_buffer.clone(), gpu_buffers.clone()),

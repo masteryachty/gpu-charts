@@ -419,6 +419,47 @@ impl ChartEngine {
     pub fn set_instance_id(&mut self, id: Uuid) {
         self.instance_id = id;
     }
+    
+    /// Set preset and symbol for multi-exchange comparison
+    pub fn set_preset_and_symbol_multi(
+        &mut self,
+        preset_name: Option<String>,
+        symbol_name: Option<String>,
+        index: usize,
+    ) {
+        log::info!("[ChartEngine] set_preset_and_symbol_multi - symbol: {:?}, index: {}", symbol_name, index);
+        
+        // For the first symbol, set up the preset normally
+        if index == 0 {
+            if let Some(name) = preset_name.clone() {
+                let preset = self.preset_manager.find_preset(&name).cloned();
+                if let Some(preset) = preset {
+                    // Clear data for first symbol
+                    self.data_store
+                        .set_preset_and_symbol(Some(&preset), symbol_name.clone());
+                    // Rebuild multi-renderer based on preset configuration
+                    self.rebuild_multi_renderer_for_preset(&preset);
+                    // Clear GPU bounds to force recalculation
+                    self.data_store.clear_gpu_bounds();
+                    self.pending_readback = None;
+                } else {
+                    self.data_store
+                        .set_preset_and_symbol(None, symbol_name.clone());
+                }
+            } else {
+                self.data_store
+                    .set_preset_and_symbol(None, symbol_name.clone());
+            }
+        } else {
+            // For subsequent symbols, just update the symbol without clearing data
+            // This allows us to accumulate data from multiple exchanges
+            if let Some(sym) = symbol_name {
+                self.data_store.symbol = Some(sym);
+                // Mark dirty to trigger re-render with new data
+                self.data_store.mark_dirty();
+            }
+        }
+    }
 
     /// Rebuild the multi-renderer based on preset configuration
     fn rebuild_multi_renderer_for_preset(&mut self, preset: &config_system::ChartPreset) {

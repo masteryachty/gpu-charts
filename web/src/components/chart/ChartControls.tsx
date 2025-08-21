@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAppStore, useChartSubscription } from '../../store/useAppStore';
 import PresetSection from '../PresetSection';
 import { Chart } from '@pkg/wasm_bridge.js';
-import { formatExchangeName, getExchangeColor, parseSymbol } from '../../services/symbolApi';
+import { formatExchangeName, getExchangeColor, parseSymbol, getAvailableExchanges, type ExchangeSymbol } from '../../services/symbolApi';
 
 /**
  * Chart Controls Component
@@ -49,6 +49,7 @@ export default function ChartControls({
     comparisonMode,
     setComparisonMode,
     selectedExchanges,
+    setSelectedExchanges,
     toggleExchange,
     baseSymbol: storeBaseSymbol,
     setBaseSymbol
@@ -57,6 +58,12 @@ export default function ChartControls({
   // Track subscription events
   const [_subscriptionEvents, setSubscriptionEvents] = useState<ChangeEvent[]>([]);
   const [_activeSubscriptions, setActiveSubscriptions] = useState(0);
+  
+  // Available exchanges for current symbol
+  const [availableExchanges, setAvailableExchanges] = useState<ExchangeSymbol[]>([]);
+  const [loadingExchanges, setLoadingExchanges] = useState(false);
+  // Keep track of the normalized base symbol (e.g., "BTC-USD" not "BTCUSDC")
+  const [normalizedBaseSymbol, setNormalizedBaseSymbol] = useState<string>('BTC-USD');
 
   // Available options (memoized to prevent dependency issues)
   const symbols = useMemo(() => ['BTC-USD', 'ETH-USD', 'ADA-USD', 'DOT-USD', 'LINK-USD', 'AVAX-USD'], []);
@@ -67,14 +74,8 @@ export default function ChartControls({
     return parseSymbol(symbol);
   }, [symbol]);
   
-  // Available exchanges
-  const exchanges = useMemo(() => [
-    { id: 'coinbase', name: 'Coinbase' },
-    { id: 'binance', name: 'Binance' },
-    { id: 'kraken', name: 'Kraken' },
-    { id: 'bitfinex', name: 'Bitfinex' },
-    { id: 'okx', name: 'OKX' },
-  ], []);
+  // Get the exact current symbol without the exchange prefix
+  const currentSymbolWithoutExchange = baseSymbol;
 
   // Set up chart subscription for change tracking
   const chartSubscription = useChartSubscription({
@@ -98,6 +99,54 @@ export default function ChartControls({
     const unsubscribe = chartSubscription.subscribe();
     return unsubscribe;
   }, [chartSubscription]);
+  
+  // Initialize selected exchanges when comparison mode is toggled
+  useEffect(() => {
+    if (comparisonMode && (!selectedExchanges || selectedExchanges.length === 0)) {
+      // Find the current exchange-symbol combination in available exchanges
+      const currentExchangeSymbol = availableExchanges.find(
+        es => es.exchange === currentExchange && es.symbol === currentSymbolWithoutExchange
+      );
+      
+      if (currentExchangeSymbol) {
+        // Initialize with the current exchange-symbol combination
+        const exchangeSymbolId = `${currentExchangeSymbol.exchange}:${currentExchangeSymbol.symbol}`;
+        setSelectedExchanges([exchangeSymbolId]);
+      }
+    }
+  }, [comparisonMode, selectedExchanges, currentExchange, currentSymbolWithoutExchange, availableExchanges, setSelectedExchanges]);
+  
+  // Only fetch exchanges when we get a new normalized symbol (not exchange-specific)
+  useEffect(() => {
+    const fetchExchanges = async () => {
+      // Determine the normalized symbol to use
+      let symbolToCheck = normalizedBaseSymbol;
+      
+      // If baseSymbol looks like a normalized symbol (contains dash), use it
+      if (baseSymbol && baseSymbol.includes('-')) {
+        symbolToCheck = baseSymbol;
+        setNormalizedBaseSymbol(baseSymbol);
+      } else if (storeBaseSymbol && storeBaseSymbol.includes('-')) {
+        symbolToCheck = storeBaseSymbol;
+        setNormalizedBaseSymbol(storeBaseSymbol);
+      }
+      
+      if (!symbolToCheck) return;
+      
+      setLoadingExchanges(true);
+      try {
+        const exchanges = await getAvailableExchanges(symbolToCheck);
+        setAvailableExchanges(exchanges);
+      } catch (error) {
+        console.error('Failed to fetch available exchanges:', error);
+        setAvailableExchanges([]);
+      } finally {
+        setLoadingExchanges(false);
+      }
+    };
+    
+    fetchExchanges();
+  }, [baseSymbol, storeBaseSymbol, normalizedBaseSymbol]);
 
   // Time range controls
   const handleTimeRangePreset = useCallback((preset: string) => {
@@ -183,7 +232,28 @@ export default function ChartControls({
         <div className="flex items-center justify-between">
           <label className="text-gray-300 text-sm font-medium">Comparison Mode</label>
           <button
-            onClick={() => setComparisonMode(!comparisonMode)}
+            onClick={() => {
+              const newComparisonMode = !comparisonMode;
+              setComparisonMode(newComparisonMode);
+              
+              // If turning on comparison mode, initialize with current selection
+              if (newComparisonMode && availableExchanges.length > 0) {
+                // Find the current exchange-symbol in available exchanges
+                const currentMatch = availableExchanges.find(
+                  es => es.exchange === currentExchange && es.symbol === currentSymbolWithoutExchange
+                );
+                
+                if (currentMatch) {
+                  const exchangeSymbolId = `${currentMatch.exchange}:${currentMatch.symbol}`;
+                  setSelectedExchanges([exchangeSymbolId]);
+                } else if (availableExchanges.length > 0) {
+                  // Fallback to first available exchange-symbol
+                  const firstExchange = availableExchanges[0];
+                  const exchangeSymbolId = `${firstExchange.exchange}:${firstExchange.symbol}`;
+                  setSelectedExchanges([exchangeSymbolId]);
+                }
+              }
+            }}
             className={`
               relative inline-flex h-6 w-11 items-center rounded-full transition-colors
               ${comparisonMode ? 'bg-blue-600' : 'bg-gray-600'}
@@ -198,9 +268,14 @@ export default function ChartControls({
           </button>
         </div>
         {comparisonMode && (
-          <p className="text-xs text-gray-400">
-            Select up to 2 exchanges to compare
-          </p>
+          <div className="space-y-1">
+            <p className="text-xs text-gray-400">
+              Select up to 2 exchanges to compare
+            </p>
+            <p className="text-xs text-green-500">
+              ✓ Multi-exchange comparison enabled
+            </p>
+          </div>
         )}
       </div>
 
@@ -214,37 +289,54 @@ export default function ChartControls({
             </span>
           )}
         </label>
-        <div className="grid grid-cols-2 gap-2">
-          {exchanges.map(exchange => {
-            const isSelected = selectedExchanges?.includes(exchange.id) || false;
-            const isActive = !comparisonMode && currentExchange === exchange.id;
-            const color = getExchangeColor(exchange.id);
-            
-            return (
-              <button
-                key={exchange.id}
-                onClick={() => {
-                  if (comparisonMode) {
-                    // In comparison mode, toggle exchange selection
-                    toggleExchange(exchange.id);
-                  } else {
-                    // In single mode, switch to this exchange
-                    // Use the baseSymbol from parsing current symbol, or storeBaseSymbol, or default
-                    const symbolToUse = baseSymbol || storeBaseSymbol || 'BTC-USD';
-                    const newSymbol = `${exchange.id}:${symbolToUse}`;
-                    setCurrentSymbol(newSymbol);
-                    setBaseSymbol(symbolToUse);
-                    
-                    // Update selected exchanges to just this one
-                    toggleExchange(exchange.id);
-                    
-                    // Update URL
-                    const urlParams = new URLSearchParams(window.location.search);
-                    urlParams.set('topic', newSymbol);
-                    const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
-                    window.history.pushState({}, '', newUrl);
-                  }
-                }}
+        {loadingExchanges ? (
+          <div className="flex items-center justify-center py-4">
+            <div className="text-gray-400 text-sm">Loading exchanges...</div>
+          </div>
+        ) : availableExchanges.length === 0 ? (
+          <div className="text-gray-500 text-sm py-2">
+            No exchanges available for this symbol
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            {availableExchanges.map(exchangeSymbol => {
+              const exchange = exchangeSymbol.exchange;
+              const exchangeSymbolId = `${exchange}:${exchangeSymbol.symbol}`;
+              
+              
+              // In comparison mode, check if this specific exchange-symbol combo is selected
+              const isSelected = comparisonMode && selectedExchanges && selectedExchanges.includes(exchangeSymbolId);
+              // Check if this exact exchange-symbol combination is active
+              const isActive = !comparisonMode && 
+                               currentExchange === exchange && 
+                               currentSymbolWithoutExchange === exchangeSymbol.symbol;
+              const color = getExchangeColor(exchange);
+              
+              return (
+                <button
+                  key={`${exchange}-${exchangeSymbol.symbol}`}
+                  onClick={() => {
+                    if (comparisonMode) {
+                      // In comparison mode, toggle the specific exchange-symbol combination
+                      toggleExchange(exchange, exchangeSymbol.symbol);
+                    } else {
+                      // In single mode, switch to this exchange
+                      // Use the specific symbol from this exchange
+                      const newSymbol = `${exchange}:${exchangeSymbol.symbol}`;
+                      setCurrentSymbol(newSymbol);
+                      // Don't update baseSymbol with exchange-specific format
+                      // Keep the normalized symbol so the exchange list doesn't change
+                      
+                      // Update selected exchanges to just this one
+                      toggleExchange(exchange, exchangeSymbol.symbol);
+                      
+                      // Update URL
+                      const urlParams = new URLSearchParams(window.location.search);
+                      urlParams.set('topic', newSymbol);
+                      const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
+                      window.history.pushState({}, '', newUrl);
+                    }
+                  }}
                 className={`
                   relative px-3 py-2.5 text-sm font-medium rounded-lg
                   transition-all duration-200 transform
@@ -260,11 +352,14 @@ export default function ChartControls({
                   borderLeftColor: (isActive || (comparisonMode && isSelected)) ? color : 'transparent',
                 }}
               >
-                <div className="flex items-center justify-between">
-                  <span className="relative z-10">{exchange.name}</span>
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex flex-col items-start">
+                    <span className="relative z-10">{formatExchangeName(exchange)}</span>
+                    <span className="text-xs text-gray-500 mt-0.5">{exchangeSymbol.symbol}</span>
+                  </div>
                   {comparisonMode && (
                     <div className={`
-                      w-4 h-4 rounded border-2 ml-2 flex items-center justify-center
+                      w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0
                       ${isSelected ? 'bg-blue-600 border-blue-600' : 'border-gray-500'}
                     `}>
                       {isSelected && (
@@ -283,8 +378,9 @@ export default function ChartControls({
                 )}
               </button>
             );
-          })}
-        </div>
+            })}
+          </div>
+        )}
       </div>
 
       {/* Time Range Presets */}

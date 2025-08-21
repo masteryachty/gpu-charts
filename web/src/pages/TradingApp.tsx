@@ -15,24 +15,55 @@ function ChartView() {
   const [appliedPreset, setAppliedPreset] = useState<string | undefined>(undefined);
 
   // Get store state and actions
-  const { symbol, preset, startTime, endTime, setCurrentSymbol, setTimeRange, setPreset, setBaseSymbol } = useAppStore();
+  const { symbol, preset, startTime, endTime, setCurrentSymbol, setTimeRange, setPreset, setBaseSymbol, comparisonMode, selectedExchanges } = useAppStore();
   const [activePreset, setActivePreset] = useState<string | undefined>(preset);
 
 
   useEffect(() => {
-    if (preset && symbol && chartInstance) {
-      // Apply preset and symbol - returns a promise
-      chartInstance.apply_preset_and_symbol(preset, symbol)
-        .then(() => {
-          // Preset has been fully applied and data fetched
-          setAppliedPreset(preset);
-        })
-        .catch((error: Error) => {
-          console.error('[TradingApp] Failed to apply preset:', error);
-        });
+    if (preset && chartInstance) {
+      // Check if we're in comparison mode with multiple exchanges
+      if (comparisonMode && selectedExchanges && selectedExchanges.length > 0) {
+        console.log('[TradingApp] Applying preset with multiple symbols:', preset, selectedExchanges);
+        
+        // Check if apply_preset_and_symbols exists (new method)
+        if ('apply_preset_and_symbols' in chartInstance) {
+          const symbolsArray = selectedExchanges;
+          (chartInstance as any).apply_preset_and_symbols(preset, symbolsArray)
+            .then(() => {
+              console.log('[TradingApp] Successfully applied preset with multiple symbols');
+              setAppliedPreset(preset);
+            })
+            .catch((error: Error) => {
+              console.error('[TradingApp] Failed to apply preset with multiple symbols:', error);
+            });
+        } else {
+          // Fallback to single symbol
+          if (symbol) {
+            chartInstance.apply_preset_and_symbol(preset, symbol)
+              .then(() => {
+                console.log('[TradingApp] Successfully applied preset and symbol');
+                setAppliedPreset(preset);
+              })
+              .catch((error: Error) => {
+                console.error('[TradingApp] Failed to apply preset:', error);
+              });
+          }
+        }
+      } else if (symbol) {
+        // Single symbol mode
+        console.log('[TradingApp] Applying preset and symbol:', preset, symbol);
+        chartInstance.apply_preset_and_symbol(preset, symbol)
+          .then(() => {
+            console.log('[TradingApp] Successfully applied preset and symbol');
+            setAppliedPreset(preset);
+          })
+          .catch((error: Error) => {
+            console.error('[TradingApp] Failed to apply preset:', error);
+          });
+      }
     }
     setActivePreset(preset);
-  }, [chartInstance, preset, symbol]);
+  }, [chartInstance, preset, symbol, comparisonMode, selectedExchanges]);
 
   // Sync activePreset with store's metricPreset
   useEffect(() => {

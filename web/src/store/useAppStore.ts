@@ -88,6 +88,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   // Core actions with enhanced subscription triggering
   setCurrentSymbol: (symbol) => {
     const oldState = get();
+    console.log('[Store] setCurrentSymbol called:', symbol, 'old:', oldState.symbol);
     set({ symbol });
     
     // Also extract and set the base symbol when symbol changes
@@ -103,6 +104,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     }
     
     const newState = get();
+    console.log('[Store] Symbol updated to:', newState.symbol);
     newState._triggerSubscriptions(newState, oldState);
   },
 
@@ -151,34 +153,36 @@ export const useAppStore = create<AppStore>((set, get) => ({
     newState._triggerSubscriptions(newState, oldState);
   },
 
-  toggleExchange: (exchange) => {
+  toggleExchange: (exchange, symbol) => {
     const oldState = get();
     const currentExchanges = oldState.selectedExchanges || [];
     let newExchanges: string[];
     
+    // Create a unique identifier for exchange-symbol combination if symbol is provided
+    const exchangeId = symbol ? `${exchange}:${symbol}` : exchange;
+    
     if (oldState.comparisonMode) {
-      // In comparison mode, toggle the exchange
-      if (currentExchanges.includes(exchange)) {
-        // Remove exchange (but keep at least one)
-        newExchanges = currentExchanges.filter(e => e !== exchange);
+      // In comparison mode, toggle the specific exchange-symbol combination
+      if (currentExchanges.includes(exchangeId)) {
+        // Remove exchange-symbol (but keep at least one)
+        newExchanges = currentExchanges.filter(e => e !== exchangeId);
         if (newExchanges.length === 0) {
-          newExchanges = [exchange]; // Keep at least one exchange
+          newExchanges = [exchangeId]; // Keep at least one exchange
         }
       } else {
-        // Add exchange (max 2 for comparison)
-        newExchanges = [...currentExchanges, exchange].slice(0, 2);
+        // Add exchange-symbol (max 2 for comparison)
+        newExchanges = [...currentExchanges, exchangeId].slice(0, 2);
       }
     } else {
-      // In single mode, just select this exchange
-      newExchanges = [exchange];
+      // In single mode, just select this exchange-symbol
+      newExchanges = [exchangeId];
     }
     
     set({ selectedExchanges: newExchanges });
     
     // Update symbol to reflect first selected exchange if not in comparison mode
-    if (!oldState.comparisonMode && newExchanges.length > 0) {
-      const baseSymbol = oldState.baseSymbol || 'BTC-USD';
-      set({ symbol: `${newExchanges[0]}:${baseSymbol}` });
+    if (!oldState.comparisonMode && newExchanges.length > 0 && symbol) {
+      set({ symbol: `${exchange}:${symbol}` });
     }
     
     const newState = get();
