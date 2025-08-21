@@ -71,14 +71,23 @@ impl DataManager {
             return Ok(handle);
         }
 
+        // Parse exchange from symbol if present (format: "exchange:SYMBOL" or just "SYMBOL")
+        let (exchange, base_symbol) = if symbol.contains(':') {
+            let parts: Vec<&str> = symbol.splitn(2, ':').collect();
+            (parts[0], parts[1])
+        } else {
+            ("coinbase", symbol) // Default to coinbase for backward compatibility
+        };
+        
         // Build the API URL with proper encoding
         let columns_str = columns.join(",");
-        let encoded_symbol = urlencoding::encode(symbol);
+        let encoded_symbol = urlencoding::encode(base_symbol);
         let encoded_columns = urlencoding::encode(&columns_str);
+        let encoded_exchange = urlencoding::encode(exchange);
 
         let url = format!(
-            "{}/api/data?symbol={}&type={}&start={}&end={}&columns={}&exchange=coinbase",
-            self.base_url, encoded_symbol, data_type, start_time, end_time, encoded_columns
+            "{}/api/data?symbol={}&type={}&start={}&end={}&columns={}&exchange={}",
+            self.base_url, encoded_symbol, data_type, start_time, end_time, encoded_columns, encoded_exchange
         );
 
         // Fetch from server

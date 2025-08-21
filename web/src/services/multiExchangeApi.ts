@@ -40,7 +40,8 @@ async function fetchExchangeData(
   
   try {
     const params = new URLSearchParams({
-      symbol: baseSymbol,  // Some APIs expect just the base symbol
+      symbol: baseSymbol,  // Just the base symbol without exchange prefix
+      exchange: exchange,  // Exchange as separate parameter
       type: 'MD',
       start: startTime.toString(),
       end: endTime.toString(),
