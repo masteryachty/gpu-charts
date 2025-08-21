@@ -123,13 +123,13 @@ pub fn process_trade_data(exchange: &str, data: &UnifiedTradeData) {
 
 /// Record buffer metrics
 pub fn record_buffer_metrics(exchange: &str, buffer_type: &str, size: usize) {
-    set_buffer_size(exchange, buffer_type, size);
+    set_buffer_size(exchange, buffer_type, size as f64);
     debug!("Buffer {} for {} has {} bytes", buffer_type, exchange, size);
 }
 
 /// Record data write metrics
 pub fn record_data_write(exchange: &str, data_type: &str, bytes: usize) {
-    record_data_written(exchange, data_type, bytes);
+    record_data_written(exchange, data_type, bytes as u64);
     debug!("Wrote {} bytes of {} data for {}", bytes, data_type, exchange);
 }
 

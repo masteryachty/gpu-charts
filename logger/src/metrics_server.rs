@@ -155,33 +155,33 @@ pub fn record_reconnection(exchange: &str) {
     increment_reconnection_count(exchange);
 }
 
-pub fn record_trade(exchange: &str, symbol: &str) {
+pub fn record_trade(exchange: &str, _symbol: &str) {
     // Track trade count (could add a specific metric for this)
     increment_message_count(exchange, "trade");
 }
 
-pub fn record_large_trade(exchange: &str, symbol: &str) {
+pub fn record_large_trade(exchange: &str, _symbol: &str) {
     // Track large trades (could add a specific metric for this)
     increment_message_count(exchange, "large_trade");
 }
 
-pub fn set_price_high(exchange: &str, symbol: &str, price: f64) {
+pub fn set_price_high(_exchange: &str, _symbol: &str, _price: f64) {
     // Could track price highs if needed
 }
 
-pub fn set_price_low(exchange: &str, symbol: &str, price: f64) {
+pub fn set_price_low(_exchange: &str, _symbol: &str, _price: f64) {
     // Could track price lows if needed
 }
 
-pub fn set_buffer_size(exchange: &str, buffer_type: &str, size: f64) {
+pub fn set_buffer_size(_exchange: &str, _buffer_type: &str, _size: f64) {
     // Could track buffer sizes if needed
 }
 
-pub fn record_data_written(exchange: &str, data_type: &str, bytes: u64) {
+pub fn record_data_written(_exchange: &str, _data_type: &str, _bytes: u64) {
     // Track data written (could add a specific metric for this)
 }
 
-pub fn set_websocket_connections(exchange: &str, count: f64) {
+pub fn set_websocket_connections(_exchange: &str, _count: f64) {
     // Track WebSocket connection count
 }
 
