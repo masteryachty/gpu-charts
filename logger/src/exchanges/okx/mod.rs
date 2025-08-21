@@ -17,7 +17,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::time::interval;
-use tracing::{error, info, warn};
+use tracing::{debug, error, warn};
 
 pub struct OkxExchange {
     config: Arc<Config>,
@@ -101,7 +101,7 @@ impl Exchange for OkxExchange {
             }
         }
 
-        info!("Fetched {} active symbols from OKX", symbols.len());
+        debug!("Fetched {} active symbols from OKX", symbols.len());
         Ok(symbols)
     }
 
@@ -142,7 +142,7 @@ impl Exchange for OkxExchange {
     }
 
     async fn run(&self) -> Result<()> {
-        info!("Starting OKX exchange logger");
+        debug!("Starting OKX exchange logger");
 
         // Fetch all symbols
         let symbols = if let Some(ref configured_symbols) = self.config.exchanges.okx.symbols {
@@ -155,7 +155,7 @@ impl Exchange for OkxExchange {
                 .collect()
         };
 
-        info!("Will monitor {} OKX symbols", symbols.len());
+        debug!("Will monitor {} OKX symbols", symbols.len());
 
         // Distribute symbols across connections
         let symbol_batches = distribute_symbols(symbols, self.max_symbols_per_connection()).await;
@@ -182,7 +182,7 @@ impl Exchange for OkxExchange {
                 let max_backoff_secs = 60u64;
 
                 loop {
-                    info!("Connection {} attempting to connect to OKX", idx);
+                    // Attempting to connect (actual connection logging happens in connect())
 
                     if let Err(e) = connection.connect().await {
                         error!("Connection {} failed to connect: {}", idx, e);
@@ -214,7 +214,7 @@ impl Exchange for OkxExchange {
                     }
 
                     // Successfully connected and subscribed
-                    info!("Connection {} successfully connected and subscribed to OKX", idx);
+                    debug!("Connection {} successfully connected and subscribed to OKX", idx);
                     metrics.record_connection_status("okx", true);
                     consecutive_failures = 0;
                     backoff_secs = 1;

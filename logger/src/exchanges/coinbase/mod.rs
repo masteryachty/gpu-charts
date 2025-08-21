@@ -17,7 +17,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::time::interval;
-use tracing::{error, info, warn};
+use tracing::{debug, error, warn};
 
 pub struct CoinbaseExchange {
     config: Arc<Config>,
@@ -92,7 +92,7 @@ impl Exchange for CoinbaseExchange {
             }
         }
 
-        info!("Fetched {} active symbols from Coinbase", symbols.len());
+        debug!("Fetched {} active symbols from Coinbase", symbols.len());
         Ok(symbols)
     }
 
@@ -133,7 +133,7 @@ impl Exchange for CoinbaseExchange {
     }
 
     async fn run(&self) -> Result<()> {
-        info!("Starting Coinbase exchange logger");
+        debug!("Starting Coinbase exchange logger");
 
         // Fetch all symbols
         let symbols = if let Some(ref configured_symbols) = self.config.exchanges.coinbase.symbols {
@@ -146,7 +146,7 @@ impl Exchange for CoinbaseExchange {
                 .collect()
         };
 
-        info!("Will monitor {} Coinbase symbols", symbols.len());
+        debug!("Will monitor {} Coinbase symbols", symbols.len());
 
         // Distribute symbols across connections
         let symbol_batches = distribute_symbols(symbols, self.max_symbols_per_connection()).await;
@@ -176,8 +176,7 @@ impl Exchange for CoinbaseExchange {
                 let max_backoff_secs = 60u64;
 
                 loop {
-                    info!("Connection {} attempting to connect to Coinbase", idx);
-
+                    // Attempting to connect (actual connection logging happens in connect())
                     if let Err(e) = connection.connect().await {
                         error!("Connection {} failed to connect: {}", idx, e);
                         metrics.record_error("coinbase", e.to_string());
@@ -208,7 +207,7 @@ impl Exchange for CoinbaseExchange {
                     }
 
                     // Successfully connected and subscribed
-                    info!("Connection {} successfully connected and subscribed to Coinbase", idx);
+                    debug!("Connection {} successfully connected and subscribed to Coinbase", idx);
                     metrics.record_connection_status("coinbase", true);
                     consecutive_failures = 0;
                     backoff_secs = 1;

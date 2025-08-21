@@ -54,10 +54,31 @@ async fn main() -> Result<()> {
         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"))
     };
 
-    tracing_subscriber::registry()
-        .with(filter)
-        .with(tracing_subscriber::fmt::layer())
-        .init();
+    // Check if we're running under systemd/docker (they add their own timestamps)
+    let is_systemd = std::env::var("INVOCATION_ID").is_ok() || std::env::var("JOURNAL_STREAM").is_ok();
+    let is_docker = std::path::Path::new("/.dockerenv").exists();
+    
+    // Configure the fmt layer based on environment
+    if is_systemd || is_docker {
+        // Omit timestamp when running under systemd/docker as they add their own
+        tracing_subscriber::registry()
+            .with(filter)
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .without_time()
+                    .compact()
+            )
+            .init();
+    } else {
+        // Include timestamp for local development
+        tracing_subscriber::registry()
+            .with(filter)
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .compact()
+            )
+            .init();
+    }
 
     // Load configuration
     let config = if let Some(config_path) = cli.config {

@@ -10,7 +10,7 @@ use tokio::sync::mpsc;
 use tokio_tungstenite::{
     connect_async, tungstenite::protocol::Message as WsMessage, MaybeTlsStream, WebSocketStream,
 };
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, warn};
 
 type WsStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
@@ -110,7 +110,7 @@ impl BitfinexConnection {
                 if let Some(event) = obj.get("event").and_then(|v| v.as_str()) {
                     match event {
                         "info" => {
-                            info!("Bitfinex info: {:?}", obj);
+                            debug!("Bitfinex info: {:?}", obj);
                         }
                         "subscribed" => {
                             if let (Some(chan_id), Some(channel), Some(symbol)) = (
@@ -164,12 +164,12 @@ impl BitfinexConnection {
 #[async_trait]
 impl ExchangeConnection for BitfinexConnection {
     async fn connect(&mut self) -> Result<()> {
-        info!("Connecting to Bitfinex WebSocket: {}", self.url);
+        debug!("Connecting to Bitfinex WebSocket: {}", self.url);
 
         let (ws_stream, _) = connect_async(&self.url).await?;
         self.ws_stream = Some(ws_stream);
 
-        info!("Connected to Bitfinex WebSocket");
+        debug!("Connected to Bitfinex WebSocket");
         Ok(())
     }
 
@@ -194,7 +194,7 @@ impl ExchangeConnection for BitfinexConnection {
             }
         }
 
-        info!("Subscribed to {} symbols on Bitfinex", self.symbols.len());
+        debug!("Subscribed to {} symbols on Bitfinex", self.symbols.len());
         Ok(())
     }
 
