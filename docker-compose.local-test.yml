@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # Market Data Logger Service (local build)
+  logger:
+    build:
+      context: .
+      dockerfile: logger/Dockerfile
+    container_name: gpu-charts-logger-test
+    environment:
+      # Push metrics to prometheus.rednax.io
+      - PROMETHEUS_PUSH_GATEWAY_URL=http://prometheus.rednax.io
+      # Logger configuration for testing
+      - LOGGER_DATA_PATH=/mnt/md/data
+      - LOGGER_EXCHANGES_COINBASE_ENABLED=true
+      - LOGGER_EXCHANGES_BINANCE_ENABLED=true
+      - LOGGER_EXCHANGES_KRAKEN_ENABLED=false
+      - LOGGER_EXCHANGES_BITFINEX_ENABLED=false
+      - LOGGER_EXCHANGES_OKX_ENABLED=false
+      # Debug logging for testing
+      - RUST_LOG=debug
+      - RUST_BACKTRACE=1
+    volumes:
+      - ./test-data:/mnt/md/data
+    ports:
+      - "8080:8080"  # Health check endpoint
+    networks:
+      - test-network
+
+  # Data Server API (local build)
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: gpu-charts-server-test
+    environment:
+      # Push metrics to prometheus.rednax.io
+      - PROMETHEUS_PUSH_GATEWAY_URL=http://prometheus.rednax.io
+      # Server configuration for testing
+      - USE_TLS=false
+      - PORT=8443
+      - DATA_PATH=/mnt/md/data
+      # Debug logging
+      - RUST_LOG=debug
+    volumes:
+      - ./test-data:/mnt/md/data:ro
+    ports:
+      - "8443:8443"
+    networks:
+      - test-network
+    depends_on:
+      - logger
+
+networks:
+  test-network:
+    driver: bridge

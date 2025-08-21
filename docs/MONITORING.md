@@ -142,7 +142,7 @@ Prometheus alerting rules are configured in `/prometheus/alerts.yml`:
 #### Logger Service
 ```bash
 # Prometheus Push Gateway configuration
-PROMETHEUS_PUSH_GATEWAY_URL=http://prometheus.rednax.io:9091
+PROMETHEUS_PUSH_GATEWAY_URL=http://prometheus.rednax.io
 PROMETHEUS_PUSH_INTERVAL_SECS=10  # Default: 10 seconds
 
 # Optional: Override instance name
@@ -152,7 +152,7 @@ PROMETHEUS_INSTANCE_NAME=logger-prod-1
 #### Server API
 ```bash
 # Prometheus Push Gateway configuration
-PROMETHEUS_PUSH_GATEWAY_URL=http://prometheus.rednax.io:9091
+PROMETHEUS_PUSH_GATEWAY_URL=http://prometheus.rednax.io
 PROMETHEUS_PUSH_INTERVAL_SECS=10  # Default: 10 seconds
 
 # Optional: Override instance name
@@ -282,11 +282,11 @@ docker run -d \
 
 ```bash
 # Start logger with monitoring
-PROMETHEUS_PUSH_GATEWAY_URL=http://prometheus.rednax.io:9091 \
+PROMETHEUS_PUSH_GATEWAY_URL=http://prometheus.rednax.io \
 ./target/release/logger
 
 # Start server with monitoring
-PROMETHEUS_PUSH_GATEWAY_URL=http://prometheus.rednax.io:9091 \
+PROMETHEUS_PUSH_GATEWAY_URL=http://prometheus.rednax.io \
 ./target/release/ultra_low_latency_server_chunked_parallel
 ```
 
@@ -296,7 +296,7 @@ PROMETHEUS_PUSH_GATEWAY_URL=http://prometheus.rednax.io:9091 \
 
 ```bash
 # Check push gateway metrics
-curl http://prometheus.rednax.io:9091/metrics | grep gpu_charts
+curl http://prometheus.rednax.io/metrics | grep gpu_charts
 
 # Query Prometheus directly
 curl 'http://prometheus.rednax.io:9090/api/v1/query?query=gpu_charts_exchange_connection_status'
@@ -329,7 +329,7 @@ curl http://prometheus.rednax.io:9093/api/v1/alerts
 
 1. Check push gateway is accessible:
    ```bash
-   curl http://prometheus.rednax.io:9091/metrics
+   curl http://prometheus.rednax.io/metrics
    ```
 
 2. Verify services are configured correctly:

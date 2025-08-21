@@ -57,7 +57,7 @@ impl Default for Config {
             },
             metrics: MetricsConfig {
                 enabled: true,
-                push_gateway_url: "http://prometheus.rednax.io:9091".to_string(),
+                push_gateway_url: "http://prometheus.rednax.io".to_string(),
                 push_interval_secs: 15,
                 instance_name: None,
             },

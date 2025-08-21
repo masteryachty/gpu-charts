@@ -130,7 +130,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Start metrics exporter
     let prometheus_url = std::env::var("PROMETHEUS_PUSH_GATEWAY_URL")
-        .unwrap_or_else(|_| "http://prometheus.rednax.io:9091".to_string());
+        .unwrap_or_else(|_| "http://prometheus.rednax.io".to_string());
     
     let instance_name = hostname::get()
         .unwrap_or_else(|_| std::ffi::OsString::from("unknown"))

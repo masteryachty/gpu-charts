@@ -5,8 +5,8 @@
 
 set -e
 
-PUSH_GATEWAY_URL="${PROMETHEUS_PUSH_GATEWAY_URL:-http://prometheus.rednax.io:9091}"
-PROMETHEUS_URL="${PROMETHEUS_URL:-http://prometheus.rednax.io:9090}"
+PUSH_GATEWAY_URL="${PROMETHEUS_PUSH_GATEWAY_URL:-http://prometheus.rednax.io}"
+PROMETHEUS_URL="${PROMETHEUS_URL:-http://prometheus.rednax.io}"
 INSTANCE_NAME=$(hostname)
 
 echo "========================================="
@@ -56,9 +56,15 @@ send_test_metrics() {
 query_metrics() {
     local metric=$1
     
+    # Skip if Prometheus is not available
+    if [ "$PROMETHEUS_AVAILABLE" = "false" ]; then
+        echo "Skipping $metric query (Prometheus not accessible)"
+        return 0
+    fi
+    
     echo -n "Querying $metric... "
     
-    local response=$(curl -s "$PROMETHEUS_URL/api/v1/query?query=$metric" 2>/dev/null || echo "")
+    local response=$(timeout 5 curl -s "$PROMETHEUS_URL/api/v1/query?query=$metric" 2>/dev/null || echo "")
     
     if echo "$response" | grep -q '"status":"success"'; then
         local count=$(echo "$response" | grep -o '"value"' | wc -l)
@@ -83,11 +89,16 @@ if ! check_url "$PUSH_GATEWAY_URL/metrics" "Push Gateway"; then
     exit 1
 fi
 
-# Check Prometheus
-if ! check_url "$PROMETHEUS_URL/api/v1/query?query=up" "Prometheus Server"; then
-    echo ""
-    echo "WARNING: Cannot reach Prometheus at $PROMETHEUS_URL"
-    echo "Metrics will be pushed but queries won't work."
+# Check Prometheus (skip if not accessible - push gateway is what matters)
+echo -n "Checking Prometheus Server... "
+if timeout 5 curl -s -f -o /dev/null "$PROMETHEUS_URL/api/v1/query?query=up" 2>/dev/null; then
+    echo "✓ OK"
+    PROMETHEUS_AVAILABLE=true
+else
+    echo "✗ Not accessible (continuing anyway)"
+    PROMETHEUS_AVAILABLE=false
+    echo "WARNING: Prometheus server not accessible, but push gateway is working."
+    echo "Metrics will be pushed successfully but queries won't work."
 fi
 
 echo ""
