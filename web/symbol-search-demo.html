@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Symbol Search Demo - GPU Charts</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #0A0B0D;
+            color: #E5E5E5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #10B981;
+            margin-bottom: 10px;
+            font-size: 2.5rem;
+        }
+        
+        .subtitle {
+            color: #6B7280;
+            margin-bottom: 40px;
+            font-size: 1.1rem;
+        }
+        
+        .demo-section {
+            background: #16181C;
+            border: 1px solid #2D3748;
+            border-radius: 8px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        
+        h2 {
+            color: #3B82F6;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+        
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .feature-card {
+            background: #1F2937;
+            border: 1px solid #374151;
+            border-radius: 6px;
+            padding: 20px;
+        }
+        
+        .feature-card h3 {
+            color: #10B981;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+        
+        .feature-card p {
+            color: #9CA3AF;
+            line-height: 1.6;
+        }
+        
+        .search-preview {
+            background: #1F2937;
+            border: 1px solid #374151;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .mock-search {
+            position: relative;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .mock-input {
+            width: 100%;
+            padding: 12px 40px;
+            background: #111827;
+            border: 1px solid #374151;
+            border-radius: 4px;
+            color: #E5E5E5;
+            font-size: 16px;
+        }
+        
+        .mock-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            margin-top: 4px;
+            background: #111827;
+            border: 1px solid #374151;
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+        
+        .result-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid #1F2937;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .result-item:hover {
+            background: #1F2937;
+        }
+        
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .symbol-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .symbol-id {
+            font-weight: 600;
+            color: #E5E5E5;
+        }
+        
+        .symbol-name {
+            color: #9CA3AF;
+            font-size: 14px;
+        }
+        
+        .relevance-badge {
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .exact-match {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10B981;
+        }
+        
+        .high-match {
+            background: rgba(59, 130, 246, 0.2);
+            color: #3B82F6;
+        }
+        
+        .exchange-pills {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        
+        .exchange-pill {
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .coinbase {
+            background: rgba(0, 82, 255, 0.15);
+            border-left: 2px solid #0052FF;
+        }
+        
+        .binance {
+            background: rgba(243, 186, 47, 0.15);
+            border-left: 2px solid #F3BA2F;
+        }
+        
+        .kraken {
+            background: rgba(87, 65, 217, 0.15);
+            border-left: 2px solid #5741D9;
+        }
+        
+        .code-block {
+            background: #111827;
+            border: 1px solid #374151;
+            border-radius: 4px;
+            padding: 16px;
+            margin: 16px 0;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+        }
+        
+        .highlight {
+            color: #10B981;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Symbol Search Integration</h1>
+        <p class="subtitle">Professional-grade trading symbol selector with intelligent search</p>
+        
+        <div class="demo-section">
+            <h2>✨ Key Features</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h3>🔍 Smart Search</h3>
+                    <p>Fuzzy matching across symbol codes, names, descriptions, and tags with relevance scoring</p>
+                </div>
+                <div class="feature-card">
+                    <h3>🏢 Cross-Exchange</h3>
+                    <p>Shows symbol availability across Coinbase, Binance, Kraken, Bitfinex, and OKX</p>
+                </div>
+                <div class="feature-card">
+                    <h3>⚡ Real-time</h3>
+                    <p>300ms debounced search with caching for instant results</p>
+                </div>
+                <div class="feature-card">
+                    <h3>⌨️ Keyboard Nav</h3>
+                    <p>Full keyboard support with arrow keys, Enter to select, Escape to close</p>
+                </div>
+                <div class="feature-card">
+                    <h3>🎨 Beautiful UI</h3>
+                    <p>Professional dark theme with smooth animations and visual indicators</p>
+                </div>
+                <div class="feature-card">
+                    <h3>📊 Rich Data</h3>
+                    <p>Display names, descriptions, categories, and exchange-specific symbols</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="demo-section">
+            <h2>🎯 Visual Preview</h2>
+            <div class="search-preview">
+                <div class="mock-search">
+                    <input type="text" class="mock-input" value="btc" placeholder="Search symbols..." />
+                    <div class="mock-dropdown">
+                        <div class="result-item">
+                            <div class="result-header">
+                                <div class="symbol-info">
+                                    <span class="symbol-id">BTC/USD</span>
+                                    <span class="symbol-name">Bitcoin / US Dollar</span>
+                                </div>
+                                <span class="relevance-badge exact-match">Exact Match</span>
+                            </div>
+                            <div class="exchange-pills">
+                                <span class="exchange-pill coinbase">Coinbase: BTC-USD</span>
+                                <span class="exchange-pill binance">Binance: BTCUSDT</span>
+                                <span class="exchange-pill kraken">Kraken: XBT/USD</span>
+                            </div>
+                        </div>
+                        <div class="result-item">
+                            <div class="result-header">
+                                <div class="symbol-info">
+                                    <span class="symbol-id">BTC/EUR</span>
+                                    <span class="symbol-name">Bitcoin / Euro</span>
+                                </div>
+                                <span class="relevance-badge high-match">High Match</span>
+                            </div>
+                            <div class="exchange-pills">
+                                <span class="exchange-pill kraken">Kraken: XBT/EUR</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="demo-section">
+            <h2>🔌 API Integration</h2>
+            <div class="code-block">
+                <div>// New endpoint for symbol search</div>
+                <div><span class="highlight">GET</span> /api/symbol-search?q=<span class="highlight">{query}</span></div>
+                <div></div>
+                <div>// Returns normalized symbols with exchange mappings</div>
+                <div>{</div>
+                <div>  "results": [{</div>
+                <div>    "normalized_id": "BTC/USD",</div>
+                <div>    "display_name": "Bitcoin / US Dollar",</div>
+                <div>    "exchanges": [</div>
+                <div>      {"exchange": "coinbase", "symbol": "BTC-USD"},</div>
+                <div>      {"exchange": "binance", "symbol": "BTCUSDT"},</div>
+                <div>      {"exchange": "kraken", "symbol": "XBT/USD"}</div>
+                <div>    ],</div>
+                <div>    "relevance_score": 150.0</div>
+                <div>  }]</div>
+                <div>}</div>
+            </div>
+        </div>
+        
+        <div class="demo-section">
+            <h2>🚀 Quick Start</h2>
+            <div class="code-block">
+                <div># Start the development stack</div>
+                <div>npm run dev:server    <span class="highlight"># Start data server</span></div>
+                <div>npm run dev:web       <span class="highlight"># Start React app</span></div>
+                <div></div>
+                <div># Access the application</div>
+                <div>http://localhost:3000/app</div>
+            </div>
+        </div>
+        
+        <div class="demo-section">
+            <h2>📝 Example Searches</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h3>Symbol Codes</h3>
+                    <p>Try: <code>btc</code>, <code>eth</code>, <code>sol</code></p>
+                </div>
+                <div class="feature-card">
+                    <h3>Names</h3>
+                    <p>Try: <code>bitcoin</code>, <code>ethereum</code>, <code>dogecoin</code></p>
+                </div>
+                <div class="feature-card">
+                    <h3>Categories</h3>
+                    <p>Try: <code>layer2</code>, <code>defi</code>, <code>meme</code></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

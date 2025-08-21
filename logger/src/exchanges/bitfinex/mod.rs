@@ -17,7 +17,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::time::interval;
-use tracing::{error, info};
+use tracing::{debug, error};
 
 pub struct BitfinexExchange {
     config: Arc<Config>,
@@ -90,7 +90,7 @@ impl Exchange for BitfinexExchange {
             }
         }
 
-        info!("Fetched {} active symbols from Bitfinex", symbols.len());
+        debug!("Fetched {} active symbols from Bitfinex", symbols.len());
         Ok(symbols)
     }
 
@@ -134,7 +134,7 @@ impl Exchange for BitfinexExchange {
     }
 
     async fn run(&self) -> Result<()> {
-        info!("Starting Bitfinex exchange logger");
+        debug!("Starting Bitfinex exchange logger");
 
         // Fetch all symbols
         let symbols = if let Some(ref configured_symbols) = self.config.exchanges.bitfinex.symbols {
@@ -147,7 +147,7 @@ impl Exchange for BitfinexExchange {
                 .collect()
         };
 
-        info!("Will monitor {} Bitfinex symbols", symbols.len());
+        debug!("Will monitor {} Bitfinex symbols", symbols.len());
 
         // Distribute symbols across connections
         let symbol_batches = distribute_symbols(symbols, self.max_symbols_per_connection()).await;

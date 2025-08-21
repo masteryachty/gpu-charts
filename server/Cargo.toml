@@ -28,6 +28,7 @@ prometheus = { version = "0.14", features = ["process"] }
 lazy_static = "1.4"
 hostname = "0.3"
 warp = "0.3"
+urlencoding = "2.1"
 
 [build-dependencies]
 toml = "0.8"

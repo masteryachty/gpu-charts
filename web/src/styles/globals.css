@@ -61,6 +61,38 @@
   .animation-delay-400 {
     animation-delay: 400ms;
   }
+  
+  /* Dropdown animations */
+  .animate-in {
+    animation-duration: 200ms;
+    animation-fill-mode: both;
+  }
+  
+  .fade-in {
+    animation-name: fadeIn;
+  }
+  
+  .slide-in-from-top-1 {
+    animation-name: slideInFromTop;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  
+  @keyframes slideInFromTop {
+    from {
+      transform: translateY(-4px);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
 }
 
 /* Price animations */

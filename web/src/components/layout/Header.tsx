@@ -1,8 +1,9 @@
-import { Search, ChevronDown, Settings, User } from 'lucide-react';
+import { ChevronDown, Settings, User } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
+import SymbolSearch from '../SymbolSearch';
 
 export default function Header() {
-  const { currentSymbol, setCurrentSymbol, isConnected } = useAppStore();
+  const { isConnected } = useAppStore();
 
   return (
     <header className="h-16 bg-bg-primary border-b border-border flex items-center px-6">
@@ -12,18 +13,10 @@ export default function Header() {
       </div>
 
       {/* Search / Symbol Selector */}
-      <div className="flex-1 max-w-md">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-tertiary" size={16} />
-          <input
-            type="text"
-            value={currentSymbol}
-            onChange={(e) => setCurrentSymbol(e.target.value.toUpperCase())}
-            className="input-primary pl-10 pr-4 w-full"
-            placeholder="Search symbols..."
-          />
-          <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-tertiary" size={16} />
-        </div>
+      <div className="flex-1 max-w-xl">
+        <SymbolSearch 
+          placeholder="Search symbols, coins, or markets..." 
+        />
       </div>
 
       {/* Watchlist */}

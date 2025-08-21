@@ -50,25 +50,31 @@ async fn main() -> Result<()> {
 
     // Initialize tracing
     let log_level = if cli.debug { "debug" } else { "info" };
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(log_level));
     
-    // Check if we're running under systemd/Docker (they add timestamps)
+    // Check if we're running under systemd/docker (they add their own timestamps)
     let is_systemd = std::env::var("INVOCATION_ID").is_ok() || std::env::var("JOURNAL_STREAM").is_ok();
     let is_docker = std::path::Path::new("/.dockerenv").exists();
     
+    // Configure the fmt layer based on environment
     if is_systemd || is_docker {
-        // Use compact format without timestamps for systemd/Docker
-        tracing_subscriber::fmt()
-            .with_env_filter(EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| EnvFilter::new(log_level)))
-            .with_target(false)
-            .without_time()
+        // Omit timestamp when running under systemd/docker as they add their own
+        tracing_subscriber::registry()
+            .with(filter)
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .without_time()
+                    .compact()
+            )
             .init();
     } else {
-        // Use full format with timestamps for direct execution
-        tracing_subscriber::fmt()
-            .with_env_filter(EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| EnvFilter::new(log_level)))
-            .with_target(false)
+        // Include timestamp for local development
+        tracing_subscriber::registry()
+            .with(filter)
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .compact()
+            )
             .init();
     }
 

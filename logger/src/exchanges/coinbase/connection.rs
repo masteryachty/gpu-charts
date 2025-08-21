@@ -78,12 +78,12 @@ impl CoinbaseConnection {
 #[async_trait]
 impl ExchangeConnection for CoinbaseConnection {
     async fn connect(&mut self) -> Result<()> {
-        info!("Connecting to Coinbase WebSocket: {}", self.url);
+        debug!("Connecting to Coinbase WebSocket: {}", self.url);
 
         let (ws_stream, _) = connect_async(&self.url).await?;
         self.ws_stream = Some(ws_stream);
 
-        info!("Connected to Coinbase WebSocket");
+        debug!("Connected to Coinbase WebSocket");
         Ok(())
     }
 

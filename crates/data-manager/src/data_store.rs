@@ -131,6 +131,10 @@ impl DataStore {
         if set_as_active {
             if !self.active_data_group_indices.contains(&new_index) {
                 self.active_data_group_indices.push(new_index);
+                log::info!("[DataStore] Added group {} to active indices. Active groups now: {:?}", 
+                          new_index, self.active_data_group_indices);
+            } else {
+                log::warn!("[DataStore] Group {} already in active indices", new_index);
             }
         }
 
@@ -587,6 +591,9 @@ impl DataStore {
             (None, None) => false,
         };
 
+        // Check if symbol is changing
+        let symbol_changed = self.symbol != symbol_name;
+
         if let Some(p) = preset {
             self.preset = Some(p.clone());
         } else {
@@ -594,11 +601,13 @@ impl DataStore {
         }
         self.symbol = symbol_name.clone();
 
-        // Clear all data if preset changed to avoid mixing data from different presets
-        if preset_changed {
+        // Clear all data if preset OR symbol changed to avoid mixing data
+        if preset_changed || symbol_changed {
+            log::info!("[DataStore] Clearing data - preset_changed: {}, symbol_changed: {}", preset_changed, symbol_changed);
             self.data_groups.clear();
             self.active_data_group_indices.clear();
             self.clear_gpu_bounds();
+            self.mark_dirty(); // Mark as dirty to trigger re-render
         }
     }
     
@@ -653,13 +662,54 @@ impl DataStore {
         let mut all_values = Vec::new();
         let mut final_timestamp = None;
         
+        log::info!("[Tooltip] Active data group indices: {:?}", self.active_data_group_indices);
+        log::info!("[Tooltip] Total data groups: {}", self.data_groups.len());
+        
         // Check ALL active data groups
-        for &data_group_index in &self.active_data_group_indices {
+        for (group_idx, &data_group_index) in self.active_data_group_indices.iter().enumerate() {
             if data_group_index >= self.data_groups.len() {
+                log::warn!("[Tooltip] Skipping invalid data group index: {}", data_group_index);
                 continue;
             }
             
             let data_group = &self.data_groups[data_group_index];
+            log::info!("[Tooltip] Processing group {} (index {}): {} metrics", 
+                      group_idx, data_group_index, data_group.metrics.len());
+            
+            // Determine exchange prefix for this data group based on color
+            let exchange_prefix = if self.active_data_group_indices.len() > 1 && !data_group.metrics.is_empty() {
+                // Multiple groups means comparison mode - identify exchange by color
+                let first_metric_color = data_group.metrics[0].color;
+                
+                log::info!("[Tooltip] Group {} first metric color: {:?}", group_idx, first_metric_color);
+                
+                // Match color to exchange (based on our color assignments)
+                let exchange_name = if first_metric_color[0] == 0.0 && first_metric_color[1] == 0.4 && first_metric_color[2] == 1.0 {
+                    "Coinbase"
+                } else if first_metric_color[0] == 1.0 && first_metric_color[1] == 0.84 && first_metric_color[2] == 0.0 {
+                    "Binance"
+                } else if first_metric_color[0] == 0.6 && first_metric_color[1] == 0.27 && first_metric_color[2] == 1.0 {
+                    "Kraken"
+                } else if first_metric_color[0] == 0.0 && first_metric_color[1] == 1.0 && first_metric_color[2] == 0.53 {
+                    "Bitfinex"
+                } else if first_metric_color[0] == 1.0 && first_metric_color[1] == 0.0 && first_metric_color[2] == 1.0 {
+                    "OKX"
+                } else {
+                    let fallback = match group_idx {
+                        0 => "Exchange 1",
+                        1 => "Exchange 2",
+                        _ => "Exchange",
+                    };
+                    log::warn!("[Tooltip] Unknown color {:?}, using fallback: {}", first_metric_color, fallback);
+                    fallback
+                };
+                
+                log::info!("[Tooltip] Group {} identified as: {}", group_idx, exchange_name);
+                format!("{}: ", exchange_name)
+            } else {
+                log::info!("[Tooltip] Single exchange mode, no prefix");
+                String::new() // Single exchange, no prefix needed
+            };
             
             // Get time data
             let time_array = js_sys::Uint32Array::new(&data_group.x_raw);
@@ -724,8 +774,10 @@ impl DataStore {
             }
             
             // Collect values for all visible metrics in this group
-            for metric in &data_group.metrics {
+            for (metric_idx, metric) in data_group.metrics.iter().enumerate() {
                 if metric.visible {
+                    log::info!("[Tooltip] Group {} metric {}: '{}' (visible: {}, color: {:?})", 
+                              group_idx, metric_idx, metric.name, metric.visible, metric.color);
                     // Check if we have raw data available
                     if metric.y_raw.byte_length() > 0 {
                         let value_array = js_sys::Float32Array::new(&metric.y_raw);
@@ -741,7 +793,13 @@ impl DataStore {
                                 value_data[index]
                             };
                             let color = [metric.color[0], metric.color[1], metric.color[2], 1.0];
-                            all_values.push((metric.name.clone(), value, color));
+                            // Add exchange prefix if in comparison mode
+                            let metric_name = if !exchange_prefix.is_empty() {
+                                format!("{}{}", exchange_prefix, metric.name)
+                            } else {
+                                metric.name.clone()
+                            };
+                            all_values.push((metric_name, value, color));
                         }
                     } else if metric.is_computed {
                         // For computed metrics without raw data, skip for now

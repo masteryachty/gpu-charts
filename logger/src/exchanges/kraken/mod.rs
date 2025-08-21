@@ -17,7 +17,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::time::interval;
-use tracing::{error, info};
+use tracing::{debug, error};
 
 pub struct KrakenExchange {
     config: Arc<Config>,
@@ -103,7 +103,7 @@ impl Exchange for KrakenExchange {
             }
         }
 
-        info!("Fetched {} active symbols from Kraken", symbols.len());
+        debug!("Fetched {} active symbols from Kraken", symbols.len());
         Ok(symbols)
     }
 
@@ -144,7 +144,7 @@ impl Exchange for KrakenExchange {
     }
 
     async fn run(&self) -> Result<()> {
-        info!("Starting Kraken exchange logger");
+        debug!("Starting Kraken exchange logger");
 
         // Fetch all symbols
         let symbols = if let Some(ref configured_symbols) = self.config.exchanges.kraken.symbols {
@@ -157,7 +157,7 @@ impl Exchange for KrakenExchange {
                 .collect()
         };
 
-        info!("Will monitor {} Kraken symbols", symbols.len());
+        debug!("Will monitor {} Kraken symbols", symbols.len());
 
         // Distribute symbols across connections
         let symbol_batches = distribute_symbols(symbols, self.max_symbols_per_connection()).await;

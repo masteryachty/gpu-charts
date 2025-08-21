@@ -8,7 +8,7 @@ use tokio::sync::mpsc;
 use tokio_tungstenite::{
     connect_async, tungstenite::protocol::Message as WsMessage, MaybeTlsStream, WebSocketStream,
 };
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, warn};
 
 type WsStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
@@ -121,7 +121,7 @@ impl KrakenConnection {
                     }
                     "systemStatus" => {
                         let status = obj.get("status").and_then(|v| v.as_str()).unwrap_or("");
-                        info!("Kraken system status: {}", status);
+                        debug!("Kraken system status: {}", status);
                     }
                     "error" => {
                         let error_msg = obj
@@ -152,12 +152,12 @@ impl KrakenConnection {
 #[async_trait]
 impl ExchangeConnection for KrakenConnection {
     async fn connect(&mut self) -> Result<()> {
-        info!("Connecting to Kraken WebSocket: {}", self.url);
+        debug!("Connecting to Kraken WebSocket: {}", self.url);
 
         let (ws_stream, _) = connect_async(&self.url).await?;
         self.ws_stream = Some(ws_stream);
 
-        info!("Connected to Kraken WebSocket");
+        debug!("Connected to Kraken WebSocket");
         Ok(())
     }
 
@@ -183,7 +183,7 @@ impl ExchangeConnection for KrakenConnection {
             self.send_json(subscribe_msg).await?;
         }
 
-        info!(
+        debug!(
             "Sent subscription requests for {} symbols with {} channels",
             self.symbols.len(),
             num_channels
