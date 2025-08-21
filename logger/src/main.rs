@@ -1,7 +1,8 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use logger::{Config, Logger};
+use logger::{Config, Logger, MetricsExporter};
 use std::path::PathBuf;
+use std::sync::Arc;
 use tokio::signal;
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
@@ -117,6 +118,33 @@ async fn run_logger(mut config: Config, exchanges: Option<String>) -> Result<()>
 
     let logger = Logger::new(config.clone())?;
 
+    // Start metrics exporter if enabled
+    let metrics_handle = if config.metrics.enabled {
+        let instance_name = config.metrics.instance_name.clone()
+            .unwrap_or_else(|| hostname::get()
+                .unwrap_or_else(|_| std::ffi::OsString::from("unknown"))
+                .to_string_lossy()
+                .to_string());
+        
+        let exporter = Arc::new(MetricsExporter::new(
+            config.metrics.push_gateway_url.clone(),
+            instance_name,
+        ));
+        
+        let handle = {
+            let exporter = exporter.clone();
+            tokio::spawn(async move {
+                exporter.start().await;
+            })
+        };
+        
+        info!("Metrics exporter started, pushing to {}", config.metrics.push_gateway_url);
+        Some(handle)
+    } else {
+        info!("Metrics exporter disabled");
+        None
+    };
+
     // Start health check server
     let health_port = config.logger.health_check_port;
     let health_server = tokio::spawn(async move {
@@ -146,6 +174,9 @@ async fn run_logger(mut config: Config, exchanges: Option<String>) -> Result<()>
     }
 
     health_server.abort();
+    if let Some(handle) = metrics_handle {
+        handle.abort();
+    }
     info!("Shutdown complete");
 
     Ok(())

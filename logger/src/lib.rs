@@ -1,10 +1,12 @@
 pub mod common;
 pub mod config;
 pub mod exchanges;
+pub mod metrics_exporter;
 
 pub use common::*;
 pub use config::Config;
 pub use exchanges::{Exchange, ExchangeConnection};
+pub use metrics_exporter::MetricsExporter;
 
 use anyhow::Result;
 use std::sync::Arc;

@@ -10,15 +10,20 @@ use tokio::net::TcpListener;
 use tokio_rustls::TlsAcceptor;
 
 mod data;
+mod metrics;
 mod status;
 mod symbols;
 
 use data::handle_data_request;
+use metrics::{MetricsExporter, MetricsMiddleware};
 use status::handle_status_request;
 use symbols::handle_symbols_request;
 
 /// Our top–level service function. It dispatches GET requests on "/api/data" to our handler.
 async fn service_handler(req: Request<Body>) -> Result<Response<Body>, Infallible> {
+    let method = req.method().to_string();
+    let path = req.uri().path().to_string();
+    let metrics_middleware = MetricsMiddleware::new(&method, &path);
 
     // Handle preflight OPTIONS requests.
     if req.method() == Method::OPTIONS {
@@ -29,39 +34,48 @@ async fn service_handler(req: Request<Body>) -> Result<Response<Body>, Infallibl
             .header("Access-Control-Allow-Headers", "Content-Type")
             .body(Body::empty())
             .unwrap();
+        metrics_middleware.complete(200, 0);
         return Ok(response);
     }
 
     // For GET requests on /api/data, call our handler.
-    match (req.method(), req.uri().path()) {
+    let response = match (req.method(), req.uri().path()) {
         (&Method::GET, "/api/data") => {
             let mut response = handle_data_request(req).await?;
             // Attach CORS header to the response.
             response
                 .headers_mut()
                 .insert("Access-Control-Allow-Origin", "*".parse().unwrap());
-            Ok(response)
+            response
         }
         (&Method::GET, "/api/symbols") => {
             let mut response = handle_symbols_request(req).await?;
             response
                 .headers_mut()
                 .insert("Access-Control-Allow-Origin", "*".parse().unwrap());
-            Ok(response)
+            response
         }
         (&Method::GET, "/api/status") => {
             let mut response = handle_status_request(req).await?;
             response
                 .headers_mut()
                 .insert("Access-Control-Allow-Origin", "*".parse().unwrap());
-            Ok(response)
+            response
         }
-        _ => Ok(Response::builder()
+        _ => Response::builder()
             .status(StatusCode::NOT_FOUND)
             .header("Access-Control-Allow-Origin", "*")
             .body(Body::from("Not Found"))
-            .unwrap()),
-    }
+            .unwrap(),
+    };
+    
+    // Record metrics
+    let status = response.status().as_u16();
+    // Estimate response size (actual size would require consuming the body)
+    let response_size = 0; // TODO: Implement proper response size tracking
+    metrics_middleware.complete(status, response_size);
+    
+    Ok(response)
 }
 
 /// Load the TLS certificate and private key from files.
@@ -113,6 +127,27 @@ fn load_private_key(path: &str) -> Result<PrivateKey, Box<dyn std::error::Error>
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load symbol registry at startup
     symbols::load_symbols_at_startup().await?;
+    
+    // Start metrics exporter
+    let prometheus_url = std::env::var("PROMETHEUS_PUSH_GATEWAY_URL")
+        .unwrap_or_else(|_| "http://prometheus.rednax.io:9091".to_string());
+    
+    let instance_name = hostname::get()
+        .unwrap_or_else(|_| std::ffi::OsString::from("unknown"))
+        .to_string_lossy()
+        .to_string();
+    
+    let metrics_exporter = Arc::new(MetricsExporter::new(prometheus_url.clone(), instance_name));
+    
+    // Spawn metrics push task
+    {
+        let exporter = metrics_exporter.clone();
+        tokio::spawn(async move {
+            exporter.start().await;
+        });
+    }
+    
+    println!("Metrics exporter started, pushing to {}", prometheus_url);
     
     // Check if we should use TLS or plain HTTP
     let use_tls = std::env::var("USE_TLS")

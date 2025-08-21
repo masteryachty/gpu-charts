@@ -5,6 +5,7 @@ use std::path::PathBuf;
 pub struct Config {
     pub logger: LoggerConfig,
     pub exchanges: ExchangesConfig,
+    pub metrics: MetricsConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13,6 +14,14 @@ pub struct LoggerConfig {
     pub buffer_size: usize,
     pub flush_interval_secs: u64,
     pub health_check_port: u16,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MetricsConfig {
+    pub enabled: bool,
+    pub push_gateway_url: String,
+    pub push_interval_secs: u64,
+    pub instance_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -45,6 +54,12 @@ impl Default for Config {
                 buffer_size: 8192,
                 flush_interval_secs: 5,
                 health_check_port: 8080,
+            },
+            metrics: MetricsConfig {
+                enabled: true,
+                push_gateway_url: "http://prometheus.rednax.io:9091".to_string(),
+                push_interval_secs: 15,
+                instance_name: None,
             },
             exchanges: ExchangesConfig {
                 coinbase: ExchangeConfig {
