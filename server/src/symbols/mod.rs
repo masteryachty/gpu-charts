@@ -1,6 +1,6 @@
-mod search;
+mod search_runtime;
 
-pub use search::{
+pub use search_runtime::{
     SymbolSearchService, 
     SearchResult, 
     ExchangeSymbol,
@@ -192,7 +192,8 @@ pub async fn handle_symbol_search_request(
     // If no query provided, return empty results
     if search_query.is_empty() {
         let response = json!({
-            "results": []
+            "results": [],
+            "message": "Please provide a search query"
         });
         
         return Ok(Response::builder()
@@ -212,9 +213,18 @@ pub async fn handle_symbol_search_request(
     let service = SEARCH_SERVICE.read().await;
     let results = service.search(&decoded_query);
     
-    let response = json!({
-        "results": results
-    });
+    // Add debug info if no results
+    let response = if results.is_empty() {
+        json!({
+            "results": results,
+            "query": decoded_query,
+            "message": "No matching symbols found"
+        })
+    } else {
+        json!({
+            "results": results
+        })
+    };
     
     Ok(Response::builder()
         .status(StatusCode::OK)
