@@ -17,7 +17,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::time::interval;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 pub struct CoinbaseExchange {
     config: Arc<Config>,
@@ -161,20 +161,38 @@ impl Exchange for CoinbaseExchange {
             let metrics = self.metrics.clone();
 
             let handle = tokio::spawn(async move {
+                let batch_owned = batch;
+                let data_tx_owned = data_tx;
+                
                 let mut connection = CoinbaseConnection::new(
                     config.exchanges.coinbase.ws_endpoint.clone(),
-                    batch,
-                    data_tx,
+                    batch_owned.clone(),
+                    data_tx_owned.clone(),
                 );
+                
+                let mut consecutive_failures = 0;
+                let max_consecutive_failures = 10;
+                let mut backoff_secs = 1u64;
+                let max_backoff_secs = 60u64;
 
                 loop {
-                    metrics.record_connection_status("coinbase", true);
+                    info!("Connection {} attempting to connect to Coinbase", idx);
 
                     if let Err(e) = connection.connect().await {
                         error!("Connection {} failed to connect: {}", idx, e);
                         metrics.record_error("coinbase", e.to_string());
                         metrics.record_connection_status("coinbase", false);
-                        tokio::time::sleep(Duration::from_secs(5)).await;
+                        
+                        consecutive_failures += 1;
+                        if consecutive_failures >= max_consecutive_failures {
+                            error!("Connection {} exceeded max consecutive failures ({}), waiting longer", idx, max_consecutive_failures);
+                            tokio::time::sleep(Duration::from_secs(300)).await; // Wait 5 minutes
+                            consecutive_failures = 0;
+                            backoff_secs = 1;
+                        } else {
+                            tokio::time::sleep(Duration::from_secs(backoff_secs)).await;
+                            backoff_secs = (backoff_secs * 2).min(max_backoff_secs);
+                        }
                         continue;
                     }
 
@@ -183,30 +201,67 @@ impl Exchange for CoinbaseExchange {
                         .await
                     {
                         error!("Connection {} failed to subscribe: {}", idx, e);
-                        tokio::time::sleep(Duration::from_secs(5)).await;
+                        consecutive_failures += 1;
+                        tokio::time::sleep(Duration::from_secs(backoff_secs)).await;
+                        backoff_secs = (backoff_secs * 2).min(max_backoff_secs);
                         continue;
                     }
 
-                    // Read messages
+                    // Successfully connected and subscribed
+                    info!("Connection {} successfully connected and subscribed to Coinbase", idx);
+                    metrics.record_connection_status("coinbase", true);
+                    consecutive_failures = 0;
+                    backoff_secs = 1;
+
+                    // Read messages with timeout
+                    let mut last_message_time = tokio::time::Instant::now();
+                    let timeout_duration = Duration::from_secs(120); // 2 minute timeout
+                    
                     loop {
-                        match connection.read_message().await {
-                            Ok(Some(_msg)) => {
+                        // Check for timeout
+                        if last_message_time.elapsed() > timeout_duration {
+                            warn!("Connection {} timed out - no messages received for 2 minutes", idx);
+                            metrics.record_error("coinbase", "Connection timeout".to_string());
+                            break;
+                        }
+
+                        // Use timeout for reading messages
+                        match tokio::time::timeout(Duration::from_secs(30), connection.read_message()).await {
+                            Ok(Ok(Some(_msg))) => {
                                 metrics.record_message("coinbase");
+                                last_message_time = tokio::time::Instant::now();
                             }
-                            Ok(None) => {
+                            Ok(Ok(None)) => {
                                 // Connection closed
+                                warn!("Connection {} closed by server", idx);
                                 break;
                             }
-                            Err(e) => {
+                            Ok(Err(e)) => {
                                 error!("Connection {} read error: {}", idx, e);
                                 metrics.record_error("coinbase", e.to_string());
                                 break;
                             }
+                            Err(_) => {
+                                // Read timeout - continue to check overall timeout
+                                continue;
+                            }
                         }
                     }
 
+                    warn!("Connection {} disconnected, will reconnect", idx);
                     metrics.record_reconnect("coinbase");
-                    tokio::time::sleep(Duration::from_secs(5)).await;
+                    metrics.record_connection_status("coinbase", false);
+                    
+                    // Clean disconnect before reconnecting
+                    drop(connection);
+                    connection = CoinbaseConnection::new(
+                        config.exchanges.coinbase.ws_endpoint.clone(),
+                        batch_owned.clone(),
+                        data_tx_owned.clone(),
+                    );
+                    
+                    tokio::time::sleep(Duration::from_secs(backoff_secs)).await;
+                    backoff_secs = (backoff_secs * 2).min(max_backoff_secs);
                 }
             });
 

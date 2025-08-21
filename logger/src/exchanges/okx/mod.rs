@@ -17,7 +17,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::time::interval;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 pub struct OkxExchange {
     config: Arc<Config>,
@@ -170,17 +170,35 @@ impl Exchange for OkxExchange {
             let metrics = self.metrics.clone();
 
             let handle = tokio::spawn(async move {
+                let batch_owned = batch;
+                let data_tx_owned = data_tx;
+                
                 let mut connection =
-                    OkxConnection::new(config.exchanges.okx.ws_endpoint.clone(), batch, data_tx);
+                    OkxConnection::new(config.exchanges.okx.ws_endpoint.clone(), batch_owned.clone(), data_tx_owned.clone());
+                
+                let mut consecutive_failures = 0;
+                let max_consecutive_failures = 10;
+                let mut backoff_secs = 1u64;
+                let max_backoff_secs = 60u64;
 
                 loop {
-                    metrics.record_connection_status("okx", true);
+                    info!("Connection {} attempting to connect to OKX", idx);
 
                     if let Err(e) = connection.connect().await {
                         error!("Connection {} failed to connect: {}", idx, e);
                         metrics.record_error("okx", e.to_string());
                         metrics.record_connection_status("okx", false);
-                        tokio::time::sleep(Duration::from_secs(5)).await;
+                        
+                        consecutive_failures += 1;
+                        if consecutive_failures >= max_consecutive_failures {
+                            error!("Connection {} exceeded max consecutive failures ({}), waiting longer", idx, max_consecutive_failures);
+                            tokio::time::sleep(Duration::from_secs(300)).await; // Wait 5 minutes
+                            consecutive_failures = 0;
+                            backoff_secs = 1;
+                        } else {
+                            tokio::time::sleep(Duration::from_secs(backoff_secs)).await;
+                            backoff_secs = (backoff_secs * 2).min(max_backoff_secs);
+                        }
                         continue;
                     }
 
@@ -189,46 +207,97 @@ impl Exchange for OkxExchange {
                         .await
                     {
                         error!("Connection {} failed to subscribe: {}", idx, e);
-                        tokio::time::sleep(Duration::from_secs(5)).await;
+                        consecutive_failures += 1;
+                        tokio::time::sleep(Duration::from_secs(backoff_secs)).await;
+                        backoff_secs = (backoff_secs * 2).min(max_backoff_secs);
                         continue;
                     }
 
+                    // Successfully connected and subscribed
+                    info!("Connection {} successfully connected and subscribed to OKX", idx);
+                    metrics.record_connection_status("okx", true);
+                    consecutive_failures = 0;
+                    backoff_secs = 1;
+
                     // Spawn ping task for OKX (required every 30 seconds)
                     let mut ping_connection = connection.clone_for_ping();
-                    let ping_task = tokio::spawn(async move {
-                        let mut interval = interval(Duration::from_secs(25)); // Send ping every 25s to be safe
+                    let ping_handle = tokio::spawn(async move {
+                        let mut interval = interval(Duration::from_secs(20)); // Send ping every 20s to be safe
+                        let mut ping_failures = 0;
                         loop {
                             interval.tick().await;
                             if let Err(e) = ping_connection.send_ping().await {
                                 error!("Failed to send ping: {}", e);
-                                break;
+                                ping_failures += 1;
+                                if ping_failures >= 3 {
+                                    error!("Too many ping failures, disconnecting");
+                                    break;
+                                }
+                            } else {
+                                ping_failures = 0;
                             }
                         }
                     });
 
-                    // Read messages
+                    // Read messages with timeout detection
+                    let mut last_message_time = tokio::time::Instant::now();
+                    let timeout_duration = Duration::from_secs(120); // 2 minute timeout
+                    
                     loop {
-                        match connection.read_message().await {
-                            Ok(Some(_msg)) => {
+                        // Check for timeout
+                        if last_message_time.elapsed() > timeout_duration {
+                            warn!("Connection {} timed out - no messages received for 2 minutes", idx);
+                            metrics.record_error("okx", "Connection timeout".to_string());
+                            break;
+                        }
+
+                        // Use timeout for reading messages
+                        match tokio::time::timeout(Duration::from_secs(30), connection.read_message()).await {
+                            Ok(Ok(Some(_msg))) => {
                                 metrics.record_message("okx");
+                                last_message_time = tokio::time::Instant::now();
                             }
-                            Ok(None) => {
+                            Ok(Ok(None)) => {
                                 // Connection closed
+                                warn!("Connection {} closed by server", idx);
                                 break;
                             }
-                            Err(e) => {
+                            Ok(Err(e)) => {
                                 error!("Connection {} read error: {}", idx, e);
                                 metrics.record_error("okx", e.to_string());
+                                
+                                // Check if it's a connection reset error
+                                if e.to_string().contains("Connection reset") || e.to_string().contains("os error 104") {
+                                    warn!("Connection {} reset by peer, will reconnect immediately", idx);
+                                    consecutive_failures += 1;
+                                }
                                 break;
+                            }
+                            Err(_) => {
+                                // Read timeout - continue to check overall timeout
+                                continue;
                             }
                         }
                     }
 
                     // Cancel ping task
-                    ping_task.abort();
+                    ping_handle.abort();
+                    let _ = ping_handle.await; // Wait for task to finish
 
+                    warn!("Connection {} disconnected, will reconnect", idx);
                     metrics.record_reconnect("okx");
-                    tokio::time::sleep(Duration::from_secs(5)).await;
+                    metrics.record_connection_status("okx", false);
+                    
+                    // Clean disconnect before reconnecting
+                    drop(connection);
+                    connection = OkxConnection::new(
+                        config.exchanges.okx.ws_endpoint.clone(),
+                        batch_owned.clone(),
+                        data_tx_owned.clone(),
+                    );
+                    
+                    tokio::time::sleep(Duration::from_secs(backoff_secs)).await;
+                    backoff_secs = (backoff_secs * 2).min(max_backoff_secs);
                 }
             });
 

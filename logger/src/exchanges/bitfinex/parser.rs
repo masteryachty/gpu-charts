@@ -47,29 +47,72 @@ pub fn parse_bitfinex_ticker_update(
         let (timestamp, nanos) = current_timestamp();
         data = data.with_timestamp_parts(timestamp, nanos);
 
-        // Parse ticker data
-        data.best_bid = ticker_data[0].as_f64().unwrap_or_else(|| {
-            warn!("Failed to parse Bitfinex bid price from ticker");
-            0.0
-        }) as f32;
-        data.best_ask = ticker_data[2].as_f64().unwrap_or_else(|| {
-            warn!("Failed to parse Bitfinex ask price from ticker");
-            0.0
-        }) as f32;
-        data.price = ticker_data[6].as_f64().unwrap_or_else(|| {
-            warn!("Failed to parse Bitfinex last price from ticker");
-            0.0
-        }) as f32;
-        data.volume = ticker_data[7].as_f64().unwrap_or_else(|| {
-            warn!("Failed to parse Bitfinex volume from ticker");
-            0.0
-        }) as f32;
+        // Parse ticker data with safer null handling
+        data.best_bid = ticker_data.get(0)
+            .and_then(|v| {
+                if v.is_null() {
+                    None
+                } else {
+                    v.as_f64()
+                }
+            })
+            .unwrap_or_else(|| {
+                warn!("Failed to parse Bitfinex bid price from ticker (null or missing)");
+                0.0
+            }) as f32;
+            
+        data.best_ask = ticker_data.get(2)
+            .and_then(|v| {
+                if v.is_null() {
+                    None
+                } else {
+                    v.as_f64()
+                }
+            })
+            .unwrap_or_else(|| {
+                warn!("Failed to parse Bitfinex ask price from ticker (null or missing)");
+                0.0
+            }) as f32;
+            
+        data.price = ticker_data.get(6)
+            .and_then(|v| {
+                if v.is_null() {
+                    None
+                } else {
+                    v.as_f64()
+                }
+            })
+            .unwrap_or_else(|| {
+                warn!("Failed to parse Bitfinex last price from ticker (null or missing)");
+                0.0
+            }) as f32;
+            
+        data.volume = ticker_data.get(7)
+            .and_then(|v| {
+                if v.is_null() {
+                    None
+                } else {
+                    v.as_f64()
+                }
+            })
+            .unwrap_or_else(|| {
+                warn!("Failed to parse Bitfinex volume from ticker (null or missing)");
+                0.0
+            }) as f32;
 
         // Determine side based on daily change
-        let daily_change = ticker_data[4].as_f64().unwrap_or_else(|| {
-            warn!("Failed to parse Bitfinex daily change from ticker");
-            0.0
-        });
+        let daily_change = ticker_data.get(4)
+            .and_then(|v| {
+                if v.is_null() {
+                    None
+                } else {
+                    v.as_f64()
+                }
+            })
+            .unwrap_or_else(|| {
+                warn!("Failed to parse Bitfinex daily change from ticker (null or missing)");
+                0.0
+            });
         data.side = if daily_change >= 0.0 {
             TradeSide::Buy
         } else {
@@ -137,22 +180,57 @@ fn parse_single_trade(trade_data: &[Value], symbol: &str) -> Result<Option<Unifi
         return Ok(None);
     }
 
-    let trade_id = trade_data[0].as_i64().unwrap_or_else(|| {
-        warn!("Failed to parse Bitfinex trade ID");
-        0
-    }) as u64;
-    let timestamp_ms = trade_data[1].as_i64().unwrap_or_else(|| {
-        warn!("Failed to parse Bitfinex trade timestamp");
-        0
-    }) as u64;
-    let amount = trade_data[2].as_f64().unwrap_or_else(|| {
-        warn!("Failed to parse Bitfinex trade amount");
-        0.0
-    });
-    let price = trade_data[3].as_f64().unwrap_or_else(|| {
-        warn!("Failed to parse Bitfinex trade price");
-        0.0
-    });
+    let trade_id = trade_data.get(0)
+        .and_then(|v| {
+            if v.is_null() {
+                None
+            } else {
+                v.as_i64()
+            }
+        })
+        .unwrap_or_else(|| {
+            warn!("Failed to parse Bitfinex trade ID (null or missing)");
+            0
+        }) as u64;
+        
+    let timestamp_ms = trade_data.get(1)
+        .and_then(|v| {
+            if v.is_null() {
+                None
+            } else {
+                v.as_i64()
+            }
+        })
+        .unwrap_or_else(|| {
+            warn!("Failed to parse Bitfinex trade timestamp (null or missing)");
+            0
+        }) as u64;
+        
+    let amount = trade_data.get(2)
+        .and_then(|v| {
+            if v.is_null() {
+                None
+            } else {
+                v.as_f64()
+            }
+        })
+        .unwrap_or_else(|| {
+            warn!("Failed to parse Bitfinex trade amount (null or missing)");
+            0.0
+        });
+        
+    let price = trade_data.get(3)
+        .and_then(|v| {
+            if v.is_null() {
+                None
+            } else {
+                v.as_f64()
+            }
+        })
+        .unwrap_or_else(|| {
+            warn!("Failed to parse Bitfinex trade price (null or missing)");
+            0.0
+        });
 
     let mut data = UnifiedTradeData::new(ExchangeId::Bitfinex, symbol.to_string(), trade_id);
 

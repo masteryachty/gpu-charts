@@ -18,7 +18,7 @@ use tokio::sync::Mutex;
 // For mlock - using fully qualified path libc:: in code
 
 // Added for multi–day date handling.
-use chrono::{TimeZone, Utc};
+use chrono::{TimeZone, Utc, Local, Datelike};
 
 // Global LRU cache for memory-mapped files (cache size: 100 files)
 static MMAP_CACHE: Lazy<Arc<Mutex<LruCache<String, Arc<Mmap>>>>> = Lazy::new(|| {
@@ -179,7 +179,7 @@ pub fn find_start_index(time_slice: &[u32], target: u32) -> usize {
     }
 }
 
-/// Given a sorted slice of u32 values (the “time” column),
+/// Given a sorted slice of u32 values (the "time" column),
 /// return the last index whose value is <= target.
 #[must_use]
 pub fn find_end_index(time_slice: &[u32], target: u32) -> usize {
@@ -195,10 +195,47 @@ pub fn find_end_index(time_slice: &[u32], target: u32) -> usize {
     }
 }
 
+/// Check if a file path represents today's data file.
+/// Today's files should not be cached as they may still be actively written to.
+#[must_use]
+pub fn is_todays_data_file(path: &str) -> bool {
+    // Extract date from filename (format: column.DD.MM.YY.bin)
+    if let Some(filename) = path.split('/').last() {
+        let parts: Vec<&str> = filename.split('.').collect();
+        if parts.len() >= 4 && parts.last() == Some(&"bin") {
+            // Get DD, MM, YY from the filename
+            // Format is: column_name.DD.MM.YY.bin
+            let day_idx = parts.len() - 4;
+            let month_idx = parts.len() - 3;
+            let year_idx = parts.len() - 2;
+            
+            if let (Ok(day), Ok(month), Ok(year)) = (
+                parts[day_idx].parse::<u32>(),
+                parts[month_idx].parse::<u32>(),
+                parts[year_idx].parse::<u32>()
+            ) {
+                // Get today's date in the same format
+                let today = Local::now().naive_local();
+                let today_day = today.day();
+                let today_month = today.month();
+                let today_year = (today.year() % 100) as u32; // YY format
+                
+                // Check if the file date matches today
+                return day == today_day && month == today_month && year == today_year;
+            }
+        }
+    }
+    false
+}
+
 /// Asynchronously load a file and memory–map it with caching.
+/// Files from today are not cached since they may still be actively written to.
 pub async fn load_mmap(path: &str) -> Result<Arc<Mmap>, String> {
-    // Check cache first
-    {
+    // Check if this is today's file (should not be cached)
+    let is_todays_file = is_todays_data_file(path);
+    
+    // Check cache first (but skip if it's today's file)
+    if !is_todays_file {
         let mut cache = MMAP_CACHE.lock().await;
         if let Some(mmap) = cache.get(path) {
             return Ok(Arc::clone(mmap));
@@ -227,8 +264,8 @@ pub async fn load_mmap(path: &str) -> Result<Arc<Mmap>, String> {
     
     let mmap_arc = Arc::new(mmap);
     
-    // Add to cache
-    {
+    // Add to cache only if it's not today's file
+    if !is_todays_file {
         let mut cache = MMAP_CACHE.lock().await;
         cache.put(path.to_string(), Arc::clone(&mmap_arc));
     }

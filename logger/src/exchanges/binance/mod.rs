@@ -173,14 +173,24 @@ impl Exchange for BinanceExchange {
                 .unwrap_or(20);
 
             let handle = tokio::spawn(async move {
+                let batch_owned = batch;
+                let data_tx_owned = data_tx;
+                
                 let mut connection = BinanceConnection::new(
                     config.exchanges.binance.ws_endpoint.clone(),
-                    batch,
-                    data_tx,
+                    batch_owned.clone(),
+                    data_tx_owned.clone(),
                     ping_interval,
                 );
+                
+                let mut consecutive_failures = 0;
+                let max_consecutive_failures = 10;
+                let mut backoff_secs = 1u64;
+                let max_backoff_secs = 60u64;
 
                 loop {
+                    info!("Connection {} attempting to connect to Binance", idx);
+                    
                     // For Binance, connect and subscribe are combined
                     if let Err(e) = connection
                         .subscribe(vec![Channel::Ticker, Channel::Trades])
@@ -189,11 +199,24 @@ impl Exchange for BinanceExchange {
                         error!("Connection {} failed to connect and subscribe: {}", idx, e);
                         metrics.record_error("binance", e.to_string());
                         metrics.record_connection_status("binance", false);
-                        tokio::time::sleep(Duration::from_secs(5)).await;
+                        
+                        consecutive_failures += 1;
+                        if consecutive_failures >= max_consecutive_failures {
+                            error!("Connection {} exceeded max consecutive failures ({}), waiting longer", idx, max_consecutive_failures);
+                            tokio::time::sleep(Duration::from_secs(300)).await; // Wait 5 minutes
+                            consecutive_failures = 0;
+                            backoff_secs = 1;
+                        } else {
+                            tokio::time::sleep(Duration::from_secs(backoff_secs)).await;
+                            backoff_secs = (backoff_secs * 2).min(max_backoff_secs);
+                        }
                         continue;
                     }
 
+                    info!("Connection {} successfully connected and subscribed to Binance", idx);
                     metrics.record_connection_status("binance", true);
+                    consecutive_failures = 0;
+                    backoff_secs = 1;
 
                     // Spawn ping task for Binance
                     let mut ping_interval = interval(Duration::from_secs(ping_interval));
@@ -256,9 +279,23 @@ impl Exchange for BinanceExchange {
 
                     // Cancel ping task
                     ping_task.abort();
+                    let _ = ping_task.await; // Wait for task to finish
 
+                    warn!("Connection {} disconnected, will reconnect", idx);
                     metrics.record_reconnect("binance");
-                    tokio::time::sleep(Duration::from_secs(5)).await;
+                    metrics.record_connection_status("binance", false);
+                    
+                    // Clean disconnect before reconnecting
+                    drop(connection);
+                    connection = BinanceConnection::new(
+                        config.exchanges.binance.ws_endpoint.clone(),
+                        batch_owned.clone(),
+                        data_tx_owned.clone(),
+                        config.exchanges.binance.ping_interval_secs.unwrap_or(20),
+                    );
+                    
+                    tokio::time::sleep(Duration::from_secs(backoff_secs)).await;
+                    backoff_secs = (backoff_secs * 2).min(max_backoff_secs);
                 }
             });
 
