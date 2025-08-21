@@ -229,9 +229,14 @@ export default function ChartControls({
                     toggleExchange(exchange.id);
                   } else {
                     // In single mode, switch to this exchange
-                    const newSymbol = `${exchange.id}:${storeBaseSymbol || baseSymbol || 'BTC-USD'}`;
+                    // Use the baseSymbol from parsing current symbol, or storeBaseSymbol, or default
+                    const symbolToUse = baseSymbol || storeBaseSymbol || 'BTC-USD';
+                    const newSymbol = `${exchange.id}:${symbolToUse}`;
                     setCurrentSymbol(newSymbol);
-                    setBaseSymbol(storeBaseSymbol || baseSymbol || 'BTC-USD');
+                    setBaseSymbol(symbolToUse);
+                    
+                    // Update selected exchanges to just this one
+                    toggleExchange(exchange.id);
                     
                     // Update URL
                     const urlParams = new URLSearchParams(window.location.search);
