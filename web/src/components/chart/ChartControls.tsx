@@ -45,7 +45,13 @@ export default function ChartControls({
     preset,
     setCurrentSymbol,
     setTimeRange,
-    resetToDefaults
+    resetToDefaults,
+    comparisonMode,
+    setComparisonMode,
+    selectedExchanges,
+    toggleExchange,
+    baseSymbol: storeBaseSymbol,
+    setBaseSymbol
   } = useAppStore();
 
   // Track subscription events
@@ -172,43 +178,99 @@ export default function ChartControls({
       )}
 
 
+      {/* Comparison Mode Toggle */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="text-gray-300 text-sm font-medium">Comparison Mode</label>
+          <button
+            onClick={() => setComparisonMode(!comparisonMode)}
+            className={`
+              relative inline-flex h-6 w-11 items-center rounded-full transition-colors
+              ${comparisonMode ? 'bg-blue-600' : 'bg-gray-600'}
+            `}
+          >
+            <span
+              className={`
+                inline-block h-4 w-4 transform rounded-full bg-white transition-transform
+                ${comparisonMode ? 'translate-x-6' : 'translate-x-1'}
+              `}
+            />
+          </button>
+        </div>
+        {comparisonMode && (
+          <p className="text-xs text-gray-400">
+            Select up to 2 exchanges to compare
+          </p>
+        )}
+      </div>
+
       {/* Exchange Selection */}
       <div className="space-y-2">
-        <label className="text-gray-300 text-sm font-medium">Exchange</label>
+        <label className="text-gray-300 text-sm font-medium">
+          {comparisonMode ? 'Select Exchanges' : 'Exchange'}
+          {comparisonMode && selectedExchanges && (
+            <span className="ml-2 text-xs text-blue-400">
+              ({selectedExchanges.length} selected)
+            </span>
+          )}
+        </label>
         <div className="grid grid-cols-2 gap-2">
           {exchanges.map(exchange => {
-            const isActive = currentExchange === exchange.id;
+            const isSelected = selectedExchanges?.includes(exchange.id) || false;
+            const isActive = !comparisonMode && currentExchange === exchange.id;
             const color = getExchangeColor(exchange.id);
+            
             return (
               <button
                 key={exchange.id}
                 onClick={() => {
-                  const newSymbol = `${exchange.id}:${baseSymbol || 'BTC-USD'}`;
-                  setCurrentSymbol(newSymbol);
-                  
-                  // Update URL
-                  const urlParams = new URLSearchParams(window.location.search);
-                  urlParams.set('topic', newSymbol);
-                  const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
-                  window.history.pushState({}, '', newUrl);
+                  if (comparisonMode) {
+                    // In comparison mode, toggle exchange selection
+                    toggleExchange(exchange.id);
+                  } else {
+                    // In single mode, switch to this exchange
+                    const newSymbol = `${exchange.id}:${storeBaseSymbol || baseSymbol || 'BTC-USD'}`;
+                    setCurrentSymbol(newSymbol);
+                    setBaseSymbol(storeBaseSymbol || baseSymbol || 'BTC-USD');
+                    
+                    // Update URL
+                    const urlParams = new URLSearchParams(window.location.search);
+                    urlParams.set('topic', newSymbol);
+                    const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
+                    window.history.pushState({}, '', newUrl);
+                  }
                 }}
                 className={`
                   relative px-3 py-2.5 text-sm font-medium rounded-lg
                   transition-all duration-200 transform
-                  ${isActive 
+                  ${(isActive || (comparisonMode && isSelected))
                     ? 'bg-gray-700 text-white shadow-lg scale-[1.02]' 
                     : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200'
                   }
-                  border ${isActive ? 'border-gray-500' : 'border-gray-700'}
+                  border ${(isActive || (comparisonMode && isSelected)) ? 'border-gray-500' : 'border-gray-700'}
                   hover:scale-[1.02] active:scale-[0.98]
                 `}
                 style={{
                   borderLeftWidth: '3px',
-                  borderLeftColor: isActive ? color : 'transparent',
+                  borderLeftColor: (isActive || (comparisonMode && isSelected)) ? color : 'transparent',
                 }}
               >
-                <span className="relative z-10">{exchange.name}</span>
-                {isActive && (
+                <div className="flex items-center justify-between">
+                  <span className="relative z-10">{exchange.name}</span>
+                  {comparisonMode && (
+                    <div className={`
+                      w-4 h-4 rounded border-2 ml-2 flex items-center justify-center
+                      ${isSelected ? 'bg-blue-600 border-blue-600' : 'border-gray-500'}
+                    `}>
+                      {isSelected && (
+                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {(isActive || (comparisonMode && isSelected)) && (
                   <div 
                     className="absolute inset-0 rounded-lg opacity-10"
                     style={{ backgroundColor: color }}
