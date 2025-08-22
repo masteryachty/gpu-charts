@@ -5,7 +5,7 @@ pub use connection::CoinbaseConnection;
 
 use crate::common::{
     data_types::{ExchangeId, Symbol, UnifiedMarketData, UnifiedTradeData},
-    AnalyticsEngine, DataBuffer, MarketMetrics,
+    AnalyticsEngine, DataBuffer, MarketMetrics, MetricsBridge,
 };
 use crate::config::Config;
 use crate::exchanges::{distribute_symbols, Channel, Exchange, ExchangeConnection, Message};
@@ -23,15 +23,19 @@ pub struct CoinbaseExchange {
     config: Arc<Config>,
     data_buffer: Arc<DataBuffer>,
     analytics: Arc<AnalyticsEngine>,
-    metrics: Arc<MarketMetrics>,
+    metrics: Arc<MetricsBridge>,
 }
 
 impl CoinbaseExchange {
     pub fn new(config: Arc<Config>) -> Result<Self> {
         let data_buffer = Arc::new(DataBuffer::new(config.logger.data_path.clone()));
         let analytics = Arc::new(AnalyticsEngine::new(10000.0, Duration::from_secs(30)));
-        let metrics = Arc::new(MarketMetrics::new());
+        let market_metrics = Arc::new(MarketMetrics::new());
+        let metrics = Arc::new(MetricsBridge::new(market_metrics));
 
+        // Set initial connection status
+        metrics.set_connection_status("coinbase", false);
+        
         Ok(Self {
             config,
             data_buffer,
@@ -147,6 +151,9 @@ impl Exchange for CoinbaseExchange {
         };
 
         debug!("Will monitor {} Coinbase symbols", symbols.len());
+        
+        // Update metrics with number of symbols
+        self.metrics.set_symbols_monitored("coinbase", symbols.len());
 
         // Distribute symbols across connections
         let symbol_batches = distribute_symbols(symbols, self.max_symbols_per_connection()).await;

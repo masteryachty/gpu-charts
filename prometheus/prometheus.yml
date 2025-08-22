@@ -25,7 +25,7 @@ scrape_configs:
   # Scrape GPU Charts Logger
   - job_name: 'gpu-charts-logger'
     static_configs:
-      - targets: ['api.rednax.io:9090']  # Logger metrics endpoint
+      - targets: ['metrics2.rednax.io']  # Logger metrics endpoint
     relabel_configs:
       - source_labels: [__address__]
         target_label: instance
@@ -35,7 +35,7 @@ scrape_configs:
   # Scrape GPU Charts Server
   - job_name: 'gpu-charts-server'
     static_configs:
-      - targets: ['api.rednax.io:9091']  # Server metrics endpoint
+      - targets: ['metrics.rednax.io']  # Server metrics endpoint
     relabel_configs:
       - source_labels: [__address__]
         target_label: instance
