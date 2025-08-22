@@ -1,0 +1,13 @@
+apiVersion: 1
+
+providers:
+  - name: 'GPU Charts Dashboards'
+    orgId: 1
+    folder: 'GPU Charts'
+    folderUid: gpu-charts
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards

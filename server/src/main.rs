@@ -10,6 +10,7 @@ use tokio::net::TcpListener;
 use tokio_rustls::TlsAcceptor;
 
 mod data;
+mod metrics_server;
 mod status;
 mod symbols;
 
@@ -17,8 +18,33 @@ use data::handle_data_request;
 use status::handle_status_request;
 use symbols::{handle_symbols_request, handle_symbol_search_request, initialize_search_service};
 
+/// Middleware to track HTTP metrics
+struct MetricsMiddleware {
+    method: String,
+    endpoint: String,
+    start: std::time::Instant,
+}
+
+impl MetricsMiddleware {
+    fn new(method: &str, endpoint: &str) -> Self {
+        Self {
+            method: method.to_string(),
+            endpoint: endpoint.to_string(),
+            start: std::time::Instant::now(),
+        }
+    }
+
+    fn complete(self, status: u16) {
+        let duration = self.start.elapsed().as_secs_f64();
+        metrics_server::record_http_request(&self.method, &self.endpoint, status, duration);
+    }
+}
+
 /// Our top–level service function. It dispatches GET requests on "/api/data" to our handler.
 async fn service_handler(req: Request<Body>) -> Result<Response<Body>, Infallible> {
+    let method = req.method().to_string();
+    let path = req.uri().path().to_string();
+    let metrics_middleware = MetricsMiddleware::new(&method, &path);
 
     // Handle preflight OPTIONS requests.
     if req.method() == Method::OPTIONS {
@@ -29,46 +55,53 @@ async fn service_handler(req: Request<Body>) -> Result<Response<Body>, Infallibl
             .header("Access-Control-Allow-Headers", "Content-Type")
             .body(Body::empty())
             .unwrap();
+        metrics_middleware.complete(200);
         return Ok(response);
     }
 
     // For GET requests on /api/data, call our handler.
-    match (req.method(), req.uri().path()) {
+    let response = match (req.method(), req.uri().path()) {
         (&Method::GET, "/api/data") => {
             let mut response = handle_data_request(req).await?;
             // Attach CORS header to the response.
             response
                 .headers_mut()
                 .insert("Access-Control-Allow-Origin", "*".parse().unwrap());
-            Ok(response)
+            response
         }
         (&Method::GET, "/api/symbols") => {
             let mut response = handle_symbols_request(req).await?;
             response
                 .headers_mut()
                 .insert("Access-Control-Allow-Origin", "*".parse().unwrap());
-            Ok(response)
+            response
         }
         (&Method::GET, "/api/status") => {
             let mut response = handle_status_request(req).await?;
             response
                 .headers_mut()
                 .insert("Access-Control-Allow-Origin", "*".parse().unwrap());
-            Ok(response)
+            response
         }
         (&Method::GET, "/api/symbol-search") => {
             let mut response = handle_symbol_search_request(req).await?;
             response
                 .headers_mut()
                 .insert("Access-Control-Allow-Origin", "*".parse().unwrap());
-            Ok(response)
+            response
         }
-        _ => Ok(Response::builder()
+        _ => Response::builder()
             .status(StatusCode::NOT_FOUND)
             .header("Access-Control-Allow-Origin", "*")
             .body(Body::from("Not Found"))
-            .unwrap()),
-    }
+            .unwrap(),
+    };
+    
+    // Record metrics
+    let status = response.status().as_u16();
+    metrics_middleware.complete(status);
+    
+    Ok(response)
 }
 
 /// Load the TLS certificate and private key from files.
@@ -123,6 +156,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Initialize the symbol search service
     symbols::initialize_search_service().await?;
+    
+    // Start metrics server on separate port
+    let metrics_port = std::env::var("METRICS_PORT")
+        .unwrap_or_else(|_| "9091".to_string())
+        .parse::<u16>()
+        .unwrap_or(9091);
+    
+    tokio::spawn(async move {
+        metrics_server::start_metrics_server(metrics_port).await;
+    });
+    
+    println!("Metrics server started on port {}", metrics_port);
+    println!("Prometheus can scrape metrics from http://localhost:{}/metrics", metrics_port);
     
     // Check if we should use TLS or plain HTTP
     let use_tls = std::env::var("USE_TLS")

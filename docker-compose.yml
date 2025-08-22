@@ -6,10 +6,14 @@ services:
       context: .
       dockerfile: logger/Dockerfile
     container_name: gpu-charts-logger
+    ports:
+      - "9090:9090"  # Metrics endpoint
+      - "8080:8080"  # Health check endpoint
     volumes:
       - ./data:/mnt/md/data
     environment:
       - RUST_LOG=info
+      - METRICS_PORT=9090
     restart: unless-stopped
     networks:
       - gpu-charts-network
@@ -21,6 +25,7 @@ services:
     container_name: gpu-charts-server
     ports:
       - "8443:8443"
+      - "9091:9091"  # Metrics endpoint
     volumes:
       - ./data:/mnt/md/data
       - ./certs:/certs
@@ -30,6 +35,7 @@ services:
       - SSL_PRIVATE_FILE=/certs/key.pem
       - RUST_LOG=info
       - USE_TLS=false
+      - METRICS_PORT=9091
     restart: unless-stopped
     depends_on:
       - logger
