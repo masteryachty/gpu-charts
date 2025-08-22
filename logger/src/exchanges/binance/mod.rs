@@ -34,7 +34,7 @@ impl BinanceExchange {
         let metrics = Arc::new(MetricsBridge::new(market_metrics));
         
         // Set initial connection status
-        metrics.set_connection_status("binance", false);
+        metrics.record_connection_status("binance", false);
 
         Ok(Self {
             config,
