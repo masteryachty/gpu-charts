@@ -189,6 +189,27 @@ pub fn set_websocket_connections(_exchange: &str, _count: f64) {
 pub async fn start_metrics_server(port: u16) {
     info!("Starting metrics server on port {}", port);
     
+    // Force initialization of lazy_static metrics
+    let _ = &*EXCHANGE_CONNECTION_STATUS;
+    let _ = &*EXCHANGE_MESSAGES_TOTAL;
+    let _ = &*EXCHANGE_ERRORS_TOTAL;
+    let _ = &*EXCHANGE_RECONNECTIONS_TOTAL;
+    let _ = &*WEBSOCKET_LATENCY;
+    let _ = &*SYMBOLS_MONITORED;
+    let _ = &*LAST_UPDATE_TIMESTAMP;
+    let _ = &*DATA_GAPS_TOTAL;
+    let _ = &*TRADE_VOLUME_TOTAL;
+    let _ = &*BID_ASK_SPREAD;
+    let _ = &*VWAP_DEVIATION;
+    
+    info!("Metrics initialized");
+    
+    // Set a test value to verify metrics are working
+    EXCHANGE_CONNECTION_STATUS
+        .with_label_values(&["test"])
+        .set(1.0);
+    info!("Test metric set");
+    
     // GET /metrics endpoint
     let metrics_route = warp::path("metrics")
         .and(warp::get())
