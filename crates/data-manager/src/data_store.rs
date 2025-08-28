@@ -115,8 +115,6 @@ impl DataStore {
         let x_buffer_count = x_series.1.len();
         let x_buffer_size = if !x_series.1.is_empty() { x_series.1[0].size() } else { 0 };
         
-        log::info!("[DataStore] Adding data group: x_buffers={}, x_buffer_size={}, length={}, active={}", 
-            x_buffer_count, x_buffer_size, length, set_as_active);
 
         self.data_groups.push(DataSeries {
             x_buffers: x_series.1,
@@ -126,15 +124,11 @@ impl DataStore {
         });
 
         let new_index = self.data_groups.len() - 1;
-        log::info!("[DataStore] Data group added at index {}", new_index);
         
         if set_as_active {
             if !self.active_data_group_indices.contains(&new_index) {
                 self.active_data_group_indices.push(new_index);
-                log::info!("[DataStore] Added group {} to active indices. Active groups now: {:?}", 
-                          new_index, self.active_data_group_indices);
             } else {
-                log::warn!("[DataStore] Group {} already in active indices", new_index);
             }
         }
 
@@ -435,9 +429,6 @@ impl DataStore {
         // Create x range buffer
         let x_min_max = glm::vec2(self.start_x as f32, self.end_x as f32);
         
-        log::warn!("[DataStore] 🔍 Creating bind group:");
-        log::warn!("[DataStore] 🔍   X range: start_x={}, end_x={}", self.start_x, self.end_x);
-        log::warn!("[DataStore] 🔍   GPU Y bounds: min={:?}, max={:?}", self.gpu_min_y, self.gpu_max_y);
         
         let x_min_max_bytes: &[u8] = unsafe { any_as_u8_slice(&x_min_max) };
         let x_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -625,7 +616,6 @@ impl DataStore {
 
         // Clear all data if preset OR symbol changed to avoid mixing data
         if preset_changed || symbol_changed {
-            log::info!("[DataStore] Clearing data - preset_changed: {}, symbol_changed: {}", preset_changed, symbol_changed);
             self.data_groups.clear();
             self.active_data_group_indices.clear();
             self.clear_gpu_bounds();
@@ -938,8 +928,6 @@ impl MetricSeries {
     pub fn needs_computation(&self) -> bool {
         let needs = self.is_computed && !self.is_computed_ready;
         if needs {
-            log::warn!("[DataStore] ⚡ Metric {} needs computation (is_computed: {}, is_computed_ready: {})", 
-                self.name, self.is_computed, self.is_computed_ready);
         }
         needs
     }
@@ -960,7 +948,6 @@ impl MetricSeries {
 
     /// Invalidate computation (when dependencies change)
     pub fn invalidate_computation(&mut self) {
-        log::warn!("[DataStore] 🔄 Invalidating computed metric: {}", self.name);
         self.y_buffers.clear();
         self.is_computed_ready = false;
         self.y_raw = ArrayBuffer::new(0);

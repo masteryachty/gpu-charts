@@ -96,16 +96,14 @@ impl ComputeEngine {
         let metrics_to_compute = data_store.get_metrics_needing_computation();
 
         if metrics_to_compute.is_empty() {
-            log::info!("[ComputeEngine] 🔍 No metrics need computation");
             return;
         }
 
-        log::warn!("[ComputeEngine] 🚀 Found {} metrics needing computation", metrics_to_compute.len());
+        // Process metrics that need computation
 
         // Sort metrics by dependency order (simple topological sort)
         let sorted_metrics = self.sort_by_dependencies(&metrics_to_compute, data_store);
 
-        log::debug!("[ComputeEngine] Processing {} sorted metrics", sorted_metrics.len());
 
         // Process each metric
         for metric_ref in sorted_metrics {
@@ -254,7 +252,6 @@ impl ComputeEngine {
         metric_ref: &MetricRef,
         dependencies: &[MetricRef],
     ) {
-        log::debug!("[ComputeEngine] 🔄 Computing mid price for metric {:?}", metric_ref);
         
         let Some(calculator) = &self.mid_price_calculator else {
             log::error!("[ComputeEngine] No mid price calculator available");
@@ -326,8 +323,6 @@ impl ComputeEngine {
                     
                     // Update the metric using weak reference (safe but requires unsafe for raw pointer)
                     // Note: This is a limitation of the current architecture - we need a better way to handle this
-                    log::info!("[ComputeEngine] ✅ GPU readback complete for metric {:?} - {} values processed", 
-                        metric_ref_clone, float_data.len());
                 });
                 
                 if let Err(e) = self.resource_manager.readback_ring.submit_readback(staging_buffer, callback) {
@@ -336,15 +331,10 @@ impl ComputeEngine {
                 
                 // Store the GPU buffer in the metric
                 if let Some(metric) = data_store.get_metric_mut(metric_ref) {
-                    log::warn!("[ComputeEngine] ✅ Mid price computation successful, storing GPU buffer for metric {:?}", metric_ref);
-                    log::warn!("[ComputeEngine] 📊 Metric before update: y_buffers={}, is_computed_ready={}", 
-                        metric.y_buffers.len(), metric.is_computed_ready);
                     // Store the GPU buffer, CPU data will be filled after readback
                     metric.set_computed_data(result.output_buffer, vec![]);
                     self.computed_metrics
                         .insert(*metric_ref, metric.compute_version);
-                    log::warn!("[ComputeEngine] ✅ Mid price metric updated: y_buffers={}, ready={}, version={}", 
-                        metric.y_buffers.len(), metric.is_computed_ready, metric.compute_version);
                 } else {
                     log::error!("[ComputeEngine] ❌ Failed to find metric {:?} for storing computed data", metric_ref);
                 }

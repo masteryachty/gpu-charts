@@ -76,19 +76,18 @@ impl PlotRenderer {
                         }
 
                         if !should_render {
-                            log::debug!("[PlotRenderer] Skipping metric {} - not in filter", metric.name);
+                            // Skip metric not in filter
                             continue;
                         }
                     }
                     
                     // Check if we have buffers to render
                     if metric.y_buffers.is_empty() || data_series.x_buffers.is_empty() {
-                        log::warn!("[PlotRenderer] Skipping metric {} - empty buffers: y_buffers={}, x_buffers={}, group_idx={}", 
-                            metric.name, metric.y_buffers.len(), data_series.x_buffers.len(), "unknown");
+                        // Skip metric with empty buffers
                         continue;
                     }
                     
-                    log::debug!("[PlotRenderer] 📈 Rendering metric: {} (visible: {}, group_idx={})", metric.name, metric.visible, "unknown");
+                    // Rendering metric
                     
                     // Create a bind group for this specific metric with its color
                     let bind_group = self.create_bind_group_for_metric(data_store, metric, queue);

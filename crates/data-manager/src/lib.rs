@@ -168,16 +168,10 @@ impl DataManager {
         &mut self,
         data_store: &mut DataStore,
     ) -> Result<(), shared_types::GpuChartsError> {
-        log::warn!("[DataManager] 🚀 fetch_data_for_preset called for symbol: {:?}", data_store.symbol);
         let symbol = data_store.symbol.as_ref().unwrap().to_string();
         let preset = data_store.preset.clone().unwrap();
         let start_time = data_store.start_x;
         let end_time = data_store.end_x;
-        
-        log::info!("[DataManager] 🎯 fetch_data_for_preset called:");
-        log::info!("  Symbol: {}", symbol);
-        log::info!("  Preset: {}", preset.name);
-        log::info!("  Time range: {} to {}", start_time, end_time);
         
 
         let mut data_requirements: std::collections::HashMap<
@@ -187,7 +181,6 @@ impl DataManager {
         for chart_type in &preset.chart_types {
             // Only process visible chart types to avoid creating unnecessary data groups
             if !chart_type.visible {
-                log::info!("[DataManager] Skipping invisible chart type: {:?}", chart_type.data_columns);
                 continue;
             }
             
@@ -214,14 +207,12 @@ impl DataManager {
         }
 
         // Removed unused fetch_results variable
-        log::info!("[DataManager] Data requirements for preset '{}': {:?}", preset.name, data_requirements.keys().collect::<Vec<_>>());
         
         for (data_type, columns) in data_requirements {
             let mut all_columns = vec!["time"];
             let columns_vec: Vec<String> = columns.into_iter().collect();
             all_columns.extend(columns_vec.iter().map(|s| s.as_str()));
 
-            log::info!("[DataManager] Fetching {} data for symbol: {}", data_type, symbol);
             
             // let instance_opt = InstanceManager::take_instance(&instance_id);
             let result = self
@@ -235,7 +226,6 @@ impl DataManager {
                 .await;
             match result {
                 Ok(data_handle) => {
-                    log::info!("[DataManager] Successfully fetched {} data, processing...", data_type);
                     let _ = self.process_data_handle(&data_handle, data_store);
                 }
                 Err(e) => {
@@ -255,13 +245,11 @@ impl DataManager {
         data_handle: &DataHandle,
         data_store: &mut DataStore,
     ) -> Result<(), shared_types::GpuChartsError> {
-        log::warn!("[DataManager] 🔄 Processing data handle for symbol: {}", data_handle.metadata.symbol);
         
         // Clear existing data groups to prevent multi-group race conditions during zoom operations
         // This ensures we don't have multiple MID metrics in different groups
         let existing_groups_count = data_store.data_groups.len();
         if existing_groups_count > 0 {
-            log::warn!("[DataManager] 🗑️ Clearing {} existing data groups to prevent race conditions", existing_groups_count);
             data_store.data_groups.clear();
             data_store.active_data_group_indices.clear();
         }
@@ -348,8 +336,6 @@ impl DataManager {
                     (exchange_color, true) // Use exchange color and visible
                 };
 
-                log::info!("[DataManager] 📊 Adding metric '{}' to group {} (color: {:?}, visible: {})", 
-                          column_name, data_group_index, color, visible);
                 
                 data_store.add_metric_to_group_with_visibility(
                     data_group_index,
@@ -362,18 +348,15 @@ impl DataManager {
         }
 
         // Invalidate computed metrics since we have new data
-        log::warn!("[DataManager] 🔄 Invalidating computed metrics after data fetch");
         let mut invalidated_count = 0;
         for data_group in &mut data_store.data_groups {
             for metric in &mut data_group.metrics {
                 if metric.is_computed {
-                    log::warn!("[DataManager] 🔄 Invalidating computed metric: {}", metric.name);
                     metric.invalidate_computation();
                     invalidated_count += 1;
                 }
             }
         }
-        log::warn!("[DataManager] ✅ Invalidated {} computed metrics", invalidated_count);
 
         Ok(())
     }
@@ -382,7 +365,6 @@ impl DataManager {
         if let Some(preset) = &data_store.preset.clone() {
             // Since we now clear data groups in process_data_handle, we don't need to invalidate existing metrics
             // They were cleared along with the data groups
-            log::warn!("[DataManager] 📊 Creating computed metrics for preset: {}", preset.name);
             
             // First, check if we need a separate group for candle-based EMAs
             let has_candle_emas = preset.chart_types.iter().any(|ct| {

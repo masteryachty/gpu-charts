@@ -198,7 +198,6 @@ impl Chart {
                         // Start a render loop to ensure GPU bounds are calculated
                         wasm_bindgen_futures::spawn_local(async move {
                             InstanceManager::with_instance_mut(&instance_id, |instance| {
-                                log::debug!("[bridge] 1");
                                 let _ = instance.chart_engine.render();
                             });
                         });
@@ -261,7 +260,6 @@ impl Chart {
                 let instance_opt = InstanceManager::take_instance(&instance_id);
                 match instance_opt {
                     Some(mut instance) => {
-                        log::debug!("[bridge] 2");
 
                         // Perform the render
                         let result = instance.chart_engine.render();
@@ -337,7 +335,6 @@ impl Chart {
 
                 // Only fetch data if preset and symbol are set
                 if !has_preset_and_symbol {
-                    log::debug!("[bridge] Skipping data fetch - preset or symbol not set yet");
                     resolve
                         .call1(&JsValue::undefined(), &JsValue::from_bool(true))
                         .unwrap();
@@ -376,7 +373,6 @@ impl Chart {
                         // Trigger render to update the chart
                         wasm_bindgen_futures::spawn_local(async move {
                             InstanceManager::with_instance_mut(&instance_id, |instance| {
-                                log::debug!("[bridge] Updated time range and fetched new data");
                                 let _ = instance.chart_engine.render();
                             });
                         });
