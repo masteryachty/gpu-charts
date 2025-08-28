@@ -131,8 +131,12 @@ function WasmCanvasCore({
 
         if (canvasRef.current && !chartState.isInitialized) {
           try {
+            const initStartTime = performance.now();
+            console.log('[PERF] WasmCanvas chartAPI.initialize about to start');
 
             const success = await chartAPI.initialize(startTime, endTime);
+            console.log(`[PERF] chartAPI.initialize completed in ${(performance.now() - initStartTime).toFixed(2)}ms, success: ${success}`);
+            
             if (success) {
               console.log('[WasmCanvas] Chart initialized successfully');
             } else {

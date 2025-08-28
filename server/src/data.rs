@@ -98,6 +98,7 @@ pub struct QueryParams {
     pub end: u32,
     pub columns: Vec<String>,
     pub exchange: Option<String>, // Optional, defaults to "coinbase" for backward compatibility
+    pub max_points: Option<usize>, // Optional downsampling cap across the range
 }
 
 /// Column metadata that will be sent in the JSON header.
@@ -138,6 +139,7 @@ impl Buf for ZeroCopyChunk {
 enum DataChunk {
     Header(Bytes),
     Mmap(ZeroCopyChunk),
+    Owned(Bytes),
 }
 
 impl Buf for DataChunk {
@@ -145,6 +147,7 @@ impl Buf for DataChunk {
         match self {
             DataChunk::Header(b) => b.remaining(),
             DataChunk::Mmap(z) => z.remaining(),
+            DataChunk::Owned(b) => b.remaining(),
         }
     }
 
@@ -152,6 +155,7 @@ impl Buf for DataChunk {
         match self {
             DataChunk::Header(b) => b.chunk(),
             DataChunk::Mmap(z) => z.chunk(),
+            DataChunk::Owned(b) => b.chunk(),
         }
     }
 
@@ -159,6 +163,7 @@ impl Buf for DataChunk {
         match self {
             DataChunk::Header(b) => b.advance(cnt),
             DataChunk::Mmap(z) => z.advance(cnt),
+            DataChunk::Owned(b) => b.advance(cnt),
         }
     }
 }
@@ -186,6 +191,7 @@ impl From<DataChunk> for Bytes {
                 // and proper inlining, this should be highly optimized
                 Bytes::copy_from_slice(&z.mmap[offset..offset + len])
             }
+            DataChunk::Owned(b) => b,
         }
     }
 }
@@ -214,6 +220,10 @@ pub fn parse_query_params(query: Option<&str>) -> Result<QueryParams, String> {
         .map(|s| s.trim().to_string())
         .collect();
     let exchange = params.get("exchange").map(|s| s.to_string());
+    let max_points = params
+        .get("max_points")
+        .and_then(|s| s.parse::<usize>().ok())
+        .filter(|&v| v > 0);
     Ok(QueryParams {
         symbol,
         type_,
@@ -221,6 +231,7 @@ pub fn parse_query_params(query: Option<&str>) -> Result<QueryParams, String> {
         end,
         columns,
         exchange,
+        max_points,
     })
 }
 
@@ -481,12 +492,65 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
         }
     } // end for each day
 
+    // Optional downsampling to a maximum number of points across the full range.
+    // If max_points provided and implies stride > 1, we build owned downsampled buffers per column.
+    let mut downsampled_owned: Option<HashMap<String, Bytes>> = None;
+    let mut downsampled_counts: HashMap<String, usize> = HashMap::new();
+    if let Some(max_points) = query_params.max_points {
+        // Use the time column to determine total records if available; otherwise sum mins
+        let total_records = if let Some(time_total) = col_total_records.get("time").copied() {
+            time_total
+        } else {
+            // Fallback: minimum across all requested columns
+            col_total_records
+                .values()
+                .copied()
+                .min()
+                .unwrap_or(0)
+        };
+
+        if total_records > 0 {
+            let stride = ((total_records as f64) / (max_points as f64)).ceil() as usize;
+            if stride > 1 {
+                let mut owned_map: HashMap<String, Bytes> = HashMap::new();
+                for col in &query_params.columns {
+                    let record_size = get_record_size(col);
+                    let mut out: Vec<u8> = Vec::with_capacity(((total_records + stride - 1) / stride) * record_size);
+                    let mut global_idx: usize = 0;
+                    if let Some(vec_chunks) = col_chunks.get(col) {
+                        for zc in vec_chunks {
+                            let num_records = zc.len / record_size;
+                            // Compute the first index in this chunk that aligns with the global stride
+                            let rem = global_idx % stride;
+                            let mut i = if rem == 0 { 0 } else { stride - rem };
+                            while i < num_records {
+                                let src = zc.offset + i * record_size;
+                                out.extend_from_slice(&zc.mmap[src..src + record_size]);
+                                i += stride;
+                            }
+                            global_idx += num_records;
+                        }
+                    }
+                    downsampled_counts.insert(col.clone(), out.len() / record_size);
+                    owned_map.insert(col.clone(), Bytes::from(out));
+                }
+                downsampled_owned = Some(owned_map);
+            }
+        }
+    }
+
     // Build the JSON header with aggregated metadata for each column.
     let mut columns_meta = Vec::with_capacity(query_params.columns.len());
     for col in &query_params.columns {
         let record_size = get_record_size(col);
-        let num_records = *col_total_records.get(col).unwrap_or(&0);
-        let data_length = *col_total_lengths.get(col).unwrap_or(&0);
+        let (num_records, data_length) = if let Some(ref owned_map) = downsampled_owned {
+            let cnt = *downsampled_counts.get(col).unwrap_or(&0);
+            (cnt, cnt * record_size)
+        } else {
+            let cnt = *col_total_records.get(col).unwrap_or(&0);
+            let len = *col_total_lengths.get(col).unwrap_or(&0);
+            (cnt, len)
+        };
         columns_meta.push(ColumnMeta {
             name: col.clone(),
             record_size,
@@ -498,14 +562,21 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
     let header_str = header_json.to_string() + "\n";
 
     // Build the stream of DataChunks with pre-allocated capacity.
-    // Calculate total chunks: 1 header + sum of all column chunks
-    let total_chunks: usize = 1 + col_chunks.values().map(|v| v.len()).sum::<usize>();
-    let mut chunks: Vec<Result<DataChunk, std::io::Error>> = Vec::with_capacity(total_chunks);
+    let mut chunks: Vec<Result<DataChunk, std::io::Error>> = Vec::new();
     chunks.push(Ok(DataChunk::Header(Bytes::from(header_str))));
-    for col in &query_params.columns {
-        if let Some(vec_chunks) = col_chunks.get(col) {
-            for zc in vec_chunks {
-                chunks.push(Ok(DataChunk::Mmap(zc.clone())));
+    if let Some(owned_map) = downsampled_owned {
+        for col in &query_params.columns {
+            if let Some(bytes) = owned_map.get(col) {
+                chunks.push(Ok(DataChunk::Owned(bytes.clone())));
+            }
+        }
+    } else {
+        // No downsampling: stream zero-copy mmap slices
+        for col in &query_params.columns {
+            if let Some(vec_chunks) = col_chunks.get(col) {
+                for zc in vec_chunks {
+                    chunks.push(Ok(DataChunk::Mmap(zc.clone())));
+                }
             }
         }
     }

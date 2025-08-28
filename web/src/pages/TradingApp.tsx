@@ -62,9 +62,11 @@ function ChartView() {
         }
       } else if (symbol) {
         // Single symbol mode
-        console.log('[TradingApp] Applying preset and symbol:', preset, symbol);
+        const presetStartTime = performance.now();
+        console.log('[PERF] TradingApp applying preset and symbol:', preset, symbol);
         chartInstance.apply_preset_and_symbol(preset, symbol)
           .then(() => {
+            console.log(`[PERF] TradingApp preset applied successfully in ${(performance.now() - presetStartTime).toFixed(2)}ms`);
             console.log('[TradingApp] Successfully applied preset and symbol');
             setAppliedPreset(preset);
           })

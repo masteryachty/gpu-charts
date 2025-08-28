@@ -38,9 +38,9 @@ impl Chart {
         // Initialize logger on first construction
         static LOGGER_INIT: std::sync::Once = std::sync::Once::new();
         LOGGER_INIT.call_once(|| {
-            if console_log::init_with_level(log::Level::Debug).is_err() {
-                // Logger might already be initialized, that's ok
-            }
+            // Suppress logs in production by default
+            let _ = console_log::init_with_level(log::Level::Error);
+            log::set_max_level(log::LevelFilter::Error);
         });
 
         Chart {
@@ -138,6 +138,8 @@ impl Chart {
 
             // Spawn async task to handle everything
             wasm_bindgen_futures::spawn_local(async move {
+                let perf = web_sys::window().unwrap().performance().unwrap();
+                let total_start = perf.now();
                 // First set the preset and symbol
                 match InstanceManager::with_instance_mut(&instance_id, |instance| {
                     instance
@@ -187,8 +189,10 @@ impl Chart {
                 }
 
                 // Execute the fetch
+                let fetch_start = perf.now();
                 match fetch_and_process_data(instance_id).await {
                     Ok(_) => {
+                        let fetch_time = perf.now() - fetch_start;
                         // Trigger render loop state change to preprocess
                         InstanceManager::with_instance_mut(&instance_id, |_instance| {
                             // let _ = instance.chart_engine.start_render_loop();
@@ -201,6 +205,7 @@ impl Chart {
                                 let _ = instance.chart_engine.render();
                             });
                         });
+                        let total_time = perf.now() - total_start;
                         // Resolve the promise after renders are complete
                         resolve
                             .call1(&JsValue::undefined(), &JsValue::from_bool(true))
@@ -220,6 +225,8 @@ impl Chart {
 
         promise
     }
+
+    // set_log_level removed as part of logging cleanup
 
     #[wasm_bindgen]
     pub async fn init(

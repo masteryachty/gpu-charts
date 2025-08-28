@@ -64,9 +64,14 @@ impl DataManager {
         start_time: u32,
         end_time: u32,
         columns: &[&str],
+        max_points: Option<usize>,
     ) -> GpuChartsResult<DataHandle> {
         // Check cache first
-        let cache_key = format!("{symbol}-{data_type}-{start_time}-{end_time}-{columns:?}");
+        let cache_key = if let Some(mp) = max_points {
+            format!("{symbol}-{data_type}-{start_time}-{end_time}-{columns:?}-mp:{mp}")
+        } else {
+            format!("{symbol}-{data_type}-{start_time}-{end_time}-{columns:?}")
+        };
         if let Some(handle) = self.cache.get(&cache_key) {
             return Ok(handle);
         }
@@ -85,18 +90,32 @@ impl DataManager {
         let encoded_columns = urlencoding::encode(&columns_str);
         let encoded_exchange = urlencoding::encode(exchange);
 
-        let url = format!(
-            "{}/api/data?symbol={}&type={}&start={}&end={}&columns={}&exchange={}",
-            self.base_url, encoded_symbol, data_type, start_time, end_time, encoded_columns, encoded_exchange
-        );
+        let url = if let Some(mp) = max_points {
+            format!(
+                "{}/api/data?symbol={}&type={}&start={}&end={}&columns={}&exchange={}&max_points={}",
+                self.base_url, encoded_symbol, data_type, start_time, end_time, encoded_columns, encoded_exchange, mp
+            )
+        } else {
+            format!(
+                "{}/api/data?symbol={}&type={}&start={}&end={}&columns={}&exchange={}",
+                self.base_url, encoded_symbol, data_type, start_time, end_time, encoded_columns, encoded_exchange
+            )
+        };
+        
 
         // Fetch from server
+        let http_start = web_sys::window().unwrap().performance().unwrap().now();
+        log::warn!("[PERF] Starting HTTP fetch for URL: {}", url);
+        
         let (api_header, binary_buffer) =
             fetch_api_response(&url)
                 .await
                 .map_err(|e| GpuChartsError::DataFetch {
                     message: format!("{e:?} (URL: {url})"),
                 })?;
+                
+        let http_time = web_sys::window().unwrap().performance().unwrap().now() - http_start;
+        log::warn!("[PERF] HTTP fetch completed in {:.2}ms, data size: {} bytes", http_time, binary_buffer.byte_length());
 
         // Parse the binary data into columnar format
         let mut column_buffers = HashMap::new();
@@ -110,8 +129,12 @@ impl DataManager {
             offset = end;
 
             let col_buffer = binary_buffer.slice_with_end(start, end);
+            let gpu_create_start = web_sys::window().unwrap().performance().unwrap().now();
             let gpu_buffers =
                 create_chunked_gpu_buffer_from_arraybuffer(&self.device, &col_buffer, &column.name);
+            let gpu_create_time = web_sys::window().unwrap().performance().unwrap().now() - gpu_create_start;
+            log::warn!("[PERF] GPU buffer for {} created in {:.2}ms", column.name, gpu_create_time);
+            
             column_buffers.insert(column.name.clone(), gpu_buffers);
             raw_buffers.insert(column.name.clone(), col_buffer);
         }
@@ -168,6 +191,9 @@ impl DataManager {
         &mut self,
         data_store: &mut DataStore,
     ) -> Result<(), shared_types::GpuChartsError> {
+        let start = web_sys::window().unwrap().performance().unwrap().now();
+        log::warn!("[PERF] DataManager::fetch_data_for_preset starting");
+        
         let symbol = data_store.symbol.as_ref().unwrap().to_string();
         let preset = data_store.preset.clone().unwrap();
         let start_time = data_store.start_x;
@@ -208,7 +234,14 @@ impl DataManager {
 
         // Removed unused fetch_results variable
         
+        // Decide max points based on screen width to cap payload size
+        let oversample: usize = 4; // 4x pixels preserves detail while capping size
+        let max_points = (data_store.screen_size.width as usize).saturating_mul(oversample);
+
         for (data_type, columns) in data_requirements {
+            let fetch_start = web_sys::window().unwrap().performance().unwrap().now();
+            log::warn!("[PERF] Starting fetch for data type: {}", data_type);
+            
             let mut all_columns = vec!["time"];
             let columns_vec: Vec<String> = columns.into_iter().collect();
             all_columns.extend(columns_vec.iter().map(|s| s.as_str()));
@@ -222,11 +255,19 @@ impl DataManager {
                     start_time,
                     end_time,
                     &all_columns,
+                    Some(max_points),
                 )
                 .await;
+                
+            let fetch_time = web_sys::window().unwrap().performance().unwrap().now() - fetch_start;
+            log::warn!("[PERF] Fetch for {} completed in {:.2}ms", data_type, fetch_time);
+                
             match result {
                 Ok(data_handle) => {
+                    let process_start = web_sys::window().unwrap().performance().unwrap().now();
                     let _ = self.process_data_handle(&data_handle, data_store);
+                    let process_time = web_sys::window().unwrap().performance().unwrap().now() - process_start;
+                    log::warn!("[PERF] Processing for {} completed in {:.2}ms", data_type, process_time);
                 }
                 Err(e) => {
                     log::error!("Failed to fetch {data_type} data: {e:?}");
@@ -235,8 +276,14 @@ impl DataManager {
         }
 
         // After loading all data, create computed metrics if needed
+        let compute_start = web_sys::window().unwrap().performance().unwrap().now();
         self.create_computed_metrics_for_preset(data_store);
+        let compute_time = web_sys::window().unwrap().performance().unwrap().now() - compute_start;
+        log::warn!("[PERF] Computed metrics created in {:.2}ms", compute_time);
 
+        let total_time = web_sys::window().unwrap().performance().unwrap().now() - start;
+        log::warn!("[PERF] DataManager::fetch_data_for_preset completed in {:.2}ms", total_time);
+        
         Ok(())
     }
 

@@ -287,45 +287,12 @@ impl ComputeEngine {
         // Compute mid price
         match calculator.calculate(dep_buffers[0], dep_buffers[1], element_count, encoder) {
             Ok(result) => {
-                // Create staging buffer for CPU readback using buffer pool
-                let staging_buffer_size = (element_count * 4) as u64; // 4 bytes per f32
-                let staging_buffer = self.resource_manager.buffer_pool.acquire(
-                    staging_buffer_size,
-                    wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-                    Some("Mid Price Staging Buffer"),
-                );
-                
-                // Copy computed data from GPU buffer to staging buffer
-                encoder.copy_buffer_to_buffer(
-                    &result.output_buffer,
-                    0,
-                    &staging_buffer,
-                    0,
-                    staging_buffer_size,
-                );
-                
-                // Schedule async readback using optimized ring buffer
-                
-                let callback = Box::new(move |data: &[u8]| {
-                    // Process the data
-                    let float_data: Vec<f32> = data
-                        .chunks_exact(4)
-                        .map(|bytes| f32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
-                        .collect();
-                    
-                    // Create JavaScript ArrayBuffer
-                    let js_array = js_sys::Float32Array::new_with_length(element_count);
-                    for (i, &value) in float_data.iter().enumerate() {
-                        js_array.set_index(i as u32, value);
-                    }
-                    
-                    // Update the metric using weak reference (safe but requires unsafe for raw pointer)
-                    // Note: This is a limitation of the current architecture - we need a better way to handle this
-                });
-                
-                if let Err(e) = self.resource_manager.readback_ring.submit_readback(staging_buffer, callback) {
-                    log::error!("[ComputeEngine] Failed to schedule readback: {}", e);
-                }
+                log::warn!("[PERF] Skipping CPU readback for mid_price; using GPU buffer directly ({} elements)", element_count);
+                // Skip CPU readback: use GPU buffer directly.
+                // Previously we copied the full computed buffer to a staging buffer and scheduled
+                // an async readback, which caused significant stalls (~700ms) for large datasets.
+                // Rendering consumes the GPU buffer directly, and tooltips/analytics can be
+                // implemented with targeted, small readbacks if ever needed.
                 
                 // Store the GPU buffer in the metric
                 if let Some(metric) = data_store.get_metric_mut(metric_ref) {

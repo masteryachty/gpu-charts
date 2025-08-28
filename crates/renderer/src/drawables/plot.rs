@@ -34,13 +34,27 @@ impl PlotRenderer {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
     ) {
+        let plot_render_start = web_sys::window().unwrap().performance().unwrap().now();
+        log::warn!("[PERF] PlotRenderer::render starting");
+        
         // Skip rendering if no min/max buffer is available
         if data_store.min_max_buffer.is_none() {
+            let plot_render_time = web_sys::window().unwrap().performance().unwrap().now() - plot_render_start;
+            log::warn!("[PERF] PlotRenderer::render skipped (no min/max buffer) in {:.2}ms", plot_render_time);
             return;
         }
 
+        let data_len_start = web_sys::window().unwrap().performance().unwrap().now();
+        log::warn!("[PERF] PlotRenderer getting data length");
+        
         let data_len = data_store.get_data_len();
+        
+        let data_len_time = web_sys::window().unwrap().performance().unwrap().now() - data_len_start;
+        log::warn!("[PERF] PlotRenderer got data length ({}) in {:.2}ms", data_len, data_len_time);
+        
         if data_len > 0 {
+            let render_pass_start = web_sys::window().unwrap().performance().unwrap().now();
+            log::warn!("[PERF] PlotRenderer starting render pass with {} data points", data_len);
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Plot Renderer"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -93,6 +107,9 @@ impl PlotRenderer {
                     let bind_group = self.create_bind_group_for_metric(data_store, metric, queue);
                     render_pass.set_bind_group(0, &bind_group, &[]);
 
+                    let draw_start = web_sys::window().unwrap().performance().unwrap().now();
+                    log::warn!("[PERF] PlotRenderer starting draw calls for {} buffers", data_series.x_buffers.len());
+                    
                     for (i, x_buffer) in data_series.x_buffers.iter().enumerate() {
                         if let Some(y_buffer) = metric.y_buffers.get(i) {
                             render_pass.set_vertex_buffer(0, x_buffer.slice(..));
@@ -106,12 +123,24 @@ impl PlotRenderer {
                             render_pass.draw(0..vertex_count, 0..1);
                         }
                     }
+                    
+                    let draw_time = web_sys::window().unwrap().performance().unwrap().now() - draw_start;
+                    log::warn!("[PERF] PlotRenderer draw calls completed in {:.2}ms", draw_time);
                 }
             }
         }
         
+        let resource_mgmt_start = web_sys::window().unwrap().performance().unwrap().now();
+        log::warn!("[PERF] PlotRenderer advancing frame for resource management");
+        
         // Advance frame for resource management
         self.resource_manager.advance_frame(device);
+        
+        let resource_mgmt_time = web_sys::window().unwrap().performance().unwrap().now() - resource_mgmt_start;
+        log::warn!("[PERF] PlotRenderer resource management completed in {:.2}ms", resource_mgmt_time);
+        
+        let plot_render_total_time = web_sys::window().unwrap().performance().unwrap().now() - plot_render_start;
+        log::warn!("[PERF] PlotRenderer::render completed in {:.2}ms", plot_render_total_time);
     }
 }
 
