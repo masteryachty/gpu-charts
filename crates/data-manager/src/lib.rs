@@ -348,12 +348,10 @@ impl DataManager {
         }
 
         // Invalidate computed metrics since we have new data
-        let mut invalidated_count = 0;
         for data_group in &mut data_store.data_groups {
             for metric in &mut data_group.metrics {
                 if metric.is_computed {
                     metric.invalidate_computation();
-                    invalidated_count += 1;
                 }
             }
         }

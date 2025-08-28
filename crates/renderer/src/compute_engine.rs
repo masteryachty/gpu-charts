@@ -305,8 +305,6 @@ impl ComputeEngine {
                 );
                 
                 // Schedule async readback using optimized ring buffer
-                let metric_ref_clone = *metric_ref;
-                let data_store_weak = Rc::downgrade(&Rc::new(RefCell::new(data_store as *mut DataStore)));
                 
                 let callback = Box::new(move |data: &[u8]| {
                     // Process the data
@@ -520,7 +518,7 @@ impl ComputeEngine {
     
     /// Process pending GPU readbacks using optimized ring buffer
     /// This should be called periodically (e.g., each frame) to check readback status
-    pub fn process_readbacks(&mut self, data_store: &mut DataStore) {
+    pub fn process_readbacks(&mut self, _data_store: &mut DataStore) {
         self.resource_manager.readback_ring.process_readbacks(&self.device);
     }
     

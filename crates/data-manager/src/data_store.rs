@@ -112,8 +112,6 @@ impl DataStore {
         let f: Uint32Array = Uint32Array::new(&x_series.0);
         let length = f.length();
         
-        let x_buffer_count = x_series.1.len();
-        let x_buffer_size = if !x_series.1.is_empty() { x_series.1[0].size() } else { 0 };
         
 
         self.data_groups.push(DataSeries {

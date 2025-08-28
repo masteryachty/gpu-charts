@@ -123,7 +123,7 @@ impl PlotRenderer {
         queue: &wgpu::Queue,
     ) -> wgpu::BindGroup {
         // Create cache key for this metric's bind group
-        let cache_key = BindGroupCacheKey {
+        let _cache_key = BindGroupCacheKey {
             layout_id: 0, // Simplified for now, TODO: use proper ID
             resource_ids: vec![
                 // Hash of x range
