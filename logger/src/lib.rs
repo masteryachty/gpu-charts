@@ -1,6 +1,7 @@
 pub mod common;
 pub mod config;
 pub mod exchanges;
+pub mod metrics_server;
 
 pub use common::*;
 pub use config::Config;

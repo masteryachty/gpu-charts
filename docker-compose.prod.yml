@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  # Market Data Logger Service
+  logger:
+    build:
+      context: .
+      dockerfile: logger/Dockerfile
+    container_name: gpu-charts-logger
+    environment:
+      # Prometheus monitoring
+      - PROMETHEUS_PUSH_GATEWAY_URL=http://prometheus.rednax.io
+      # Logger configuration
+      - LOGGER_DATA_PATH=/mnt/md/data
+      - LOGGER_EXCHANGES_COINBASE_ENABLED=true
+      - LOGGER_EXCHANGES_BINANCE_ENABLED=true
+      - LOGGER_EXCHANGES_KRAKEN_ENABLED=true
+      - LOGGER_EXCHANGES_BITFINEX_ENABLED=true
+      - LOGGER_EXCHANGES_OKX_ENABLED=true
+      # Logging configuration
+      - RUST_LOG=info
+      - RUST_BACKTRACE=1
+    volumes:
+      - /mnt/md/data:/mnt/md/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - gpu-charts
+
+  # Data Server API
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: gpu-charts-server
+    environment:
+      # Prometheus monitoring
+      - PROMETHEUS_PUSH_GATEWAY_URL=http://prometheus.rednax.io
+      # Server configuration
+      - USE_TLS=false  # Using Cloudflare Tunnel for TLS
+      - PORT=8443
+      - DATA_PATH=/mnt/md/data
+      # Logging
+      - RUST_LOG=info
+    volumes:
+      - /mnt/md/data:/mnt/md/data:ro  # Read-only mount for server
+      - ./localhost.crt:/app/localhost.crt:ro
+      - ./localhost.key:/app/localhost.key:ro
+    ports:
+      - "8443:8443"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8443/api/symbols"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - gpu-charts
+    depends_on:
+      - logger
+
+networks:
+  gpu-charts:
+    driver: bridge

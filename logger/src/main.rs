@@ -47,13 +47,10 @@ enum Commands {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    // Initialize logging
-    let filter = if cli.debug {
-        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("debug"))
-    } else {
-        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"))
-    };
-
+    // Initialize tracing
+    let log_level = if cli.debug { "debug" } else { "info" };
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(log_level));
+    
     // Check if we're running under systemd/docker (they add their own timestamps)
     let is_systemd = std::env::var("INVOCATION_ID").is_ok() || std::env::var("JOURNAL_STREAM").is_ok();
     let is_docker = std::path::Path::new("/.dockerenv").exists();
@@ -81,43 +78,55 @@ async fn main() -> Result<()> {
     }
 
     // Load configuration
-    let config = if let Some(config_path) = cli.config {
-        Config::from_file(config_path.to_str().unwrap())?
+    let mut config = if let Some(config_path) = cli.config.as_deref() {
+        Config::from_file(config_path.to_str().unwrap_or("config.yaml"))?
     } else {
         Config::from_env()?
     };
 
+    // Handle commands
     match cli.command {
         Some(Commands::Run { exchanges }) => {
-            run_logger(config, exchanges).await?;
+            if let Some(exchanges) = exchanges {
+                // Override config with command line exchanges
+                let exchange_list: Vec<String> = exchanges.split(',').map(|s| s.trim().to_string()).collect();
+                // Disable all exchanges first
+                config.exchanges.coinbase.enabled = false;
+                config.exchanges.binance.enabled = false;
+                config.exchanges.okx.enabled = false;
+                config.exchanges.kraken.enabled = false;
+                config.exchanges.bitfinex.enabled = false;
+                
+                // Enable only the specified exchanges
+                for exchange in exchange_list {
+                    match exchange.to_lowercase().as_str() {
+                        "coinbase" => config.exchanges.coinbase.enabled = true,
+                        "binance" => config.exchanges.binance.enabled = true,
+                        "okx" => config.exchanges.okx.enabled = true,
+                        "kraken" => config.exchanges.kraken.enabled = true,
+                        "bitfinex" => config.exchanges.bitfinex.enabled = true,
+                        _ => error!("Unknown exchange: {}", exchange),
+                    }
+                }
+            }
+            run_logger(config).await?;
         }
         Some(Commands::Test { exchange }) => {
-            test_exchange(&exchange, config).await?;
+            test_exchange(&exchange, &config).await?;
         }
         Some(Commands::Symbols { exchange }) => {
-            list_symbols(&exchange, config).await?;
+            list_symbols(&exchange, &config).await?;
         }
         None => {
-            // Default: run all enabled exchanges
-            run_logger(config, None).await?;
+            // Default to run command
+            run_logger(config).await?;
         }
     }
 
     Ok(())
 }
 
-async fn run_logger(mut config: Config, exchanges: Option<String>) -> Result<()> {
-    // Override enabled exchanges if specified
-    if let Some(exchanges_str) = exchanges {
-        let exchanges: Vec<&str> = exchanges_str.split(',').collect();
-
-        config.exchanges.coinbase.enabled = exchanges.contains(&"coinbase");
-        config.exchanges.binance.enabled = exchanges.contains(&"binance");
-        config.exchanges.okx.enabled = exchanges.contains(&"okx");
-        config.exchanges.kraken.enabled = exchanges.contains(&"kraken");
-        config.exchanges.bitfinex.enabled = exchanges.contains(&"bitfinex");
-    }
-
+async fn run_logger(config: Config) -> Result<()> {
     info!("Starting multi-exchange logger");
     info!("Enabled exchanges:");
     if config.exchanges.coinbase.enabled {
@@ -137,6 +146,19 @@ async fn run_logger(mut config: Config, exchanges: Option<String>) -> Result<()>
     }
 
     let logger = Logger::new(config.clone())?;
+
+    // Start metrics server on configured port (default 9090)
+    let metrics_port = std::env::var("METRICS_PORT")
+        .unwrap_or_else(|_| "9090".to_string())
+        .parse::<u16>()
+        .unwrap_or(9090);
+    
+    tokio::spawn(async move {
+        logger::metrics_server::start_metrics_server(metrics_port).await;
+    });
+    
+    info!("Metrics server started on port {}", metrics_port);
+    info!("Prometheus can scrape metrics from http://localhost:{}/metrics", metrics_port);
 
     // Start health check server
     let health_port = config.logger.health_check_port;
@@ -167,97 +189,25 @@ async fn run_logger(mut config: Config, exchanges: Option<String>) -> Result<()>
     }
 
     health_server.abort();
-    info!("Shutdown complete");
+    info!("Logger shutdown complete");
 
     Ok(())
 }
 
-async fn test_exchange(exchange: &str, config: Config) -> Result<()> {
-    use logger::exchanges::Exchange;
-
-    let exchange_impl: Box<dyn Exchange> = match exchange.to_lowercase().as_str() {
-        "coinbase" => Box::new(logger::exchanges::coinbase::CoinbaseExchange::new(
-            std::sync::Arc::new(config),
-        )?),
-        "binance" => Box::new(logger::exchanges::binance::BinanceExchange::new(
-            std::sync::Arc::new(config),
-        )?),
-        "okx" => Box::new(logger::exchanges::okx::OkxExchange::new(
-            std::sync::Arc::new(config),
-        )?),
-        "kraken" => Box::new(logger::exchanges::kraken::KrakenExchange::new(
-            std::sync::Arc::new(config),
-        )?),
-        "bitfinex" => Box::new(logger::exchanges::bitfinex::BitfinexExchange::new(
-            std::sync::Arc::new(config),
-        )?),
-        _ => {
-            error!("Unknown exchange: {}", exchange);
-            return Ok(());
-        }
-    };
-
-    info!("Testing {} connection...", exchange_impl.name());
-
-    // Test symbol fetching
-    match exchange_impl.fetch_symbols().await {
-        Ok(symbols) => {
-            info!("Successfully fetched {} symbols", symbols.len());
-            info!("Sample symbols:");
-            for symbol in symbols.iter().take(5) {
-                info!("  {}", symbol.symbol);
-            }
-        }
-        Err(e) => {
-            error!("Failed to fetch symbols: {}", e);
-        }
-    }
-
+async fn test_exchange(exchange_name: &str, _config: &Config) -> Result<()> {
+    info!("Testing connection to {}...", exchange_name);
+    
+    // TODO: Implement exchange testing
+    error!("Exchange testing not yet implemented for {}", exchange_name);
+    
     Ok(())
 }
 
-async fn list_symbols(exchange: &str, config: Config) -> Result<()> {
-    use logger::exchanges::Exchange;
-
-    let exchange_impl: Box<dyn Exchange> = match exchange.to_lowercase().as_str() {
-        "coinbase" => Box::new(logger::exchanges::coinbase::CoinbaseExchange::new(
-            std::sync::Arc::new(config),
-        )?),
-        "binance" => Box::new(logger::exchanges::binance::BinanceExchange::new(
-            std::sync::Arc::new(config),
-        )?),
-        "okx" => Box::new(logger::exchanges::okx::OkxExchange::new(
-            std::sync::Arc::new(config),
-        )?),
-        "kraken" => Box::new(logger::exchanges::kraken::KrakenExchange::new(
-            std::sync::Arc::new(config),
-        )?),
-        "bitfinex" => Box::new(logger::exchanges::bitfinex::BitfinexExchange::new(
-            std::sync::Arc::new(config),
-        )?),
-        _ => {
-            error!("Unknown exchange: {}", exchange);
-            return Ok(());
-        }
-    };
-
-    info!("Fetching symbols from {}...", exchange_impl.name());
-
-    let symbols = exchange_impl.fetch_symbols().await?;
-
-    println!("Exchange,Symbol,Base,Quote,Status");
-    for symbol in &symbols {
-        println!(
-            "{},{},{},{},{}",
-            exchange,
-            symbol.symbol,
-            symbol.base_asset,
-            symbol.quote_asset,
-            if symbol.active { "active" } else { "inactive" }
-        );
-    }
-
-    info!("Total symbols: {}", symbols.len());
-
+async fn list_symbols(exchange_name: &str, _config: &Config) -> Result<()> {
+    info!("Listing symbols for {}...", exchange_name);
+    
+    // TODO: Implement symbol listing
+    error!("Symbol listing not yet implemented for {}", exchange_name);
+    
     Ok(())
 }

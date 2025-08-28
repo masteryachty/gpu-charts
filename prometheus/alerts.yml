@@ -1,0 +1,182 @@
+groups:
+  - name: exchange_health
+    interval: 30s
+    rules:
+      # Alert when an exchange is disconnected
+      - alert: ExchangeDisconnected
+        expr: gpu_charts_exchange_connection_status == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: logger
+        annotations:
+          summary: "Exchange {{ $labels.exchange }} is disconnected"
+          description: "{{ $labels.exchange }} has been disconnected for more than 2 minutes. Last connection status: {{ $value }}"
+          
+      # Alert when no messages received from an exchange
+      - alert: ExchangeNoData
+        expr: rate(gpu_charts_exchange_messages_total[5m]) == 0
+        for: 5m
+        labels:
+          severity: warning
+          component: logger
+        annotations:
+          summary: "No data from {{ $labels.exchange }}"
+          description: "{{ $labels.exchange }} has not sent any messages for 5 minutes. Message type: {{ $labels.message_type }}"
+          
+      # Alert on high error rate
+      - alert: ExchangeHighErrorRate
+        expr: rate(gpu_charts_exchange_errors_total[5m]) > 0.1
+        for: 3m
+        labels:
+          severity: warning
+          component: logger
+        annotations:
+          summary: "High error rate on {{ $labels.exchange }}"
+          description: "{{ $labels.exchange }} is experiencing {{ $value | humanizePercentage }} errors per second. Error type: {{ $labels.error_type }}"
+          
+      # Alert on excessive reconnections
+      - alert: ExchangeReconnectionLoop
+        expr: increase(gpu_charts_exchange_reconnections_total[10m]) > 5
+        for: 1m
+        labels:
+          severity: warning
+          component: logger
+        annotations:
+          summary: "{{ $labels.exchange }} is reconnecting frequently"
+          description: "{{ $labels.exchange }} has reconnected {{ $value }} times in the last 10 minutes"
+          
+      # Alert when WebSocket latency is too high
+      - alert: ExchangeHighLatency
+        expr: histogram_quantile(0.95, rate(gpu_charts_websocket_latency_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          component: logger
+        annotations:
+          summary: "High WebSocket latency for {{ $labels.exchange }}"
+          description: "{{ $labels.exchange }} WebSocket p95 latency is {{ $value }}s (threshold: 1s)"
+
+  - name: server_health
+    interval: 30s
+    rules:
+      # Alert on high response times
+      - alert: ServerHighResponseTime
+        expr: histogram_quantile(0.99, rate(gpu_charts_server_http_request_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          component: server
+        annotations:
+          summary: "High API response time"
+          description: "API endpoint {{ $labels.endpoint }} p99 response time is {{ $value }}s"
+          
+      # Alert on high error rate
+      - alert: ServerHighErrorRate
+        expr: |
+          sum(rate(gpu_charts_server_http_requests_total{status=~"5.."}[5m])) 
+          / 
+          sum(rate(gpu_charts_server_http_requests_total[5m])) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          component: server
+        annotations:
+          summary: "High server error rate"
+          description: "Server is returning {{ $value | humanizePercentage }} 5xx errors"
+          
+      # Alert on low cache hit rate
+      - alert: ServerLowCacheHitRate
+        expr: |
+          sum(rate(gpu_charts_server_cache_hits_total[5m])) 
+          / 
+          (sum(rate(gpu_charts_server_cache_hits_total[5m])) + sum(rate(gpu_charts_server_cache_misses_total[5m]))) < 0.5
+        for: 10m
+        labels:
+          severity: info
+          component: server
+        annotations:
+          summary: "Low cache hit rate"
+          description: "Cache hit rate is {{ $value | humanizePercentage }} (threshold: 50%)"
+          
+      # Alert on data query latency
+      - alert: ServerDataQuerySlow
+        expr: histogram_quantile(0.95, rate(gpu_charts_server_data_query_duration_seconds_bucket[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          component: server
+        annotations:
+          summary: "Slow data queries"
+          description: "Data queries for {{ $labels.symbol }} p95 latency is {{ $value }}s"
+
+  - name: data_quality
+    interval: 30s
+    rules:
+      # Alert on stale data
+      - alert: DataStale
+        expr: time() - gpu_charts_last_update_timestamp > 300
+        for: 5m
+        labels:
+          severity: warning
+          component: data
+        annotations:
+          summary: "Stale data for {{ $labels.symbol }}"
+          description: "{{ $labels.symbol }} on {{ $labels.exchange }} has not been updated for {{ $value | humanizeDuration }}"
+          
+      # Alert on data gaps
+      - alert: DataGaps
+        expr: increase(gpu_charts_data_gaps_total[1h]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: data
+        annotations:
+          summary: "Data gaps detected"
+          description: "{{ $value }} data gaps detected for {{ $labels.symbol }} in the last hour"
+          
+      # Alert on abnormal spreads
+      - alert: AbnormalSpread
+        expr: gpu_charts_bid_ask_spread > 0.05
+        for: 10m
+        labels:
+          severity: info
+          component: data
+        annotations:
+          summary: "Abnormal spread for {{ $labels.symbol }}"
+          description: "{{ $labels.symbol }} on {{ $labels.exchange }} has a {{ $value | humanizePercentage }} spread"
+
+  - name: infrastructure
+    interval: 30s
+    rules:
+      # Alert when metrics push fails
+      - alert: MetricsPushFailure
+        expr: up{job="gpu-charts-logger"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          component: monitoring
+        annotations:
+          summary: "Logger metrics push failing"
+          description: "Logger instance {{ $labels.instance }} has not pushed metrics for 5 minutes"
+          
+      - alert: ServerMetricsPushFailure
+        expr: up{job="gpu-charts-server"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          component: monitoring
+        annotations:
+          summary: "Server metrics push failing"
+          description: "Server instance {{ $labels.instance }} has not pushed metrics for 5 minutes"
+          
+      # Alert on high memory usage (if we add memory metrics)
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes / (1024 * 1024 * 1024) > 8
+        for: 10m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Process is using {{ $value | humanize }}GB of memory"
