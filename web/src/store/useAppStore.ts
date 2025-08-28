@@ -40,7 +40,7 @@ interface AppStore extends StoreState {
   setTimeRange: (startTime: number, endTime: number) => void;
   // Multi-exchange comparison actions
   setComparisonMode: (enabled: boolean) => void;
-  toggleExchange: (exchange: string) => void;
+  toggleExchange: (exchange: string, symbol?: string) => void;
   setSelectedExchanges: (exchanges: string[]) => void;
   setBaseSymbol: (symbol: string) => void;
   // Batch operations
@@ -153,7 +153,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     newState._triggerSubscriptions(newState, oldState);
   },
 
-  toggleExchange: (exchange, symbol) => {
+  toggleExchange: (exchange: string, symbol?: string) => {
     const oldState = get();
     const currentExchanges = oldState.selectedExchanges || [];
     let newExchanges: string[];

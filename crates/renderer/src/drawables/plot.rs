@@ -3,6 +3,7 @@ use std::rc::Rc;
 use wgpu::TextureFormat;
 
 use data_manager::{DataStore, Vertex};
+use crate::buffer_pool::{GpuResourceManager, BindGroupCacheKey};
 
 pub struct PlotRenderer {
     pipeline: wgpu::RenderPipeline,
@@ -10,6 +11,8 @@ pub struct PlotRenderer {
     device: Rc<wgpu::Device>,
     /// Optional filter for specific data columns (data_type, column_name)
     data_filter: Option<Vec<(String, String)>>,
+    /// GPU resource manager for buffer pooling and bind group caching
+    resource_manager: GpuResourceManager,
 }
 
 impl PlotRenderer {
@@ -18,11 +21,18 @@ impl PlotRenderer {
         self.data_filter = filter;
     }
 
+    /// Advance to next frame and perform resource cleanup
+    pub fn advance_frame(&mut self, device: &wgpu::Device) {
+        self.resource_manager.advance_frame(device);
+    }
+
     pub fn render(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         view: &wgpu::TextureView,
         data_store: &DataStore,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
     ) {
         // Skip rendering if no min/max buffer is available
         if data_store.min_max_buffer.is_none() {
@@ -66,17 +76,22 @@ impl PlotRenderer {
                         }
 
                         if !should_render {
+                            log::debug!("[PlotRenderer] Skipping metric {} - not in filter", metric.name);
                             continue;
                         }
                     }
                     
                     // Check if we have buffers to render
                     if metric.y_buffers.is_empty() || data_series.x_buffers.is_empty() {
+                        log::warn!("[PlotRenderer] Skipping metric {} - empty buffers: y_buffers={}, x_buffers={}, group_idx={}", 
+                            metric.name, metric.y_buffers.len(), data_series.x_buffers.len(), "unknown");
                         continue;
                     }
                     
+                    log::debug!("[PlotRenderer] 📈 Rendering metric: {} (visible: {}, group_idx={})", metric.name, metric.visible, "unknown");
+                    
                     // Create a bind group for this specific metric with its color
-                    let bind_group = self.create_bind_group_for_metric(data_store, metric);
+                    let bind_group = self.create_bind_group_for_metric(data_store, metric, queue);
                     render_pass.set_bind_group(0, &bind_group, &[]);
 
                     for (i, x_buffer) in data_series.x_buffers.iter().enumerate() {
@@ -95,39 +110,59 @@ impl PlotRenderer {
                 }
             }
         }
+        
+        // Advance frame for resource management
+        self.resource_manager.advance_frame(device);
     }
 }
 
 impl PlotRenderer {
     fn create_bind_group_for_metric(
-        &self,
+        &mut self,
         data_store: &DataStore,
         metric: &data_manager::MetricSeries,
+        queue: &wgpu::Queue,
     ) -> wgpu::BindGroup {
-        use wgpu::util::DeviceExt;
+        // Create cache key for this metric's bind group
+        let cache_key = BindGroupCacheKey {
+            layout_id: 0, // Simplified for now, TODO: use proper ID
+            resource_ids: vec![
+                // Hash of x range
+                (data_store.start_x as u64) ^ (data_store.end_x as u64),
+                // Y buffer ID
+                0, // Simplified buffer ID for now
+                // Color hash
+                metric.color.iter().fold(0u64, |acc, &c| acc.wrapping_mul(31).wrapping_add(c as u64)),
+            ],
+        };
 
-        // Create buffers for x_min_max, y_min_max, and color
+        // For now, simplified implementation - just use buffer pool for staging buffers
+        // TODO: Implement full bind group caching later
+        
+        // Create buffers using the buffer pool
         let x_min_max = [data_store.start_x, data_store.end_x];
         let x_min_max_bytes = bytemuck::cast_slice(&x_min_max);
-        let x_buffer = self
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("x_min_max buffer"),
-                contents: x_min_max_bytes,
-                usage: wgpu::BufferUsages::UNIFORM,
-            });
+        let x_buffer = self.resource_manager.buffer_pool.acquire(
+            x_min_max_bytes.len() as u64,
+            wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            Some("x_min_max buffer"),
+        );
+        
+        // Write data to pooled buffer
+        queue.write_buffer(&x_buffer, 0, x_min_max_bytes);
 
         // Use GPU-computed min/max buffer (we checked it exists in render())
         let y_buffer = data_store.min_max_buffer.as_ref().unwrap().clone();
 
         let color_bytes = bytemuck::cast_slice(&metric.color);
-        let color_buffer = self
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("color buffer"),
-                contents: color_bytes,
-                usage: wgpu::BufferUsages::UNIFORM,
-            });
+        let color_buffer = self.resource_manager.buffer_pool.acquire(
+            color_bytes.len() as u64,
+            wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            Some("color buffer"),
+        );
+        
+        // Write data to pooled buffer
+        queue.write_buffer(&color_buffer, 0, color_bytes);
 
         self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some(&format!("bind_group_{}", metric.name)),
@@ -230,8 +265,9 @@ impl PlotRenderer {
         Self {
             pipeline,
             bind_group_layout,
-            device,
+            device: device.clone(),
             data_filter: None,
+            resource_manager: GpuResourceManager::new(device),
         }
     }
 }

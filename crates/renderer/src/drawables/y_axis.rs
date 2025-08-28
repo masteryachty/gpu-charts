@@ -19,6 +19,8 @@ pub struct YAxisRenderer {
     last_min_y: f32,
     last_max_y: f32,
     last_height: i32,
+    last_start_x: u32,
+    last_end_x: u32,
 }
 
 impl YAxisRenderer {
@@ -49,14 +51,15 @@ impl YAxisRenderer {
 
         let height = data_store.screen_size.height as i32;
 
-        // Only recalculate and recreate buffers if the data range or width has changed
+        // Only recalculate and recreate buffers if the data range or dimensions have changed
         let needs_recalculation =
-            self.last_min_y != min || self.last_max_y != max || self.last_height != height;
+            self.last_min_y != min 
+            || self.last_max_y != max 
+            || self.last_height != height
+            || self.last_start_x != data_store.start_x
+            || self.last_end_x != data_store.end_x;
 
         if needs_recalculation {
-            // Log when we update labels
-            // Check if we have GPU bounds - removed empty check
-
             let (interval, start, end) = calculate_y_axis_interval(min, max);
             let mut y_values = Vec::new();
             let mut labels = Vec::new();
@@ -76,8 +79,9 @@ impl YAxisRenderer {
 
             // Create text sections
             labels.reserve(label_strings.len());
-            for (y_string, y) in &label_strings {
-                let screen_y = data_store.y_to_screen_position(*y) - 8.0; // Offset by 8 pixels to center text
+            
+            for (_i, (y_string, y)) in label_strings.iter().enumerate() {
+                let screen_y = data_store.y_to_screen_position_with_bounds(*y, min, max) - 8.0; // Offset by 8 pixels to center text
                 let section = TextSection::default()
                     .add_text(Text::new(y_string).with_color([1.0, 1.0, 1.0, 1.0]))
                     .with_screen_position((5.0, screen_y));
@@ -86,16 +90,22 @@ impl YAxisRenderer {
 
             // Create vertex data for axis lines
             let mut vertices = Vec::with_capacity(y_values.len() * 4);
-            for y in &y_values {
-                // Use the actual X range from the data store
-                vertices.push(data_store.start_x as f32);
+            
+            // Use the same X range as the data for proper coordinate transformation
+            // The shader will map this to the full screen width
+            let line_start_x = data_store.start_x as f32;
+            let line_end_x = data_store.end_x as f32;
+            
+            for y in y_values.iter() {
+                vertices.push(line_start_x);
                 vertices.push(*y);
-                vertices.push(data_store.end_x as f32);
+                vertices.push(line_end_x);
                 vertices.push(*y);
             }
 
             // Create or update buffer
             self.vertex_count = (vertices.len() / 2) as u32;
+            
             self.vertex_buffer = Some(create_gpu_buffer_from_vec(
                 device,
                 &vertices,
@@ -106,11 +116,16 @@ impl YAxisRenderer {
             self.last_min_y = min;
             self.last_max_y = max;
             self.last_height = height;
+            self.last_start_x = data_store.start_x;
+            self.last_end_x = data_store.end_x;
 
             // Update text brush
             self.brush
                 .resize_view(data_store.screen_size.width as f32, height as f32, queue);
-            if let Err(_e) = self.brush.queue(device, queue, labels) {}
+                
+            if let Err(e) = self.brush.queue(device, queue, labels) {
+                log::error!("[YAxis] Failed to queue text labels: {:?}", e);
+            }
         } else {
             // If only the window size changed, update the text brush size
             // if self.brush.resize_view(size.0 as f32, size.1 as f32, queue) {
@@ -248,6 +263,8 @@ impl YAxisRenderer {
             last_min_y: 0.0,
             last_max_y: 0.0,
             last_height: 0,
+            last_start_x: 0,
+            last_end_x: 0,
         }
     }
 }

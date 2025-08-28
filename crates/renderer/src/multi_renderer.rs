@@ -313,10 +313,10 @@ impl MultiRenderable for crate::PlotRenderer {
         encoder: &mut CommandEncoder,
         view: &TextureView,
         data_store: &DataStore,
-        _device: &Device,
-        _queue: &Queue,
+        device: &Device,
+        queue: &Queue,
     ) {
-        self.render(encoder, view, data_store);
+        self.render(encoder, view, data_store, device, queue);
     }
 
     fn name(&self) -> &str {
@@ -360,10 +360,10 @@ impl MultiRenderable for ConfigurablePlotRenderer {
         encoder: &mut CommandEncoder,
         view: &TextureView,
         data_store: &DataStore,
-        _device: &Device,
-        _queue: &Queue,
+        device: &Device,
+        queue: &Queue,
     ) {
-        self.renderer.render(encoder, view, data_store);
+        self.renderer.render(encoder, view, data_store, device, queue);
     }
 
     fn name(&self) -> &str {

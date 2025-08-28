@@ -316,6 +316,9 @@ impl ChartEngine {
                     label: Some("Render Encoder"),
                 });
 
+        // Ensure range bind group is available for axis renderers after zoom operations
+        self.data_store.ensure_range_bind_group(&self.render_context.device);
+        
         // Let MultiRenderer handle all rendering
         if let Some(ref mut multi_renderer) = self.multi_renderer {
             multi_renderer
@@ -880,12 +883,24 @@ impl ChartEngine {
 
                     let new_start = start_x.saturating_sub(left_zoom);
                     let new_end = end_x + right_zoom;
-                    (new_start, new_end)
+                    
+                    // Prevent zooming past current time (with small buffer for edge cases)
+                    // Use JavaScript Date.now() instead of SystemTime::now() for WASM compatibility
+                    let current_timestamp = (js_sys::Date::now() / 1000.0) as u32;
+                    
+                    // Only apply restriction if new_end would exceed current time
+                    if new_end > current_timestamp {
+                        // Allow zoom out but cap at current time
+                        (new_start, current_timestamp)
+                    } else {
+                        // Normal zoom out - no restriction needed
+                        (new_start, new_end)
+                    }
                 } else {
                     (start_x, end_x) // No change
                 };
 
-                // Only update if range actually changed
+                // Only update if range actually changed  
                 if new_start != start_x || new_end != end_x {
                     self.data_store.set_x_range(new_start, new_end);
                     self.data_store.mark_dirty();

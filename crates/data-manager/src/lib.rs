@@ -168,6 +168,7 @@ impl DataManager {
         &mut self,
         data_store: &mut DataStore,
     ) -> Result<(), shared_types::GpuChartsError> {
+        log::warn!("[DataManager] 🚀 fetch_data_for_preset called for symbol: {:?}", data_store.symbol);
         let symbol = data_store.symbol.as_ref().unwrap().to_string();
         let preset = data_store.preset.clone().unwrap();
         let start_time = data_store.start_x;
@@ -254,6 +255,17 @@ impl DataManager {
         data_handle: &DataHandle,
         data_store: &mut DataStore,
     ) -> Result<(), shared_types::GpuChartsError> {
+        log::warn!("[DataManager] 🔄 Processing data handle for symbol: {}", data_handle.metadata.symbol);
+        
+        // Clear existing data groups to prevent multi-group race conditions during zoom operations
+        // This ensures we don't have multiple MID metrics in different groups
+        let existing_groups_count = data_store.data_groups.len();
+        if existing_groups_count > 0 {
+            log::warn!("[DataManager] 🗑️ Clearing {} existing data groups to prevent race conditions", existing_groups_count);
+            data_store.data_groups.clear();
+            data_store.active_data_group_indices.clear();
+        }
+        
         // Get the GPU buffer set from the data manager
         let gpu_buffer_set = self.get_buffers(data_handle).ok_or_else(|| {
             shared_types::GpuChartsError::DataNotFound {
@@ -349,11 +361,29 @@ impl DataManager {
             }
         }
 
+        // Invalidate computed metrics since we have new data
+        log::warn!("[DataManager] 🔄 Invalidating computed metrics after data fetch");
+        let mut invalidated_count = 0;
+        for data_group in &mut data_store.data_groups {
+            for metric in &mut data_group.metrics {
+                if metric.is_computed {
+                    log::warn!("[DataManager] 🔄 Invalidating computed metric: {}", metric.name);
+                    metric.invalidate_computation();
+                    invalidated_count += 1;
+                }
+            }
+        }
+        log::warn!("[DataManager] ✅ Invalidated {} computed metrics", invalidated_count);
+
         Ok(())
     }
 
     fn create_computed_metrics_for_preset(&self, data_store: &mut DataStore) {
         if let Some(preset) = &data_store.preset.clone() {
+            // Since we now clear data groups in process_data_handle, we don't need to invalidate existing metrics
+            // They were cleared along with the data groups
+            log::warn!("[DataManager] 📊 Creating computed metrics for preset: {}", preset.name);
+            
             // First, check if we need a separate group for candle-based EMAs
             let has_candle_emas = preset.chart_types.iter().any(|ct| {
                 if let Some((data_type, column_name)) = ct.data_columns.first() {
