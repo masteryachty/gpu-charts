@@ -259,10 +259,14 @@ export async function getAvailableExchanges(baseSymbol: string): Promise<Exchang
       }
     }
     
-    console.log(`Searching for exchanges with symbol: ${searchTerm} (from ${baseSymbol})`);
+    const searchStart = performance.now();
+    console.log(`[PERF] Searching for exchanges with symbol: ${searchTerm} (from ${baseSymbol})`);
     
     // Search for the symbol to find all exchanges that have it
     const results = await searchSymbols(searchTerm);
+    
+    const searchTime = performance.now() - searchStart;
+    console.log(`[PERF] Symbol search completed in ${searchTime.toFixed(2)}ms, found ${results.length} results`);
     
     // Find the best match - look for normalized_id or display_name match
     const match = results.find(r => {

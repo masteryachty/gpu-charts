@@ -1,3 +1,4 @@
+pub mod buffer_pool;
 pub mod calcables;
 pub mod charts;
 pub mod compute;

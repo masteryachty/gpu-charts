@@ -37,7 +37,9 @@ impl renderer::MultiRenderable for CandlestickRendererWrapper {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
     ) {
-        self.renderer.borrow_mut().render(encoder, view, data_store, device, queue);
+        self.renderer
+            .borrow_mut()
+            .render(encoder, view, data_store, device, queue);
     }
 
     fn name(&self) -> &str {
@@ -47,11 +49,11 @@ impl renderer::MultiRenderable for CandlestickRendererWrapper {
     fn priority(&self) -> u32 {
         50 // Render candles before lines
     }
-    
+
     fn has_compute(&self) -> bool {
         true // CandlestickRenderer has compute for aggregating candles
     }
-    
+
     fn compute(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
@@ -59,7 +61,9 @@ impl renderer::MultiRenderable for CandlestickRendererWrapper {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
     ) {
-        self.renderer.borrow_mut().prepare_candles(encoder, data_store, device, queue);
+        self.renderer
+            .borrow_mut()
+            .prepare_candles(encoder, data_store, device, queue);
     }
 }
 
@@ -122,7 +126,7 @@ impl ChartEngine {
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 compatible_surface: Some(&surface),
-                // power_preference: wgpu::PowerPreference::HighPerformance,
+                power_preference: wgpu::PowerPreference::HighPerformance,
                 ..Default::default()
             })
             .await
@@ -145,7 +149,8 @@ impl ChartEngine {
         let queue = Rc::new(queue);
 
         let api_base_url = option_env!("API_BASE_URL")
-            .unwrap_or("https://api.rednax.io")
+            // .unwrap_or("https://api.rednax.io")
+            .unwrap_or("http://192.168.1.91:8443")
             .to_string();
 
         // Create DataManager with modular approach
@@ -217,72 +222,189 @@ impl ChartEngine {
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
+        let render_start = web_sys::window().unwrap().performance().unwrap().now();
+        log::warn!("[PERF] ChartEngine::render starting");
+
         // Check for completed GPU readbacks on each frame
         // This is non-blocking and will update metrics when data is ready
+        let readback_check_start = web_sys::window().unwrap().performance().unwrap().now();
+        log::warn!("[PERF] Checking GPU readbacks");
+
         self.compute_engine.process_readbacks(&mut self.data_store);
-        
+
+        let readback_check_time =
+            web_sys::window().unwrap().performance().unwrap().now() - readback_check_start;
+        log::warn!(
+            "[PERF] GPU readback check completed in {:.2}ms",
+            readback_check_time
+        );
+
         // Check if rendering is needed
+        let dirty_check_start = web_sys::window().unwrap().performance().unwrap().now();
+        log::warn!("[PERF] Checking if data is dirty");
+
         if !self.data_store.is_dirty() {
+            let dirty_check_time =
+                web_sys::window().unwrap().performance().unwrap().now() - dirty_check_start;
+            log::warn!(
+                "[PERF] Data is clean, skipping render. Check took {:.2}ms",
+                dirty_check_time
+            );
             return Ok(());
         }
 
+        let dirty_check_time =
+            web_sys::window().unwrap().performance().unwrap().now() - dirty_check_start;
+        log::warn!(
+            "[PERF] Data is dirty, proceeding with render. Check took {:.2}ms",
+            dirty_check_time
+        );
+
         // Get current texture
+        let texture_start = web_sys::window().unwrap().performance().unwrap().now();
+        log::warn!("[PERF] Getting current texture");
+
         let output = self.render_context.get_current_texture()?;
         let view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
+        let texture_time = web_sys::window().unwrap().performance().unwrap().now() - texture_start;
+        log::warn!("[PERF] Current texture obtained in {:.2}ms", texture_time);
+
         // Start GPU bounds calculation if needed
         if self.data_store.gpu_min_y.is_none() && self.data_store.min_max_buffer.is_none() {
+            let compute_start = web_sys::window().unwrap().performance().unwrap().now();
+            log::warn!("[PERF] Starting GPU compute operations");
+
             // Create command encoder for compute operations
-            let mut compute_encoder =
-                self.render_context
-                    .device
-                    .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                        label: Some("Compute Encoder"),
-                    });
+            let mut compute_encoder = self.render_context.device.create_command_encoder(
+                &wgpu::CommandEncoderDescriptor {
+                    label: Some("Compute Encoder"),
+                },
+            );
 
             // First, run multi-renderer compute passes (e.g., candle aggregation)
             // This must happen BEFORE the compute engine runs
             if let Some(ref mut multi_renderer) = self.multi_renderer {
+                let multi_compute_start = web_sys::window().unwrap().performance().unwrap().now();
+                log::warn!("[PERF] Starting multi-renderer compute passes");
+
                 multi_renderer.run_compute_passes(
                     &mut compute_encoder,
                     &self.data_store,
                     &self.render_context.device,
-                    &self.render_context.queue
+                    &self.render_context.queue,
+                );
+
+                let multi_compute_time =
+                    web_sys::window().unwrap().performance().unwrap().now() - multi_compute_start;
+                log::warn!(
+                    "[PERF] Multi-renderer compute passes completed in {:.2}ms",
+                    multi_compute_time
                 );
             }
-            
+
             // Now check if we have a candlestick renderer and get its candle buffer
             if let Some(candlestick_renderer) = &self.candlestick_renderer {
+                let candle_buffer_start = web_sys::window().unwrap().performance().unwrap().now();
+                log::warn!("[PERF] Setting up candlestick buffer");
+
                 let renderer = candlestick_renderer.borrow();
                 if let Some(candle_buffer) = renderer.get_candles_buffer() {
                     let num_candles = renderer.get_num_candles();
                     self.compute_engine.set_candle_buffer(
                         Some((candle_buffer, num_candles)),
-                        &mut compute_encoder
+                        &mut compute_encoder,
+                    );
+
+                    let candle_buffer_time =
+                        web_sys::window().unwrap().performance().unwrap().now()
+                            - candle_buffer_start;
+                    log::warn!(
+                        "[PERF] Candlestick buffer setup completed in {:.2}ms",
+                        candle_buffer_time
                     );
                 }
             }
-            
+
             // Run pre-render compute passes (e.g., compute mid price, EMAs)
+            let compute_passes_start = web_sys::window().unwrap().performance().unwrap().now();
+            log::warn!("[PERF] Starting compute engine passes");
+
             self.compute_engine
                 .run_compute_passes(&mut compute_encoder, &mut self.data_store);
-            
+
+            let compute_passes_time =
+                web_sys::window().unwrap().performance().unwrap().now() - compute_passes_start;
+            log::warn!(
+                "[PERF] Compute engine passes completed in {:.2}ms",
+                compute_passes_time
+            );
+
             // Submit the compute commands and process GPU readbacks
-            self.render_context.queue.submit(Some(compute_encoder.finish()));
-            
+            let submit_start = web_sys::window().unwrap().performance().unwrap().now();
+            log::warn!("[PERF] Submitting compute commands");
+
+            self.render_context
+                .queue
+                .submit(Some(compute_encoder.finish()));
+
+            let submit_time =
+                web_sys::window().unwrap().performance().unwrap().now() - submit_start;
+            log::warn!(
+                "[PERF] Compute command submission completed in {:.2}ms",
+                submit_time
+            );
+
             // Process any pending GPU readbacks from compute operations
+            let readback_start = web_sys::window().unwrap().performance().unwrap().now();
+            log::warn!("[PERF] Processing compute readbacks");
+
             self.compute_engine.process_readbacks(&mut self.data_store);
-            
+
+            let readback_time =
+                web_sys::window().unwrap().performance().unwrap().now() - readback_start;
+            log::warn!(
+                "[PERF] Compute readbacks processed in {:.2}ms",
+                readback_time
+            );
+
+            // Quick workload summary for context (after readbacks updated bounds)
+            let groups = self.data_store.data_groups.len();
+            let active = self.data_store.active_data_group_indices.len();
+            let len = self
+                .data_store
+                .active_data_group_indices
+                .get(0)
+                .and_then(|idx| self.data_store.data_groups.get(*idx))
+                .map(|g| g.length)
+                .unwrap_or(0);
+            let metrics: usize = self
+                .data_store
+                .data_groups
+                .iter()
+                .map(|g| g.metrics.len())
+                .sum();
+            log::warn!(
+                "[PERF] Render workload: groups={}, active={}, points={}, metrics={}",
+                groups,
+                active,
+                len,
+                metrics
+            );
+
             // Create a new encoder for min/max calculation
             let mut minmax_encoder = self.render_context.device.create_command_encoder(
                 &wgpu::CommandEncoderDescriptor {
                     label: Some("MinMax Encoder"),
-                }
+                },
             );
 
             // Calculate Y bounds using GPU
+            let bounds_calc_start = web_sys::window().unwrap().performance().unwrap().now();
+            log::warn!("[PERF] Starting GPU min/max Y bounds calculation");
+
             let (x_min, x_max) = (self.data_store.start_x, self.data_store.end_x);
             let (min_max_buffer, staging_buffer) = renderer::calculate_min_max_y(
                 &self.render_context.device,
@@ -293,8 +415,27 @@ impl ChartEngine {
                 x_max,
             );
 
+            let bounds_calc_time =
+                web_sys::window().unwrap().performance().unwrap().now() - bounds_calc_start;
+            log::warn!(
+                "[PERF] GPU min/max Y bounds calculation completed in {:.2}ms",
+                bounds_calc_time
+            );
+
             // Submit min/max commands
-            self.render_context.queue.submit(Some(minmax_encoder.finish()));
+            let minmax_submit_start = web_sys::window().unwrap().performance().unwrap().now();
+            log::warn!("[PERF] Submitting min/max commands");
+
+            self.render_context
+                .queue
+                .submit(Some(minmax_encoder.finish()));
+
+            let minmax_submit_time =
+                web_sys::window().unwrap().performance().unwrap().now() - minmax_submit_start;
+            log::warn!(
+                "[PERF] Min/max command submission completed in {:.2}ms",
+                minmax_submit_time
+            );
 
             // Store buffers
             self.data_store.min_max_buffer = Some(Rc::new(min_max_buffer));
@@ -306,9 +447,19 @@ impl ChartEngine {
                 mapping_started: false,
                 mapping_completed: Arc::new(Mutex::new(false)),
             });
+
+            let compute_time =
+                web_sys::window().unwrap().performance().unwrap().now() - compute_start;
+            log::warn!(
+                "[PERF] GPU compute operations completed in {:.2}ms",
+                compute_time
+            );
         }
 
         // Create command encoder for rendering
+        let encoder_create_start = web_sys::window().unwrap().performance().unwrap().now();
+        log::warn!("[PERF] Creating render command encoder");
+
         let mut encoder =
             self.render_context
                 .device
@@ -316,7 +467,31 @@ impl ChartEngine {
                     label: Some("Render Encoder"),
                 });
 
+        let encoder_create_time =
+            web_sys::window().unwrap().performance().unwrap().now() - encoder_create_start;
+        log::warn!(
+            "[PERF] Render command encoder created in {:.2}ms",
+            encoder_create_time
+        );
+
+        // Ensure range bind group is available for axis renderers after zoom operations
+        let bind_group_start = web_sys::window().unwrap().performance().unwrap().now();
+        log::warn!("[PERF] Ensuring range bind group");
+
+        self.data_store
+            .ensure_range_bind_group(&self.render_context.device);
+
+        let bind_group_time =
+            web_sys::window().unwrap().performance().unwrap().now() - bind_group_start;
+        log::warn!(
+            "[PERF] Range bind group ensured in {:.2}ms",
+            bind_group_time
+        );
+
         // Let MultiRenderer handle all rendering
+        let multi_render_start = web_sys::window().unwrap().performance().unwrap().now();
+        log::warn!("[PERF] Starting multi-renderer render pass");
+
         if let Some(ref mut multi_renderer) = self.multi_renderer {
             multi_renderer
                 .render(&mut encoder, &view, &self.data_store)
@@ -329,21 +504,70 @@ impl ChartEngine {
             return Err(wgpu::SurfaceError::Outdated);
         }
 
+        let multi_render_time =
+            web_sys::window().unwrap().performance().unwrap().now() - multi_render_start;
+        log::warn!(
+            "[PERF] Multi-renderer render pass completed in {:.2}ms",
+            multi_render_time
+        );
+
         // Submit commands
+        let render_submit_start = web_sys::window().unwrap().performance().unwrap().now();
+        log::warn!("[PERF] Submitting render commands");
+
         self.render_context
             .queue
             .submit(std::iter::once(encoder.finish()));
 
+        let render_submit_time =
+            web_sys::window().unwrap().performance().unwrap().now() - render_submit_start;
+        log::warn!(
+            "[PERF] Render command submission completed in {:.2}ms",
+            render_submit_time
+        );
+
         // Present the frame
+        let present_start = web_sys::window().unwrap().performance().unwrap().now();
+        log::warn!("[PERF] Presenting frame");
+
         output.present();
+
+        let present_time = web_sys::window().unwrap().performance().unwrap().now() - present_start;
+        log::warn!(
+            "[PERF] Frame presentation completed in {:.2}ms",
+            present_time
+        );
+
+        let render_time = web_sys::window().unwrap().performance().unwrap().now() - render_start;
+        log::warn!(
+            "[PERF] ChartEngine::render completed in {:.2}ms",
+            render_time
+        );
 
         // Log successful render completion
 
         // Clear dirty flag before processing readback
         // This ensures that if readback marks the store dirty, it stays dirty for next frame
+        let cleanup_start = web_sys::window().unwrap().performance().unwrap().now();
+        log::warn!("[PERF] Starting cleanup and rerender trigger");
+
         self.data_store.mark_clean();
 
+        let cleanup_time = web_sys::window().unwrap().performance().unwrap().now() - cleanup_start;
+        log::warn!("[PERF] Data store marked clean in {:.2}ms", cleanup_time);
+
+        let rerender_start = web_sys::window().unwrap().performance().unwrap().now();
+        log::warn!("[PERF] Triggering rerender");
+
         self.rerender();
+
+        let rerender_time =
+            web_sys::window().unwrap().performance().unwrap().now() - rerender_start;
+        log::warn!(
+            "[PERF] Rerender trigger completed in {:.2}ms",
+            rerender_time
+        );
+
         Ok(())
     }
 
@@ -419,7 +643,7 @@ impl ChartEngine {
     pub fn set_instance_id(&mut self, id: Uuid) {
         self.instance_id = id;
     }
-    
+
     /// Set preset and symbol for multi-exchange comparison
     pub fn set_preset_and_symbol_multi(
         &mut self,
@@ -427,8 +651,12 @@ impl ChartEngine {
         symbol_name: Option<String>,
         index: usize,
     ) {
-        log::info!("[ChartEngine] set_preset_and_symbol_multi - symbol: {:?}, index: {}", symbol_name, index);
-        
+        log::info!(
+            "[ChartEngine] set_preset_and_symbol_multi - symbol: {:?}, index: {}",
+            symbol_name,
+            index
+        );
+
         // For the first symbol, set up the preset normally
         if index == 0 {
             if let Some(name) = preset_name.clone() {
@@ -508,11 +736,11 @@ impl ChartEngine {
                         self.render_context.queue.clone(),
                         self.render_context.config.format,
                     );
-                    
+
                     // Store a shared reference for accessing the candle buffer
                     let candlestick_rc = Rc::new(RefCell::new(candlestick_renderer));
                     self.candlestick_renderer = Some(candlestick_rc.clone());
-                    
+
                     // Add it to the multi-renderer by creating a wrapper
                     builder = builder.add_renderer(Box::new(CandlestickRendererWrapper {
                         renderer: candlestick_rc,
@@ -686,26 +914,29 @@ impl ChartEngine {
     /// Handle cursor events with simplified canvas controller
     fn activate_tooltip(&mut self) {
         use shared_types::{TooltipLabel, TooltipState};
-        
+
         // Get current mouse position
         let mouse_pos = self.canvas_controller.current_position();
-        
+
         // Create or update tooltip state
         let mut tooltip_state = TooltipState::default();
         tooltip_state.active = true;
         tooltip_state.x_position = mouse_pos.x as f32;
         tooltip_state.y_position = mouse_pos.y as f32;
-        
+
         // Find closest data point and update labels
-        if let Some((timestamp, mut values)) = self.data_store.find_closest_data_point(mouse_pos.x) {
+        if let Some((timestamp, mut values)) = self.data_store.find_closest_data_point(mouse_pos.x)
+        {
             tooltip_state.timestamp = Some(timestamp);
-            
+
             // Sort values by magnitude (largest to smallest)
             values.sort_by(|a, b| {
                 // Compare absolute values in reverse order (largest first)
-                b.1.abs().partial_cmp(&a.1.abs()).unwrap_or(std::cmp::Ordering::Equal)
+                b.1.abs()
+                    .partial_cmp(&a.1.abs())
+                    .unwrap_or(std::cmp::Ordering::Equal)
             });
-            
+
             // Create labels with stacking
             let mut y_offset = 20.0; // Start below the cursor
             for (name, value, color) in values {
@@ -723,33 +954,33 @@ impl ChartEngine {
         } else {
             log::warn!("[Tooltip] No data found at position {}", mouse_pos.x);
         }
-        
+
         self.data_store.set_tooltip_state(tooltip_state);
         self.data_store.mark_dirty();
     }
-    
+
     fn deactivate_tooltip(&mut self) {
         self.data_store.clear_tooltip();
         self.data_store.mark_dirty();
     }
-    
+
     fn update_tooltip_position(&mut self, x: f32, y: f32) {
         // Check throttling
         let current_time = web_sys::window()
             .and_then(|w| w.performance())
             .map(|p| p.now())
             .unwrap_or(0.0);
-        
+
         // Get config and check throttling first
         let config = self.data_store.get_tooltip_config().clone();
-        
+
         let should_update = if let Some(tooltip_state) = self.data_store.get_tooltip_state() {
             let time_since_last = current_time - tooltip_state.last_update_ms;
             time_since_last >= config.update_throttle_ms
         } else {
             false
         };
-        
+
         if !should_update {
             // Even if we skip the full update, still update the position for visual feedback
             if let Some(tooltip_state) = self.data_store.get_tooltip_state_mut() {
@@ -759,35 +990,37 @@ impl ChartEngine {
             }
             return;
         }
-        
+
         // ALWAYS update the position first for smooth visual feedback
         if let Some(tooltip_state) = self.data_store.get_tooltip_state_mut() {
             tooltip_state.last_update_ms = current_time;
             tooltip_state.x_position = x;
             tooltip_state.y_position = y;
         }
-        
+
         // Find new data point at this position
         let data_result = self.data_store.find_closest_data_point(x as f64);
-        
+
         // Calculate Y positions for values
         let mut label_data = Vec::new();
         if let Some((timestamp, mut values)) = data_result {
             // Sort values by magnitude (largest to smallest)
             values.sort_by(|a, b| {
                 // Compare absolute values in reverse order (largest first)
-                b.1.abs().partial_cmp(&a.1.abs()).unwrap_or(std::cmp::Ordering::Equal)
+                b.1.abs()
+                    .partial_cmp(&a.1.abs())
+                    .unwrap_or(std::cmp::Ordering::Equal)
             });
-            
+
             // Stack labels with improved algorithm
             let mut y_positions: Vec<f32> = Vec::new();
             let label_height = 22.0;
             let label_padding = config.label_padding;
-            
+
             for (i, (name, value, color)) in values.iter().enumerate() {
                 // Calculate Y position from value
                 let value_y = self.data_store.y_to_screen_position(*value);
-                
+
                 // Check for overlaps and adjust
                 let mut final_y = value_y;
                 for existing_y in &y_positions {
@@ -800,9 +1033,9 @@ impl ChartEngine {
                         }
                     }
                 }
-                
+
                 y_positions.push(final_y);
-                
+
                 let label = TooltipLabel {
                     series_name: name.clone(),
                     value: *value,
@@ -814,7 +1047,7 @@ impl ChartEngine {
                 label_data.push((timestamp, label));
             }
         }
-        
+
         // Update the tooltip data if we found any
         if let Some(tooltip_state) = self.data_store.get_tooltip_state_mut() {
             // Update with the collected data
@@ -822,13 +1055,13 @@ impl ChartEngine {
                 let (timestamp, _) = label_data[0];
                 tooltip_state.timestamp = Some(timestamp);
                 tooltip_state.labels.clear();
-                
+
                 for (_, label) in label_data {
                     tooltip_state.labels.push(label);
                 }
             }
         }
-        
+
         self.data_store.mark_dirty();
     }
 
@@ -880,7 +1113,19 @@ impl ChartEngine {
 
                     let new_start = start_x.saturating_sub(left_zoom);
                     let new_end = end_x + right_zoom;
-                    (new_start, new_end)
+
+                    // Prevent zooming past current time (with small buffer for edge cases)
+                    // Use JavaScript Date.now() instead of SystemTime::now() for WASM compatibility
+                    let current_timestamp = (js_sys::Date::now() / 1000.0) as u32;
+
+                    // Only apply restriction if new_end would exceed current time
+                    if new_end > current_timestamp {
+                        // Allow zoom out but cap at current time
+                        (new_start, current_timestamp)
+                    } else {
+                        // Normal zoom out - no restriction needed
+                        (new_start, new_end)
+                    }
                 } else {
                     (start_x, end_x) // No change
                 };
@@ -893,7 +1138,7 @@ impl ChartEngine {
             }
             WindowEvent::CursorMoved { position, .. } => {
                 self.canvas_controller.update_position(position.into());
-                
+
                 // Update tooltip if it's active
                 if let Some(tooltip_state) = self.data_store.get_tooltip_state() {
                     if tooltip_state.active {
@@ -903,11 +1148,9 @@ impl ChartEngine {
                     }
                 }
             }
-            WindowEvent::MouseInput {
-                state, button, ..
-            } => {
+            WindowEvent::MouseInput { state, button, .. } => {
                 use shared_types::events::MouseButton;
-                
+
                 match button {
                     MouseButton::Left => {
                         match state {
@@ -915,15 +1158,18 @@ impl ChartEngine {
                                 self.canvas_controller.start_drag();
                             }
                             ElementState::Released => {
-                                if let Some((start_pos, end_pos)) = self.canvas_controller.end_drag() {
+                                if let Some((start_pos, end_pos)) =
+                                    self.canvas_controller.end_drag()
+                                {
                                     // Apply drag zoom
                                     let start_ts = self.data_store.screen_to_world_with_margin(
                                         start_pos.x as f32,
                                         start_pos.y as f32,
                                     );
-                                    let end_ts = self
-                                        .data_store
-                                        .screen_to_world_with_margin(end_pos.x as f32, end_pos.y as f32);
+                                    let end_ts = self.data_store.screen_to_world_with_margin(
+                                        end_pos.x as f32,
+                                        end_pos.y as f32,
+                                    );
 
                                     // Ensure start is less than end
                                     let (new_start, new_end) = if start_ts.0 < end_ts.0 {

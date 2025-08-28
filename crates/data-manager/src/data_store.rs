@@ -112,11 +112,7 @@ impl DataStore {
         let f: Uint32Array = Uint32Array::new(&x_series.0);
         let length = f.length();
         
-        let x_buffer_count = x_series.1.len();
-        let x_buffer_size = if !x_series.1.is_empty() { x_series.1[0].size() } else { 0 };
         
-        log::info!("[DataStore] Adding data group: x_buffers={}, x_buffer_size={}, length={}, active={}", 
-            x_buffer_count, x_buffer_size, length, set_as_active);
 
         self.data_groups.push(DataSeries {
             x_buffers: x_series.1,
@@ -126,15 +122,11 @@ impl DataStore {
         });
 
         let new_index = self.data_groups.len() - 1;
-        log::info!("[DataStore] Data group added at index {}", new_index);
         
         if set_as_active {
             if !self.active_data_group_indices.contains(&new_index) {
                 self.active_data_group_indices.push(new_index);
-                log::info!("[DataStore] Added group {} to active indices. Active groups now: {:?}", 
-                          new_index, self.active_data_group_indices);
             } else {
-                log::warn!("[DataStore] Group {} already in active indices", new_index);
             }
         }
 
@@ -256,6 +248,16 @@ impl DataStore {
             self.start_x = min_x;
             self.end_x = max_x;
             self.clear_gpu_bounds();
+            // Mark dirty so that range_bind_group gets recreated on next render
+            self.mark_dirty();
+        }
+    }
+    
+    /// Update range bind group with current X range and GPU Y bounds (for immediate axis updates)
+    pub fn ensure_range_bind_group(&mut self, device: &wgpu::Device) {
+        // Only create if we don't have one and we have valid GPU bounds
+        if self.range_bind_group.is_none() && self.has_y_bounds() {
+            self.update_shared_bind_group_with_gpu_buffer(device);
         }
     }
 
@@ -301,10 +303,8 @@ impl DataStore {
     }
 
     /// Convert Y world coordinate to screen position for Y-axis labels
-    pub fn y_to_screen_position(&self, y: f32) -> f32 {
-        // Use default values if min/max Y are not set yet
-        let min_y = self.gpu_min_y.unwrap_or(0.0);
-        let max_y = self.gpu_max_y.unwrap_or(100.0);
+    /// Uses the provided min/max bounds instead of stored GPU bounds
+    pub fn y_to_screen_position_with_bounds(&self, y: f32, min_y: f32, max_y: f32) -> f32 {
         let y_range = max_y - min_y;
 
         // Add 10% margin to Y range
@@ -316,6 +316,15 @@ impl DataStore {
 
         // Convert to screen coordinates (flip Y axis)
         (1.0 - normalized_y) * self.screen_size.height as f32
+    }
+
+    /// Convert Y world coordinate to screen position for Y-axis labels (legacy)
+    /// Deprecated: Use y_to_screen_position_with_bounds instead
+    pub fn y_to_screen_position(&self, y: f32) -> f32 {
+        // Try to use GPU bounds, fallback to default values if not available
+        let min_y = self.gpu_min_y.unwrap_or(0.0);
+        let max_y = self.gpu_max_y.unwrap_or(100.0);
+        self.y_to_screen_position_with_bounds(y, min_y, max_y)
     }
 
     pub fn screen_to_world_with_margin(&self, screen_x: f32, screen_y: f32) -> (f32, f32) {
@@ -417,6 +426,8 @@ impl DataStore {
 
         // Create x range buffer
         let x_min_max = glm::vec2(self.start_x as f32, self.end_x as f32);
+        
+        
         let x_min_max_bytes: &[u8] = unsafe { any_as_u8_slice(&x_min_max) };
         let x_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("shared_x_range_buffer"),
@@ -603,7 +614,6 @@ impl DataStore {
 
         // Clear all data if preset OR symbol changed to avoid mixing data
         if preset_changed || symbol_changed {
-            log::info!("[DataStore] Clearing data - preset_changed: {}, symbol_changed: {}", preset_changed, symbol_changed);
             self.data_groups.clear();
             self.active_data_group_indices.clear();
             self.clear_gpu_bounds();
@@ -704,10 +714,8 @@ impl DataStore {
                     fallback
                 };
                 
-                log::info!("[Tooltip] Group {} identified as: {}", group_idx, exchange_name);
                 format!("{}: ", exchange_name)
             } else {
-                log::info!("[Tooltip] Single exchange mode, no prefix");
                 String::new() // Single exchange, no prefix needed
             };
             
@@ -916,7 +924,10 @@ impl MetricSeries {
 
     /// Check if this metric needs computation
     pub fn needs_computation(&self) -> bool {
-        self.is_computed && !self.is_computed_ready
+        let needs = self.is_computed && !self.is_computed_ready;
+        if needs {
+        }
+        needs
     }
 
     /// Set computed buffer and raw data

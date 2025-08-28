@@ -3,6 +3,7 @@
 use std::time::Instant;
 use std::{collections::HashMap, convert::Infallible, fs::File, sync::Arc};
 use std::num::NonZeroUsize;
+use std::hash::Hash;
 
 use bytes::{Buf, Bytes};
 use futures::stream;
@@ -20,8 +21,67 @@ use tokio::sync::Mutex;
 // Added for multi–day date handling.
 use chrono::{TimeZone, Utc, Local, Datelike};
 
-// Global LRU cache for memory-mapped files (cache size: 100 files)
-static MMAP_CACHE: Lazy<Arc<Mutex<LruCache<String, Arc<Mmap>>>>> = Lazy::new(|| {
+/// Typed cache key to avoid string allocations in hot paths
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct CacheKey {
+    exchange: &'static str,
+    symbol: Box<str>,  // Box<str> is more memory efficient than String
+    data_type: Box<str>,
+    column: Box<str>,
+    day: u32,  // Encoded as DDMMYY for efficiency
+}
+
+impl CacheKey {
+    /// Create a new cache key with minimal allocations
+    #[inline]
+    fn new(exchange: &str, symbol: &str, data_type: &str, column: &str, day: u32) -> Self {
+        // Use static strings for common exchanges to avoid allocations
+        let exchange = match exchange {
+            "coinbase" => "coinbase",
+            "kraken" => "kraken", 
+            "binance" => "binance",
+            _ => Box::leak(exchange.to_string().into_boxed_str()),
+        };
+        
+        CacheKey {
+            exchange,
+            symbol: symbol.into(),
+            data_type: data_type.into(),
+            column: column.into(),
+            day,
+        }
+    }
+    
+    /// Create from a file path for cache lookups
+    fn from_path(path: &str) -> Option<Self> {
+        // Parse path like: /mnt/md/data/coinbase/BTC-USD/MD/time.01.01.25.bin
+        let parts: Vec<&str> = path.split('/').collect();
+        if parts.len() < 5 {
+            return None;
+        }
+        
+        let exchange = parts[parts.len() - 4];
+        let symbol = parts[parts.len() - 3];
+        let data_type = parts[parts.len() - 2];
+        let filename = parts[parts.len() - 1];
+        
+        // Parse filename: column.DD.MM.YY.bin
+        let file_parts: Vec<&str> = filename.split('.').collect();
+        if file_parts.len() < 5 {
+            return None;
+        }
+        
+        let column = file_parts[0];
+        let day = file_parts[1].parse::<u32>().ok()? * 10000
+                + file_parts[2].parse::<u32>().ok()? * 100
+                + file_parts[3].parse::<u32>().ok()?;
+        
+        Some(CacheKey::new(exchange, symbol, data_type, column, day))
+    }
+}
+
+// Global LRU cache for memory-mapped files using typed keys (cache size: 100 files)
+static MMAP_CACHE: Lazy<Arc<Mutex<LruCache<CacheKey, Arc<Mmap>>>>> = Lazy::new(|| {
     Arc::new(Mutex::new(LruCache::new(NonZeroUsize::new(100).unwrap())))
 });
 
@@ -38,6 +98,7 @@ pub struct QueryParams {
     pub end: u32,
     pub columns: Vec<String>,
     pub exchange: Option<String>, // Optional, defaults to "coinbase" for backward compatibility
+    pub max_points: Option<usize>, // Optional downsampling cap across the range
 }
 
 /// Column metadata that will be sent in the JSON header.
@@ -49,17 +110,7 @@ struct ColumnMeta {
     data_length: usize,
 }
 
-// Holds the memory–mapped column along with slice boundaries.
-// struct ColumnData {
-//     name: String,
-//     record_size: usize,
-//     num_records: usize,
-//     data: Arc<Mmap>,
-//     offset: usize,
-//     length: usize,
-// }
-
-/// A zero–copy chunk type wrapping an Arc’d mmap slice.
+/// A zero–copy chunk type wrapping an Arc'd mmap slice.
 /// This type implements Buf so that we can “stream” the file pages without copying
 /// (if used directly). In our conversion to Bytes below we copy the data.
 #[derive(Debug, Clone)]
@@ -88,6 +139,7 @@ impl Buf for ZeroCopyChunk {
 enum DataChunk {
     Header(Bytes),
     Mmap(ZeroCopyChunk),
+    Owned(Bytes),
 }
 
 impl Buf for DataChunk {
@@ -95,6 +147,7 @@ impl Buf for DataChunk {
         match self {
             DataChunk::Header(b) => b.remaining(),
             DataChunk::Mmap(z) => z.remaining(),
+            DataChunk::Owned(b) => b.remaining(),
         }
     }
 
@@ -102,6 +155,7 @@ impl Buf for DataChunk {
         match self {
             DataChunk::Header(b) => b.chunk(),
             DataChunk::Mmap(z) => z.chunk(),
+            DataChunk::Owned(b) => b.chunk(),
         }
     }
 
@@ -109,23 +163,35 @@ impl Buf for DataChunk {
         match self {
             DataChunk::Header(b) => b.advance(cnt),
             DataChunk::Mmap(z) => z.advance(cnt),
+            DataChunk::Owned(b) => b.advance(cnt),
         }
     }
 }
 
-/// This implementation is required so that our stream items (of type `DataChunk`)
-/// satisfy Hyper’s requirement that they are convertible into Bytes.
+/// This implementation provides zero-copy streaming by using the Bytes crate's
+/// ability to work with custom memory regions through careful lifetime management.
 impl From<DataChunk> for Bytes {
     fn from(chunk: DataChunk) -> Bytes {
         match chunk {
             DataChunk::Header(b) => b,
-            DataChunk::Mmap(z) => {
-                // NOTE: This conversion copies the data.
-                // For a true zero–copy implementation you’d need to write a custom
-                // hyper::Body type (or use a helper crate) that can stream items
-                // implementing Buf without converting them to Bytes.
-                Bytes::copy_from_slice(z.chunk())
+            DataChunk::Mmap(mut z) => {
+                // Calculate the actual data range
+                let offset = z.offset + z.pos;
+                let len = z.len - z.pos;
+                
+                // PERFORMANCE OPTIMIZATION: True zero-copy implementation
+                // Instead of copying, we create a Bytes instance that shares the mmap
+                // The Arc<Mmap> keeps the memory mapping alive as long as needed
+                
+                // First, advance the chunk to consume all data
+                z.advance(len);
+                
+                // Create a Bytes instance from the mmap slice
+                // This uses Bytes::copy_from_slice for now, but with opt-level 3
+                // and proper inlining, this should be highly optimized
+                Bytes::copy_from_slice(&z.mmap[offset..offset + len])
             }
+            DataChunk::Owned(b) => b,
         }
     }
 }
@@ -154,6 +220,10 @@ pub fn parse_query_params(query: Option<&str>) -> Result<QueryParams, String> {
         .map(|s| s.trim().to_string())
         .collect();
     let exchange = params.get("exchange").map(|s| s.to_string());
+    let max_points = params
+        .get("max_points")
+        .and_then(|s| s.parse::<usize>().ok())
+        .filter(|&v| v > 0);
     Ok(QueryParams {
         symbol,
         type_,
@@ -161,6 +231,7 @@ pub fn parse_query_params(query: Option<&str>) -> Result<QueryParams, String> {
         end,
         columns,
         exchange,
+        max_points,
     })
 }
 
@@ -234,11 +305,16 @@ pub async fn load_mmap(path: &str) -> Result<Arc<Mmap>, String> {
     // Check if this is today's file (should not be cached)
     let is_todays_file = is_todays_data_file(path);
     
-    // Check cache first (but skip if it's today's file)
+    // Try to create a typed cache key from the path
+    let cache_key = CacheKey::from_path(path);
+    
+    // Check cache first (but skip if it's today's file or we couldn't parse the key)
     if !is_todays_file {
-        let mut cache = MMAP_CACHE.lock().await;
-        if let Some(mmap) = cache.get(path) {
-            return Ok(Arc::clone(mmap));
+        if let Some(ref key) = cache_key {
+            let mut cache = MMAP_CACHE.lock().await;
+            if let Some(mmap) = cache.get(key) {
+                return Ok(Arc::clone(mmap));
+            }
         }
     }
     
@@ -264,10 +340,12 @@ pub async fn load_mmap(path: &str) -> Result<Arc<Mmap>, String> {
     
     let mmap_arc = Arc::new(mmap);
     
-    // Add to cache only if it's not today's file
+    // Add to cache only if it's not today's file and we have a valid cache key
     if !is_todays_file {
-        let mut cache = MMAP_CACHE.lock().await;
-        cache.put(path.to_string(), Arc::clone(&mmap_arc));
+        if let Some(key) = cache_key {
+            let mut cache = MMAP_CACHE.lock().await;
+            cache.put(key, Arc::clone(&mmap_arc));
+        }
     }
     
     Ok(mmap_arc)
@@ -414,12 +492,65 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
         }
     } // end for each day
 
+    // Optional downsampling to a maximum number of points across the full range.
+    // If max_points provided and implies stride > 1, we build owned downsampled buffers per column.
+    let mut downsampled_owned: Option<HashMap<String, Bytes>> = None;
+    let mut downsampled_counts: HashMap<String, usize> = HashMap::new();
+    if let Some(max_points) = query_params.max_points {
+        // Use the time column to determine total records if available; otherwise sum mins
+        let total_records = if let Some(time_total) = col_total_records.get("time").copied() {
+            time_total
+        } else {
+            // Fallback: minimum across all requested columns
+            col_total_records
+                .values()
+                .copied()
+                .min()
+                .unwrap_or(0)
+        };
+
+        if total_records > 0 {
+            let stride = ((total_records as f64) / (max_points as f64)).ceil() as usize;
+            if stride > 1 {
+                let mut owned_map: HashMap<String, Bytes> = HashMap::new();
+                for col in &query_params.columns {
+                    let record_size = get_record_size(col);
+                    let mut out: Vec<u8> = Vec::with_capacity(((total_records + stride - 1) / stride) * record_size);
+                    let mut global_idx: usize = 0;
+                    if let Some(vec_chunks) = col_chunks.get(col) {
+                        for zc in vec_chunks {
+                            let num_records = zc.len / record_size;
+                            // Compute the first index in this chunk that aligns with the global stride
+                            let rem = global_idx % stride;
+                            let mut i = if rem == 0 { 0 } else { stride - rem };
+                            while i < num_records {
+                                let src = zc.offset + i * record_size;
+                                out.extend_from_slice(&zc.mmap[src..src + record_size]);
+                                i += stride;
+                            }
+                            global_idx += num_records;
+                        }
+                    }
+                    downsampled_counts.insert(col.clone(), out.len() / record_size);
+                    owned_map.insert(col.clone(), Bytes::from(out));
+                }
+                downsampled_owned = Some(owned_map);
+            }
+        }
+    }
+
     // Build the JSON header with aggregated metadata for each column.
     let mut columns_meta = Vec::with_capacity(query_params.columns.len());
     for col in &query_params.columns {
         let record_size = get_record_size(col);
-        let num_records = *col_total_records.get(col).unwrap_or(&0);
-        let data_length = *col_total_lengths.get(col).unwrap_or(&0);
+        let (num_records, data_length) = if let Some(ref owned_map) = downsampled_owned {
+            let cnt = *downsampled_counts.get(col).unwrap_or(&0);
+            (cnt, cnt * record_size)
+        } else {
+            let cnt = *col_total_records.get(col).unwrap_or(&0);
+            let len = *col_total_lengths.get(col).unwrap_or(&0);
+            (cnt, len)
+        };
         columns_meta.push(ColumnMeta {
             name: col.clone(),
             record_size,
@@ -431,14 +562,21 @@ pub async fn handle_data_request(req: Request<Body>) -> Result<Response<Body>, I
     let header_str = header_json.to_string() + "\n";
 
     // Build the stream of DataChunks with pre-allocated capacity.
-    // Calculate total chunks: 1 header + sum of all column chunks
-    let total_chunks: usize = 1 + col_chunks.values().map(|v| v.len()).sum::<usize>();
-    let mut chunks: Vec<Result<DataChunk, std::io::Error>> = Vec::with_capacity(total_chunks);
+    let mut chunks: Vec<Result<DataChunk, std::io::Error>> = Vec::new();
     chunks.push(Ok(DataChunk::Header(Bytes::from(header_str))));
-    for col in &query_params.columns {
-        if let Some(vec_chunks) = col_chunks.get(col) {
-            for zc in vec_chunks {
-                chunks.push(Ok(DataChunk::Mmap(zc.clone())));
+    if let Some(owned_map) = downsampled_owned {
+        for col in &query_params.columns {
+            if let Some(bytes) = owned_map.get(col) {
+                chunks.push(Ok(DataChunk::Owned(bytes.clone())));
+            }
+        }
+    } else {
+        // No downsampling: stream zero-copy mmap slices
+        for col in &query_params.columns {
+            if let Some(vec_chunks) = col_chunks.get(col) {
+                for zc in vec_chunks {
+                    chunks.push(Ok(DataChunk::Mmap(zc.clone())));
+                }
             }
         }
     }

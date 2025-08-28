@@ -1,9 +1,6 @@
 mod search_runtime;
 
 pub use search_runtime::{
-    SymbolSearchService, 
-    SearchResult, 
-    ExchangeSymbol,
     initialize_search_service,
     SEARCH_SERVICE
 };

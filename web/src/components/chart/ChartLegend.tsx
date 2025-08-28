@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { formatExchangeName, getExchangeColor } from '../../services/symbolApi';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import clsx from 'clsx';
+import { ExchangeIndicator, PriceChangeIndicator } from '../common/AccessibleIndicator';
 
 interface ExchangeData {
   exchange: string;
@@ -92,13 +93,13 @@ export default function ChartLegend({ className }: ChartLegendProps) {
               )}
             >
               <div className="flex items-center gap-3">
-                {/* Color indicator */}
-                <div
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: isVisible ? color : '#4B5563' }}
+                <ExchangeIndicator 
+                  exchange={data.exchange}
+                  active={isVisible}
+                  size="sm"
                 />
                 
-                {/* Exchange name */}
+                {/* Exchange details */}
                 <div className="flex flex-col">
                   <span className={clsx(
                     "text-sm font-medium",
@@ -115,27 +116,39 @@ export default function ChartLegend({ className }: ChartLegendProps) {
               </div>
               
               <div className="flex items-center gap-2">
-                {/* Price change */}
+                {/* Price change with accessible indicators */}
                 {data.change24h !== undefined && (
-                  <span className={clsx(
-                    "text-xs font-medium",
-                    data.change24h >= 0 ? "text-green-400" : "text-red-400"
-                  )}>
-                    {formatChange(data.change24h)}
-                  </span>
+                  <div className="flex items-center gap-1">
+                    {data.change24h > 0 ? (
+                      <TrendingUp className="w-3 h-3 text-green-400" aria-hidden="true" />
+                    ) : data.change24h < 0 ? (
+                      <TrendingDown className="w-3 h-3 text-red-400" aria-hidden="true" />
+                    ) : (
+                      <Minus className="w-3 h-3 text-gray-400" aria-hidden="true" />
+                    )}
+                    <span className={clsx(
+                      "text-xs font-medium",
+                      data.change24h >= 0 ? "text-green-400" : "text-red-400"
+                    )}>
+                      {formatChange(data.change24h)}
+                    </span>
+                  </div>
                 )}
                 
                 {/* Visibility toggle */}
                 <button
                   onClick={() => toggleVisibility(data.exchange)}
-                  className="p-1 hover:bg-gray-600 rounded transition-colors"
-                  title={isVisible ? "Hide" : "Show"}
+                  className="p-1 hover:bg-gray-600 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  aria-label={`${isVisible ? 'Hide' : 'Show'} ${formatExchangeName(data.exchange)} data`}
                 >
                   {isVisible ? (
                     <Eye className="w-4 h-4 text-gray-400" />
                   ) : (
                     <EyeOff className="w-4 h-4 text-gray-500" />
                   )}
+                  <span className="sr-only">
+                    {isVisible ? 'Hide' : 'Show'} {formatExchangeName(data.exchange)} data
+                  </span>
                 </button>
               </div>
             </div>

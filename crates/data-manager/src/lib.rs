@@ -64,9 +64,14 @@ impl DataManager {
         start_time: u32,
         end_time: u32,
         columns: &[&str],
+        max_points: Option<usize>,
     ) -> GpuChartsResult<DataHandle> {
         // Check cache first
-        let cache_key = format!("{symbol}-{data_type}-{start_time}-{end_time}-{columns:?}");
+        let cache_key = if let Some(mp) = max_points {
+            format!("{symbol}-{data_type}-{start_time}-{end_time}-{columns:?}-mp:{mp}")
+        } else {
+            format!("{symbol}-{data_type}-{start_time}-{end_time}-{columns:?}")
+        };
         if let Some(handle) = self.cache.get(&cache_key) {
             return Ok(handle);
         }
@@ -85,18 +90,32 @@ impl DataManager {
         let encoded_columns = urlencoding::encode(&columns_str);
         let encoded_exchange = urlencoding::encode(exchange);
 
-        let url = format!(
-            "{}/api/data?symbol={}&type={}&start={}&end={}&columns={}&exchange={}",
-            self.base_url, encoded_symbol, data_type, start_time, end_time, encoded_columns, encoded_exchange
-        );
+        let url = if let Some(mp) = max_points {
+            format!(
+                "{}/api/data?symbol={}&type={}&start={}&end={}&columns={}&exchange={}&max_points={}",
+                self.base_url, encoded_symbol, data_type, start_time, end_time, encoded_columns, encoded_exchange, mp
+            )
+        } else {
+            format!(
+                "{}/api/data?symbol={}&type={}&start={}&end={}&columns={}&exchange={}",
+                self.base_url, encoded_symbol, data_type, start_time, end_time, encoded_columns, encoded_exchange
+            )
+        };
+        
 
         // Fetch from server
+        let http_start = web_sys::window().unwrap().performance().unwrap().now();
+        log::warn!("[PERF] Starting HTTP fetch for URL: {}", url);
+        
         let (api_header, binary_buffer) =
             fetch_api_response(&url)
                 .await
                 .map_err(|e| GpuChartsError::DataFetch {
                     message: format!("{e:?} (URL: {url})"),
                 })?;
+                
+        let http_time = web_sys::window().unwrap().performance().unwrap().now() - http_start;
+        log::warn!("[PERF] HTTP fetch completed in {:.2}ms, data size: {} bytes", http_time, binary_buffer.byte_length());
 
         // Parse the binary data into columnar format
         let mut column_buffers = HashMap::new();
@@ -110,8 +129,12 @@ impl DataManager {
             offset = end;
 
             let col_buffer = binary_buffer.slice_with_end(start, end);
+            let gpu_create_start = web_sys::window().unwrap().performance().unwrap().now();
             let gpu_buffers =
                 create_chunked_gpu_buffer_from_arraybuffer(&self.device, &col_buffer, &column.name);
+            let gpu_create_time = web_sys::window().unwrap().performance().unwrap().now() - gpu_create_start;
+            log::warn!("[PERF] GPU buffer for {} created in {:.2}ms", column.name, gpu_create_time);
+            
             column_buffers.insert(column.name.clone(), gpu_buffers);
             raw_buffers.insert(column.name.clone(), col_buffer);
         }
@@ -168,15 +191,13 @@ impl DataManager {
         &mut self,
         data_store: &mut DataStore,
     ) -> Result<(), shared_types::GpuChartsError> {
+        let start = web_sys::window().unwrap().performance().unwrap().now();
+        log::warn!("[PERF] DataManager::fetch_data_for_preset starting");
+        
         let symbol = data_store.symbol.as_ref().unwrap().to_string();
         let preset = data_store.preset.clone().unwrap();
         let start_time = data_store.start_x;
         let end_time = data_store.end_x;
-        
-        log::info!("[DataManager] 🎯 fetch_data_for_preset called:");
-        log::info!("  Symbol: {}", symbol);
-        log::info!("  Preset: {}", preset.name);
-        log::info!("  Time range: {} to {}", start_time, end_time);
         
 
         let mut data_requirements: std::collections::HashMap<
@@ -186,7 +207,6 @@ impl DataManager {
         for chart_type in &preset.chart_types {
             // Only process visible chart types to avoid creating unnecessary data groups
             if !chart_type.visible {
-                log::info!("[DataManager] Skipping invisible chart type: {:?}", chart_type.data_columns);
                 continue;
             }
             
@@ -213,14 +233,19 @@ impl DataManager {
         }
 
         // Removed unused fetch_results variable
-        log::info!("[DataManager] Data requirements for preset '{}': {:?}", preset.name, data_requirements.keys().collect::<Vec<_>>());
         
+        // Decide max points based on screen width to cap payload size
+        let oversample: usize = 4; // 4x pixels preserves detail while capping size
+        let max_points = (data_store.screen_size.width as usize).saturating_mul(oversample);
+
         for (data_type, columns) in data_requirements {
+            let fetch_start = web_sys::window().unwrap().performance().unwrap().now();
+            log::warn!("[PERF] Starting fetch for data type: {}", data_type);
+            
             let mut all_columns = vec!["time"];
             let columns_vec: Vec<String> = columns.into_iter().collect();
             all_columns.extend(columns_vec.iter().map(|s| s.as_str()));
 
-            log::info!("[DataManager] Fetching {} data for symbol: {}", data_type, symbol);
             
             // let instance_opt = InstanceManager::take_instance(&instance_id);
             let result = self
@@ -230,12 +255,19 @@ impl DataManager {
                     start_time,
                     end_time,
                     &all_columns,
+                    Some(max_points),
                 )
                 .await;
+                
+            let fetch_time = web_sys::window().unwrap().performance().unwrap().now() - fetch_start;
+            log::warn!("[PERF] Fetch for {} completed in {:.2}ms", data_type, fetch_time);
+                
             match result {
                 Ok(data_handle) => {
-                    log::info!("[DataManager] Successfully fetched {} data, processing...", data_type);
+                    let process_start = web_sys::window().unwrap().performance().unwrap().now();
                     let _ = self.process_data_handle(&data_handle, data_store);
+                    let process_time = web_sys::window().unwrap().performance().unwrap().now() - process_start;
+                    log::warn!("[PERF] Processing for {} completed in {:.2}ms", data_type, process_time);
                 }
                 Err(e) => {
                     log::error!("Failed to fetch {data_type} data: {e:?}");
@@ -244,8 +276,14 @@ impl DataManager {
         }
 
         // After loading all data, create computed metrics if needed
+        let compute_start = web_sys::window().unwrap().performance().unwrap().now();
         self.create_computed_metrics_for_preset(data_store);
+        let compute_time = web_sys::window().unwrap().performance().unwrap().now() - compute_start;
+        log::warn!("[PERF] Computed metrics created in {:.2}ms", compute_time);
 
+        let total_time = web_sys::window().unwrap().performance().unwrap().now() - start;
+        log::warn!("[PERF] DataManager::fetch_data_for_preset completed in {:.2}ms", total_time);
+        
         Ok(())
     }
 
@@ -254,6 +292,15 @@ impl DataManager {
         data_handle: &DataHandle,
         data_store: &mut DataStore,
     ) -> Result<(), shared_types::GpuChartsError> {
+        
+        // Clear existing data groups to prevent multi-group race conditions during zoom operations
+        // This ensures we don't have multiple MID metrics in different groups
+        let existing_groups_count = data_store.data_groups.len();
+        if existing_groups_count > 0 {
+            data_store.data_groups.clear();
+            data_store.active_data_group_indices.clear();
+        }
+        
         // Get the GPU buffer set from the data manager
         let gpu_buffer_set = self.get_buffers(data_handle).ok_or_else(|| {
             shared_types::GpuChartsError::DataNotFound {
@@ -336,8 +383,6 @@ impl DataManager {
                     (exchange_color, true) // Use exchange color and visible
                 };
 
-                log::info!("[DataManager] 📊 Adding metric '{}' to group {} (color: {:?}, visible: {})", 
-                          column_name, data_group_index, color, visible);
                 
                 data_store.add_metric_to_group_with_visibility(
                     data_group_index,
@@ -349,11 +394,23 @@ impl DataManager {
             }
         }
 
+        // Invalidate computed metrics since we have new data
+        for data_group in &mut data_store.data_groups {
+            for metric in &mut data_group.metrics {
+                if metric.is_computed {
+                    metric.invalidate_computation();
+                }
+            }
+        }
+
         Ok(())
     }
 
     fn create_computed_metrics_for_preset(&self, data_store: &mut DataStore) {
         if let Some(preset) = &data_store.preset.clone() {
+            // Since we now clear data groups in process_data_handle, we don't need to invalidate existing metrics
+            // They were cleared along with the data groups
+            
             // First, check if we need a separate group for candle-based EMAs
             let has_candle_emas = preset.chart_types.iter().any(|ct| {
                 if let Some((data_type, column_name)) = ct.data_columns.first() {

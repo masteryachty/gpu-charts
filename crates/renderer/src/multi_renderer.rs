@@ -238,7 +238,13 @@ impl MultiRenderer {
 
         for renderer in &mut self.renderers {
             if renderer.has_compute() {
+                let compute_start = web_sys::window().unwrap().performance().unwrap().now();
+                log::warn!("[PERF] Starting compute for renderer: {}", renderer.name());
+                
                 renderer.compute(encoder, data_store, device, queue);
+                
+                let compute_time = web_sys::window().unwrap().performance().unwrap().now() - compute_start;
+                log::warn!("[PERF] Compute for {} completed in {:.2}ms", renderer.name(), compute_time);
             }
         }
     }
@@ -262,6 +268,9 @@ impl MultiRenderer {
             // Clear pass if needed
             let should_clear_here = needs_clear || self.renderers.iter().all(|r| !r.should_clear());
             if should_clear_here {
+                let clear_start = web_sys::window().unwrap().performance().unwrap().now();
+                log::warn!("[PERF] Starting clear pass");
+                
                 let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                     label: Some("MultiRenderer Clear Pass"),
                     color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -282,16 +291,26 @@ impl MultiRenderer {
                     occlusion_query_set: None,
                 });
                 drop(render_pass);
+                
+                let clear_time = web_sys::window().unwrap().performance().unwrap().now() - clear_start;
+                log::warn!("[PERF] Clear pass completed in {:.2}ms", clear_time);
             }
         }
 
         // Execute each renderer in order
         for renderer in self.renderers.iter_mut() {
             if !renderer.is_ready() {
+                log::warn!("[PERF] Skipping renderer {} - not ready", renderer.name());
                 continue;
             }
+            
+            let render_start = web_sys::window().unwrap().performance().unwrap().now();
+            log::warn!("[PERF] Starting render for: {}", renderer.name());
 
             renderer.render(encoder, view, data_store, &self.device, &self.queue);
+            
+            let render_time = web_sys::window().unwrap().performance().unwrap().now() - render_start;
+            log::warn!("[PERF] Render for {} completed in {:.2}ms", renderer.name(), render_time);
         }
 
         Ok(())
@@ -313,10 +332,10 @@ impl MultiRenderable for crate::PlotRenderer {
         encoder: &mut CommandEncoder,
         view: &TextureView,
         data_store: &DataStore,
-        _device: &Device,
-        _queue: &Queue,
+        device: &Device,
+        queue: &Queue,
     ) {
-        self.render(encoder, view, data_store);
+        self.render(encoder, view, data_store, device, queue);
     }
 
     fn name(&self) -> &str {
@@ -360,10 +379,10 @@ impl MultiRenderable for ConfigurablePlotRenderer {
         encoder: &mut CommandEncoder,
         view: &TextureView,
         data_store: &DataStore,
-        _device: &Device,
-        _queue: &Queue,
+        device: &Device,
+        queue: &Queue,
     ) {
-        self.renderer.render(encoder, view, data_store);
+        self.renderer.render(encoder, view, data_store, device, queue);
     }
 
     fn name(&self) -> &str {
